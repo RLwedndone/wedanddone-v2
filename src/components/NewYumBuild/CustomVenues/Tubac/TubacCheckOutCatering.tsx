@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Tubac/TubacCheckOutCatering.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -17,23 +18,23 @@ import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
 
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
-
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const pretty = (d: Date) =>
-  d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
 interface TubacCheckOutProps {
-  total: number;                // grand total from cart (for snapshots/PDF)
+  total: number; // grand total from cart (for snapshots/PDF)
   guestCount: number;
-  lineItems: string[];          // from cart summary
+  lineItems: string[]; // from cart summary
   serviceOption: "plated" | "buffet";
-  selectedTier: string;         // silver | gold | platinum | peridot | emerald | turquoise | diamond
+  selectedTier: string; // silver | gold | platinum | peridot | emerald | turquoise | diamond
   menuSelections: {
-    hors?: string[];            // legacy fallbacks
+    hors?: string[]; // legacy fallbacks
     horsPassed?: string[];
     horsDisplayed?: string[];
     salads?: string[];
@@ -41,7 +42,7 @@ interface TubacCheckOutProps {
     entrees?: string[];
   };
   onBack: () => void;
-  onComplete: () => void;       // overlay advances to Tubac TY
+  onComplete: () => void; // overlay advances to Tubac TY
   onClose: () => void;
   isGenerating?: boolean;
 }
@@ -71,20 +72,31 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   }, []);
 
   const totalCents =
-    Number(localStorage.getItem("yumCateringTotalCents")) || Math.round(total * 100);
+    Number(localStorage.getItem("yumCateringTotalCents")) ||
+    Math.round(total * 100);
 
-  const depositCents = Number(localStorage.getItem("yumCateringDepositAmount") || 0);
+  const depositCents = Number(
+    localStorage.getItem("yumCateringDepositAmount") || 0
+  );
 
-  const planMonths = Number(localStorage.getItem("yumCateringPlanMonths") || 0);
-  const perMonthCents = Number(localStorage.getItem("yumCateringPerMonthCents") || 0);
-  const lastPaymentCents = Number(localStorage.getItem("yumCateringLastPaymentCents") || 0);
+  const planMonths = Number(
+    localStorage.getItem("yumCateringPlanMonths") || 0
+  );
+  const perMonthCents = Number(
+    localStorage.getItem("yumCateringPerMonthCents") || 0
+  );
+  const lastPaymentCents = Number(
+    localStorage.getItem("yumCateringLastPaymentCents") || 0
+  );
   const dueByISO = localStorage.getItem("yumCateringDueBy") || "";
 
   const amountDueTodayCents = payFull ? totalCents : depositCents;
   const amountDueToday = round2(amountDueTodayCents / 100);
   const remainingBalance = round2(Math.max(0, total - amountDueToday));
 
-  const finalDueDateStr = dueByISO ? pretty(new Date(dueByISO)) : "35 days before your wedding";
+  const finalDueDateStr = dueByISO
+    ? pretty(new Date(dueByISO))
+    : "35 days before your wedding";
 
   // 🔹 the missing piece — text shown above the card form
   const summaryText = payFull
@@ -130,7 +142,11 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   }, []);
 
   // === 2) Success path (Stripe -> PDF -> Firestore snapshots) ===
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -157,14 +173,20 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
         ...(menuSelections.horsPassed || []),
         ...(menuSelections.horsDisplayed || []),
       ];
-      const appetizers = horsList.length ? horsList : menuSelections.hors || [];
+      const appetizers = horsList.length
+        ? horsList
+        : menuSelections.hors || [];
 
       // Cuisine label for agreement
-      const cuisineLabel = `Tubac Catering — ${serviceOption === "plated" ? "Plated" : "Buffet"} (${tierLabel})`;
+      const cuisineLabel = `Tubac Catering — ${
+        serviceOption === "plated" ? "Plated" : "Buffet"
+      } (${tierLabel})`;
 
       // Generate Tubac agreement PDF
       const pdfBlob = await generateYumAgreementPDF({
-        fullName: `${userDoc?.firstName || firstName} ${userDoc?.lastName || lastName}`,
+        fullName: `${userDoc?.firstName || firstName} ${
+          userDoc?.lastName || lastName
+        }`,
         total,
         deposit: payFull ? 0 : round2(total * 0.25),
         guestCount,
@@ -175,7 +197,9 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
           ? `Paid in full today: $${amountDueToday.toFixed(2)}.`
           : `Deposit today: $${amountDueToday.toFixed(
               2
-            )}. Remaining $${remainingBalance.toFixed(2)} due by ${finalDueDateStr}.`,
+            )}. Remaining $${remainingBalance.toFixed(
+              2
+            )} due by ${finalDueDateStr}.`,
         lineItems: lineItems || [],
         cuisineType: cuisineLabel,
         menuSelections: {
@@ -186,9 +210,15 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
       });
 
       // Upload PDF
-      const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
+      const storage = getStorage(
+        app,
+        "gs://wedndonev2.firebasestorage.app"
+      );
       const filename = `TubacCateringAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
+      const fileRef = ref(
+        storage,
+        `public_docs/${user.uid}/${filename}`
+      );
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
@@ -224,12 +254,16 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 
         purchases: arrayUnion({
           label: "yum",
-          amount: Number((amountDueTodayCents / 100).toFixed(2)),
+          amount: Number(
+            (amountDueTodayCents / 100).toFixed(2)
+          ),
           date: purchaseDate,
           method: payFull ? "full" : "deposit",
         }),
 
-        spendTotal: increment(Number((amountDueTodayCents / 100).toFixed(2))),
+        spendTotal: increment(
+          Number((amountDueTodayCents / 100).toFixed(2))
+        ),
 
         paymentPlan: payFull
           ? {
@@ -271,7 +305,9 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
               nextChargeAt: null,
               finalDueAt: null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               venueCaterer: "tubac",
               service: serviceOption,
               tier: tierLabel,
@@ -286,14 +322,21 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
               currency: "usd",
               totalCents,
               depositCents,
-              remainingCents: Math.max(0, totalCents - depositCents),
+              remainingCents: Math.max(
+                0,
+                totalCents - depositCents
+              ),
               planMonths,
               perMonthCents,
               lastPaymentCents,
-              nextChargeAt: new Date(Date.now() + 60 * 1000).toISOString(),
+              nextChargeAt: new Date(
+                Date.now() + 60 * 1000
+              ).toISOString(),
               finalDueAt: dueByISO || null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               venueCaterer: "tubac",
               service: serviceOption,
               tier: tierLabel,
@@ -305,14 +348,22 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
       });
 
       try {
-        localStorage.setItem("yumStep", "tubacCateringThankYou");
+        localStorage.setItem(
+          "yumStep",
+          "tubacCateringThankYou"
+        );
       } catch {}
 
       window.dispatchEvent(new Event("documentsUpdated"));
       onComplete();
     } catch (err) {
-      console.error("❌ Error in Tubac Catering checkout:", err);
-      alert("Something went wrong saving your receipt. Please contact support.");
+      console.error(
+        "❌ Error in Tubac Catering checkout:",
+        err
+      );
+      alert(
+        "Something went wrong saving your receipt. Please contact support."
+      );
     } finally {
       setLocalGenerating(false);
     }
@@ -320,20 +371,40 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 720 }}
+      >
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
           <img src="/assets/icons/pink_ex.png" alt="Close" />
         </button>
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
           <video
             src="/assets/videos/magic_clock.mp4"
             autoPlay
             loop
             muted
             playsInline
-            style={{ width: 280, margin: "0 auto 12px", borderRadius: 12 }}
+            style={{
+              width: 280,
+              margin: "0 auto 12px",
+              borderRadius: 12,
+            }}
           />
-          <p className="px-prose-narrow" style={{ color: "#2c62ba", fontStyle: "italic" }}>
+          <p
+            className="px-prose-narrow"
+            style={{
+              color: "#2c62ba",
+              fontStyle: "italic",
+            }}
+          >
             Madge is working her magic…
           </p>
         </div>
@@ -344,10 +415,14 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   return (
     <div className="pixie-card pixie-card--modal">
       {/* 🩷 Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
         <img src="/assets/icons/pink_ex.png" alt="Close" />
       </button>
-  
+
       <div className="pixie-card__body">
         <video
           src="/assets/videos/lock.mp4"
@@ -363,18 +438,28 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
             display: "block",
           }}
         />
-  
+
         <h2
           className="px-title"
-          style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+          }}
         >
           Checkout
         </h2>
-  
-        <p className="px-prose-narrow" style={{ marginBottom: 16, textAlign: "center" }}>
+
+        <p
+          className="px-prose-narrow"
+          style={{
+            marginBottom: 16,
+            textAlign: "center",
+          }}
+        >
           {summaryText}
         </p>
-  
+
         {/* ✅ Use the same wrapper class as NoVenue so Stripe inputs aren't squished */}
         <div className="px-elements">
           <Elements stripe={stripePromise}>
@@ -383,11 +468,19 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
               onSuccess={handleSuccess}
               setStepSuccess={onComplete}
               isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+              customerEmail={
+                getAuth().currentUser?.email || undefined
+              }
+              customerName={`${firstName || "Magic"} ${
+                lastName || "User"
+              }`}
               customerId={(() => {
                 try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
+                  return (
+                    localStorage.getItem(
+                      "stripeCustomerId"
+                    ) || undefined
+                  );
                 } catch {
                   return undefined;
                 }
@@ -395,10 +488,19 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
             />
           </Elements>
         </div>
-  
+
         {/* Back button */}
-        <div style={{ marginTop: "1rem", textAlign: "center" }}>
-          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack}>
+        <div
+          style={{
+            marginTop: "1rem",
+            textAlign: "center",
+          }}
+        >
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+          >
             ← Back
           </button>
         </div>

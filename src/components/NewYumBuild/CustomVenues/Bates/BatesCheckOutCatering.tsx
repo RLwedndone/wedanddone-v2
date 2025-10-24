@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesCheckOutCatering.tsx
 import React, { useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import generateBatesCateringAgreementPDF from "../../../../utils/generateBatesCateringAgreementPDF";
 import { uploadPdfBlob } from "../../../../helpers/firebaseUtils";
 import { getAuth } from "firebase/auth";
@@ -18,10 +19,6 @@ import { db } from "../../../../firebase/firebaseConfig";
 import emailjs from "@emailjs/browser";
 
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // Helpers (parity with Floral)
 const asStartOfDayUTC = (d: Date) =>
@@ -91,7 +88,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // add near other refs/state
-const didRunRef = useRef(false);
+  const didRunRef = useRef(false);
 
   const DEPOSIT_PCT = 0.25;     // same policy
   const FINAL_DUE_DAYS = 35;    // Bates requires 35 days
@@ -120,378 +117,390 @@ const didRunRef = useRef(false);
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
   // Stripe success → persist billing plan + docs (mirrors Floral)
-const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
-  if (didRunRef.current) {
-    console.warn("[BatesCheckOutCatering] handleSuccess already ran — ignoring re-entry");
-    return;
-  }
-  didRunRef.current = true;
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  // ✅ Keep the "magic clock" up for the whole post-payment pipeline
-  setIsGenerating(true);
-
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-  const userDoc = userSnap.data() || {};
-
-  // Save/refresh Stripe customer id
-  try {
-    const existing = userDoc?.stripeCustomerId as string | undefined;
-    if (customerId && customerId !== existing) {
-      await updateDoc(userRef, {
-        stripeCustomerId: customerId,
-        "stripe.updatedAt": serverTimestamp(),
-      });
-      try {
-        localStorage.setItem("stripeCustomerId", customerId);
-      } catch {}
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+    if (didRunRef.current) {
+      console.warn("[BatesCheckOutCatering] handleSuccess already ran — ignoring re-entry");
+      return;
     }
-  } catch (e) {
-    console.warn("⚠️ Could not save stripeCustomerId:", e);
-  }
+    didRunRef.current = true;
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
 
-  async function loadBatesSelections(uid: string): Promise<{
-    hors: string[];
-    salads: string[];
-    entrees: string[];
-  }> {
-    // 1) Try localStorage first (fast + offline)
-    try {
-      const ls = localStorage.getItem("batesMenuSelections");
-      if (ls) {
-        const parsed = JSON.parse(ls);
-        return {
-          hors: parsed.hors || [],
-          salads: parsed.salads || [],
-          entrees: parsed.entrees || [],
-        };
-      }
-    } catch {}
+    // ✅ Keep the "magic clock" up for the whole post-payment pipeline
+    setIsGenerating(true);
 
-    // 2) Fallback: Firestore subdoc set during the contract step
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+    const userDoc = userSnap.data() || {};
+
+    // Save/refresh Stripe customer id
     try {
-      const ref = doc(db, "users", uid, "yumYumData", "batesMenuSelections");
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const data = snap.data() as any;
-        return {
-          hors: Array.isArray(data.hors) ? data.hors : [],
-          salads: Array.isArray(data.salads) ? data.salads : [],
-          entrees: Array.isArray(data.entrees) ? data.entrees : [],
-        };
+      const existing = userDoc?.stripeCustomerId as string | undefined;
+      if (customerId && customerId !== existing) {
+        await updateDoc(userRef, {
+          stripeCustomerId: customerId,
+          "stripe.updatedAt": serverTimestamp(),
+        });
+        try {
+          localStorage.setItem("stripeCustomerId", customerId);
+        } catch {}
       }
     } catch (e) {
-      console.warn("⚠️ Could not load Bates selections from Firestore:", e);
+      console.warn("⚠️ Could not save stripeCustomerId:", e);
     }
 
-    // 3) Nothing found
-    return { hors: [], salads: [], entrees: [] };
-  }
+    async function loadBatesSelections(uid: string): Promise<{
+      hors: string[];
+      salads: string[];
+      entrees: string[];
+    }> {
+      // 1) Try localStorage first (fast + offline)
+      try {
+        const ls = localStorage.getItem("batesMenuSelections");
+        if (ls) {
+          const parsed = JSON.parse(ls);
+          return {
+            hors: parsed.hors || [],
+            salads: parsed.salads || [],
+            entrees: parsed.entrees || [],
+          };
+        }
+      } catch {}
 
-  // Ensure default PM for off-session charges
-  try {
-    await fetch(
-      "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId: customerId || localStorage.getItem("stripeCustomerId"),
-          firebaseUid: user.uid,
-        }),
+      // 2) Fallback: Firestore subdoc set during the contract step
+      try {
+        const ref = doc(db, "users", uid, "yumYumData", "batesMenuSelections");
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          return {
+            hors: Array.isArray(data.hors) ? data.hors : [],
+            salads: Array.isArray(data.salads) ? data.salads : [],
+            entrees: Array.isArray(data.entrees) ? data.entrees : [],
+          };
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not load Bates selections from Firestore:", e);
       }
-    );
-  } catch (err) {
-    console.error("❌ ensure-default-payment-method failed:", err);
-  }
 
-  // ── Generate + upload Bates Agreement PDF ────────────────────────────────
-  // (spinner already ON; do NOT switch it off in this block)
-  let agreementUrl: string | null = null;
-  try {
-    // Load the user’s selections so they appear on the agreement
-    const sel = await loadBatesSelections(user.uid);
+      // 3) Nothing found
+      return { hors: [], salads: [], entrees: [] };
+    }
 
-    const pdfBlob = await generateBatesCateringAgreementPDF({
-      fullName: `${userDoc?.firstName || firstName || "Magic"} ${
-        userDoc?.lastName || lastName || "User"
-      }`,
-      total,                                   // add-ons grand total
-      deposit: payFull ? 0 : amountDueToday,   // amount paid today if deposit plan
-      guestCount,
-      weddingDate: weddingDate || "",
-      signatureImageUrl: signatureImage || "",
-      paymentSummary:
-        paymentSummary ||
-        (payFull
-          ? `You’re paying $${total.toFixed(2)} today for Bates add-ons.`
-          : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
-              2
-            )} today. Remaining $${remainingBalance.toFixed(
-              2
-            )} auto-billed monthly; final payment due ${finalDueDateStr}.`),
-      lineItems: lineItems || [],
-      // ✅ include their menu selections on the PDF
-      menuSelections: {
-        appetizers: sel.hors,
-        mains: sel.entrees,
-        sides: sel.salads,
-      },
-    });
+    // Ensure default PM for off-session charges
+    try {
+      await fetch(
+        "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: customerId || localStorage.getItem("stripeCustomerId"),
+            firebaseUid: user.uid,
+          }),
+        }
+      );
+    } catch (err) {
+      console.error("❌ ensure-default-payment-method failed:", err);
+    }
 
-    const fileName = `BatesCateringAgreement_${Date.now()}.pdf`;
-    const filePath = `public_docs/${user.uid}/${fileName}`;
-    agreementUrl = await uploadPdfBlob(pdfBlob, filePath);
-  } catch (err) {
-    console.error("❌ Error generating/uploading Bates Agreement:", err);
-  }
+    // ── Generate + upload Bates Agreement PDF ────────────────────────────────
+    // (spinner already ON; do NOT switch it off in this block)
+    let agreementUrl: string | null = null;
+    try {
+      // Load the user’s selections so they appear on the agreement
+      const sel = await loadBatesSelections(user.uid);
 
-  // ── Build robot plan snapshot (final due = 35 days) ─────────────────────
-  const nowUTC = new Date();
-  const firstChargeAtISO = payFull ? null : nextApproxMonthUTC(nowUTC);
-  const firstChargeAt = firstChargeAtISO ? new Date(firstChargeAtISO) : null;
-  const finalISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
+      const pdfBlob = await generateBatesCateringAgreementPDF({
+        fullName: `${userDoc?.firstName || firstName || "Magic"} ${
+          userDoc?.lastName || lastName || "User"
+        }`,
+        total,                                   // add-ons grand total
+        deposit: payFull ? 0 : amountDueToday,   // amount paid today if deposit plan
+        guestCount,
+        weddingDate: weddingDate || "",
+        signatureImageUrl: signatureImage || "",
+        paymentSummary:
+          paymentSummary ||
+          (payFull
+            ? `You’re paying $${total.toFixed(2)} today for Bates add-ons.`
+            : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
+                2
+              )} today. Remaining $${remainingBalance.toFixed(
+                2
+              )} auto-billed monthly; final payment due ${finalDueDateStr}.`),
+        lineItems: lineItems || [],
+        // ✅ include their menu selections on the PDF
+        menuSelections: {
+          appetizers: sel.hors,
+          mains: sel.entrees,
+          sides: sel.salads,
+        },
+      });
 
-  const planMonths =
-    !payFull && finalDueDate && firstChargeAt
-      ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
-      : 0;
+      const fileName = `BatesCateringAgreement_${Date.now()}.pdf`;
+      const filePath = `public_docs/${user.uid}/${fileName}`;
+      agreementUrl = await uploadPdfBlob(pdfBlob, filePath);
+    } catch (err) {
+      console.error("❌ Error generating/uploading Bates Agreement:", err);
+    }
 
-  const remainingCentsTotal = Math.round(remainingBalance * 100);
-  const perMonthCents =
-    planMonths > 1 ? Math.floor(remainingCentsTotal / planMonths) : remainingCentsTotal;
-  const lastPaymentCents =
-    planMonths > 1 ? remainingCentsTotal - perMonthCents * (planMonths - 1) : 0;
+    // ── Build robot plan snapshot (final due = 35 days) ─────────────────────
+    const nowUTC = new Date();
+    const firstChargeAtISO = payFull ? null : nextApproxMonthUTC(nowUTC);
+    const firstChargeAt = firstChargeAtISO ? new Date(firstChargeAtISO) : null;
+    const finalISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
 
-  // ── Persist Firestore updates ───────────────────────────────────────────
-  try {
-    await updateDoc(userRef, {
-      "bookings.catering": true,
-      "bookings.updatedAt": new Date().toISOString(),
+    const planMonths =
+      !payFull && finalDueDate && firstChargeAt
+        ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
+        : 0;
 
-      ...(agreementUrl
-        ? {
-            documents: arrayUnion({
-              title: "Bates Catering Agreement",
-              url: agreementUrl,
-              uploadedAt: new Date().toISOString(),
-            }),
-          }
-        : {}),
+    const remainingCentsTotal = Math.round(remainingBalance * 100);
+    const perMonthCents =
+      planMonths > 1 ? Math.floor(remainingCentsTotal / planMonths) : remainingCentsTotal;
+    const lastPaymentCents =
+      planMonths > 1 ? remainingCentsTotal - perMonthCents * (planMonths - 1) : 0;
 
-      purchases: arrayUnion({
-        label: "catering:addon",
-        amount: Number(amountDueToday.toFixed(2)),
-        date: new Date().toISOString(),
-        method: payFull ? "full" : "deposit",
-        source: "BatesCheckout",
-      }),
-      spendTotal: increment(Number(amountDueToday.toFixed(2))),
+    // ── Persist Firestore updates ───────────────────────────────────────────
+    try {
+      await updateDoc(userRef, {
+        "bookings.catering": true,
+        "bookings.updatedAt": new Date().toISOString(),
 
-      paymentPlan: payFull
-        ? {
-            product: "catering_bates",
-            type: "full",
-            total,
-            paidNow: total,
-            remainingBalance: 0,
-            finalDueDate: null,
-            finalDueAt: null,
-            depositPercent: 1,
-            createdAt: new Date().toISOString(),
-          }
-        : {
-            product: "catering_bates",
-            type: "deposit",
-            total,
-            depositPercent: 0.25,
-            paidNow: amountDueToday,
-            remainingBalance,
-            finalDueDate: finalDueDateStr,
-            finalDueAt: finalISO,
-            createdAt: new Date().toISOString(),
-          },
+        ...(agreementUrl
+          ? {
+              documents: arrayUnion({
+                title: "Bates Catering Agreement",
+                url: agreementUrl,
+                uploadedAt: new Date().toISOString(),
+              }),
+            }
+          : {}),
 
-      paymentPlanAuto: payFull
-        ? {
-            version: 1,
-            product: "catering_bates",
-            status: "complete",
-            strategy: "paid_in_full",
-            currency: "usd",
+        purchases: arrayUnion({
+          label: "catering:addon",
+          amount: Number(amountDueToday.toFixed(2)),
+          date: new Date().toISOString(),
+          method: payFull ? "full" : "deposit",
+          source: "BatesCheckout",
+        }),
+        spendTotal: increment(Number(amountDueToday.toFixed(2))),
 
-            totalCents: Math.round(total * 100),
-            depositCents: Math.round(total * 100),
-            remainingCents: 0,
+        paymentPlan: payFull
+          ? {
+              product: "catering_bates",
+              type: "full",
+              total,
+              paidNow: total,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              depositPercent: 1,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "catering_bates",
+              type: "deposit",
+              total,
+              depositPercent: 0.25,
+              paidNow: amountDueToday,
+              remainingBalance,
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalISO,
+              createdAt: new Date().toISOString(),
+            },
 
-            planMonths: 0,
-            perMonthCents: 0,
-            lastPaymentCents: 0,
+        paymentPlanAuto: payFull
+          ? {
+              version: 1,
+              product: "catering_bates",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
 
-            nextChargeAt: null,
-            finalDueAt: null,
+              totalCents: Math.round(total * 100),
+              depositCents: Math.round(total * 100),
+              remainingCents: 0,
 
-            stripeCustomerId:
-              customerId || localStorage.getItem("stripeCustomerId") || null,
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
 
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-        : {
-            version: 1,
-            product: "catering_bates",
-            status: "active",
-            strategy: "monthly_until_final",
-            currency: "usd",
+              nextChargeAt: null,
+              finalDueAt: null,
 
-            totalCents: Math.round(total * 100),
-            depositCents: Math.round(amountDueToday * 100),
-            remainingCents: remainingCentsTotal,
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
 
-            planMonths,
-            perMonthCents,
-            lastPaymentCents,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              version: 1,
+              product: "catering_bates",
+              status: "active",
+              strategy: "monthly_until_final",
+              currency: "usd",
 
-            nextChargeAt: firstChargeAtISO, // ~1 month from now
-            finalDueAt: finalISO,
+              totalCents: Math.round(total * 100),
+              depositCents: Math.round(amountDueToday * 100),
+              remainingCents: remainingCentsTotal,
 
-            stripeCustomerId:
-              customerId || localStorage.getItem("stripeCustomerId") || null,
+              planMonths,
+              perMonthCents,
+              lastPaymentCents,
 
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-    });
-  } catch (err) {
-    console.error("❌ Firestore update failed:", err);
-  }
+              nextChargeAt: firstChargeAtISO, // ~1 month from now
+              finalDueAt: finalISO,
 
-  // ── Admin email (optional) ──────────────────────────────────────────────
-  try {
-    await emailjs.send("service_xayel1i", "template_nvsea3z", {
-      user_name: `${userDoc?.firstName || firstName} ${userDoc?.lastName || lastName}`,
-      user_email: userDoc?.email || "unknown@wedndone.com",
-      wedding_date: weddingDate || "TBD",
-      total: total.toFixed(2),
-      line_items: (lineItems || []).join(", "),
-      pdf_url: agreementUrl || "(no pdf url)",
-      pdf_title: "Bates Catering Agreement",
-      payment_now: amountDueToday.toFixed(2),
-      remaining_balance: remainingBalance.toFixed(2),
-      final_due: finalDueDateStr,
-    });
-  } catch (mailErr) {
-    console.error("❌ EmailJS admin mail failed:", mailErr);
-  }
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
 
-  // UI nudges + done
-window.dispatchEvent(new Event("purchaseMade"));
-window.dispatchEvent(new Event("documentsUpdated"));
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+      });
+    } catch (err) {
+      console.error("❌ Firestore update failed:", err);
+    }
 
-// 🔔 mark this session as just booked catering so ThankYou shows "fresh" copy & chimes
-try {
-  localStorage.setItem("batesJustBookedCatering", "true");
-  // (optional) this can be used by any listeners if you add them later
-  window.dispatchEvent(new Event("cateringCompletedNow"));
-} catch {}
+    // ── Admin email (optional) ──────────────────────────────────────────────
+    try {
+      await emailjs.send("service_xayel1i", "template_nvsea3z", {
+        user_name: `${userDoc?.firstName || firstName} ${userDoc?.lastName || lastName}`,
+        user_email: userDoc?.email || "unknown@wedndone.com",
+        wedding_date: weddingDate || "TBD",
+        total: total.toFixed(2),
+        line_items: (lineItems || []).join(", "),
+        pdf_url: agreementUrl || "(no pdf url)",
+        pdf_title: "Bates Catering Agreement",
+        payment_now: amountDueToday.toFixed(2),
+        remaining_balance: remainingBalance.toFixed(2),
+        final_due: finalDueDateStr,
+      });
+    } catch (mailErr) {
+      console.error("❌ EmailJS admin mail failed:", mailErr);
+    }
 
-// Keep spinner up while we transition to Thank You
-onSuccess();
-};
+    // UI nudges + done
+    window.dispatchEvent(new Event("purchaseMade"));
+    window.dispatchEvent(new Event("documentsUpdated"));
 
-return isGenerating ? (
-  <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
-    {/* 🩷 Pink X Close */}
-    <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-      <img src="/assets/icons/pink_ex.png" alt="Close" />
-    </button>
+    // 🔔 mark this session as just booked catering so ThankYou shows "fresh" copy & chimes
+    try {
+      localStorage.setItem("batesJustBookedCatering", "true");
+      // (optional) this can be used by any listeners if you add them later
+      window.dispatchEvent(new Event("cateringCompletedNow"));
+    } catch {}
 
-    <div className="pixie-card__body" style={{ textAlign: "center" }}>
-      <video
-        src="/assets/videos/magic_clock.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="px-media"
-        style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
-      />
-      <h3 className="px-title" style={{ margin: 0 }}>
-        Madge is working her magic… hold tight!
-      </h3>
+    // Keep spinner up while we transition to Thank You
+    onSuccess();
+  };
 
-      {/* Back (inside card) */}
-      <div style={{ marginTop: 12 }}>
-        <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
-          ← Back to Cart
-        </button>
+  return isGenerating ? (
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      {/* 🩷 Pink X Close */}
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img src="/assets/icons/pink_ex.png" alt="Close" />
+      </button>
+
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <video
+          src="/assets/videos/magic_clock.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="px-media"
+          style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
+        />
+        <h3 className="px-title" style={{ margin: 0 }}>
+          Madge is working her magic… hold tight!
+        </h3>
+
+        {/* Back (inside card) */}
+        <div style={{ marginTop: 12 }}>
+          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
+            ← Back to Cart
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-) : (
-  <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
-    {/* 🩷 Pink X Close */}
-    <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-      <img src="/assets/icons/pink_ex.png" alt="Close" />
-    </button>
+  ) : (
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      {/* 🩷 Pink X Close */}
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img src="/assets/icons/pink_ex.png" alt="Close" />
+      </button>
 
-    <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
-      <video
-        src="/assets/videos/lock.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="px-media"
-        style={{ width: 160, maxWidth: "90%", borderRadius: 12, margin: "0 auto 16px", display: "block" }}
-      />
+      <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
+        <video
+          src="/assets/videos/lock.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="px-media"
+          style={{ width: 160, maxWidth: "90%", borderRadius: 12, margin: "0 auto 16px", display: "block" }}
+        />
 
-      <h2 className="px-title" style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}>
-        Checkout
-      </h2>
+        <h2
+          className="px-title"
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+          }}
+        >
+          Checkout
+        </h2>
 
-      <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-        {paymentSummary
-          ? paymentSummary
-          : payFull
-          ? `Total due today: $${total.toFixed(2)}.`
-          : `Deposit due today: $${amountDueToday.toFixed(2)} (25%). Remaining $${remainingBalance.toFixed(
-              2
-            )} — final payment due ${finalDueDateStr}.`}
-      </p>
+        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+          {paymentSummary
+            ? paymentSummary
+            : payFull
+            ? `Total due today: $${total.toFixed(2)}.`
+            : `Deposit due today: $${amountDueToday.toFixed(2)} (25%). Remaining $${remainingBalance.toFixed(
+                2
+              )} — final payment due ${finalDueDateStr}.`}
+        </p>
 
-      {/* Stripe Elements — comfortably wide */}
-      <div className="px-elements" aria-busy={isGenerating}>
-        <Elements stripe={stripePromise}>
-          <CheckoutForm
-            total={amountDueToday}
-            onSuccess={handleSuccess}
-            isAddon={false}
-            customerEmail={getAuth().currentUser?.email || undefined}
-            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-            customerId={(() => {
-              try {
-                return localStorage.getItem("stripeCustomerId") || undefined;
-              } catch {
-                return undefined;
-              }
-            })()}
-          />
-        </Elements>
-      </div>
+        {/* Stripe Elements — comfortably wide */}
+        <div className="px-elements" aria-busy={isGenerating}>
+          <Elements stripe={stripePromise}>
+            <CheckoutForm
+              total={amountDueToday}
+              onSuccess={handleSuccess}
+              isAddon={false}
+              customerEmail={getAuth().currentUser?.email || undefined}
+              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+              customerId={(() => {
+                try {
+                  return localStorage.getItem("stripeCustomerId") || undefined;
+                } catch {
+                  return undefined;
+                }
+              })()}
+            />
+          </Elements>
+        </div>
 
-      {/* Back (inside the white card) */}
-      <div style={{ marginTop: 12 }}>
-        <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled={isGenerating}>
-          ← Back to Cart
-        </button>
+        {/* Back (inside the white card) */}
+        <div style={{ marginTop: 12 }}>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+            disabled={isGenerating}
+          >
+            ← Back to Cart
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default BatesCheckOutCatering;

@@ -1,7 +1,6 @@
 // src/App.tsx
 import React, { useEffect, useState } from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -60,7 +59,9 @@ const AppRoutes: React.FC = () => {
         {/* 🧙‍♀️ Venue Ranker Overlay */}
         <Route
           path="/venue-ranker"
-          element={<VenueRankerOverlay onClose={() => navigate("/dashboard")} />}
+          element={
+            <VenueRankerOverlay onClose={() => navigate("/dashboard")} />
+          }
         />
       </Routes>
     </>
@@ -73,47 +74,46 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleSignupModal = () => setShowSignupModal(true);
     window.addEventListener("openSignupModal", handleSignupModal);
-    return () => window.removeEventListener("openSignupModal", handleSignupModal);
+    return () =>
+      window.removeEventListener("openSignupModal", handleSignupModal);
   }, []);
 
   return (
-    <Router>
-      <UserProvider>
-        <AppRoutes />
+    <UserProvider>
+      <AppRoutes />
 
-        {showSignupModal && (
+      {showSignupModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(0,0,0,0.6)",
+            zIndex: 1000,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+          onClick={() => setShowSignupModal(false)}
+        >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              backgroundColor: "rgba(0,0,0,0.6)",
-              zIndex: 1000,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              background: "white",
+              borderRadius: "16px",
+              padding: "2rem",
+              width: "90%",
+              maxWidth: "500px",
+              boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
             }}
-            onClick={() => setShowSignupModal(false)}
           >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "white",
-                borderRadius: "16px",
-                padding: "2rem",
-                width: "90%",
-                maxWidth: "500px",
-                boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
-              }}
-            >
-              <CreateAccount onClose={() => setShowSignupModal(false)} />
-            </div>
+            <CreateAccount onClose={() => setShowSignupModal(false)} />
           </div>
-        )}
-      </UserProvider>
-    </Router>
+        </div>
+      )}
+    </UserProvider>
   );
 };
 

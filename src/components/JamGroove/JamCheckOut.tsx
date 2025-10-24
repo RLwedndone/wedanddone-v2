@@ -1,8 +1,8 @@
 // src/components/jam/JamCheckOut.tsx
 import React, { useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../CheckoutForm";
+import { stripePromise } from "../../utils/stripePromise";
 import { useUser } from "../../contexts/UserContext";
 import { generateJamAgreementPDF } from "../../utils/generateJamAgreementPDF";
 import { generateJamAddOnReceiptPDF } from "../../utils/generateJamAddOnReceiptPDF";
@@ -24,10 +24,6 @@ import { JamSelectionsType } from "./JamOverlay";
 import emailjs from "@emailjs/browser";
 
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -346,20 +342,20 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
             <div className="px-elements">
               <Elements stripe={stripePromise}>
                 <CheckoutForm
-                    total={amountDueToday}
-                    onSuccess={handleSuccess}
-                    setStepSuccess={onSuccess}
-                    isAddon={isAddon}
-                    customerEmail={userData?.email}
-                    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-                    customerId={(() => {
-                      try {
-                        return localStorage.getItem("stripeCustomerId") || undefined;
-                      } catch {
-                        return undefined;
-                      }
-                    })()}
-                  />
+                  total={amountDueToday}
+                  onSuccess={handleSuccess}
+                  setStepSuccess={onSuccess}
+                  isAddon={isAddon}
+                  customerEmail={userData?.email}
+                  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                  customerId={(() => {
+                    try {
+                      return localStorage.getItem("stripeCustomerId") || undefined;
+                    } catch {
+                      return undefined;
+                    }
+                  })()}
+                />
               </Elements>
             </div>
 

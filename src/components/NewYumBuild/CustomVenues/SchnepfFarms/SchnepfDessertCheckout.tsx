@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Schnepf/SchnepfDessertCheckout.tsx
 import React, { useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -16,10 +17,6 @@ import {
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -287,7 +284,9 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
       // Fan-out events
       window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(new Event("dessertCompletedNow"));
-      window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { dessert: true } }));
+      window.dispatchEvent(
+        new CustomEvent("bookingsChanged", { detail: { dessert: true } })
+      );
 
       // Parent navigates to SchnepfDessertThankYou
       onComplete();
@@ -298,134 +297,168 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
   };
 
   // --- unified spinner styles (same look/size as Vic/Verrado) ---
-const overlayStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  backgroundColor: "rgba(0,0,0,0.35)",
-  zIndex: 1000,
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  overflowY: "auto",
-  padding: 16,
-};
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    zIndex: 1000,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    overflowY: "auto",
+    padding: 16,
+  };
 
-const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  width: "min(680px, 94vw)",
-  maxHeight: "90vh",
-  overflow: "hidden",
-  boxSizing: "border-box",
-  borderRadius: 18,
-  boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-  padding: "22px 20px 28px",
-  position: "relative",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "stretch",
-  gap: 12,
-};
+  const cardStyle: React.CSSProperties = {
+    background: "#fff",
+    width: "min(680px, 94vw)",
+    maxHeight: "90vh",
+    overflow: "hidden",
+    boxSizing: "border-box",
+    borderRadius: 18,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+    padding: "22px 20px 28px",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 12,
+  };
 
-return isGenerating ? (
-  <div className="pixie-overlay" style={overlayStyle}>
-    <div className="pixie-overlay-card" style={cardStyle}>
-      <video
-        src="/assets/videos/magic_clock.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="px-media"
-        style={{ width: "100%", maxWidth: 350, margin: "0 auto 12px", display: "block", borderRadius: 12 }}
-      />
-      <p
-        style={{
-          fontSize: "1.05rem",
-          color: "#2c62ba",
-          textAlign: "center",
-          fontStyle: "italic",
-          margin: 0,
-        }}
-      >
-        Madge is icing your cake... one sec!
-      </p>
-    </div>
-  </div>
-) : (
-  <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680, position: "relative" }}>
-    {/* 🩷 Pink X Close */}
-    {onClose && (
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
-      </button>
-    )}
-
-    <div className="pixie-card__body" style={{ textAlign: "center" }}>
-      <video
-        src="/assets/videos/lock.mp4"
-        autoPlay
-        muted
-        playsInline
-        loop
-        className="px-media"
-        style={{ width: 150, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px" }}
-      />
-
-      <h2 className="px-title-lg" style={{ marginBottom: 12, color: "#2c62ba" }}>
-        Dessert Checkout
-      </h2>
-
-      <div className="px-prose-narrow" style={{ margin: "0 auto 16px" }}>
-        <p>
-          {usingFull
-            ? <>You're paying <strong>${amountDueToday.toFixed(2)}</strong> today.</>
-            : <>
-                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today, then {planMonths} monthly payments of about{" "}
-                <strong>${perMonth.toFixed(2)}</strong> (final due {finalDuePretty}).
-              </>}
+  return isGenerating ? (
+    <div className="pixie-overlay" style={overlayStyle}>
+      <div className="pixie-overlay-card" style={cardStyle}>
+        <video
+          src="/assets/videos/magic_clock.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="px-media"
+          style={{
+            width: "100%",
+            maxWidth: 350,
+            margin: "0 auto 12px",
+            display: "block",
+            borderRadius: 12,
+          }}
+        />
+        <p
+          style={{
+            fontSize: "1.05rem",
+            color: "#2c62ba",
+            textAlign: "center",
+            fontStyle: "italic",
+            margin: 0,
+          }}
+        >
+          Madge is icing your cake... one sec!
         </p>
       </div>
-
-     {/* Stripe Elements — comfortably wide (same as Floral) */}
-<div style={{ width: 'min(520px, 90%)', margin: '10px auto 0' }}>
-  <Elements
-    stripe={stripePromise}
-    options={{ appearance: { variables: { fontSizeBase: '16px' } } }}
-  >
-    <CheckoutForm
-      total={amountDueToday}
-      onSuccess={handleSuccess}
-      setStepSuccess={onComplete}
-      isAddon={false}
-      customerEmail={getAuth().currentUser?.email || undefined}
-      customerName={
-        getAuth().currentUser?.displayName ||
-        getAuth().currentUser?.email?.split("@")[0] ||
-        "Wed&Done User"
-      }
-      customerId={(() => {
-        try {
-          return localStorage.getItem("stripeCustomerId") || undefined;
-        } catch {
-          return undefined;
-        }
-      })()}
-    />
-  </Elements>
-</div>
-
-      <div className="px-cta-col" style={{ marginTop: 16 }}>
+    </div>
+  ) : (
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 680, position: "relative" }}
+    >
+      {/* 🩷 Pink X Close */}
+      {onClose && (
         <button
-          className="boutique-back-btn"
-          style={{ width: 250 }}
-          onClick={onBack}
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
         >
-          ⬅ Back
+          <img src="/assets/icons/pink_ex.png" alt="Close" />
         </button>
+      )}
+
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <video
+          src="/assets/videos/lock.mp4"
+          autoPlay
+          muted
+          playsInline
+          loop
+          className="px-media"
+          style={{
+            width: 150,
+            maxWidth: "90%",
+            borderRadius: 12,
+            margin: "0 auto 12px",
+          }}
+        />
+
+        <h2
+          className="px-title-lg"
+          style={{ marginBottom: 12, color: "#2c62ba" }}
+        >
+          Dessert Checkout
+        </h2>
+
+        <div
+          className="px-prose-narrow"
+          style={{ margin: "0 auto 16px" }}
+        >
+          <p>
+            {usingFull ? (
+              <>
+                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today.
+              </>
+            ) : (
+              <>
+                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today,
+                then {planMonths} monthly payments of about{" "}
+                <strong>${perMonth.toFixed(2)}</strong> (final due {finalDuePretty}).
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Stripe Elements — comfortably wide (same as Floral) */}
+        <div style={{ width: "min(520px, 90%)", margin: "10px auto 0" }}>
+          <Elements
+            stripe={stripePromise}
+            options={{
+              appearance: { variables: { fontSizeBase: "16px" } },
+            }}
+          >
+            <CheckoutForm
+              total={amountDueToday}
+              onSuccess={handleSuccess}
+              setStepSuccess={onComplete}
+              isAddon={false}
+              customerEmail={getAuth().currentUser?.email || undefined}
+              customerName={
+                getAuth().currentUser?.displayName ||
+                getAuth().currentUser?.email?.split("@")[0] ||
+                "Wed&Done User"
+              }
+              customerId={(() => {
+                try {
+                  return (
+                    localStorage.getItem("stripeCustomerId") ||
+                    undefined
+                  );
+                } catch {
+                  return undefined;
+                }
+              })()}
+            />
+          </Elements>
+        </div>
+
+        <div className="px-cta-col" style={{ marginTop: 16 }}>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+          >
+            ⬅ Back
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default SchnepfDessertCheckout;

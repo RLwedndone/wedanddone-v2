@@ -1,22 +1,26 @@
 // src/components/photo/PhotoCheckOut.tsx
 import React, { useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { stripePromise } from "../../utils/stripePromise";
 import CheckoutForm from "../../CheckoutForm";
 import { getAuth } from "firebase/auth";
 import {
-  doc, getDoc, setDoc, updateDoc, arrayUnion, Timestamp,
-  collection, addDoc, increment, serverTimestamp,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  Timestamp,
+  collection,
+  addDoc,
+  increment,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { generatePhotoAddOnReceiptPDF } from "../../utils/generatePhotoAddOnReceiptPDF";
 import { generatePhotoAgreementPDF } from "../../utils/generatePhotoAgreementPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
 import emailjs from "@emailjs/browser";
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // ───────── helpers (dates & math) ─────────
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -29,13 +33,23 @@ const parseLocalYMD = (ymd?: string | null): Date | null => {
 
 // first second of a local Date as UTC
 const asStartOfDayUTC = (d: Date) =>
-  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+  new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      0,
+      0,
+      1
+    )
+  );
 
 // monthly count inclusive (partial months count as 1)
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
   const b = new Date(to.getFullYear(), to.getMonth(), 1);
-  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  let months =
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
@@ -49,9 +63,9 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
   return dt.toISOString();
 }
 
-// ───────── NEW: deposit/amounts + plan builders ─────────
+// ───────── deposit/amount helpers ─────────
 
-// Read cart-saved 50% deposit or fallback to 50% of total
+// Read cart-saved 50% deposit, fallback to 50% of total
 function getPhotoDepositAmount(total: number): number {
   const ls = Number(localStorage.getItem("photoDepositAmount") || "");
   return Number.isFinite(ls) && ls > 0 ? round2(ls) : round2(total * 0.5);
@@ -61,7 +75,7 @@ interface PhotoCheckOutProps {
   onClose: () => void;
   isAddon?: boolean;
   total: number;
-  depositAmount: number; // kept for parity; we compute from LS/50%
+  depositAmount: number; // not trusted, we recompute
   payFull: boolean;
   paymentSummary: string;
   signatureImage: string;
@@ -89,35 +103,54 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   const finishedOnceRef = useRef(false);
 
   // ───────── amounts per policy ─────────
-// For add-ons: never use localStorage; always use the prop total (grand total from the add-on cart)
-const totalFromLS = !isAddon ? Number(localStorage.getItem("photoTotal") || "") : NaN;
-const totalEffective = Number.isFinite(totalFromLS) && totalFromLS > 0
-  ? round2(totalFromLS)
-  : round2(total);
+  // For add-ons: never use LS; full add-on amount is due now
+  const totalFromLS = !isAddon
+    ? Number(localStorage.getItem("photoTotal") || "")
+    : NaN;
 
-const depositFromLS = !isAddon ? Number(localStorage.getItem("photoDepositAmount") || "") : NaN;
-const depositAmountEffective = Number.isFinite(depositFromLS) && depositFromLS > 0
-  ? round2(depositFromLS)
-  : getPhotoDepositAmount(totalEffective);
+  const totalEffective =
+    Number.isFinite(totalFromLS) && totalFromLS > 0
+      ? round2(totalFromLS)
+      : round2(total);
 
-// For add-ons we always charge the full add-on amount now.
-const amountDueToday = isAddon
-  ? totalEffective
-  : (payFull ? totalEffective : Math.min(totalEffective, depositAmountEffective));
+  const depositFromLS = !isAddon
+    ? Number(localStorage.getItem("photoDepositAmount") || "")
+    : NaN;
 
-const remainingBalance = isAddon ? 0 : round2(Math.max(0, totalEffective - amountDueToday));
+  const depositAmountEffective =
+    Number.isFinite(depositFromLS) && depositFromLS > 0
+      ? round2(depositFromLS)
+      : getPhotoDepositAmount(totalEffective);
 
-// Normalize only for the contract flow (not add-ons)
-if (!isAddon) {
-  try {
-    localStorage.setItem("photoTotal", String(totalEffective));
-    localStorage.setItem("photoDepositAmount", String(depositAmountEffective));
-    localStorage.setItem("photoRemainingBalance", String(remainingBalance));
-  } catch {}
-}
+  // For add-ons we always charge the full amount now
+  const amountDueToday = isAddon
+    ? totalEffective
+    : payFull
+    ? totalEffective
+    : Math.min(totalEffective, depositAmountEffective);
 
-  // (optional) debug
-  console.log("[PHOTO CHECKOUT] totalEffective:", totalEffective, "depositAmount:", depositAmountEffective, "amountDueToday:", amountDueToday);
+  const remainingBalance = isAddon
+    ? 0
+    : round2(Math.max(0, totalEffective - amountDueToday));
+
+  // Normalize only for the contract flow (not add-ons)
+  if (!isAddon) {
+    try {
+      localStorage.setItem("photoTotal", String(totalEffective));
+      localStorage.setItem("photoDepositAmount", String(depositAmountEffective));
+      localStorage.setItem("photoRemainingBalance", String(remainingBalance));
+    } catch {}
+  }
+
+  // debug (kept)
+  console.log(
+    "[PHOTO CHECKOUT] totalEffective:",
+    totalEffective,
+    "depositAmount:",
+    depositAmountEffective,
+    "amountDueToday:",
+    amountDueToday
+  );
 
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (finishedOnceRef.current) return;
@@ -143,21 +176,31 @@ if (!isAddon) {
       if (!snap.exists()) {
         await setDoc(
           userRef,
-          { bookings: {}, purchases: [], documents: [], createdAt: Timestamp.now() },
+          {
+            bookings: {},
+            purchases: [],
+            documents: [],
+            createdAt: Timestamp.now(),
+          },
           { merge: true }
         );
       }
 
-      // save customerId + ensure default PM
+      // Save Stripe customerId (and default PM) if we got one
       try {
-        const existingId = (userDoc as any)?.stripeCustomerId as string | undefined;
+        const existingId = (userDoc as any)?.stripeCustomerId as
+          | string
+          | undefined;
         if (customerId && customerId !== existingId) {
           await updateDoc(userRef, {
             stripeCustomerId: customerId,
             "stripe.updatedAt": serverTimestamp(),
           });
-          try { localStorage.setItem("stripeCustomerId", customerId); } catch {}
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {}
         }
+
         try {
           await fetch(
             "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
@@ -165,7 +208,8 @@ if (!isAddon) {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                customerId: customerId || localStorage.getItem("stripeCustomerId"),
+                customerId:
+                  customerId || localStorage.getItem("stripeCustomerId"),
                 firebaseUid: uidToUse,
               }),
             }
@@ -185,10 +229,14 @@ if (!isAddon) {
       // Dates for plan math: final due = wedding - 35 days
       const weddingYMD = (userDoc as any)?.weddingDate || null;
       const wedding = parseLocalYMD(weddingYMD || "");
-      const finalDueDate = wedding ? new Date(wedding.getTime() - 35 * MS_DAY) : null;
-      const finalDueISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
+      const finalDueDate = wedding
+        ? new Date(wedding.getTime() - 35 * MS_DAY)
+        : null;
+      const finalDueISO = finalDueDate
+        ? asStartOfDayUTC(finalDueDate).toISOString()
+        : null;
 
-      // monthly until final
+      // monthly plan math
       let planMonths = 0;
       let perMonthCents = 0;
       let lastPaymentCents = 0;
@@ -203,7 +251,9 @@ if (!isAddon) {
       }
 
       const months = payFull ? 0 : planMonths;
-      const monthlyAmount = payFull ? 0 : +(perMonthCents / 100).toFixed(2);
+      const monthlyAmount = payFull
+        ? 0
+        : +(perMonthCents / 100).toFixed(2);
 
       // 1) Record purchase & booking flags
       await updateDoc(userRef, {
@@ -216,7 +266,9 @@ if (!isAddon) {
           amount: Number(amountDueToday.toFixed(2)),
           contractTotal: Number(totalEffective.toFixed(2)),
           payFull: Boolean(payFull),
-          deposit: payFull ? Number(totalEffective.toFixed(2)) : Number(amountDueToday.toFixed(2)),
+          deposit: payFull
+            ? Number(totalEffective.toFixed(2))
+            : Number(amountDueToday.toFixed(2)),
           monthlyAmount,
           months,
           method: payFull ? "full" : "deposit",
@@ -243,11 +295,17 @@ if (!isAddon) {
               product: "photo",
               type: "deposit",
               total: totalEffective,
-              depositPercent: +(amountDueToday / totalEffective).toFixed(2),
+              depositPercent: +(
+                amountDueToday / totalEffective
+              ).toFixed(2),
               paidNow: amountDueToday,
               remainingBalance,
               finalDueDate: finalDueDate
-                ? finalDueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                ? finalDueDate.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
                 : "35 days before your wedding date",
               finalDueAt: finalDueISO,
               createdAt: new Date().toISOString(),
@@ -268,7 +326,10 @@ if (!isAddon) {
               lastPaymentCents: 0,
               nextChargeAt: null,
               finalDueAt: null,
-              stripeCustomerId: customerId || localStorage.getItem("stripeCustomerId") || null,
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             }
@@ -286,7 +347,10 @@ if (!isAddon) {
               lastPaymentCents,
               nextChargeAt: firstMonthlyChargeAtUTC(new Date()),
               finalDueAt: finalDueISO,
-              stripeCustomerId: customerId || localStorage.getItem("stripeCustomerId") || null,
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -297,12 +361,18 @@ if (!isAddon) {
       // 2) PDF + upload
       let pdfUrl = "";
       try {
-        const pdfFileName = isAddon ? `PhotoReceipt_${Date.now()}.pdf` : `PhotoAgreement_${Date.now()}.pdf`;
+        const pdfFileName = isAddon
+          ? `PhotoReceipt_${Date.now()}.pdf`
+          : `PhotoAgreement_${Date.now()}.pdf`;
         const pdfFilePath = `public_docs/${uidToUse}/${pdfFileName}`;
 
         let pdfBlob: Blob;
         if (isAddon) {
-          const purchaseDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+          const purchaseDate = new Date().toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
           pdfBlob = await generatePhotoAddOnReceiptPDF({
             fullName,
             lineItems,
@@ -317,7 +387,8 @@ if (!isAddon) {
             total: totalEffective,
             deposit: depositForPdf,
             paymentSummary,
-            weddingDate: (userDoc as any)?.weddingDate || "TBD",
+            weddingDate:
+              (userDoc as any)?.weddingDate || "TBD",
             signatureImageUrl: signatureImage || "",
             lineItems,
           });
@@ -326,7 +397,9 @@ if (!isAddon) {
         pdfUrl = await uploadPdfBlob(pdfBlob, pdfFilePath);
 
         const docItem = {
-          title: isAddon ? "Photo Add-On Receipt" : "Photo Agreement",
+          title: isAddon
+            ? "Photo Add-On Receipt"
+            : "Photo Agreement",
           url: pdfUrl,
           uploadedAt: new Date().toISOString(),
           kind: isAddon ? "receipt" : "agreement",
@@ -337,36 +410,52 @@ if (!isAddon) {
           documents: arrayUnion(docItem),
           photoPdfUrl: pdfUrl,
         });
-        await addDoc(collection(db, "users", uidToUse, "documents"), docItem);
+
+        await addDoc(
+          collection(db, "users", uidToUse, "documents"),
+          docItem
+        );
 
         window.dispatchEvent(new Event("documentsUpdated"));
       } catch (pdfErr) {
-        console.warn("⚠️ PDF generate/upload failed—continuing:", pdfErr);
+        console.warn(
+          "⚠️ PDF generate/upload failed—continuing:",
+          pdfErr
+        );
       }
 
       // 3) Email (best-effort)
       try {
         const service = import.meta.env.VITE_EMAILJS_SERVICE_ID;
         const template = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        const publicKey =
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
         if (service && template && publicKey) {
           await emailjs.send(
             service,
             template,
             {
               user_name: fullName,
-              to_email: (userDoc as any)?.email || user?.email || "admin@wedndone.com",
+              to_email:
+                (userDoc as any)?.email ||
+                user?.email ||
+                "admin@wedndone.com",
               pdf_url: pdfUrl,
-              pdf_title: isAddon ? "Photo Add-On Receipt" : "Photo Agreement",
+              pdf_title: isAddon
+                ? "Photo Add-On Receipt"
+                : "Photo Agreement",
             },
             publicKey
           );
         }
       } catch (emailErr) {
-        console.warn("⚠️ EmailJS send failed—continuing:", emailErr);
+        console.warn(
+          "⚠️ EmailJS send failed—continuing:",
+          emailErr
+        );
       }
 
-      // 4) Events
+      // 4) Fan-out events
       window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(new Event("budgetUpdated"));
       window.dispatchEvent(new Event("weddingDateLocked"));
@@ -375,54 +464,88 @@ if (!isAddon) {
     } finally {
       setIsGenerating(false);
       setCompleted(true);
-      try { onSuccess(); } catch {}
+      try {
+        onSuccess();
+      } catch {}
     }
   };
 
   if (completed) return null;
 
-  // Loading/generating state — Floral style
+  // Spinner state (unified "magic" card)
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal">
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
           <img src="/assets/icons/pink_ex.png" alt="Close" />
         </button>
-        <div className="pixie-card__body">
-          <div className="px-center" style={{ marginTop: 10 }}>
-            <video
-              src="/assets/videos/magic_clock.mp4"
-              autoPlay loop muted playsInline
-              style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
-            />
-            <h3 className="px-title" style={{ margin: 0 }}>
-              Madge is working her magic… hold tight!
-            </h3>
-          </div>
+
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
+          <video
+            src="/assets/videos/magic_clock.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: "100%",
+              maxWidth: 340,
+              borderRadius: 12,
+              margin: "0 auto 14px",
+              display: "block",
+            }}
+          />
+
+          <h3
+            className="px-title"
+            style={{ margin: 0 }}
+          >
+            Madge is working her magic…
+          </h3>
         </div>
       </div>
     );
   }
 
-  // Summary line (Floral format)
-  const finalDuePretty = localStorage.getItem("photoFinalDuePretty") || "35 days before your wedding date";
+  // Summary line (for UI before charge)
+  const finalDuePretty =
+    localStorage.getItem("photoFinalDuePretty") ||
+    "35 days before your wedding date";
+
   const checkoutSummary = payFull
     ? `You're paying $${totalEffective.toFixed(2)} today.`
-    : `You're paying a $${amountDueToday.toFixed(2)} deposit today. Remaining $${remainingBalance.toFixed(2)} due ${finalDuePretty}.`;
+    : `You're paying a $${amountDueToday.toFixed(
+        2
+      )} deposit today. Remaining $${remainingBalance.toFixed(
+        2
+      )} due ${finalDuePretty}.`;
 
   return (
-    <div className="pixie-card pixie-card--modal">
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X Close */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
         <img src="/assets/icons/pink_ex.png" alt="Close" />
       </button>
 
-      {/* 🌸 Body */}
-      <div className="pixie-card__body">
-        {/* Lock video */}
+      {/* Body */}
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
           src="/assets/videos/lock.mp4"
-          autoPlay loop muted playsInline
+          autoPlay
+          loop
+          muted
+          playsInline
           style={{
             width: 160,
             maxWidth: "90%",
@@ -432,15 +555,25 @@ if (!isAddon) {
           }}
         />
 
-        <h2 className="px-title" style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}>
+        <h2
+          className="px-title"
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+          }}
+        >
           Checkout
         </h2>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+        <p
+          className="px-prose-narrow"
+          style={{ marginBottom: 16 }}
+        >
           {checkoutSummary}
         </p>
 
-        {/* Stripe Elements — comfortably wide */}
+        {/* Stripe Elements */}
         <div className="px-elements">
           <Elements stripe={stripePromise}>
             <CheckoutForm
@@ -448,19 +581,37 @@ if (!isAddon) {
               onSuccess={handleSuccess}
               setStepSuccess={onSuccess}
               isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${getAuth().currentUser?.displayName || ""}`.trim() || undefined}
+              customerEmail={
+                getAuth().currentUser?.email || undefined
+              }
+              customerName={
+                `${
+                  getAuth().currentUser?.displayName || ""
+                }`.trim() || undefined
+              }
               customerId={(() => {
-                try { return localStorage.getItem("stripeCustomerId") || undefined; }
-                catch { return undefined; }
+                try {
+                  return (
+                    localStorage.getItem("stripeCustomerId") ||
+                    undefined
+                  );
+                } catch {
+                  return undefined;
+                }
               })()}
             />
           </Elements>
         </div>
 
-        {/* Optional back button (kept from your photo flow) */}
-        <div className="px-cta-col" style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" onClick={onBack}>
+        {/* Back button */}
+        <div
+          className="px-cta-col"
+          style={{ marginTop: 12 }}
+        >
+          <button
+            className="boutique-back-btn"
+            onClick={onBack}
+          >
             ⬅ Back
           </button>
         </div>

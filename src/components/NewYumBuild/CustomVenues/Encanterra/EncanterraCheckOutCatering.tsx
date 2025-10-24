@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Encanterra/EncanterraCheckOutCatering.tsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -17,10 +18,6 @@ import { getGuestState } from "../../../../utils/guestCountStore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateEncanterraAgreementPDF from "../../../../utils/generateEncanterraAgreementPDF";
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
@@ -82,12 +79,33 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
     }
   }, []);
 
-  const totalCents = Number(localStorage.getItem("encTotalCents") ?? localStorage.getItem("yumCateringTotalCents") ?? 0);
-  const depositCents = Number(localStorage.getItem("encDepositAmountCents") ?? localStorage.getItem("yumCateringDepositAmount") ?? 0);
-  const planMonthsLS = Number(localStorage.getItem("encPlanMonths") ?? localStorage.getItem("yumCateringPlanMonths") ?? 0);
-  const perMonthCentsLS = Number(localStorage.getItem("encPerMonthCents") ?? localStorage.getItem("yumCateringPerMonthCents") ?? 0);
-  const lastPaymentCentsLS = Number(localStorage.getItem("encLastPaymentCents") ?? localStorage.getItem("yumCateringLastPaymentCents") ?? 0);
-  const paymentSummaryText = localStorage.getItem("encPaymentSummaryText") ?? "";
+  const totalCents = Number(
+    localStorage.getItem("encTotalCents") ??
+      localStorage.getItem("yumCateringTotalCents") ??
+      0
+  );
+  const depositCents = Number(
+    localStorage.getItem("encDepositAmountCents") ??
+      localStorage.getItem("yumCateringDepositAmount") ??
+      0
+  );
+  const planMonthsLS = Number(
+    localStorage.getItem("encPlanMonths") ??
+      localStorage.getItem("yumCateringPlanMonths") ??
+      0
+  );
+  const perMonthCentsLS = Number(
+    localStorage.getItem("encPerMonthCents") ??
+      localStorage.getItem("yumCateringPerMonthCents") ??
+      0
+  );
+  const lastPaymentCentsLS = Number(
+    localStorage.getItem("encLastPaymentCents") ??
+      localStorage.getItem("yumCateringLastPaymentCents") ??
+      0
+  );
+  const paymentSummaryText =
+    localStorage.getItem("encPaymentSummaryText") ?? "";
 
   const venueName = localStorage.getItem("encVenueName") || "Encanterra";
   const weddingDateISO = localStorage.getItem("encWeddingDate") || "";
@@ -115,7 +133,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
       ? (tierIdLS as DiamondTier)
       : ("1 Carat" as DiamondTier));
 
-  const perGuestPrice = Number(localStorage.getItem("encanterraPerGuest")) || TIER_PRICE[diamondTier];
+  const perGuestPrice =
+    Number(localStorage.getItem("encanterraPerGuest")) ||
+    TIER_PRICE[diamondTier];
 
   // === 2) Amount due today ===
   const amountDueTodayCents = payFull ? totalCents : depositCents;
@@ -156,7 +176,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
   // === 5) On successful payment ===
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
-      console.warn("[EncanterraCheckOutCatering] handleSuccess already ran — ignoring re-entry");
+      console.warn(
+        "[EncanterraCheckOutCatering] handleSuccess already ran — ignoring re-entry"
+      );
       return;
     }
     didRunRef.current = true;
@@ -298,7 +320,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           method: payFull ? "full" : "deposit",
         }),
 
-        spendTotal: increment(Number((amountDueTodayCents / 100).toFixed(2))),
+        spendTotal: increment(
+          Number((amountDueTodayCents / 100).toFixed(2))
+        ),
 
         paymentPlan: payFull
           ? {
@@ -340,7 +364,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
               nextChargeAt: null,
               finalDueAt: null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               venueCaterer: "encanterra",
               tier: diamondTier,
               createdAt: new Date().toISOString(),
@@ -361,7 +387,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
               nextChargeAt,
               finalDueAt: finalDueAtISO,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
               venueCaterer: "encanterra",
               tier: diamondTier,
               createdAt: new Date().toISOString(),
@@ -397,14 +425,25 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
             muted
             playsInline
             className="px-media"
-            style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
+            style={{
+              width: "100%",
+              maxWidth: 340,
+              borderRadius: 12,
+              margin: "0 auto 14px",
+              display: "block",
+            }}
           />
           <h3 className="px-title" style={{ margin: 0 }}>
             Madge is working her magic…
           </h3>
 
           <div style={{ marginTop: 12 }}>
-            <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
+            <button
+              className="boutique-back-btn"
+              style={{ width: 250 }}
+              onClick={onBack}
+              disabled
+            >
               ← Back to Cart
             </button>
           </div>
@@ -417,7 +456,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
     ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
-      )} (25%). Remaining $${remainingBalance.toFixed(2)} — final payment due ${finalDueDateStr}.`;
+      )} (25%). Remaining $${remainingBalance.toFixed(
+        2
+      )} — final payment due ${finalDueDateStr}.`;
 
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
@@ -426,7 +467,11 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
         <img src="/assets/icons/pink_ex.png" alt="Close" />
       </button>
 
-      <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        ref={scrollRef}
+        style={{ textAlign: "center" }}
+      >
         <video
           src="/assets/videos/lock.mp4"
           autoPlay
@@ -434,10 +479,23 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           muted
           playsInline
           className="px-media"
-          style={{ width: 160, maxWidth: "90%", borderRadius: 12, margin: "0 auto 16px", display: "block" }}
+          style={{
+            width: 160,
+            maxWidth: "90%",
+            borderRadius: 12,
+            margin: "0 auto 16px",
+            display: "block",
+          }}
         />
 
-        <h2 className="px-title" style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}>
+        <h2
+          className="px-title"
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+          }}
+        >
           Checkout
         </h2>
 
@@ -457,7 +515,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
               customerName={`${firstName || "Magic"} ${lastName || "User"}`}
               customerId={(() => {
                 try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
+                  return (
+                    localStorage.getItem("stripeCustomerId") || undefined
+                  );
                 } catch {
                   return undefined;
                 }
@@ -468,7 +528,11 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
 
         {/* Back (inside card) */}
         <div style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack}>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+          >
             ← Back to Cart
           </button>
         </div>

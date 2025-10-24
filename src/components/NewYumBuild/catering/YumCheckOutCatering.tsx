@@ -1,7 +1,9 @@
+// src/components/NewYumBuild/catering/YumCheckOutCatering.tsx
 import React, { useEffect, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../CheckoutForm";
+import { stripePromise } from "../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -21,10 +23,6 @@ import {
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
 import emailjs from "emailjs-com";
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // ⏱️ helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -465,110 +463,110 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
         )} due ${finalDueDateStr}.`
       : `Total due today: $${amountDueToday.toFixed(2)}.`;
 
-      return (
-        <div className="pixie-card pixie-card--modal">
-          {/* 🩷 Pink X Close */}
-          <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-            <img src="/assets/icons/pink_ex.png" alt="Close" />
-          </button>
-      
-          {/* Body */}
-          <div className="pixie-card__body">
-          {isGenerating ? (
-  <div className="px-center" style={{ marginTop: "10px" }}>
-    <video
-      src="/assets/videos/magic_clock.mp4"
-      autoPlay
-      loop
-      muted
-      playsInline
-      style={{
-        width: "100%",
-        maxWidth: 340,
-        borderRadius: 12,
-        margin: "0 auto 14px",
-        display: "block",
-        objectFit: "contain",
-      }}
-    />
-    {/* Big blue Jenna Sue, centered */}
-    <h3
-      className="px-title"
-      style={{
-        fontFamily: "'Jenna Sue', cursive",
-        color: "#2c62ba",
-        fontSize: "1.8rem",
-        textAlign: "center",
-        margin: 0,
-      }}
-    >
-      Madge is working her magic… hold tight!
-    </h3>
-  </div>
-) : (
-              <>
-                <video
-                  src="/assets/videos/lock.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  style={{
-                    width: 160,
-                    maxWidth: "90%",
-                    borderRadius: 12,
-                    margin: "0 auto 16px",
-                    display: "block",
-                  }}
-                />
-      
-                <h2
-                  className="px-title"
-                  style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}
-                >
-                  Checkout
-                </h2>
-      
-                <p className="px-prose-narrow" style={{ marginBottom: 16, textAlign: "center" }}>
-                  {summaryText}
-                </p>
-      
-                {/* Stripe Elements — comfortably wide */}
-                <div className="px-elements">
-                  <Elements stripe={stripePromise}>
-                    <CheckoutForm
-                      total={amountDueToday}
-                      onSuccess={handleSuccess}
-                      setStepSuccess={onComplete}
-                      isAddon={false}
-                      customerEmail={getAuth().currentUser?.email || undefined}
-                      customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-                      customerId={(() => {
-                        try {
-                          return localStorage.getItem("stripeCustomerId") || undefined;
-                        } catch {
-                          return undefined;
-                        }
-                      })()}
-                    />
-                  </Elements>
-                </div>
-      
-                {/* Back button (standard width) */}
-                <div style={{ marginTop: "1rem", textAlign: "center" }}>
-                  <button
-                    className="boutique-back-btn"
-                    style={{ width: 250 }}
-                    onClick={onBack}
-                  >
-                    ← Back
-                  </button>
-                </div>
-              </>
-            )}
+  return (
+    <div className="pixie-card pixie-card--modal">
+      {/* 🩷 Pink X Close */}
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img src="/assets/icons/pink_ex.png" alt="Close" />
+      </button>
+
+      {/* Body */}
+      <div className="pixie-card__body">
+        {isGenerating ? (
+          <div className="px-center" style={{ marginTop: "10px" }}>
+            <video
+              src="/assets/videos/magic_clock.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: "100%",
+                maxWidth: 340,
+                borderRadius: 12,
+                margin: "0 auto 14px",
+                display: "block",
+                objectFit: "contain",
+              }}
+            />
+            {/* Big blue Jenna Sue, centered */}
+            <h3
+              className="px-title"
+              style={{
+                fontFamily: "'Jenna Sue', cursive",
+                color: "#2c62ba",
+                fontSize: "1.8rem",
+                textAlign: "center",
+                margin: 0,
+              }}
+            >
+              Madge is working her magic… hold tight!
+            </h3>
           </div>
-        </div>
-      );
+        ) : (
+          <>
+            <video
+              src="/assets/videos/lock.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: 160,
+                maxWidth: "90%",
+                borderRadius: 12,
+                margin: "0 auto 16px",
+                display: "block",
+              }}
+            />
+
+            <h2
+              className="px-title"
+              style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}
+            >
+              Checkout
+            </h2>
+
+            <p className="px-prose-narrow" style={{ marginBottom: 16, textAlign: "center" }}>
+              {summaryText}
+            </p>
+
+            {/* Stripe Elements — comfortably wide */}
+            <div className="px-elements">
+              <Elements stripe={stripePromise}>
+                <CheckoutForm
+                  total={amountDueToday}
+                  onSuccess={handleSuccess}
+                  setStepSuccess={onComplete}
+                  isAddon={false}
+                  customerEmail={getAuth().currentUser?.email || undefined}
+                  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                  customerId={(() => {
+                    try {
+                      return localStorage.getItem("stripeCustomerId") || undefined;
+                    } catch {
+                      return undefined;
+                    }
+                  })()}
+                />
+              </Elements>
+            </div>
+
+            {/* Back button (standard width) */}
+            <div style={{ marginTop: "1rem", textAlign: "center" }}>
+              <button
+                className="boutique-back-btn"
+                style={{ width: 250 }}
+                onClick={onBack}
+              >
+                ← Back
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default YumCheckOutCatering;

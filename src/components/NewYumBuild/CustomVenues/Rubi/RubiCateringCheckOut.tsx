@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Rubi/RubiCateringCheckOut.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   arrayUnion,
@@ -19,17 +20,20 @@ import { db } from "../../../../firebase/firebaseConfig";
 import type { RubiTierSelectionBBQ } from "./RubiBBQTierSelector";
 import type { RubiTierSelection as RubiTierSelectionMex } from "./RubiMexTierSelector";
 
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
-
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
-  d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
 /* ---------- Types ---------- */
 export type RubiMenuChoice = "bbq" | "mexican";
-type RubiTierSelection = RubiTierSelectionBBQ | RubiTierSelectionMex;
+type RubiTierSelection =
+  | RubiTierSelectionBBQ
+  | RubiTierSelectionMex;
 
 interface Props {
   total: number; // grand total from cart
@@ -54,9 +58,12 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   onClose,
   isGenerating: isGeneratingFromOverlay,
 }) => {
-  const [localGenerating, setLocalGenerating] = useState(false);
-  const isGenerating = localGenerating || isGeneratingFromOverlay;
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [localGenerating, setLocalGenerating] =
+    useState(false);
+  const isGenerating =
+    localGenerating || isGeneratingFromOverlay;
+  const scrollRef =
+    useRef<HTMLDivElement | null>(null);
   const didRunRef = useRef(false);
 
   // === 1) Read contract handoff keys (Rubi-first, yum fallback) ===
@@ -64,7 +71,9 @@ const RubiCateringCheckOut: React.FC<Props> = ({
     try {
       return JSON.parse(
         localStorage.getItem("rubiPayFull") ??
-          localStorage.getItem("yumCateringPayFull") ??
+          localStorage.getItem(
+            "yumCateringPayFull"
+          ) ??
           "true"
       );
     } catch {
@@ -75,37 +84,50 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   const totalCents =
     Number(
       localStorage.getItem("rubiTotalCents") ??
-        localStorage.getItem("yumCateringTotalCents") ??
+        localStorage.getItem(
+          "yumCateringTotalCents"
+        ) ??
         0
     ) || Math.round(total * 100);
 
   const depositCents =
     Number(
       localStorage.getItem("rubiDepositCents") ??
-        localStorage.getItem("yumCateringDepositAmount") ??
+        localStorage.getItem(
+          "yumCateringDepositAmount"
+        ) ??
         0
-    ) || Math.round(total * 0.25 * 100);
+    ) ||
+    Math.round(total * 0.25 * 100);
 
   const planMonthsLS = Number(
     localStorage.getItem("rubiPlanMonths") ??
-      localStorage.getItem("yumCateringPlanMonths") ??
+      localStorage.getItem(
+        "yumCateringPlanMonths"
+      ) ??
       0
   );
   const perMonthCentsLS = Number(
     localStorage.getItem("rubiPerMonthCents") ??
-      localStorage.getItem("yumCateringPerMonthCents") ??
+      localStorage.getItem(
+        "yumCateringPerMonthCents"
+      ) ??
       0
   );
   const lastPaymentCentsLS = Number(
     localStorage.getItem("rubiLastPaymentCents") ??
-      localStorage.getItem("yumCateringLastPaymentCents") ??
+      localStorage.getItem(
+        "yumCateringLastPaymentCents"
+      ) ??
       0
   );
 
   // Wedding date handoff (optional)
-  const weddingDateISO = localStorage.getItem("rubiDueBy") || ""; // store whatever you want upstream
+  const weddingDateISO =
+    localStorage.getItem("rubiDueBy") || ""; // store whatever you want upstream
   const finalDueDateStr = (() => {
-    if (!weddingDateISO) return "35 days before your wedding date";
+    if (!weddingDateISO)
+      return "35 days before your wedding date";
     const base = new Date(weddingDateISO);
     return toPretty(base);
   })();
@@ -117,19 +139,31 @@ const RubiCateringCheckOut: React.FC<Props> = ({
     0;
 
   // Amount due now
-  const amountDueTodayCents = payFull ? totalCents : depositCents;
-  const amountDueToday = round2(amountDueTodayCents / 100);
-  const remainingBalance = round2(Math.max(0, total - amountDueToday));
+  const amountDueTodayCents = payFull
+    ? totalCents
+    : depositCents;
+  const amountDueToday = round2(
+    amountDueTodayCents / 100
+  );
+  const remainingBalance = round2(
+    Math.max(0, total - amountDueToday)
+  );
 
   // Minimal user info
-  const [firstName, setFirstName] = useState<string>("Magic");
-  const [lastName, setLastName] = useState<string>("User");
+  const [firstName, setFirstName] = useState<string>(
+    "Magic"
+  );
+  const [lastName, setLastName] = useState<string>(
+    "User"
+  );
   useEffect(() => {
     (async () => {
       const user = getAuth().currentUser;
       if (!user) return;
       try {
-        const snap = await getDoc(doc(db, "users", user.uid));
+        const snap = await getDoc(
+          doc(db, "users", user.uid)
+        );
         const data = snap.data() || {};
         setFirstName(data.firstName || "Magic");
         setLastName(data.lastName || "User");
@@ -140,7 +174,11 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   }, []);
 
   // === 2) On successful payment ===
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}) => {
     if (didRunRef.current) return; // guard double-fire
     didRunRef.current = true;
 
@@ -156,47 +194,79 @@ const RubiCateringCheckOut: React.FC<Props> = ({
       const userDoc = snap.data() || {};
 
       // Save Stripe customer id if new
-      if (customerId && customerId !== userDoc?.stripeCustomerId) {
+      if (
+        customerId &&
+        customerId !== userDoc?.stripeCustomerId
+      ) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
-          "stripe.updatedAt": serverTimestamp(),
+          "stripe.updatedAt":
+            serverTimestamp(),
         });
         try {
-          localStorage.setItem("stripeCustomerId", customerId);
+          localStorage.setItem(
+            "stripeCustomerId",
+            customerId
+          );
         } catch {}
       }
 
-      const purchaseDate = new Date().toISOString();
+      const purchaseDate =
+        new Date().toISOString();
 
       // Immediately route UI to Thank You (snappy)
       try {
-        localStorage.setItem("rubiJustBookedCatering", "true");
-        localStorage.setItem("rubiCateringBooked", "true");
-        localStorage.setItem("yumStep", "rubiCateringThankYou");
+        localStorage.setItem(
+          "rubiJustBookedCatering",
+          "true"
+        );
+        localStorage.setItem(
+          "rubiCateringBooked",
+          "true"
+        );
+        localStorage.setItem(
+          "yumStep",
+          "rubiCateringThankYou"
+        );
       } catch {}
-      window.dispatchEvent(new Event("purchaseMade"));
+      window.dispatchEvent(
+        new Event("purchaseMade")
+      );
       onComplete();
 
       // Persist snapshots & payment plan meta
       const planMonths = planMonthsLS || 0;
-      const perMonthCents = perMonthCentsLS || 0;
-      const lastPaymentCents = lastPaymentCentsLS || 0;
+      const perMonthCents =
+        perMonthCentsLS || 0;
+      const lastPaymentCents =
+        lastPaymentCentsLS || 0;
       const nextChargeAt =
         !payFull && planMonths > 0
-          ? new Date(Date.now() + 60 * 1000).toISOString()
+          ? new Date(
+              Date.now() + 60 * 1000
+            ).toISOString()
           : null;
 
-      const amountNow = Number((amountDueTodayCents / 100).toFixed(2));
+      const amountNow = Number(
+        (amountDueTodayCents / 100).toFixed(2)
+      );
 
       await setDoc(
-        doc(userRef, "pricingSnapshots", "rubiCatering"),
+        doc(
+          userRef,
+          "pricingSnapshots",
+          "rubiCatering"
+        ),
         {
           booked: true,
           guestCountAtBooking: guestCount,
           perGuest: perGuestPrice,
           caterer: "Brother John's Catering",
           menuChoice,
-          tier: tierSelection?.prettyName || tierSelection?.id || "",
+          tier:
+            tierSelection?.prettyName ||
+            tierSelection?.id ||
+            "",
           selections: {}, // selections already captured in Firestore during Contract step
           lineItems,
           totalBooked: total,
@@ -207,46 +277,68 @@ const RubiCateringCheckOut: React.FC<Props> = ({
       );
 
       await updateDoc(userRef, {
-        "progress.yumYum.step": "rubiCateringThankYou",
+        "progress.yumYum.step":
+          "rubiCateringThankYou",
         purchases: arrayUnion({
-          label: `Catering — Brother John’s ${menuChoice === "bbq" ? "BBQ" : "Mexican"} (${tierSelection?.prettyName || ""})`,
+          label: `Catering — Brother John’s ${
+            menuChoice === "bbq"
+              ? "BBQ"
+              : "Mexican"
+          } (${
+            tierSelection?.prettyName || ""
+          })`,
           amount: amountNow,
           date: purchaseDate,
-          method: payFull ? "full" : "deposit",
+          method: payFull
+            ? "full"
+            : "deposit",
         }),
         spendTotal: increment(amountNow),
         paymentPlan: payFull
           ? {
-              product: "rubi-catering",
+              product:
+                "rubi-catering",
               type: "full",
               total,
-              paidNow: amountNow,
+              paidNow:
+                amountNow,
               remainingBalance: 0,
               finalDueDate: null,
               finalDueAt: null,
               depositPercent: 1,
-              createdAt: new Date().toISOString(),
+              createdAt:
+                new Date().toISOString(),
             }
           : {
-              product: "rubi-catering",
+              product:
+                "rubi-catering",
               type: "deposit",
               total,
               depositPercent: 0.25,
-              paidNow: amountNow,
+              paidNow:
+                amountNow,
               remainingBalance,
-              finalDueDate: finalDueDateStr,
-              finalDueAt: localStorage.getItem("rubiDueBy") || null,
-              createdAt: new Date().toISOString(),
+              finalDueDate:
+                finalDueDateStr,
+              finalDueAt:
+                localStorage.getItem(
+                  "rubiDueBy"
+                ) || null,
+              createdAt:
+                new Date().toISOString(),
             },
         paymentPlanAuto: payFull
           ? {
               version: 1,
-              product: "rubi-catering",
+              product:
+                "rubi-catering",
               status: "complete",
-              strategy: "paid_in_full",
+              strategy:
+                "paid_in_full",
               currency: "usd",
               totalCents,
-              depositCents: totalCents,
+              depositCents:
+                totalCents,
               remainingCents: 0,
               planMonths: 0,
               perMonthCents: 0,
@@ -254,37 +346,69 @@ const RubiCateringCheckOut: React.FC<Props> = ({
               nextChargeAt: null,
               finalDueAt: null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem(
+                  "stripeCustomerId"
+                ) ||
+                null,
               menuChoice,
-              tier: tierSelection?.prettyName || tierSelection?.id || "",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              tier:
+                tierSelection?.prettyName ||
+                tierSelection?.id ||
+                "",
+              createdAt:
+                new Date().toISOString(),
+              updatedAt:
+                new Date().toISOString(),
             }
           : {
               version: 1,
-              product: "rubi-catering",
+              product:
+                "rubi-catering",
               status: "active",
-              strategy: "monthly_until_final",
+              strategy:
+                "monthly_until_final",
               currency: "usd",
               totalCents,
               depositCents,
-              remainingCents: Math.max(0, totalCents - depositCents),
+              remainingCents: Math.max(
+                0,
+                totalCents -
+                  depositCents
+              ),
               planMonths,
               perMonthCents,
               lastPaymentCents,
               nextChargeAt,
-              finalDueAt: localStorage.getItem("rubiDueBy") || null,
+              finalDueAt:
+                localStorage.getItem(
+                  "rubiDueBy"
+                ) || null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem(
+                  "stripeCustomerId"
+                ) ||
+                null,
               menuChoice,
-              tier: tierSelection?.prettyName || tierSelection?.id || "",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              tier:
+                tierSelection?.prettyName ||
+                tierSelection?.id ||
+                "",
+              createdAt:
+                new Date().toISOString(),
+              updatedAt:
+                new Date().toISOString(),
             },
       });
     } catch (err) {
-      console.error("❌ Error in Rubi Catering checkout:", err);
-      alert("Something went wrong saving your receipt. Please contact support.");
+      console.error(
+        "❌ Error in Rubi Catering checkout:",
+        err
+      );
+      alert(
+        "Something went wrong saving your receipt. Please contact support."
+      );
     } finally {
       setLocalGenerating(false);
     }
@@ -293,13 +417,26 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   // Spinner view (standardized)
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 700 }}
+      >
         {/* 🩷 Pink X */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src="/assets/icons/pink_ex.png"
+            alt="Close"
+          />
         </button>
 
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
           <video
             src="/assets/videos/magic_clock.mp4"
             autoPlay
@@ -307,14 +444,28 @@ const RubiCateringCheckOut: React.FC<Props> = ({
             muted
             playsInline
             className="px-media"
-            style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
+            style={{
+              width: "100%",
+              maxWidth: 340,
+              borderRadius: 12,
+              margin: "0 auto 14px",
+              display: "block",
+            }}
           />
-          <h3 className="px-title" style={{ margin: 0 }}>
+          <h3
+            className="px-title"
+            style={{ margin: 0 }}
+          >
             Madge is working her magic…
           </h3>
 
           <div style={{ marginTop: 12 }}>
-            <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
+            <button
+              className="boutique-back-btn"
+              style={{ width: 250 }}
+              onClick={onBack}
+              disabled
+            >
               ← Back to Cart
             </button>
           </div>
@@ -324,19 +475,39 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   }
 
   const summaryText = payFull
-    ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
-    : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
+    ? `Total due today: $${(
+        amountDueTodayCents / 100
+      ).toFixed(2)}.`
+    : `Deposit due today: $${(
+        amountDueTodayCents / 100
+      ).toFixed(
         2
-      )} (25%). Remaining $${remainingBalance.toFixed(2)} — final payment due ${finalDueDateStr}.`;
+      )} (25%). Remaining $${remainingBalance.toFixed(
+        2
+      )} — final payment due ${finalDueDateStr}.`;
 
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700 }}
+    >
       {/* 🩷 Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src="/assets/icons/pink_ex.png"
+          alt="Close"
+        />
       </button>
 
-      <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        ref={scrollRef}
+        style={{ textAlign: "center" }}
+      >
         <video
           src="/assets/videos/lock.mp4"
           autoPlay
@@ -344,14 +515,30 @@ const RubiCateringCheckOut: React.FC<Props> = ({
           muted
           playsInline
           className="px-media"
-          style={{ width: 160, maxWidth: "90%", borderRadius: 12, margin: "0 auto 16px", display: "block" }}
+          style={{
+            width: 160,
+            maxWidth: "90%",
+            borderRadius: 12,
+            margin: "0 auto 16px",
+            display: "block",
+          }}
         />
 
-        <h2 className="px-title" style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8 }}>
+        <h2
+          className="px-title"
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+          }}
+        >
           Checkout
         </h2>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+        <p
+          className="px-prose-narrow"
+          style={{ marginBottom: 16 }}
+        >
           {summaryText}
         </p>
 
@@ -363,11 +550,21 @@ const RubiCateringCheckOut: React.FC<Props> = ({
               onSuccess={handleSuccess}
               setStepSuccess={onComplete}
               isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+              customerEmail={
+                getAuth()
+                  .currentUser?.email ||
+                undefined
+              }
+              customerName={`${firstName || "Magic"} ${
+                lastName || "User"
+              }`}
               customerId={(() => {
                 try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
+                  return (
+                    localStorage.getItem(
+                      "stripeCustomerId"
+                    ) || undefined
+                  );
                 } catch {
                   return undefined;
                 }
@@ -378,7 +575,11 @@ const RubiCateringCheckOut: React.FC<Props> = ({
 
         {/* Back (inside card) */}
         <div style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack}>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+          >
             ← Back to Cart
           </button>
         </div>

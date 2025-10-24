@@ -1,14 +1,20 @@
 // src/components/planner/PlannerCheckOut.tsx
 import React, { useState, useRef } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { stripePromise } from "../../utils/stripePromise";
 import { useUser } from "../../contexts/UserContext";
 import CheckoutForm from "../../CheckoutForm";
 import { generatePlannerAgreementPDF } from "../../utils/generatePlannerAgreementPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
 import { getAuth } from "firebase/auth";
 import {
-  doc, getDoc, setDoc, updateDoc, arrayUnion, increment, serverTimestamp,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  increment,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import emailjs from "@emailjs/browser";
@@ -21,7 +27,7 @@ interface PlannerCheckOutProps {
   onBackToContract?: () => void;
 
   total: number;
-  depositAmount: number;   // 200 for planner
+  depositAmount: number; // 200 for planner
   payFull: boolean;
   paymentSummary: string;
   signatureImage: string;
@@ -35,15 +41,22 @@ interface PlannerCheckOutProps {
   uid: string;
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
-
 // money utils
-const toCents   = (n: number) => Math.round((Number(n) || 0) * 100);
+const toCents = (n: number) => Math.round((Number(n) || 0) * 100);
 const fromCents = (c: number) => (Number(c) || 0) / 100;
 
 // helper: first second of that day (UTC) for cron safety
 const asStartOfDayUTC = (d: Date) =>
-  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+  new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      0,
+      0,
+      1
+    )
+  );
 
 const FINAL_DUE_DAYS = 35;
 
@@ -85,7 +98,10 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
   const fmtMoney = (n: number) =>
     Number.isFinite(n)
-      ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ? n.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
       : "0.00";
 
   // ───────────────── Amounts due (rounded in cents) ─────────────────
@@ -107,13 +123,23 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
     (storedWeddingDate && String(storedWeddingDate)) ||
     "";
 
-  const parsedWedding = weddingDateSafe ? new Date(`${weddingDateSafe}T12:00:00`) : null;
+  const parsedWedding = weddingDateSafe
+    ? new Date(`${weddingDateSafe}T12:00:00`)
+    : null;
+
   const finalDueDate = parsedWedding
-    ? new Date(parsedWedding.getTime() - FINAL_DUE_DAYS * 24 * 60 * 60 * 1000)
+    ? new Date(
+        parsedWedding.getTime() -
+          FINAL_DUE_DAYS * 24 * 60 * 60 * 1000
+      )
     : null;
 
   const finalDueDateStr = finalDueDate
-    ? finalDueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    ? finalDueDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
   // Build a monthly plan (even spread, last payment adjusted) if not paying in full
@@ -121,7 +147,9 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
   const monthsBetweenInclusive = (from: Date, to: Date) => {
     const a = new Date(from.getFullYear(), from.getMonth(), 1);
     const b = new Date(to.getFullYear(), to.getMonth(), 1);
-    let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    let months =
+      (b.getFullYear() - a.getFullYear()) * 12 +
+      (b.getMonth() - a.getMonth());
     if (to.getDate() >= from.getDate()) months += 1;
     return Math.max(1, months);
   };
@@ -136,12 +164,17 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
     const remCents = toCents(remainingBalance);
     const base = Math.floor(remCents / Math.max(1, planMonths));
     perMonthCents = base;
-    lastPaymentCents = remCents - base * Math.max(0, planMonths - 1);
+    lastPaymentCents =
+      remCents - base * Math.max(0, planMonths - 1);
     nextChargeAtISO = asStartOfDayUTC(new Date(today)).toISOString();
   }
 
   // ───────────────── Success handler (Stripe) ─────────────────
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -153,16 +186,26 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
     // Save stripeCustomerId if provided
     try {
-      const existingId = data?.stripeCustomerId as string | undefined;
+      const existingId = data?.stripeCustomerId as
+        | string
+        | undefined;
       if (customerId && customerId !== existingId) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
           "stripe.updatedAt": serverTimestamp(),
         });
-        try { localStorage.setItem("stripeCustomerId", customerId); } catch {}
+        try {
+          localStorage.setItem(
+            "stripeCustomerId",
+            customerId
+          );
+        } catch {}
       }
     } catch (e) {
-      console.warn("Could not persist stripeCustomerId:", e);
+      console.warn(
+        "Could not persist stripeCustomerId:",
+        e
+      );
     }
 
     // Ensure a default PM exists for off-session billing
@@ -171,16 +214,25 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
         "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            customerId: customerId || localStorage.getItem("stripeCustomerId"),
+            customerId:
+              customerId ||
+              localStorage.getItem("stripeCustomerId"),
             firebaseUid: user.uid,
           }),
         }
       );
-      console.log("✅ Ensured default PM for planner customer");
+      console.log(
+        "✅ Ensured default PM for planner customer"
+      );
     } catch (err) {
-      console.error("❌ ensure-default-payment-method error:", err);
+      console.error(
+        "❌ ensure-default-payment-method error:",
+        err
+      );
     }
 
     setIsGenerating(true);
@@ -189,24 +241,32 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
       // ---------- 1) Try to generate & upload PDF
       let url: string | null = null;
       try {
-        const blob = await generatePlannerAgreementPDF({
-          firstName,
-          lastName,
-          total,
-          deposit: payFull ? 0 : amountDueToday,
-          paymentSummary,
-          weddingDate: weddingDateSafe,
-          guestCount,
-          dayOfWeek,
-          signatureImageUrl: signatureImage,
-        });
+        const blob =
+          await generatePlannerAgreementPDF({
+            firstName,
+            lastName,
+            total,
+            deposit: payFull ? 0 : amountDueToday,
+            paymentSummary,
+            weddingDate: weddingDateSafe,
+            guestCount,
+            dayOfWeek,
+            signatureImageUrl:
+              signatureImage,
+          });
 
         const ts = Date.now();
         const fileName = `PlannerAgreement_${ts}.pdf`;
         const filePath = `public_docs/${user.uid}/${fileName}`;
-        url = await uploadPdfBlob(blob, filePath);
+        url = await uploadPdfBlob(
+          blob,
+          filePath
+        );
       } catch (pdfErr) {
-        console.error("❌ PDF generation/upload failed; continuing:", pdfErr);
+        console.error(
+          "❌ PDF generation/upload failed; continuing:",
+          pdfErr
+        );
       }
 
       // ---------- 2) Build payment plan snapshots
@@ -220,18 +280,26 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
             finalDueDate: null,
             finalDueAt: null,
             depositDollars: total,
-            createdAt: new Date().toISOString(),
+            createdAt:
+              new Date().toISOString(),
           }
         : {
             product: "planner",
             type: "deposit",
             total,
-            depositDollars: amountDueToday,
+            depositDollars:
+              amountDueToday,
             paidNow: amountDueToday,
             remainingBalance,
-            finalDueDate: finalDueDateStr,
-            finalDueAt: finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null,
-            createdAt: new Date().toISOString(),
+            finalDueDate:
+              finalDueDateStr,
+            finalDueAt: finalDueDate
+              ? asStartOfDayUTC(
+                  finalDueDate
+                ).toISOString()
+              : null,
+            createdAt:
+              new Date().toISOString(),
           };
 
       const machinePlan = payFull
@@ -239,37 +307,63 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
             version: 1,
             product: "planner",
             status: "complete",
-            strategy: "paid_in_full",
+            strategy:
+              "paid_in_full",
             currency: "usd",
-            totalCents: toCents(total),
-            depositCents: toCents(total),
+            totalCents:
+              toCents(total),
+            depositCents:
+              toCents(total),
             remainingCents: 0,
             planMonths: 0,
             perMonthCents: 0,
             lastPaymentCents: 0,
             nextChargeAt: null,
             finalDueAt: null,
-            stripeCustomerId: customerId || localStorage.getItem("stripeCustomerId") || null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            stripeCustomerId:
+              customerId ||
+              localStorage.getItem(
+                "stripeCustomerId"
+              ) ||
+              null,
+            createdAt:
+              new Date().toISOString(),
+            updatedAt:
+              new Date().toISOString(),
           }
         : {
             version: 1,
             product: "planner",
             status: "active",
-            strategy: "monthly_until_final",
+            strategy:
+              "monthly_until_final",
             currency: "usd",
-            totalCents: toCents(total),
-            depositCents: toCents(amountDueToday),
-            remainingCents: toCents(remainingBalance),
+            totalCents:
+              toCents(total),
+            depositCents:
+              toCents(amountDueToday),
+            remainingCents:
+              toCents(remainingBalance),
             planMonths,
             perMonthCents,
             lastPaymentCents,
-            nextChargeAt: nextChargeAtISO,
-            finalDueAt: finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null,
-            stripeCustomerId: customerId || localStorage.getItem("stripeCustomerId") || null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            nextChargeAt:
+              nextChargeAtISO,
+            finalDueAt: finalDueDate
+              ? asStartOfDayUTC(
+                  finalDueDate
+                ).toISOString()
+              : null,
+            stripeCustomerId:
+              customerId ||
+              localStorage.getItem(
+                "stripeCustomerId"
+              ) ||
+              null,
+            createdAt:
+              new Date().toISOString(),
+            updatedAt:
+              new Date().toISOString(),
           };
 
       // ---------- 3) Save purchase + docs
@@ -282,77 +376,162 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
         purchases: arrayUnion({
           label: "Pixie Planner",
           category: "planner",
-          amount: Number(amountDueToday.toFixed(2)),          // charged today
-          contractTotal: Number(total.toFixed(2)),            // full commitment
-          payFull: Boolean(payFull),
-          deposit: payFull ? Number(total.toFixed(2)) : Number(amountDueToday.toFixed(2)),
-          monthlyAmount: payFull ? 0 : +(perMonthCents / 100).toFixed(2),
-          months: payFull ? 0 : planMonths,
-          method: payFull ? "full" : "deposit",
+          amount: Number(
+            amountDueToday.toFixed(2)
+          ), // charged today
+          contractTotal: Number(
+            total.toFixed(2)
+          ), // full commitment
+          payFull: Boolean(
+            payFull
+          ),
+          deposit: payFull
+            ? Number(
+                total.toFixed(2)
+              )
+            : Number(
+                amountDueToday.toFixed(
+                  2
+                )
+              ),
+          monthlyAmount: payFull
+            ? 0
+            : +(
+                perMonthCents / 100
+              ).toFixed(2),
+          months: payFull
+            ? 0
+            : planMonths,
+          method: payFull
+            ? "full"
+            : "deposit",
           date: new Date().toISOString(),
-          weddingDate: weddingDateSafe || null,
+          weddingDate:
+            weddingDateSafe ||
+            null,
           docUrl: url || null,
-          createdAtISO: new Date().toISOString(),
-          source: "PlannerCheckOut",
+          createdAtISO:
+            new Date().toISOString(),
+          source:
+            "PlannerCheckOut",
         }),
 
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(
+          Number(
+            amountDueToday.toFixed(
+              2
+            )
+          )
+        ),
         paymentPlan: humanPlan,
         paymentPlanAuto: machinePlan,
       };
 
       if (url) {
         updates.documents = arrayUnion({
-          title: "Pixie Planner Agreement",
+          title:
+            "Pixie Planner Agreement",
           url,
-          uploadedAt: new Date().toISOString(),
+          uploadedAt:
+            new Date().toISOString(),
         });
       }
 
-      await updateDoc(userRef, updates);
+      await updateDoc(
+        userRef,
+        updates
+      );
 
       // ---------- 4) Admin heads-up
       try {
-        const fullName = `${firstName || "Magic"} ${lastName || "User"}`.trim();
-        await emailjs.send("service_xayel1i", "template_nvsea3z", {
-          user_name: fullName,
-          user_email: userData?.email || "unknown@wedndone.com",
-          wedding_date: weddingDateSafe || "TBD",
-          total: total.toFixed(2),
-          line_items: `Planner Coordination for ${guestCount} guests`,
-          pdf_url: url || "",
-          pdf_title: "Pixie Planner Agreement",
-          payment_now: amountDueToday.toFixed(2),
-          remaining_balance: remainingBalance.toFixed(2),
-          final_due: finalDueDateStr,
-        });
+        const fullName = `${firstName || "Magic"} ${
+          lastName || "User"
+        }`.trim();
+        await emailjs.send(
+          "service_xayel1i",
+          "template_nvsea3z",
+          {
+            user_name:
+              fullName,
+            user_email:
+              userData?.email ||
+              "unknown@wedndone.com",
+            wedding_date:
+              weddingDateSafe ||
+              "TBD",
+            total: total.toFixed(
+              2
+            ),
+            line_items: `Planner Coordination for ${guestCount} guests`,
+            pdf_url: url || "",
+            pdf_title:
+              "Pixie Planner Agreement",
+            payment_now:
+              amountDueToday.toFixed(
+                2
+              ),
+            remaining_balance:
+              remainingBalance.toFixed(
+                2
+              ),
+            final_due:
+              finalDueDateStr,
+          }
+        );
       } catch (mailErr) {
-        console.warn("EmailJS failed:", mailErr);
+        console.warn(
+          "EmailJS failed:",
+          mailErr
+        );
       }
 
       // ---------- 5) UI updates
-      window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(new Event("plannerCompletedNow"));
+      window.dispatchEvent(
+        new Event("purchaseMade")
+      );
+      window.dispatchEvent(
+        new Event("plannerCompletedNow")
+      );
       setIsGenerating(false);
       onSuccess();
     } catch (err) {
-      console.error("Planner finalize error (outer):", err);
+      console.error(
+        "Planner finalize error (outer):",
+        err
+      );
       setIsGenerating(false);
       onSuccess();
     }
   };
 
   return (
-    <div className="pixie-card pixie-card--modal">
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700 }}
+    >
       {/* 🩷 Pink X Close */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src="/assets/icons/pink_ex.png"
+          alt="Close"
+        />
       </button>
 
       {/* Body */}
-      <div ref={scrollRef} className="pixie-card__body">
+      <div
+        ref={scrollRef}
+        className="pixie-card__body"
+        style={{ textAlign: "center" }}
+      >
         {isGenerating ? (
-          <div className="px-center" style={{ marginTop: "10px" }}>
+          <div
+            className="px-center"
+            style={{ marginTop: "10px" }}
+          >
             <video
               src="/assets/videos/magic_clock.mp4"
               autoPlay
@@ -367,8 +546,14 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
                 display: "block",
               }}
             />
-            <h3 className="px-title" style={{ margin: 0 }}>
-              Madge is working her magic… hold tight!
+            <h3
+              className="px-title"
+              style={{
+                margin: 0,
+              }}
+            >
+              Madge is working her
+              magic…
             </h3>
           </div>
         ) : (
@@ -390,43 +575,96 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
             <h2
               className="px-title"
-              style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: "8px" }}
+              style={{
+                fontFamily:
+                  "'Jenna Sue', cursive",
+                fontSize:
+                  "1.9rem",
+                marginBottom:
+                  "8px",
+              }}
             >
               Checkout
             </h2>
 
             {/* amount text with strict formatting */}
-            <p className="px-prose-narrow" style={{ marginBottom: "16px" }}>
+            <p
+              className="px-prose-narrow"
+              style={{
+                marginBottom:
+                  "16px",
+              }}
+            >
               {paymentSummary
                 ? paymentSummary
                 : payFull
-                  ? `You're paying $${fmtMoney(total)} today.`
-                  : `Deposit due today: $${fmtMoney(amountDueToday)}. Remaining $${fmtMoney(
-                      remainingBalance
-                    )} will be billed monthly with the final payment due ${finalDueDateStr}.`}
+                ? `You're paying $${fmtMoney(
+                    total
+                  )} today.`
+                : `Deposit due today: $${fmtMoney(
+                    amountDueToday
+                  )}. Remaining $${fmtMoney(
+                    remainingBalance
+                  )} will be billed monthly with the final payment due ${finalDueDateStr}.`}
             </p>
 
             {/* Stripe Elements */}
             <div className="px-elements">
-              <Elements stripe={stripePromise}>
+              <Elements
+                stripe={stripePromise}
+              >
                 <CheckoutForm
                   total={amountDueToday}
-                  onSuccess={handleSuccess}        // receives { customerId }
-                  setStepSuccess={onSuccess}
-                  isAddon={false}
-                  customerEmail={getAuth().currentUser?.email || undefined}
-                  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                  onSuccess={
+                    handleSuccess
+                  } // receives { customerId }
+                  setStepSuccess={
+                    onSuccess
+                  }
+                  isAddon={
+                    false
+                  }
+                  customerEmail={
+                    getAuth()
+                      .currentUser
+                      ?.email ||
+                    undefined
+                  }
+                  customerName={`${firstName || "Magic"} ${
+                    lastName || "User"
+                  }`}
                   customerId={(() => {
-                    try { return localStorage.getItem("stripeCustomerId") || undefined; }
-                    catch { return undefined; }
+                    try {
+                      return (
+                        localStorage.getItem(
+                          "stripeCustomerId"
+                        ) ||
+                        undefined
+                      );
+                    } catch {
+                      return undefined;
+                    }
                   })()}
                 />
               </Elements>
             </div>
 
             {/* Back to contract (optional) */}
-            <div style={{ textAlign: "center", marginTop: "10px" }}>
-              <button className="boutique-back-btn" onClick={back} style={{ minWidth: 160 }}>
+            <div
+              style={{
+                textAlign:
+                  "center",
+                marginTop:
+                  "10px",
+              }}
+            >
+              <button
+                className="boutique-back-btn"
+                onClick={back}
+                style={{
+                  minWidth: 160,
+                }}
+              >
                 ← Back
               </button>
             </div>

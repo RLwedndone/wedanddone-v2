@@ -1,9 +1,8 @@
 // src/components/MenuScreens/GuestListScroll.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../CheckoutForm";
-
+import { stripePromise } from "../../utils/stripePromise";
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
@@ -23,10 +22,6 @@ import {
   setAndLockGuestCount,
   type GuestLockReason,
 } from "../../utils/guestCountStore";
-
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
 
 // ---------- pricing snapshot types ----------
 type PlannerTier = { id: string; name: string; maxGuests: number; price: number };
@@ -154,10 +149,10 @@ function calcGuestDelta(
   const subtotal = venueSubtotal + cateringSubtotal + dessertSubtotal + plannerSubtotal;
   const tax = +(subtotal * taxRate).toFixed(2);
 
-// Stripe fee is based on subtotal + tax
-const stripeFee = +((subtotal + tax) * STRIPE_RATE + STRIPE_FLAT).toFixed(2);
+  // Stripe fee is based on subtotal + tax
+  const stripeFee = +((subtotal + tax) * STRIPE_RATE + STRIPE_FLAT).toFixed(2);
 
-const totalDueNow = +(subtotal + tax + stripeFee).toFixed(2);
+  const totalDueNow = +(subtotal + tax + stripeFee).toFixed(2);
 
   let plannerExplain: DeltaBreakdown["plannerExplain"] = null;
   if (plannerCalc.newTier) {
@@ -188,7 +183,7 @@ const totalDueNow = +(subtotal + tax + stripeFee).toFixed(2);
     perGuestVenue: perGuestVenue || undefined,
     perGuestCatering: perGuestCatering || undefined,
     plannerExplain,
-    stripeFee,   
+    stripeFee,
   };
 }
 
@@ -325,9 +320,9 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     try {
       // 1) persist + lock with reason "final"
       // ✅ new (keep the lock semantics the same as before)
-await setGuestCount(value);
-window.dispatchEvent(new Event("guestCountUpdated"));
-window.dispatchEvent(new Event("guestCountLocked"));
+      await setGuestCount(value);
+      window.dispatchEvent(new Event("guestCountUpdated"));
+      window.dispatchEvent(new Event("guestCountLocked"));
       window.dispatchEvent(new Event("guestCountUpdated"));
       window.dispatchEvent(new Event("guestCountLocked"));
 
@@ -405,200 +400,201 @@ window.dispatchEvent(new Event("guestCountLocked"));
   };
 
   return (
-  <div style={styles.backdrop}>
-    <div style={styles.card}>
-      {/* Header (centered title, absolute close button) */}
-      <div style={styles.header}>
-        <h2 style={styles.h2Centered}>Add More Guests</h2>
-        <button onClick={onClose} style={styles.closeAbs} aria-label="Close">
-          ✖
-        </button>
-      </div>
+    <div style={styles.backdrop}>
+      <div style={styles.card}>
+        {/* Header (centered title, absolute close button) */}
+        <div style={styles.header}>
+          <h2 style={styles.h2Centered}>Add More Guests</h2>
+          <button onClick={onClose} style={styles.closeAbs} aria-label="Close">
+            ✖
+          </button>
+        </div>
 
-      {/* Hero video */}
-      <video
-        src="/assets/videos/wedding_guests.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        style={styles.heroVideo}
-      />
-
-      {loading ? (
-        <div>Loading…</div>
-      ) : (
-        <>
-          <p style={styles.sub}>
-            More RSVPs than you thought? No problem! Use this little counter to add to your
-            guest count. Our magic system will calculate the additional cost and show you
-            exactly how much more you’ll need to pay for those extra partiers!
-          </p>
-
-          {/* Counter */}
-          <div style={styles.counterWrap}>
-            <div style={styles.bigNumber} aria-live="polite">
-              {pretty}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button onClick={() => bump(1)} style={styles.bumpBtn}>
-                +1
-              </button>
-              <button onClick={() => bump(10)} style={styles.bumpBtn}>
-                +10
-              </button>
-            </div>
-          </div>
-
-          {/* Exact entry */}
-          <div style={styles.exactRow}>
-            <label style={styles.exactLabel} htmlFor="guestCountField">
-              Enter exact number
-            </label>
-            <input
-              id="guestCountField"
-              type="number"
-              value={value}
-              min={original}
-              max={2000}
-              disabled={locked}
-              onChange={(e) => setValue(clamp(Number(e.target.value), original, 2000))}
-              style={{ ...styles.input, opacity: locked ? 0.6 : 1 }}
-            />
-          </div>
-
-          {/* Breakdown */}
-          <div style={styles.breakdownCard}>
-            <div style={styles.breakdownTitle}>
-              {delta.deltaGuests > 0 ? `Additional guests: +${delta.deltaGuests}` : "No change to guest count"}
-            </div>
-
-            <div style={styles.totalLine}>
-              Total due now: <strong>${delta.totalDueNow.toFixed(2)}</strong>
-            </div>
-
-            <div style={styles.notes}>
-              {delta.deltaGuests > 0 &&
-                snapshots.catering?.booked &&
-                (delta.perGuestCatering ?? 0) > 0 && (
-                  <div>
-                    • Per person catering cost: <strong>${(delta.perGuestCatering || 0).toFixed(2)}</strong>
-                  </div>
-                )}
-              {delta.deltaGuests > 0 &&
-                snapshots.venue?.booked &&
-                (delta.perGuestVenue ?? 0) > 0 && (
-                  <div>
-                    • Per person venue cost: <strong>${(delta.perGuestVenue || 0).toFixed(2)}</strong>
-                  </div>
-                )}
-                {delta.deltaGuests > 0 &&
-  snapshots.dessert?.booked &&
-  snapshots.dessert?.isPerGuest &&
-  (snapshots.dessert?.perGuest ?? 0) > 0 && (
-    <div>
-      • Per person charcuterie add-on:{" "}
-      <strong>${(snapshots.dessert!.perGuest || 0).toFixed(2)}</strong>
-    </div>
-)}
-              {delta.plannerSubtotal > 0 && delta.plannerExplain && (
-                <div style={{ marginTop: 6 }}>
-                  • Planner tier change:&nbsp;
-                  {delta.plannerExplain.originalLabel && (
-                    <>
-                      originally included: <strong>{delta.plannerExplain.originalLabel}</strong>;{" "}
-                    </>
-                  )}
-                  new tier: <strong>{delta.plannerExplain.newLabel}</strong>
-                  {typeof delta.plannerExplain.includedValue === "number" &&
-                    delta.plannerExplain.includedValue > 0 && (
-                      <> (includes venue credit ${delta.plannerExplain.includedValue.toFixed(2)})</>
-                    )}
-                  ; difference due: <strong>${(delta.plannerExplain.diff || 0).toFixed(2)}</strong>
-                </div>
-              )}
-              {(delta.tax > 0 || delta.stripeFee > 0) && (
-                <div>
-                  • Taxes &amp; fees:{" "}
-                  <strong>${(delta.tax + (delta.stripeFee || 0)).toFixed(2)}</strong>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
-            <button
-              className="boutique-primary-btn"
-              disabled={value < original}
-              onClick={handleLockAndMaybePay}
-              style={styles.cta}
-            >
-              Submit &amp; lock final guest count
-            </button>
-          </div>
-
-          {/* Inline Stripe overlay */}
-          {showCheckout && delta.totalDueNow > 0 && (
-  <div style={styles.overlay}>
-    <div style={styles.overlayCard}>
-      {/* Floating lock video (same vibe as other checkouts) */}
-      <video
-        src="/assets/videos/lock.mp4"
-        autoPlay
-        muted
-        playsInline
-        loop
-        style={{
-          width: "140px",
-          display: "block",
-          margin: "0 auto 0.5rem",
-          borderRadius: "12px",
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Bigger, brandy title */}
-      <h3
-        style={{
-          margin: "0.25rem 0 0.25rem",
-          color: "#2c62ba",
-          fontSize: "2rem",
-          lineHeight: 1.2,
-          fontWeight: 800,
-          fontFamily: "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif",
-        }}
-      >
-        Final Balance
-      </h3>
-
-      <p style={{ marginTop: 6, fontSize: "1.1rem" }}>
-        Amount due now: <strong>${delta.totalDueNow.toFixed(2)}</strong>
-      </p>
-
-      <Elements stripe={stripePromise}>
-        <CheckoutForm
-          total={delta.totalDueNow}
-          onSuccess={handleStripeSuccess}
-          isAddon={false}
+        {/* Hero video */}
+        <video
+          src="/assets/videos/wedding_guests.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={styles.heroVideo}
         />
-      </Elements>
 
-      <button
-        onClick={() => setShowCheckout(false)}
-        className="boutique-back-btn"
-        style={{ marginTop: 12 }}
-      >
-        Cancel
-      </button>
+        {loading ? (
+          <div>Loading…</div>
+        ) : (
+          <>
+            <p style={styles.sub}>
+              More RSVPs than you thought? No problem! Use this little counter to add to your
+              guest count. Our magic system will calculate the additional cost and show you
+              exactly how much more you’ll need to pay for those extra partiers!
+            </p>
+
+            {/* Counter */}
+            <div style={styles.counterWrap}>
+              <div style={styles.bigNumber} aria-live="polite">
+                {pretty}
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <button onClick={() => bump(1)} style={styles.bumpBtn}>
+                  +1
+                </button>
+                <button onClick={() => bump(10)} style={styles.bumpBtn}>
+                  +10
+                </button>
+              </div>
+            </div>
+
+            {/* Exact entry */}
+            <div style={styles.exactRow}>
+              <label style={styles.exactLabel} htmlFor="guestCountField">
+                Enter exact number
+              </label>
+              <input
+                id="guestCountField"
+                type="number"
+                value={value}
+                min={original}
+                max={2000}
+                disabled={locked}
+                onChange={(e) => setValue(clamp(Number(e.target.value), original, 2000))}
+                style={{ ...styles.input, opacity: locked ? 0.6 : 1 }}
+              />
+            </div>
+
+            {/* Breakdown */}
+            <div style={styles.breakdownCard}>
+              <div style={styles.breakdownTitle}>
+                {delta.deltaGuests > 0 ? `Additional guests: +${delta.deltaGuests}` : "No change to guest count"}
+              </div>
+
+              <div style={styles.totalLine}>
+                Total due now: <strong>${delta.totalDueNow.toFixed(2)}</strong>
+              </div>
+
+              <div style={styles.notes}>
+                {delta.deltaGuests > 0 &&
+                  snapshots.catering?.booked &&
+                  (delta.perGuestCatering ?? 0) > 0 && (
+                    <div>
+                      • Per person catering cost: <strong>${(delta.perGuestCatering || 0).toFixed(2)}</strong>
+                    </div>
+                  )}
+                {delta.deltaGuests > 0 &&
+                  snapshots.venue?.booked &&
+                  (delta.perGuestVenue ?? 0) > 0 && (
+                    <div>
+                      • Per person venue cost: <strong>${(delta.perGuestVenue || 0).toFixed(2)}</strong>
+                    </div>
+                  )}
+                {delta.deltaGuests > 0 &&
+                  snapshots.dessert?.booked &&
+                  snapshots.dessert?.isPerGuest &&
+                  (snapshots.dessert?.perGuest ?? 0) > 0 && (
+                    <div>
+                      • Per person charcuterie add-on:{" "}
+                      <strong>${(snapshots.dessert!.perGuest || 0).toFixed(2)}</strong>
+                    </div>
+                  )}
+                {delta.plannerSubtotal > 0 && delta.plannerExplain && (
+                  <div style={{ marginTop: 6 }}>
+                    • Planner tier change:&nbsp;
+                    {delta.plannerExplain.originalLabel && (
+                      <>
+                        originally included: <strong>{delta.plannerExplain.originalLabel}</strong>;{" "}
+                      </>
+                    )}
+                    new tier: <strong>{delta.plannerExplain.newLabel}</strong>
+                    {typeof delta.plannerExplain.includedValue === "number" &&
+                      delta.plannerExplain.includedValue > 0 && (
+                        <> (includes venue credit ${delta.plannerExplain.includedValue.toFixed(2)})</>
+                      )}
+                    ; difference due: <strong>${(delta.plannerExplain.diff || 0).toFixed(2)}</strong>
+                  </div>
+                )}
+                {(delta.tax > 0 || delta.stripeFee > 0) && (
+                  <div>
+                    • Taxes &amp; fees:{" "}
+                    <strong>${(delta.tax + (delta.stripeFee || 0)).toFixed(2)}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+              <button
+                className="boutique-primary-btn"
+                disabled={value < original}
+                onClick={handleLockAndMaybePay}
+                style={styles.cta}
+              >
+                Submit &amp; lock final guest count
+              </button>
+            </div>
+
+            {/* Inline Stripe overlay */}
+            {showCheckout && delta.totalDueNow > 0 && (
+              <div style={styles.overlay}>
+                <div style={styles.overlayCard}>
+                  {/* Floating lock video (same vibe as other checkouts) */}
+                  <video
+                    src="/assets/videos/lock.mp4"
+                    autoPlay
+                    muted
+                    playsInline
+                    loop
+                    style={{
+                      width: "140px",
+                      display: "block",
+                      margin: "0 auto 0.5rem",
+                      borderRadius: "12px",
+                    }}
+                    aria-hidden="true"
+                  />
+
+                  {/* Bigger, brandy title */}
+                  <h3
+                    style={{
+                      margin: "0.25rem 0 0.25rem",
+                      color: "#2c62ba",
+                      fontSize: "2rem",
+                      lineHeight: 1.2,
+                      fontWeight: 800,
+                      fontFamily:
+                        "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif",
+                    }}
+                  >
+                    Final Balance
+                  </h3>
+
+                  <p style={{ marginTop: 6, fontSize: "1.1rem" }}>
+                    Amount due now: <strong>${delta.totalDueNow.toFixed(2)}</strong>
+                  </p>
+
+                  <Elements stripe={stripePromise}>
+                    <CheckoutForm
+                      total={delta.totalDueNow}
+                      onSuccess={handleStripeSuccess}
+                      isAddon={false}
+                    />
+                  </Elements>
+
+                  <button
+                    onClick={() => setShowCheckout(false)}
+                    className="boutique-back-btn"
+                    style={{ marginTop: 12 }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
-  </div>
-)}
-        </>
-      )}
-    </div>
-  </div>
-);
+  );
 };
 
 const styles = {

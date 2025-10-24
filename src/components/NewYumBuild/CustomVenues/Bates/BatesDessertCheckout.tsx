@@ -1,8 +1,9 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesDessertCheckout.tsx
 import React, { useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
+import { stripePromise } from "../../../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -17,12 +18,7 @@ import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 import type { BatesStep } from "./BatesOverlay";
-import emailjs from "emailjs-com"; // ✅ missing import
-
-// Stripe
-const stripePromise = loadStripe(
-  "pk_test_51Kh0qWD48xRO93UMFwIMguVpNpuICcWmVvZkD1YvK7naYFwLlhhiFtSU5requdOcmj1lKPiR0I0GhFgEAIhUVENZ00vFo6yI20"
-);
+import emailjs from "emailjs-com"; // ✅ keep this
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -133,7 +129,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
   // UI copy
   const paymentMessage = usingFull
     ? `You're paying $${amountDueToday.toFixed(2)} today.`
-    : `You're paying $${amountDueToday.toFixed(2)} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
+    : `You're paying $${amountDueToday.toFixed(
+        2
+      )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
         2
       )} (final due ${finalDuePretty}).`;
 
