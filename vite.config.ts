@@ -1,11 +1,10 @@
+// vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// We get passed "mode" = "development" when you run `npm run dev`,
-// and "production" when we build for deploy.
 export default defineConfig(({ mode }) => {
   return {
-    // ✅ Use normal root in dev, GitHub subfolder in production
+    // ✅ Use root locally, GitHub subfolder in production
     base: mode === "production" ? "/wedanddone-v2/" : "/",
 
     server: {
@@ -30,7 +29,14 @@ export default defineConfig(({ mode }) => {
       exclude: ["lucide-react"],
     },
 
-    assetsInclude: ["**/*.mp4"],
+    build: {
+      // 👇 ensures assets like /assets/images/... get rewritten properly for GitHub Pages
+      assetsDir: "assets",
+      outDir: "dist",
+      emptyOutDir: true,
+    },
+
+    assetsInclude: ["**/*.mp4", "**/*.webm", "**/*.png", "**/*.jpg", "**/*.jpeg"],
     publicDir: "public",
   };
 });
