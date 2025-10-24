@@ -1,0 +1,100 @@
+/* DashboardButtons.css — safe with ResponsiveStage */
+
+/* generic hover grow (used by menu, logo, wand, etc.) */
+.hud-icon,
+.menu-image-btn,
+.magic-wand-hover,
+.stage-btn {
+  transition: transform 0.2s ease;
+}
+
+.hud-icon:hover,
+.menu-image-btn:hover,
+.magic-wand-hover:hover,
+.stage-btn:hover {
+  transform: scale(1.05);
+}
+
+/* keep the wand glow without forcing position/size */
+.magic-wand-hover {
+  cursor: pointer;
+  filter: drop-shadow(0 0 12px #ffffff);
+}
+
+/* simple logo hover */
+.simple-grow-logo {
+  transition: transform 0.2s ease;
+}
+.simple-grow-logo:hover {
+  transform: scale(1.05);
+}
+
+/* completion sparkles — safe to keep */
+.completed-venue {
+  transform: scale(1.1);
+  animation: goldPulse 2s infinite ease-in-out;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))
+          drop-shadow(0 0 12px rgba(255, 215, 0, 0.4));
+}
+@keyframes goldPulse {
+  0%   { filter: drop-shadow(0 0 5px rgba(255,215,0,.5)); }
+  50%  { filter: drop-shadow(0 0 15px rgba(255,215,0,1)); }
+  100% { filter: drop-shadow(0 0 5px rgba(255,215,0,.5)); }
+}
+
+.completed-yum {
+  transform: scale(1.1);
+  animation: peachPulse 2s infinite ease-in-out;
+  filter: drop-shadow(0 0 8px rgba(255,165,0,.6))
+          drop-shadow(0 0 12px rgba(255,140,0,.4));
+}
+@keyframes peachPulse {
+  0%   { filter: drop-shadow(0 0 5px rgba(255,165,0,.5)); }
+  50%  { filter: drop-shadow(0 0 15px rgba(255,140,0,1)); }
+  100% { filter: drop-shadow(0 0 5px rgba(255,165,0,.5)); }
+}
+
+.completed-planner {
+  transform: scale(1.1);
+  animation: lilacPulse 2s infinite ease-in-out;
+  filter: drop-shadow(0 0 8px rgba(186,85,211,.6))
+          drop-shadow(0 0 12px rgba(221,160,221,.4));
+}
+@keyframes lilacPulse {
+  0%   { filter: drop-shadow(0 0 5px rgba(221,160,221,.5)); }
+  50%  { filter: drop-shadow(0 0 15px rgba(186,85,211,1)); }
+  100% { filter: drop-shadow(0 0 5px rgba(221,160,221,.5)); }
+}
+
+/* Make the logo cloud bigger than the other icons */
+.stage-btn.logo-cloud img {
+  width: clamp(200px, 30vw, 500px);
+}
+
+/* (Optional) subtle hover */
+.stage-btn.logo-cloud:hover img {
+  transform: scale(1.03);
+}
+
+/* All stage buttons */
+.stage-btn {
+  will-change: transform, filter;
+}
+
+.stage-btn img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform .18s ease, filter .18s ease;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.18));
+}
+
+.stage-btn:hover img {
+  transform: scale(1.06);
+  filter: drop-shadow(0 10px 16px rgba(0,0,0,.24));
+}
+
+/* Slightly gentler hover for the logo cloud */
+.stage-btn.logo-cloud:hover img {
+  transform: scale(1.03);
+}

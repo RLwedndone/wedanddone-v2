@@ -1,0 +1,1 @@
+export const SCROLL_OF_POSSIBILITIES_ROUTE = "/scroll-preview";

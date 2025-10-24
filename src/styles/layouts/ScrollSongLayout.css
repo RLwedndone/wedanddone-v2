@@ -1,0 +1,86 @@
+.scroll-song-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 100vw;
+    background-color: rgba(10, 10, 10, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .scroll-song-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    text-align: center;
+    z-index: 1001;
+  }
+  
+  .scroll-song-title {
+    font-family: "Jenna Sue", cursive;
+    font-size: 2.2rem;
+    color: #2c62ba;
+    margin-bottom: 1rem;
+  }
+  
+  .scroll-song-seal {
+    width: 150px;
+    margin: 0 auto 1.5rem auto;
+    display: block;
+  }
+  
+  .custom-x-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+  }
+  
+  .scroll-header {
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-align: center;
+    color: #2c2c2c;
+    margin-bottom: 1.5rem;
+    padding: 0 1rem;
+  }
+  
+  .scroll-song-form input {
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+    margin: 0 auto 1rem auto;
+    display: block;
+  }
+  
+  .scroll-save-btn {
+    margin-top: 1rem;
+    background-color: #2c62ba;
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: 80%;
+    max-width: 200px;
+  }
+  
+  .scroll-save-btn:hover {
+    background-color: #1d4e99;
+  }

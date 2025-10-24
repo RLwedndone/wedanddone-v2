@@ -1,0 +1,72 @@
+/* =========================
+   🌐 index.css (Base Styles)
+========================= */
+
+/* ✨ Custom Font */
+@font-face {
+  font-family: 'Jenna Sue';
+  src: url('/fonts/JennaSue-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* 🌐 Root Variables */
+:root {
+  --font-title: 'Jenna Sue', cursive;
+  --font-body: 'Nunito', sans-serif;
+}
+
+/* 🔄 Global Reset */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: transparent;
+  font-family: var(--font-body);
+  color: #333;
+  line-height: 1.5;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 🎀 Typography */
+h1, h2, h3, .title {
+  font-family: var(--font-title);
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+/* 🧼 Reset default button behavior but preserve custom styling */
+button:not([class]) {
+  all: unset;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+
+/* ✨ Sparkle Animation (optional) */
+@keyframes sparkle {
+  0%   { box-shadow: 0 0 6px #f0f, 0 0 12px #f0f; }
+  50%  { box-shadow: 0 0 12px #aaf, 0 0 24px #f0f; }
+  100% { box-shadow: 0 0 6px #f0f, 0 0 12px #f0f; }
+}
+
+.shake {
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+}
+
+.transition-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}

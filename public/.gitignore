@@ -1,0 +1,10 @@
+# Ignore environment variables
+.env
+.env.local
+
+# Ignore build output
+dist/
+build/
+
+# Ignore system-specific files
+.DS_Store

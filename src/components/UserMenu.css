@@ -1,0 +1,60 @@
+.user-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 0, 40, 0.3); /* 🟣 soft magical overlay */
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.user-menu-container {
+  background: #ffffff; /* 💡 bright white card */
+  width: 90%;
+  max-width: 500px;
+  padding: 2.5rem;
+  border-radius: 2rem;
+  box-shadow: 0 0 35px rgba(255, 255, 255, 0.3), 0 0 25px rgba(255, 215, 0, 0.4); /* ✨ subtle gold glow */
+  position: relative;
+}
+
+.user-menu-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+
+.image-menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .menu-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  
+  .menu-item-img {
+    width: 240px;
+    max-width: 90%;
+    margin: 1rem 0;
+    transition: transform 0.2s ease;
+  }
+  
+  .menu-item-img:hover {
+    transform: scale(1.05);
+  }

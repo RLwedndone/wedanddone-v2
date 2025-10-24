@@ -1,0 +1,111 @@
+.scroll-card {
+  position: relative;
+  width: 125%;
+  max-width: 500px;
+  min-height: 750px; /* 🛠 Use min-height instead of fixed */
+  height: auto;      /* 🛠 Let it grow as needed */
+  margin: 0 auto 10px auto;
+}
+
+.scroll-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 1;
+  max-width: 100%;
+}
+
+.scroll-content {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 65%;
+  z-index: 2;
+  text-align: center;
+  color: #2c2c2c;
+}
+
+.scroll-title {
+  font-family: 'JennaSue', cursive;
+  font-size: 1.5rem;
+  color: #2c62ba;
+  margin-bottom: 0.5rem;
+  width: 100%;                  /* ✅ Take full width of parent */
+  max-width: 90%;               /* ✅ Add a little breathing room */
+  margin-left: auto;            /* ✅ Center horizontally */
+  margin-right: auto;
+  white-space: normal;          /* ✅ Allow wrapping if needed */
+  overflow-wrap: break-word;    /* ✅ Prevent long words from breaking layout */
+  text-align: center;
+}
+
+.scroll-video-link {
+  display: block;
+  color: #f86cab;
+  font-style: italic;
+  text-decoration: underline;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.scroll-cost {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.scroll-guests {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.scroll-subheading {
+  font-size: 1.5rem;
+  font-family: 'JennaSue', cursive;
+  color: #2c62ba;
+  margin-bottom: 0.5rem;
+}
+
+.scroll-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.2rem 0;
+  font-size: 0.95rem;
+}
+
+.scroll-list-item {
+  margin-bottom: 0.4rem;
+}
+
+.clickable-seal {
+  width: 100px;
+  margin: 0 auto 0.6rem auto;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.clickable-seal:hover {
+  transform: scale(1.05);
+}
+
+@media (max-width: 480px) {
+  .scroll-card {
+    max-width: 95vw;
+    min-height: 620px;   /* just enough for most content */
+    height: auto;        /* allows taller cards if needed */
+    margin-bottom: 10px; /* bring cards closer together */
+  }
+
+  .scroll-content {
+    width: 85%;
+    top: 26%;
+  }
+
+  .scroll-seal {
+    margin-bottom: 0.2rem; /* shrink the seal spacing too */
+  }
+}

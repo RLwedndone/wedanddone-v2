@@ -1,0 +1,667 @@
+/* =========================================================
+   Wed&Done Boutique Master
+   - Overlay, Cards (standard + modal), Buttons, Inputs, Helpers
+   - Single source of truth for boutique styling
+   ========================================================= */
+
+/* =========================================================
+   0) Fonts + Global Font Reset
+   ========================================================= */
+   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+
+   @font-face {
+     font-family: 'Jenna Sue';
+     src: url('/fonts/JennaSue-Regular.ttf') format('truetype');
+     font-weight: normal;
+     font-style: normal;
+   }
+   
+   :root, body {
+     font-family: "Nunito", "Poppins", "Inter", system-ui, -apple-system, "Segoe UI",
+       Roboto, "Helvetica Neue", Arial, sans-serif;
+   }
+   .emoji, .force-emoji {
+     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", emoji, sans-serif !important;
+     font-style: normal !important;
+     font-weight: 400 !important;
+     line-height: 1;
+   }
+   
+   /* =========================================================
+      1) Design Tokens (spacing, type, colors, card vars)
+      ========================================================= */
+   :root {
+     /* radii + spacing */
+     --pixie-card-radius: 18px;
+   
+     /* type */
+     --pixie-title-size: clamp(20px, 2.2vw, 28px);
+     --pixie-body-size: clamp(14px, 1.2vw, 16px);
+     --pixie-btn-size: 16px;
+   
+     /* buttons */
+     --pixie-btn-w: 200px;
+     --pixie-btn-pad-y: 0.75rem;
+     --pixie-btn-pad-x: 2rem;
+   
+     /* colors */
+     --pixie-white: #fff;
+     --pixie-shadow: 0 10px 30px rgba(0,0,0,0.20);
+     --pixie-backdrop: rgba(0,0,0,0.45);
+   
+     /* STANDARD card (defaults) */
+     --pixie-card-w: 600px;      /* width */
+     --pixie-card-min-h: 640px;  /* tall airy main flows */
+     --pixie-card-max-h: 88vh;
+   
+     /* content padding + readable width */
+     --pixie-card-pad-x: 40px;
+     --pixie-card-pad-y: 24px;
+     --pixie-content-max-w: 560px;
+   }
+   
+   /* =========================================================
+      2) Overlay Shell (single dim layer)
+      ========================================================= */
+   .pixie-overlay {
+     position: fixed;
+     inset: 0;
+     z-index: 999;
+     display: grid;
+     place-items: center;
+     padding: 16px;
+     background: var(--pixie-backdrop);
+     overflow-y: auto;
+     -webkit-overflow-scrolling: touch;
+   }
+   
+   /* =========================================================
+      3) Cards — Standard (flow screens)
+      ========================================================= */
+   .pixie-card {
+     position: relative;
+     width: min(92vw, var(--pixie-card-w));
+     min-height: var(--pixie-card-min-h);
+     max-height: var(--pixie-card-max-h);
+     margin: 0 auto;
+   
+     background: var(--pixie-white);
+     border-radius: var(--pixie-card-radius);
+     box-shadow: var(--pixie-shadow);
+   
+     display: flex;
+     flex-direction: column;
+     overflow: hidden; /* only body scrolls */
+     box-sizing: border-box;
+   
+     padding-bottom: 24px; /* CTA breathing room */
+   }
+   
+   /* Scrollable body area */
+   .pixie-card__body {
+     flex: 1 1 auto;
+     padding: var(--pixie-card-pad-y) var(--pixie-card-pad-x);
+     overflow: auto;
+     overscroll-behavior: contain;
+     -webkit-overflow-scrolling: touch;
+   
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+   }
+   @media (min-width: 900px) {
+     .pixie-card__body { padding: 28px 48px; }
+   }
+   
+   /* Back-compat: if a card lacks .pixie-card__body, allow it to scroll */
+   @supports selector(.pixie-card:has(*)) {
+     .pixie-card:not(:has(.pixie-card__body)) {
+       overflow: auto;
+       -webkit-overflow-scrolling: touch;
+     }
+   }
+   
+   /* =========================================================
+      4) Cards — Modal (checkout, add-ons) + Responsive tweaks
+      ========================================================= */
+   .pixie-card--modal {
+     /* use vars so we can flip them in media queries */
+     width: min(92vw, var(--pixie-card-w));
+     min-height: var(--pixie-card-min-h);
+     max-height: 88vh;
+   
+     background: #fff;
+     border-radius: 20px;
+     box-shadow: 0 4px 22px rgba(0, 0, 0, 0.18);
+     margin: 0 auto;
+   
+     display: flex;
+     flex-direction: column;
+     justify-content: flex-start;
+     align-items: center;
+   
+     overflow: hidden; /* body scrolls */
+   }
+   
+   /* Desktop defaults for modal (wide + short) */
+   .pixie-card.pixie-card--modal {
+     --pixie-card-w: 640px;
+     --pixie-card-min-h: 380px;
+   }
+   
+   /* Optional: shorter “return” modal */
+   .pixie-card.pixie-card--modal.is-return {
+     --pixie-card-w: 620px;
+     --pixie-card-min-h: 360px;
+   }
+   
+   /* Modal body padding + Stripe stretch */
+   .pixie-card--modal .pixie-card__body {
+     padding: 18px 20px 22px;
+     width: 100%;
+     align-items: stretch; /* Stripe fills width */
+     overflow: auto;
+     -webkit-overflow-scrolling: touch;
+   }
+   
+   /* Media spacing inside modal cards */
+   .pixie-card--modal video,
+   .pixie-card--modal img {
+     margin-bottom: 0.75rem !important;
+   }
+   
+   /* Responsive: on small screens, behave like standard (taller) */
+   @media (max-width: 768px) {
+     .pixie-card--modal {
+       --pixie-card-w: 600px;     /* still capped by vw below */
+       --pixie-card-min-h: 640px; /* tall/forgiving */
+       width: min(96vw, var(--pixie-card-w));
+       max-height: 92vh;
+       align-items: stretch;
+     }
+     .pixie-card--modal .pixie-card__body {
+       padding: 16px 18px 20px;
+     }
+   }
+   @media (max-width: 380px) {
+     .pixie-card--modal { --pixie-card-min-h: 680px; }
+   }
+   
+   /* =========================================================
+      5) Card Controls — Close “X”
+      ========================================================= */
+   .pixie-card__close {
+     position: absolute;
+     top: 16px;
+     right: 25px;
+     width: 25px;
+     height: 25px;
+     border: none;
+     background: transparent;
+     border-radius: 50%;
+     display: grid;
+     place-items: center;
+     cursor: pointer;
+     transition: transform 0.15s ease, filter 0.15s ease;
+     z-index: 10;
+   }
+   .pixie-card__close img {
+     width: 25px;
+     height: 25px;
+     opacity: 0.9;
+     pointer-events: none;
+     transition: opacity 0.15s ease, filter 0.15s ease;
+   }
+   .pixie-card__close:hover img {
+     opacity: 1;
+     filter: drop-shadow(0 0 6px rgba(255, 105, 180, 0.7));
+     transform: scale(1.05);
+   }
+   
+   /* =========================================================
+      6) Scrollbar Hiding (overlay + cards)
+      ========================================================= */
+   .pixie-overlay,
+   .pixie-card,
+   .pixie-card__body { scrollbar-width: none; -ms-overflow-style: none; }
+   .pixie-overlay::-webkit-scrollbar,
+   .pixie-card::-webkit-scrollbar,
+   .pixie-card__body::-webkit-scrollbar { display: none; }
+   
+
+   /* === Fonts ================================================== */
+:root {
+  --px-font-sans: 'Nunito', -apple-system, BlinkMacSystemFont,
+                  'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Use Nunito for all body text inside cards by default */
+.pixie-card,
+.pixie-card__body {
+  font-family: var(--px-font-sans);
+}
+
+/* Ensure controls inherit Nunito (browsers default buttons to UI font) */
+.pixie-card button,
+.pixie-card input,
+.pixie-card select,
+.pixie-card textarea {
+  font-family: inherit;
+}
+
+/* The clickable option cards (e.g., dessert selector buttons) */
+.px-card-btn {
+  font-family: var(--px-font-sans) !important;
+}
+
+/* (Already set elsewhere) Titles keep Jenna Sue */
+.px-title {
+  font-family: 'Jenna Sue','JennaSue',cursive;
+}
+   /* =========================================================
+      7) Castle Modal Shim (no extra dim; used by Castle screens)
+      ========================================================= */
+   .castle-modal-overlay {
+     position: fixed;
+     inset: 0;
+     background: transparent;     /* no second dark layer */
+     display: grid;
+     place-items: center;
+     padding: 16px;
+     box-sizing: border-box;
+     z-index: 1200;               /* above scroll card, under account modals */
+     pointer-events: auto;
+   }
+   .castle-modal-overlay { scrollbar-width: none; }
+   .castle-modal-overlay::-webkit-scrollbar { display: none; }
+   
+   .castle-modal {
+     position: relative;
+     background: #fff;
+     border-radius: 18px;
+     width: min(940px, 92vw);
+     max-height: 86vh;
+     margin: 0 auto;
+     box-shadow: 0 12px 40px rgba(0,0,0,.18);
+     overflow: auto;
+     overscroll-behavior: contain;
+   }
+   .castle-modal { scrollbar-width: none; }
+   .castle-modal::-webkit-scrollbar { width: 0; height: 0; display: none; }
+   
+   .modal-close {
+     position: absolute;
+     top: 12px;
+     right: 12px;
+     background: transparent;
+     border: 0;
+     padding: 4px;
+     line-height: 0;
+     cursor: pointer;
+   }
+   .modal-close img {
+     width: 22px;
+     height: 22px;
+     display: block;
+     filter: drop-shadow(0 1px 2px hsla(0, 0%, 0%, 0.15));
+   }
+   .modal-close:hover img { transform: scale(1.05); }
+   
+   /* =========================================================
+      8) Typography (titles, prose)
+      ========================================================= */
+   .px-intro-title {
+     font-family: 'Jenna Sue', cursive;
+     font-size: 2.2rem;
+     color: #2c62ba;
+     margin: 0.75rem 0 1.5rem;
+     text-align: center;
+   }
+   @media (min-width: 768px) { .px-intro-title { font-size: 2.6rem; } }
+   
+   .px-title {
+     font-family: 'Jenna Sue', cursive;
+     color: #2c62ba;
+     text-align: center;
+     font-weight: 700;
+     letter-spacing: 0.5px;
+     line-height: 1.2;
+     margin: 0 0 1rem;
+     font-size: clamp(20px, 2vw, 26px);
+   }
+   .px-title-lg {
+     font-family: 'Jenna Sue', cursive;
+     color: #2c62ba;
+     text-align: center;
+     font-weight: 700;
+     line-height: 1.2;
+     margin: 0 0 1.2rem;
+     font-size: clamp(30px, 3vw, 38px);
+   }
+   .px-prose { font-size: clamp(14px, 1.4vw, 18px); line-height: 1.6; margin: 0 0 24px; text-align: center; }
+   .px-prose-narrow {
+     max-width: var(--pixie-content-max-w);
+     margin: 0 auto 1.5rem;
+     text-align: center;
+     line-height: 1.6;
+     padding-inline: var(--pixie-card-pad-x);
+   }
+   
+   /* Layout helpers */
+   .px-center { text-align: center; }
+   .px-section { margin: 0 auto 24px; max-width: 680px; }
+   .px-stack  { display: flex; flex-direction: column; gap: 12px; }
+   .px-stack-lg { display: flex; flex-direction: column; gap: 16px; }
+   .px-push-down { margin-top: 0.75rem; }
+   .px-push-down-lg { margin-top: 1.25rem; }
+   
+   /* =========================================================
+      9) Media Helpers (images/videos)
+      ========================================================= */
+   .px-media {
+     width: 100%;
+     max-width: 300px;
+     margin: 0 auto 16px;
+     display: block;
+     border-radius: 12px;
+   }
+   .px-media img, .px-media video { width: 100%; height: auto; display: block; border-radius: 12px; }
+   .px-media--xs { max-width: 120px; }
+   .px-media--sm { max-width: 225px; }
+   .px-media--md { max-width: 300px; }
+   .px-media--lg { max-width: 360px; }
+   .px-media-16x9 {
+     aspect-ratio: 16/9; width: 100%; max-width: 300px; margin: 0 auto 16px;
+     border-radius: 12px; overflow: hidden; background: #f6f6f7;
+   }
+   .px-media-16x9 > * { width: 100%; height: 100%; object-fit: cover; }
+   
+   /* =========================================================
+      10) Buttons (brand styles + utilities)
+      ========================================================= */
+   .boutique-primary-btn,
+   .boutique-back-btn,
+   .boutique-brightblue-btn {
+     width: var(--pixie-btn-w);
+     padding-block: var(--pixie-btn-pad-y);
+     padding-inline: var(--pixie-btn-pad-x);
+     font-size: var(--pixie-btn-size);
+     line-height: 1.25;
+     white-space: normal;
+     overflow-wrap: anywhere;
+     text-align: center;
+     display: inline-block;
+     border: none;
+     border-radius: 12px;
+     font-weight: 600;
+     cursor: pointer;
+     transition: background 0.3s ease, transform 0.2s ease;
+     color: #fff;
+     box-shadow: 0 0 15px rgba(44, 98, 186, 0.3);
+   }
+   
+   /* Variants */
+   .boutique-primary-btn { background-color: #2c62ba; }
+   .boutique-primary-btn:hover { background-color: #1f4ca1; }
+   
+   .boutique-back-btn { background-color: #f79ac4; }
+   .boutique-back-btn:hover { background-color: #eec0d9; transform: scale(1.05); }
+   
+   .boutique-brightblue-btn { background-color: #02a5f2; box-shadow: 0 0 15px rgba(2, 165, 242, 0.3); }
+   .boutique-brightblue-btn:hover { background-color: #0290d6; transform: scale(1.03); }
+   .boutique-brightblue-btn:active { transform: scale(0.98); }
+   
+   /* Disabled */
+   .boutique-primary-btn:disabled,
+   .boutique-back-btn:disabled,
+   .boutique-brightblue-btn:disabled {
+     opacity: 0.55;
+     cursor: not-allowed;
+     box-shadow: none;
+   }
+   
+   /* CTA column */
+   .px-cta-col {
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     gap: 12px;
+     margin-top: 20px;
+   }
+   .px-btn-200 { width: 200px !important; }
+   
+   /* Link-like button */
+   .linklike {
+     background: none;
+     border: none;
+     color: #2c62ba;
+     cursor: pointer;
+     padding: 0;
+     font-size: 1rem;
+   }
+   .linklike:hover { text-decoration: underline; }
+   
+   /* =========================================================
+      11) Form Controls + Cart Rows
+      ========================================================= */
+   .px-toggle { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 20px; }
+   .px-toggle__btn {
+     min-width: 240px; padding: 12px 16px; border-radius: 16px; border: none; cursor: pointer;
+     font-weight: 800; color: #fff; background: #ccc;
+     transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+   }
+   .px-toggle__btn:hover { transform: translateY(-1px); }
+   .px-toggle__btn--blue { background: #2c62ba; }
+   .px-toggle__btn--pink { background: #e98fba; }
+   .px-toggle__btn--active { box-shadow: 0 0 12px 2px rgba(44,98,186,.25); }
+   
+   .px-checkbox { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; }
+   .px-checkbox input[type="checkbox"] { width: 18px; height: 18px; }
+   
+   .px-item { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+   .px-item__label { font-weight: 700; text-align: left; }
+   
+   .px-input-number {
+     width: 90px; text-align: center; padding: 10px; font-size: 1rem;
+     border-radius: 10px; border: 1px solid #ccc; outline: none;
+   }
+   .px-input-number:focus { border-color: #2c62ba; box-shadow: 0 0 0 3px rgba(44,98,186,.15); }
+   
+   .px-totals { text-align: center; margin: 12px 0 6px; font-weight: 800; }
+   .px-totals__hint { text-align: center; font-size: .95rem; color: #555; margin-bottom: 16px; }
+   .px-amount-strong { font-weight: 800; color: #1f2a44; }
+   
+   /* Pretty inputs */
+   .px-input {
+     width: 100%;
+     padding: 12px 14px;
+     font-size: 1rem;
+     border-radius: 12px;
+     border: 1px solid #d7dbe7;
+     background: #fff;
+     color: #1f2a44;
+     outline: none;
+     box-shadow: inset 0 1px 0 rgba(31,42,68,0.03);
+     transition: border-color .15s ease, box-shadow .15s ease, transform .02s ease;
+   }
+   .px-input::placeholder { color: #9aa3b2; }
+   .px-input:focus { border-color: #2c62ba; box-shadow: 0 0 0 3px rgba(44,98,186,.18); }
+   .px-input:active { transform: translateY(0.5px); }
+   .px-input--error { border-color: #e53935; box-shadow: 0 0 0 3px rgba(229,57,53,.15); }
+   
+   /* Textarea */
+   .px-textarea {
+     width: 100%;
+     max-width: 520px;
+     min-height: 150px;
+     padding: 12px 14px;
+     border: 1px solid var(--px-border, #e6e6ef);
+     border-radius: 12px;
+     background: #fff;
+     font: 16px/1.45 "Nunito", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+     color: #1d2433;
+     box-sizing: border-box;
+     display: block;
+     margin: 0 auto 1.5rem;
+     resize: vertical;
+     outline: none;
+     transition: border-color .15s ease, box-shadow .15s ease;
+   }
+   .px-textarea:focus { border-color: #9bb7f2; box-shadow: 0 0 0 3px rgba(44, 98, 186, 0.15); }
+   .px-textarea::placeholder { color: #99a1b3; }
+   
+   /* Bullet list */
+   .px-bullet-list {
+     list-style: disc;
+     list-style-position: outside;
+     padding-inline-start: 1.2rem;
+     margin-inline: auto;
+     margin-block: 0 1.25rem;
+     line-height: 1.7;
+     text-align: left;
+     max-width: 640px;
+   }
+   
+   /* =========================================================
+      12) Quantity Controls
+      ========================================================= */
+   input[type="number"]::-webkit-outer-spin-button,
+   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+   input[type="number"] { -moz-appearance: textfield; }
+   
+   .px-qty { display: inline-flex; align-items: center; gap: 10px; }
+   .px-qty-btn {
+     width: 44px; height: 44px; border-radius: 12px; border: none; cursor: pointer;
+     display: grid; place-items: center; transition: transform 0.12s ease, box-shadow 0.12s ease;
+     background-color: #fff; background-repeat: no-repeat; background-position: center; background-size: 26px 26px;
+   }
+   .px-qty-btn--plus  { background-image: url('/assets/icons/qty_plus_glossy.svg'); }
+   .px-qty-btn--minus { background-image: url('/assets/icons/qty_minus_glossy.svg'); }
+   .px-qty-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
+   .px-qty-btn:active { transform: scale(0.95); }
+   .px-qty-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+   @media (max-width: 600px) { .px-qty-btn { width: 48px; height: 48px; background-size: 28px 28px; } }
+   .px-qty-btn img { width: 24px; height: 24px; display: block; pointer-events: none; }
+   
+   /* =========================================================
+      13) Stripe Elements Wrapper
+      ========================================================= */
+   .px-elements {
+     width: 100%;
+     max-width: 520px;    /* pairs nicely with modal width */
+     margin: 0 auto;
+     text-align: left;
+   }
+   
+   /* =========================================================
+      14) Utilities + Fixes
+      ========================================================= */
+   .glow-blue { filter: drop-shadow(0 0 10px #2c62ba); animation: glowBluePulse 1.5s ease-in-out infinite; }
+   @keyframes glowBluePulse {
+     0% { filter: drop-shadow(0 0 4px #2c62ba); }
+     50% { filter: drop-shadow(0 0 12px #2c62ba); }
+     100% { filter: drop-shadow(0 0 4px #2c62ba); }
+   }
+   .completed-jam { filter: drop-shadow(0 0 10px #2c62ba) drop-shadow(0 0 20px #2c62ba); }
+   
+   .px-video { position: relative; z-index: 0; }
+   .px-stack-fix { position: relative; z-index: 1; }
+   .px-radio label { cursor: pointer; }
+   .px-radio input[type="radio"] { pointer-events: auto; }
+   .px-radio-block, .px-radio-block * { pointer-events: auto; }
+   
+   /* Venue iframe */
+   .px-video-wrap { width: 100%; max-width: 900px; margin: 0 auto 1.25rem; }
+   .px-video-iframe {
+     width: 100%;
+     height: clamp(240px, 56vw, 520px);
+     border: 0;
+     border-radius: 12px;
+     display: block;
+     background: #000;
+   }
+   
+   /* =========================================================
+      15) React Calendar (scoped to boutique overlays only)
+      ========================================================= */
+   .pixie-overlay .react-calendar {
+     background: transparent;
+     border: none;
+     font-family: 'Nunito', sans-serif;
+     width: 100%;
+   }
+   .pixie-overlay .react-calendar__navigation {
+     display: flex;
+     justify-content: center;
+     margin-bottom: 1rem;
+   }
+   .pixie-overlay .react-calendar__navigation button {
+     background: none;
+     border: none;
+     color: #2c62ba;
+     font-weight: bold;
+     font-size: 1.1rem;
+     cursor: pointer;
+     padding: 0.5rem 1rem;
+   }
+   .pixie-overlay .react-calendar__month-view__weekdays {
+     display: flex;
+     justify-content: space-between;
+     padding: 0.5rem 0;
+     border-bottom: 2px solid #2c62ba;
+     font-weight: 700;
+     color: #2c62ba;
+     text-transform: uppercase;
+     font-size: 0.9rem;
+   }
+   .pixie-overlay .react-calendar__month-view__weekdays__weekday { flex: 1; text-align: center; }
+   .pixie-overlay .react-calendar__tile {
+     background: none;
+     border: none;
+     text-align: center;
+     padding: 0.75rem 0.25rem;
+     font-size: 1rem;
+     cursor: pointer;
+     transition: background 0.3s ease;
+   }
+   .pixie-overlay .react-calendar__tile:enabled:hover { background: #eef3ff; border-radius: 8px; }
+   .pixie-overlay .react-calendar__tile--active { background-color: #2c62ba; color: white; border-radius: 8px; }
+   .pixie-overlay .react-calendar__tile--booked {
+     background-color: #ddd !important; color: #999 !important;
+     pointer-events: none; text-decoration: line-through;
+   }
+   .pixie-overlay .react-calendar__tile--now { font-weight: bold; border-bottom: 2px solid #2c62ba; }
+
+   /* Overlay: use safe-area padding on mobile so gutters are symmetric */
+@media (max-width: 768px) {
+  .pixie-overlay {
+    padding-top:    max(12px, env(safe-area-inset-top));
+    padding-right:  max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left:   max(12px, env(safe-area-inset-left));
+  }
+
+  /* Cards: fill the overlay's content box; overlay padding = side gutters */
+  .pixie-card,
+  .pixie-card--modal {
+    width: 100%;
+    max-width: var(--pixie-card-w);   /* still cap the width */
+    margin-inline: auto;
+  }
+
+  /* Keep modal tall enough on phones */
+  .pixie-card--modal {
+    --pixie-card-min-h: 640px;
+    max-height: 92vh;
+    align-items: stretch;
+  }
+
+  .pixie-card--modal .pixie-card__body {
+    padding: 16px 18px 20px;
+  }
+}
+
+/* (optional) a touch taller on very small phones */
+@media (max-width: 380px) {
+  .pixie-card--modal { --pixie-card-min-h: 680px; }
+}

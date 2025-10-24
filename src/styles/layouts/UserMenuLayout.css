@@ -1,0 +1,32 @@
+.user-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 0, 40, 0.8);
+    z-index: 999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .user-menu-container {
+    background: #fff8f0;
+    width: 90%;
+    max-width: 500px;
+    padding: 2.5rem;
+    border-radius: 2rem;
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+    position: relative;
+  }
+  
+  .user-menu-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    cursor: pointer;
+  }

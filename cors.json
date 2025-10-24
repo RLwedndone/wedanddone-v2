@@ -1,0 +1,8 @@
+[
+    {
+      "origin": ["http://localhost:5173", "https://wedndonev2.web.app", "https://wedndonev2.firebaseapp.com"],
+      "method": ["GET", "PUT", "POST"],
+      "maxAgeSeconds": 3600,
+      "responseHeader": ["Content-Type", "Content-Disposition"]
+    }
+  ]

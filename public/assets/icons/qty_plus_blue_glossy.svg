@@ -1,0 +1,14 @@
+<svg width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Add" xmlns="http://www.w3.org/2000/svg">
+  <title>Add</title>
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3470d0"/>
+      <stop offset="100%" stop-color="#2c62ba"/>
+    </linearGradient>
+  </defs>
+  <circle cx="16" cy="16" r="15" fill="url(#gBlue)"/>
+  <!-- subtle top highlight -->
+  <path d="M16 2a14 14 0 0 0-12.2 7.1c4.5 1.8 9.5 2.7 12.2 2.7s7.7-.9 12.2-2.7A14 14 0 0 0 16 2z" fill="#ffffff" opacity=".18"/>
+  <rect x="9" y="15" width="14" height="2" rx="1" fill="#ffffff"/>
+  <rect x="15" y="9" width="2" height="14" rx="1" fill="#ffffff"/>
+</svg>
