@@ -3,6 +3,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  // 👇 NEW: tell Vite the site will live at /wedanddone-v2/ on GitHub Pages
+  base: "/wedanddone-v2/",
+
   server: {
     port: 5173,
     strictPort: true,
@@ -13,7 +16,7 @@ export default defineConfig({
         rewrite: (path) =>
           path.replace(
             /^\/api\/stripe/,
-            "/wedndonev2/us-central1/stripeApi"
+            "/wedndonev2/us-central1/stripeApi" // (leave as-is; this is your local dev proxy)
           ),
       },
     },
