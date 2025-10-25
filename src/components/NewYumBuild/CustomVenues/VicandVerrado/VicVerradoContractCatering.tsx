@@ -335,7 +335,7 @@ useEffect(() => {
     <div className="pixie-overlay">
       <div className="pixie-card" style={{ maxWidth: 700, textAlign: "center" }}>
         <img
-          src="/assets/images/yum_yum_button.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Catering Seal"
           style={{ width: 100, margin: "0 auto 1rem", display: "block" }}
         />
@@ -467,7 +467,7 @@ useEffect(() => {
           </button>
         ) : (
           <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-            <img src="/assets/images/contract_signed.png" alt="Contract Signed" style={{ width: 120 }} />
+            <img src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`} alt="Contract Signed" style={{ width: 120 }} />
           </div>
         )}
 

@@ -13,52 +13,66 @@ interface BrideEntranceSongProps {
   isGuestUser: boolean;
 }
 
+type FormData = {
+  songTitle: string;
+  artist: string;
+  versionUrl: string;
+};
+
+const STORAGE_KEY_LOCAL = "jamGrooveProgress";
+
 const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
   onClose,
   jamSelections,
   setJamSelections,
   isGuestUser,
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     songTitle: "",
     artist: "",
     versionUrl: "",
   });
 
-  // Load from in-memory state (primary), then local/remote as fallback
+  // Load from in-memory state first, fallback to Firestore/localStorage
   useEffect(() => {
     const fromState = jamSelections?.ceremonyMusic || {};
-    const title  = fromState.bride || "";
+    const title = fromState.bride || "";
     const artist = fromState.brideArtist || "";
-    const url    = fromState.brideVersion || "";
+    const url = fromState.brideVersion || "";
 
     if (title || artist || url) {
       setFormData({ songTitle: title, artist, versionUrl: url });
       return;
     }
 
-    // Fallbacks
     (async () => {
       try {
         if (isGuestUser) {
-          const local = JSON.parse(localStorage.getItem("jamGrooveProgress") || "{}");
-          const cm = local?.ceremonyMusic || {};
-          setFormData({
-            songTitle: cm.bride || "",
-            artist: cm.brideArtist || "",
-            versionUrl: cm.brideVersion || "",
-          });
-        } else {
-          const user = getAuth().currentUser;
-          if (user) {
-            const snap = await getDoc(doc(db, "users", user.uid));
-            const data = snap.data() || {};
-            const cm = data?.jamSelections?.ceremonyMusic || {};
+          // guest path → localStorage
+          const localRaw = localStorage.getItem(STORAGE_KEY_LOCAL);
+          if (localRaw) {
+            const local = JSON.parse(localRaw);
+            const cm = local?.ceremonyMusic || {};
             setFormData({
               songTitle: cm.bride || "",
               artist: cm.brideArtist || "",
               versionUrl: cm.brideVersion || "",
             });
+          }
+        } else {
+          // logged-in path → Firestore
+          const user = getAuth().currentUser;
+          if (user) {
+            const snap = await getDoc(doc(db, "users", user.uid));
+            if (snap.exists()) {
+              const data = snap.data() || {};
+              const cm = (data as any)?.jamSelections?.ceremonyMusic || {};
+              setFormData({
+                songTitle: cm.bride || "",
+                artist: cm.brideArtist || "",
+                versionUrl: cm.brideVersion || "",
+              });
+            }
           }
         }
       } catch (e) {
@@ -67,9 +81,11 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
     })();
   }, [jamSelections, isGuestUser]);
 
-  const handleChange = (field: keyof typeof formData, value: string) =>
-    setFormData((p) => ({ ...p, [field]: value }));
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
+  // Normalize URL before save (adds https:// if user typed just "youtube.com/...")
   const normalizeUrl = (v: string) => {
     const s = v.trim();
     if (!s) return "";
@@ -80,7 +96,7 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
   const handleSave = async () => {
     const user = getAuth().currentUser;
 
-    // 1) Update app state (single source of truth)
+    // 1) Update in-memory app state
     setJamSelections((prev) => ({
       ...prev,
       ceremonyMusic: {
@@ -91,7 +107,7 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
       },
     }));
 
-    // 2) Persist
+    // 2) Persist to Firestore or localStorage
     try {
       if (user && !isGuestUser) {
         await updateDoc(doc(db, "users", user.uid), {
@@ -101,14 +117,15 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
         });
         console.log("👰 Bride Entrance saved (Firestore):", formData);
       } else {
-        const local = JSON.parse(localStorage.getItem("jamGrooveProgress") || "{}");
+        const localRaw = localStorage.getItem(STORAGE_KEY_LOCAL);
+        const local = localRaw ? JSON.parse(localRaw) : {};
         local.ceremonyMusic = {
           ...(local.ceremonyMusic || {}),
           bride: formData.songTitle.trim(),
           brideArtist: formData.artist.trim(),
           brideVersion: normalizeUrl(formData.versionUrl),
         };
-        localStorage.setItem("jamGrooveProgress", JSON.stringify(local));
+        localStorage.setItem(STORAGE_KEY_LOCAL, JSON.stringify(local));
         console.log("💾 Bride Entrance saved (localStorage):", local.ceremonyMusic);
       }
     } catch (err) {
@@ -121,7 +138,8 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
   return (
     <ScrollSongLayout
       title="Bride’s Entrance Song"
-      sealImageSrc="/assets/images/bride_seal.png"
+      /* if your ScrollSongLayout prop is actually `sealImagesrc`, change this name back */
+      sealImageSrc={`${import.meta.env.BASE_URL}assets/images/bride_seal.png`}
       onClose={onClose}
       onSave={handleSave}
     >
@@ -145,15 +163,26 @@ const BrideEntranceSong: React.FC<BrideEntranceSongProps> = ({
         onChange={(e) => handleChange("artist", e.target.value)}
       />
 
-      <label style={{ fontWeight: 600, margin: "10px 0 6px" }}>Version URL (optional)</label>
+      <label style={{ fontWeight: 600, margin: "10px 0 6px" }}>
+        Version URL (optional)
+      </label>
       <input
         className="px-input"
         placeholder="youtube.com/watch?v=…"
         value={formData.versionUrl}
         onChange={(e) => handleChange("versionUrl", e.target.value)}
       />
-      <small style={{ color: "#666", display: "block", marginTop: 4 }}>
-        Add a link if there’s a specific version (YouTube/Spotify/Apple, etc.).
+      <small
+        style={{
+          color: "#666",
+          display: "block",
+          marginTop: 4,
+          lineHeight: 1.4,
+          fontSize: ".9rem",
+        }}
+      >
+        Add a link if there’s a specific version (YouTube / Spotify / Apple,
+        etc.).
       </small>
     </ScrollSongLayout>
   );

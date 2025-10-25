@@ -110,7 +110,7 @@ const RubiCateringMenuChoice: React.FC<RubiCateringMenuChoiceProps> = ({
     >
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <style
@@ -150,7 +150,7 @@ const RubiCateringMenuChoice: React.FC<RubiCateringMenuChoiceProps> = ({
             tabIndex={0}
             style={imgWrap(selected === "bbq")}
           >
-            <img src="/assets/images/YumYum/Rubi/BJsBBQ.jpg" alt="Brother John’s BBQ Menu" style={imgStyle} />
+            <img src={`${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/BJsBBQ.jpg`} alt="Brother John’s BBQ Menu" style={imgStyle} />
           </div>
 
           {open === "bbq" && (
@@ -171,7 +171,7 @@ const RubiCateringMenuChoice: React.FC<RubiCateringMenuChoiceProps> = ({
             tabIndex={0}
             style={imgWrap(selected === "mexican")}
           >
-            <img src="/assets/images/YumYum/Rubi/BJsMexican.jpg" alt="Brother John’s Mexican Menu" style={imgStyle} />
+            <img src={`${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/BJsMexican.jpg`} alt="Brother John’s Mexican Menu" style={imgStyle} />
           </div>
 
           {open === "mexican" && (

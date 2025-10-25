@@ -93,7 +93,7 @@ const GrandEntrances: React.FC<GrandEntrancesProps> = ({
     <div className="pixie-card">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -103,7 +103,7 @@ const GrandEntrances: React.FC<GrandEntrancesProps> = ({
         </p>
 
         <img
-          src="/assets/images/grand_entrance.jpg"
+          src={`${import.meta.env.BASE_URL}assets/images/grand_entrance.jpg`}
           alt="Grand Entrances"
           className="px-media"
           style={{ maxWidth: 300, marginBottom: 12 }}

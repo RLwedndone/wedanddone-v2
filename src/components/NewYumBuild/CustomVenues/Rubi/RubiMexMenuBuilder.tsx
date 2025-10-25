@@ -25,14 +25,14 @@ const STORAGE_KEY = "rubiMexSelections";
 
 /* --- Art assets (png banners + chef pig) --- */
 const IMG = {
-  pig: "/assets/images/YumYum/piglet1.png",
-  passed: "/assets/images/YumYum/apps.png",
-  startersOrSoup: "/assets/images/YumYum/Rubi/starters.png",
-  starters: "/assets/images/YumYum/Rubi/starters.png",
-  soups: "/assets/images/YumYum/Rubi/soups.png",   // fallback handled below
-  entrees: "/assets/images/YumYum/Entrees.png",
-  sides: "/assets/images/YumYum/sides.png",
-  desserts: "/assets/images/YumYum/Rubi/desserts.png",
+  pig: `${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`,
+  passed: `${import.meta.env.BASE_URL}assets/images/YumYum/apps.png`,
+  startersOrSoup: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/starters.png`,
+  starters: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/starters.png`,
+  soups: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/soups.png`,   // fallback handled below
+  entrees: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`,
+  sides: `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`,
+  desserts: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/desserts.png`,
 };
 
 const jsLine: React.CSSProperties = {
@@ -352,7 +352,7 @@ const RubiMexMenuBuilder: React.FC<Props> = ({
   return (
     <div className="pixie-card" style={{ maxWidth: 780, margin: "0 auto" }}>
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

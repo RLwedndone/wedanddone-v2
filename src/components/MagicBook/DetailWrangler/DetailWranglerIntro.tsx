@@ -48,7 +48,7 @@ const DetailWranglerIntro: React.FC<DetailWranglerIntroProps> = ({ onNext, goToT
             backgroundColor: "#fff",
           }}
         >
-          <source src="/assets/videos/Magic_Book/detail_intro.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/detail_intro.mp4`} type="video/mp4" />
         </video>
 
         <h2

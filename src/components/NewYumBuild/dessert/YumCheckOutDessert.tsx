@@ -615,7 +615,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
           aria-label="Close"
         >
           <img
-            src="/assets/icons/pink_ex.png"
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
             alt="Close"
           />
         </button>
@@ -625,7 +625,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
           style={{ textAlign: "center" }}
         >
           <video
-            src="/assets/videos/magic_clock.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
             loop
             muted
@@ -680,7 +680,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         aria-label="Close"
       >
         <img
-          src="/assets/icons/pink_ex.png"
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
         />
       </button>
@@ -692,7 +692,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         }}
       >
         <video
-          src="/assets/videos/lock.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
           loop
           muted

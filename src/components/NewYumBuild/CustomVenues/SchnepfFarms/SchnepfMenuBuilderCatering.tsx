@@ -346,9 +346,9 @@ const SchnepfMenuBuilderCatering: React.FC<Props> = ({
   // UI config
   const orderedSections: Array<"entrees" | "salads" | "sides"> = ["entrees", "salads", "sides"];
   const bannerSrc: Record<"entrees" | "salads" | "sides", string> = {
-    entrees: "/assets/images/YumYum/Entrees.png",
-    salads: "/assets/images/YumYum/salad.png",
-    sides: "/assets/images/YumYum/sides.png",
+    entrees: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`,
+    salads: `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`,
+    sides: `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`,
   };
   const titleMap: Record<"entrees" | "salads" | "sides", string> = {
     entrees: "Entrées",
@@ -385,7 +385,7 @@ const SchnepfMenuBuilderCatering: React.FC<Props> = ({
       {/* 🩷 Pink X Close */}
       {onClose && (
         <button className="pixie-card__close" aria-label="Close" onClick={onClose}>
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -403,7 +403,7 @@ const SchnepfMenuBuilderCatering: React.FC<Props> = ({
         </h2>
 
         <img
-          src="/assets/images/YumYum/piglet1.png"
+          src={`${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`}
           alt="Piglet Chef"
           style={{ width: 160, margin: "0 auto 24px", display: "block" }}
         />

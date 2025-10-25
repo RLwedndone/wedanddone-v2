@@ -40,7 +40,7 @@ const MEX_TIERS: Record<RubiMexTierId, TierDef> = {
   mex_sensillo: {
     name: "Sensillo",
     price: 28,
-    image: "/assets/images/YumYum/Rubi/sensillo.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/sensillo.jpg`,
     infoTitle: "SENSILLO • $28 • 1 starter or soup, 1 entrée & 2 sides",
     blurb: "Streamlined set: one starter or soup, one entrée, and two sides.",
     counts: { startersOrSoup: 1, entrees: 1, sides: 2 },
@@ -48,7 +48,7 @@ const MEX_TIERS: Record<RubiMexTierId, TierDef> = {
   mex_fiesta: {
     name: "Fiesta",
     price: 36,
-    image: "/assets/images/YumYum/Rubi/fiesta.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/fiesta.jpg`,
     infoTitle:
       "FIESTA • $36 • 2 passed apps, 1 starter/soup, 1 entrée, 3 sides, 1 dessert",
     blurb:
@@ -58,7 +58,7 @@ const MEX_TIERS: Record<RubiMexTierId, TierDef> = {
   mex_espectacular: {
     name: "Espectacular",
     price: 45,
-    image: "/assets/images/YumYum/Rubi/espectacular.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/espectacular.jpg`,
     infoTitle:
       "ESPECTACULAR • $45 • 2 passed apps, 2 starters/soup combo, 2 entrées, 3 sides, 1 dessert",
     blurb:
@@ -142,7 +142,7 @@ const RubiMexTierSelector: React.FC<Props> = ({
     >
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 

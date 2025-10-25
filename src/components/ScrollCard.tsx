@@ -20,7 +20,7 @@ const ScrollCard: React.FC<ScrollCardProps> = ({ venue, venueId }) => {
   return (
     <div className="scroll-card">
       <img
-        src="/assets/images/scroll.png"
+        src={`${import.meta.env.BASE_URL}assets/images/scroll.png`}
         alt="Scroll Background"
         className="scroll-bg"
       />
@@ -50,7 +50,7 @@ const ScrollCard: React.FC<ScrollCardProps> = ({ venue, venueId }) => {
         </ul>
 
         <img
-  src="/assets/images/gold_seal.png"
+  src={`${import.meta.env.BASE_URL}assets/images/gold_seal.png`}
   alt="Book Now Seal"
   className="scroll-seal clickable-seal"
   onClick={() => navigate(`/book/${venueId}`)}

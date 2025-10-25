@@ -122,14 +122,14 @@ const FloralCart: React.FC<FloralCartProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* ---------- Body ---------- */}
       <div className="pixie-card__body">
         {/* Character Video */}
         <video
-          src="/assets/videos/unicorn_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/unicorn_cart.mp4`}
           autoPlay
           muted
           loop
@@ -171,7 +171,7 @@ const FloralCart: React.FC<FloralCartProps> = ({
                   }
                   aria-label={`Decrease ${item.name}`}
                 >
-                  <img src="/assets/icons/qty_minus_pink_glossy.svg" alt="" aria-hidden="true" />
+                  <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
                 </button>
 
                 <input
@@ -191,7 +191,7 @@ const FloralCart: React.FC<FloralCartProps> = ({
                   }
                   aria-label={`Increase ${item.name}`}
                 >
-                  <img src="/assets/icons/qty_plus_blue_glossy.svg" alt="" aria-hidden="true" />
+                  <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
                 </button>
               </div>
             </div>

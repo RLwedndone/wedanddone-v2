@@ -44,7 +44,7 @@ const CUISINES: Cuisine[] = [
     id: "bbq",
     name: "BBQ Dinner",
     priceLabel: "$26.50 – $34.75 per person",
-    heroImg: "/assets/images/YumYum/Schnepf/bbq.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/bbq.png`,
     details: "Your choice of BBQ entrée, One Salad, Two Sides",
     includes: ["Choose one BBQ entrée", "One salad", "Two sides"],
   },
@@ -52,7 +52,7 @@ const CUISINES: Cuisine[] = [
     id: "taco_bar",
     name: "Taco Bar",
     priceLabel: "$26.50 per person + $200 chef fee",
-    heroImg: "/assets/images/YumYum/tacoBar.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/tacoBar.png`,
     details:
       "Chicken & steak street tacos (corn or flour), One Salad, Chips, Rice, Beans, Quesadillas",
     includes: [
@@ -67,7 +67,7 @@ const CUISINES: Cuisine[] = [
     id: "rustic_italian",
     name: "Rustic Italian",
     priceLabel: "$30.50 – $35.95 per person",
-    heroImg: "/assets/images/YumYum/Schnepf/italian.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/italian.png`,
     details: "Your choice of Italian entrée, One Salad, Two Sides",
     includes: [
       "Choose one Italian entrée",
@@ -80,7 +80,7 @@ const CUISINES: Cuisine[] = [
     id: "classic_chicken",
     name: "Classic Chicken Dinner",
     priceLabel: "$30.50 per person",
-    heroImg: "/assets/images/YumYum/Schnepf/chicken.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/chicken.png`,
     details: "Your choice of Chicken entrée, One Salad, Two Sides",
     includes: [
       "Choose one chicken entrée",
@@ -93,7 +93,7 @@ const CUISINES: Cuisine[] = [
     id: "live_pasta",
     name: "Live Action Pasta Bar",
     priceLabel: "$31.50 per person + $200 chef fee",
-    heroImg: "/assets/images/YumYum/Schnepf/pasta.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/pasta.png`,
     details:
       "Penne pasta with chicken & sausage, guest’s choice of sauce, baguette & butter, One Salad",
     includes: [
@@ -108,7 +108,7 @@ const CUISINES: Cuisine[] = [
     id: "wood_fired_pizza",
     name: "Wood Fired Pizza Bar",
     priceLabel: "$29.50 per person + $200 chef fee",
-    heroImg: "/assets/images/YumYum/Schnepf/pizza.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/pizza.png`,
     details: "French thin-crust pizzas, baguette & butter, One Salad",
     includes: [
       "Assorted French thin-crust pizzas",
@@ -120,7 +120,7 @@ const CUISINES: Cuisine[] = [
     id: "prime_rib",
     name: "Prime Rib",
     priceLabel: "$61.95 per person + $200 chef fee",
-    heroImg: "/assets/images/YumYum/Schnepf/pime_rib.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/pime_rib.png`,
     details:
       "Prime rib carving station, baguette & butter, One Salad, Two Sides",
     includes: [

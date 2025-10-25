@@ -109,7 +109,7 @@ const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ onClose }) => {
         </button>
 
         <img
-          src="/assets/images/gold_docs.png"
+          src={`${import.meta.env.BASE_URL}assets/images/gold_docs.png`}
           alt="Envelope"
           style={{ width: "175px", marginBottom: "0.2rem", marginTop: "-1rem" }}
         />

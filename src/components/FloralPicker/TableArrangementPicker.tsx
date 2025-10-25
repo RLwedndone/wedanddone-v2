@@ -4,9 +4,9 @@ import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
 const arrangements = [
-  { label: "Airy Garden Style", image: "/assets/images/garden_style.jpg" },
-  { label: "Bud Vase Clusters", image: "/assets/images/bud_vases.jpg" },
-  { label: "Pave Arrangement", image: "/assets/images/pave.jpg" },
+  { label: "Airy Garden Style", image: `${import.meta.env.BASE_URL}assets/images/garden_style.jpg` },
+  { label: "Bud Vase Clusters", image: `${import.meta.env.BASE_URL}assets/images/bud_vases.jpg` },
+  { label: "Pave Arrangement", image: `${import.meta.env.BASE_URL}assets/images/pave.jpg` },
 ];
 
 interface TableArrangementPickerProps {
@@ -55,7 +55,7 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* ---------- Body ---------- */}

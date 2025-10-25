@@ -481,7 +481,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           onClick={onClose}
           aria-label="Close"
         >
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
         <div
@@ -489,7 +489,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           style={{ textAlign: "center" }}
         >
           <video
-            src="/assets/videos/magic_clock.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
             loop
             muted
@@ -535,13 +535,13 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/lock.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
           loop
           muted

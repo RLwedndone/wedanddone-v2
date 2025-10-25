@@ -129,7 +129,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
     <div className="pixie-card">
       {/* ✅ Pink X Close Button */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -142,7 +142,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
           {/* First Dance */}
           <section>
             <img
-              src="/assets/images/couple_dance.jpg"
+              src={`${import.meta.env.BASE_URL}assets/images/couple_dance.jpg`}
               alt="First Dance"
               onClick={() => setExpanded((p) => ({ ...p, first: !p.first }))}
               style={avatarStyle(expanded.first, "rgba(177,139,232,0.6)")}
@@ -182,7 +182,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
           {/* Mother–Son */}
           <section>
             <img
-              src="/assets/images/mother_son_dance.png"
+              src={`${import.meta.env.BASE_URL}assets/images/mother_son_dance.png`}
               alt="Mother Son Dance"
               onClick={() => setExpanded((p) => ({ ...p, mother: !p.mother }))}
               style={avatarStyle(expanded.mother, "rgba(79,145,232,0.6)")}
@@ -222,7 +222,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
           {/* Father–Daughter */}
           <section>
             <img
-              src="/assets/images/daughter_father_dance.jpg"
+              src={`${import.meta.env.BASE_URL}assets/images/daughter_father_dance.jpg`}
               alt="Father Daughter Dance"
               onClick={() => setExpanded((p) => ({ ...p, father: !p.father }))}
               style={avatarStyle(expanded.father, "rgba(247,140,180,0.6)")}

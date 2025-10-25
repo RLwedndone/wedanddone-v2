@@ -46,7 +46,7 @@ const VicVerradoBothDoneThankYou: React.FC<Props> = ({ onClose }) => {
 
         <div style={{ display: "flex", justifyContent: "center" }}>
           <video
-            src="/assets/videos/yum_thanks.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
             autoPlay
             loop
             muted

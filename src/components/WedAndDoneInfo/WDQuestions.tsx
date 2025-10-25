@@ -39,10 +39,10 @@ const faqList = [
 ];
 
 const CLOUD_IMAGES = [
-  "/assets/images/cloud1.png",
-  "/assets/images/cloud2.png",
-  "/assets/images/cloud3.png",
-  "/assets/images/cloud4.png",
+  `${import.meta.env.BASE_URL}assets/images/cloud1.png`,
+  `${import.meta.env.BASE_URL}assets/images/cloud2.png`,
+  `${import.meta.env.BASE_URL}assets/images/cloud3.png`,
+  `${import.meta.env.BASE_URL}assets/images/cloud4.png`,
 ];
 
 const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
@@ -186,7 +186,7 @@ const bubble = isMobile
         transform: "translate(-50%, -50%)",
         width: bubble.width,
         height: bubble.height,            // ⬅️ taller bubble
-        backgroundImage: 'url("/assets/images/madge_bubble.png")',
+        backgroundImage: 'url(`${import.meta.env.BASE_URL}assets/images/madge_bubble.png`)',
         backgroundSize: "contain",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",

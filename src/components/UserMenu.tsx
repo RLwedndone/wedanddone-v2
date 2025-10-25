@@ -43,7 +43,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
           <li>
             <button className="menu-btn" onClick={() => handleClick("docs")}>
               <img
-                src="/assets/images/docs_bar.png"
+                src={`${import.meta.env.BASE_URL}assets/images/docs_bar.png`}
                 alt="Docs"
                 className="menu-item-img"
               />
@@ -53,7 +53,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
           <li>
             <button className="menu-btn" onClick={() => handleClick("bookings")}>
               <img
-                src="/assets/images/bookings_bar.png"
+                src={`${import.meta.env.BASE_URL}assets/images/bookings_bar.png`}
                 alt="Bookings"
                 className="menu-item-img"
               />
@@ -69,7 +69,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
               aria-label="Payments"
             >
               <img
-                src="/assets/images/credit_card.png"
+                src={`${import.meta.env.BASE_URL}assets/images/credit_card.png`}
                 alt="Payments"
                 className="menu-item-img"
               />
@@ -86,7 +86,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
                 aria-label="Guest List Scroll"
               >
                 <img
-                  src="/assets/images/guest_bar.png"
+                  src={`${import.meta.env.BASE_URL}assets/images/guest_bar.png`}
                   alt="Guest List Scroll"
                   className="menu-item-img"
                 />
@@ -97,7 +97,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
           <li>
             <button className="menu-btn" onClick={onLogout}>
               <img
-                src="/assets/images/LogOut_Bar.png"
+                src={`${import.meta.env.BASE_URL}assets/images/LogOut_Bar.png`}
                 alt="Log Out"
                 className="menu-item-img"
               />

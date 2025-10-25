@@ -268,13 +268,13 @@ window.dispatchEvent(new CustomEvent("billingPlanSelected", { detail: billingRob
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
   
       {/* Body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <img
-          src="/assets/images/yum_yum_button.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Catering Seal"
           className="px-media"
           style={{ width: 110, margin: "0 auto 12px" }}
@@ -373,7 +373,7 @@ window.dispatchEvent(new CustomEvent("billingPlanSelected", { detail: billingRob
         ) : (
           <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
             <img
-              src="/assets/images/contract_signed.png"
+              src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
               alt="Agreement Signed"
               className="px-media"
               style={{ maxWidth: 140 }}
@@ -412,7 +412,7 @@ window.dispatchEvent(new CustomEvent("billingPlanSelected", { detail: billingRob
         >
           <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520, position: "relative", overflow: "hidden" }}>
             <button className="pixie-card__close" onClick={() => setShowSignatureModal(false)} aria-label="Close">
-              <img src="/assets/icons/blue_ex.png" alt="Close" />
+              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
             </button>
   
             <div className="pixie-card__body" style={{ textAlign: "center" }}>

@@ -338,7 +338,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
           <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520 }}>
             <div className="pixie-card__body" style={{ textAlign: "center" }}>
               <video
-                src="/assets/videos/magic_clock.mp4"
+                src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
                 autoPlay
                 loop
                 muted
@@ -374,7 +374,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
           }}
         >
           <video
-            src="/assets/videos/lock.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
             autoPlay
             muted
             playsInline

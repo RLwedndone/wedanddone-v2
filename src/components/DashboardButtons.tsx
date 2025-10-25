@@ -105,8 +105,8 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   const loggedIn = !!auth.currentUser;
 
   const bg = isMobile
-    ? "/assets/images/dashboard_bg_mobile.jpg"
-    : "/assets/images/dashboard_bg_desktop.jpg";
+  ? `${import.meta.env.BASE_URL}assets/images/dashboard_bg_mobile.jpg`
+  : `${import.meta.env.BASE_URL}assets/images/dashboard_bg_desktop.jpg`;
   const aspect = isMobile ? MOBILE_ASPECT : DESKTOP_ASPECT;
   const POS = isMobile ? MOBILE_POS : DESKTOP_POS;
 
@@ -171,30 +171,38 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
 
   // Icons
   const ICONS = {
-    madge: "/assets/images/question_mark.png",
-    menu: "/assets/images/golden_menu_tab.png",
-    goldKey: "/assets/images/gold_key.png",
-    budgetWand: "/assets/images/budget_wand.png",
-    magicBook: "/assets/images/magic_book.png",
-    logoCloud: "/assets/images/logo_cloud.png",
+    madge: `${import.meta.env.BASE_URL}assets/images/question_mark.png`,
+    menu: `${import.meta.env.BASE_URL}assets/images/golden_menu_tab.png`,
+    goldKey: `${import.meta.env.BASE_URL}assets/images/gold_key.png`,
+    budgetWand: `${import.meta.env.BASE_URL}assets/images/budget_wand.png`,
+    magicBook: `${import.meta.env.BASE_URL}assets/images/magic_book.png`,
+  
+    // ✅ BASE_URL so it works under /wedanddone-v2/
+    logoCloud: `${import.meta.env.BASE_URL}assets/images/logo_cloud.png`,
+  
     venue: venueRankerCompleted
-      ? "/assets/images/completed_venue_button.png"
-      : "/assets/images/venue_ranker_button_start_here.png",
+      ? `${import.meta.env.BASE_URL}assets/images/completed_venue_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/venue_ranker_button_start_here.png`,
+  
     photo: photoCompleted
-      ? "/assets/images/completed_photo_button.png"
-      : "/assets/images/photo_style_button.png",
+      ? `${import.meta.env.BASE_URL}assets/images/completed_photo_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/photo_style_button.png`,
+  
     floral: floralCompleted
-      ? "/assets/images/completed_floral_button.png"
-      : "/assets/images/floral_picker_button.png",
-      yum: (cateringCompleted || yumCompletedLocal)
-      ? "/assets/images/completed_yum_button.png"
-      : "/assets/images/yum_yum_button.png",
+      ? `${import.meta.env.BASE_URL}assets/images/completed_floral_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/floral_picker_button.png`,
+  
+    yum: (cateringCompleted || yumCompletedLocal)
+      ? `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`,
+  
     jam: jamGrooveCompleted
-      ? "/assets/images/completed_jam_button.png"
-      : "/assets/images/jam_groove_button.png",
+      ? `${import.meta.env.BASE_URL}assets/images/completed_jam_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/jam_groove_button.png`,
+  
     planner: plannerCompleted
-      ? "/assets/images/completed_planner_button.png"
-      : "/assets/images/planner_button.png",
+      ? `${import.meta.env.BASE_URL}assets/images/completed_planner_button.png`
+      : `${import.meta.env.BASE_URL}assets/images/planner_button.png`,
   };
 
   // Hotspots

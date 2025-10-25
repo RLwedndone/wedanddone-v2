@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 interface PhotoShotList1Props {
   onNext: () => void;
   onBack: () => void;
-  goToTOC?: () => void; // ✅ added so the overlay can pass goToTOC
+  goToTOC?: () => void; // ✅ overlay can pass goToTOC
 }
 
 // Types stored in localStorage for VIP list entries
@@ -194,42 +194,42 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
       shots.push({
         key: "whole-family",
         label: `${you} with Whole Family`,
-        img: "/assets/images/Shot_Cards/LB1_shot_1_whole_family.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_1_whole_family.png`,
       });
     }
     if (hasParents) {
       shots.push({
         key: "parents",
         label: `${you} with Parents`,
-        img: "/assets/images/Shot_Cards/LB1_shot_2_parents.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_2_parents.png`,
       });
     }
     if (hasSiblings) {
       shots.push({
         key: "siblings",
         label: `${you} with Siblings`,
-        img: "/assets/images/Shot_Cards/LB1_shot_3_siblings.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_3_siblings.png`,
       });
     }
     if (role1.mothers.length) {
       shots.push({
         key: "mom",
         label: `${you} with Mom`,
-        img: "/assets/images/Shot_Cards/LB1_shot_4_mom.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_4_mom.png`,
       });
     }
     if (role1.fathers.length) {
       shots.push({
         key: "dad",
         label: `${you} with Dad`,
-        img: "/assets/images/Shot_Cards/LB1_shot_5_dad.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_5_dad.png`,
       });
     }
     if (hasParty) {
       shots.push({
         key: "party",
         label: `${you} with Wedding Party`,
-        img: "/assets/images/Shot_Cards/LB1_shot_6_party.png",
+        img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB1_shot_6_party.png`,
         helper: "Include bridesmaids, groomsmen, flower girls, etc.",
         allowAllVips: true,
       });
@@ -253,7 +253,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
     });
   }, [shotList]);
 
-  // ----- Auto‑fill visible shots with defaults (only when empty & not skipped)
+  // ----- Auto-fill visible shots with defaults (only when empty & not skipped)
   useEffect(() => {
     if (!lb1FullName) return;
 
@@ -329,7 +329,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
         {/* 🔷 Top icon spot (LB1 art) */}
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
           <img
-            src="/assets/images/ShotList1.png"
+            src={`${import.meta.env.BASE_URL}assets/images/ShotList1.png`}
             alt="Shot List Icon"
             style={{ width: "82%", maxWidth: 150 }}
           />
@@ -456,7 +456,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
           </div>
 
           <div style={{ color: "#555", fontSize: "0.92rem", marginBottom: "0.5rem" }}>
-            Tip: Use this for one‑on‑one portraits (e.g., {you} + Maid of Honor, {you} + Brother) or any special group.
+            Tip: Use this for one-on-one portraits (e.g., {you} + Maid of Honor, {you} + Brother) or any special group.
           </div>
 
           <CustomShotForm you={you} />
@@ -493,32 +493,32 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
 
           {/* Purple Back to TOC (matches other screens) */}
           <div style={{ marginTop: "0.5rem" }}>
-          <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+            <button
+              onClick={() => {
+                console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
+                if (typeof goToTOC === "function") {
+                  goToTOC();
+                  return;
+                }
+                // Fallback: set intent + tell overlay to navigate
+                localStorage.setItem("magicStep", "toc");
+                window.dispatchEvent(new Event("magic:gotoTOC"));
+              }}
+              style={{
+                backgroundColor: "#7b4bd8",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "0.75rem 1rem",
+                fontSize: "1.05rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                width: 180,
+                marginTop: "0.5rem",
+              }}
+            >
+              🪄 Back to TOC
+            </button>
           </div>
         </div>
       </div>

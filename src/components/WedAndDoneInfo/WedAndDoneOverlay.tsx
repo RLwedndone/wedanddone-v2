@@ -37,7 +37,7 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
         style={{
           // ⭐ starry background only on the Questions screen
           background: isQuestions ? "transparent" : "#fff",
-          backgroundImage: isQuestions ? 'url("/assets/images/Starry_Night.png")' : undefined,
+          backgroundImage: isQuestions ? 'url(`${import.meta.env.BASE_URL}assets/images/Starry_Night.png`)' : undefined,
           backgroundRepeat: isQuestions ? "repeat-y" : undefined,
           backgroundSize: isQuestions ? "100% auto" : undefined, // fill width, keep tile ratio
           backgroundPosition: isQuestions ? "center top" : undefined,

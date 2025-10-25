@@ -26,7 +26,7 @@ type MagicStep =
 
 interface Props {
   setStep: (s: MagicStep) => void;
-  resumeMagicBook: () => void;
+  // resumeMagicBook: () => void; // not currently used
 }
 
 function useIsMobile() {
@@ -54,9 +54,9 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
   const BUTTON_MAX_W = 340;
 
   // title image overlay
-  const TITLE_IMG_PATH = "/assets/images/TOC_tile.png";
+  const TITLE_IMG_PATH = `${import.meta.env.BASE_URL}assets/images/TOC_tile.png`;
   const TITLE_HEIGHT = isMobile ? 120 : 160;
-  const TITLE_WIDTH = isMobile ? 220 : 300;
+  // const TITLE_WIDTH = isMobile ? 220 : 300; // not used
 
   return (
     <>
@@ -75,7 +75,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
             width: "100%",
             maxWidth: 900,
             borderRadius: 24,
-            backgroundImage: `url("/assets/images/toc.png")`,
+            backgroundImage: `url(${import.meta.env.BASE_URL}assets/images/toc.png)`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
             backgroundPosition: "center top",
@@ -87,19 +87,19 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
         >
           {/* Title art (not interactive) */}
           <img
-  src={TITLE_IMG_PATH}
-  alt="MBD's Table of Contents"
-  style={{
-    position: "absolute",
-    top: isMobile ? 100 : 70,
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "45%",
-    height: "auto",
-    pointerEvents: "none",
-    userSelect: "none",
-  }}
-/>
+            src={TITLE_IMG_PATH}
+            alt="MBD's Table of Contents"
+            style={{
+              position: "absolute",
+              top: isMobile ? 100 : 70,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "45%",
+              height: "auto",
+              pointerEvents: "none",
+              userSelect: "none",
+            }}
+          />
 
           {/* Spacer to push content below the title */}
           <div style={{ height: TITLE_HEIGHT }} />
@@ -114,7 +114,13 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
             }}
           >
             {/* Explainer text (match button width) */}
-            <div style={{ width: BUTTON_WIDTH_PCT, maxWidth: BUTTON_MAX_W, textAlign: "center" }}>
+            <div
+              style={{
+                width: BUTTON_WIDTH_PCT,
+                maxWidth: BUTTON_MAX_W,
+                textAlign: "center",
+              }}
+            >
               <p style={{ margin: 0, color: "#333", lineHeight: 1.45 }}>
                 Pick where you’d like to jump in. You can always come back here.
               </p>
@@ -122,7 +128,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
 
             {/* Big path buttons */}
             <img
-              src="/assets/images/toc_buttons/detailwrangler_button.png"
+              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/detailwrangler_button.png`}
               alt="Detail Wrangler"
               onClick={() => go("dwIntro")}
               style={{
@@ -131,12 +137,16 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
                 cursor: "pointer",
                 transition: "transform 0.18s ease",
               }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-              onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "scale(1.03)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "scale(1.0)";
+              }}
             />
 
             <img
-              src="/assets/images/toc_buttons/VIPandPhotos.png"
+              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/VIPandPhotos.png`}
               alt="VIP’s & Photos"
               onClick={() => go("photoVIPIntro")}
               style={{
@@ -145,15 +155,24 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
                 cursor: "pointer",
                 transition: "transform 0.18s ease",
               }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-              onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "scale(1.03)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "scale(1.0)";
+              }}
             />
           </div>
 
           {/* “All Pages” big button */}
-          <div style={{ textAlign: "center", marginTop: isMobile ? 12 : 10 }}>
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: isMobile ? 12 : 10,
+            }}
+          >
             <img
-              src="/assets/images/toc_buttons/all_pages.png"
+              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/all_pages.png`}
               alt="All pages (jump anywhere)"
               onClick={() => setShowAllPages(true)}
               style={{
@@ -162,8 +181,12 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
                 cursor: "pointer",
                 transition: "transform .2s ease",
               }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-              onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1.0)")}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "scale(1.05)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "scale(1.0)";
+              }}
             />
           </div>
 
@@ -173,192 +196,196 @@ const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
 
       {/* ===== All Pages Modal (white card) ===== */}
       {showAllPages && (
-  <div
-    role="dialog"
-    aria-modal="true"
-    onClick={() => setShowAllPages(false)}
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.55)",
-      zIndex: 2000,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "1rem",
-    }}
-  >
-    <div
-      className="pixie-card"
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        background: "#fff",
-        borderRadius: 18,
-        width: "92%",
-        maxWidth: 560,
-        maxHeight: "80vh",
-        overflowY: "auto",
-        position: "relative",
-        padding: "1.25rem 1.25rem 1.5rem",
-        boxShadow: "0 12px 24px rgba(0,0,0,0.25)",
-        textAlign: "center",
-      }}
-    >
-      {/* Close X */}
-      <button
-        onClick={() => setShowAllPages(false)}
-        aria-label="Close"
-        style={{
-          position: "absolute",
-          top: 10,
-          right: 10,
-          background: "none",
-          border: "none",
-          fontSize: "1.4rem",
-          cursor: "pointer",
-          lineHeight: 1,
-        }}
-      >
-        ✖
-      </button>
-
-      {/* Title */}
-      <h2
-        style={{
-          margin: "6px 0 14px",
-          color: "#2c62ba",
-          fontSize: "1.6rem",
-          fontWeight: 800,
-          letterSpacing: "0.2px",
-        }}
-      >
-        Jump Anywhere!
-      </h2>
-
-      {/* Detail Wrangler */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Detail Wrangler</div>
-        <ul
-          style={{
-            listStyle: "disc",
-            paddingLeft: 0,
-            margin: 0,
-            display: "inline-block",
-            textAlign: "left",
-            lineHeight: 1.75,
-          }}
-        >
-          {[
-            ["Intro", "dwIntro"],
-            ["Basics", "dwBasics"],
-            ["Style", "dwStyle"],
-            ["Wedding Costs", "dwCosts"],
-            ["Save The Date", "saveTheDate"],
-            ["Timeline", "timeline"],
-            ["Set Tables", "setTables"],
-          ].map(([label, step]) => (
-            <li key={label} style={{ marginBottom: 2 }}>
-              <button
-                onClick={() => {
-                  setShowAllPages(false);
-                  localStorage.setItem("magicStep", step as MagicStep);
-                  setStep(step as MagicStep);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#2c62ba",
-                  padding: 0,
-                  cursor: "pointer",
-                  font: "inherit",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.textDecoration = "underline")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.textDecoration = "none")
-                }
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* VIPs & Photos */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>VIPs & Photos</div>
-        <ul
-          style={{
-            listStyle: "disc",
-            paddingLeft: 0,
-            margin: 0,
-            display: "inline-block",
-            textAlign: "left",
-            lineHeight: 1.75,
-          }}
-        >
-          {[
-            ["Intro", "photoVIPIntro"],
-            ["Couple Info", "coupleInfo"],
-            ["VIP List", "vip"],
-            ["LB1 Shots", "photoShotList1"],
-            ["LB2 Shots", "photoShotList2"],
-            ["Combined Shots", "photoShotListCombined"],
-            ["Export PDF", "photoPDF"],
-          ].map(([label, step]) => (
-            <li key={label} style={{ marginBottom: 2 }}>
-              <button
-                onClick={() => {
-                  setShowAllPages(false);
-                  localStorage.setItem("magicStep", step as MagicStep);
-                  setStep(step as MagicStep);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#2c62ba",
-                  padding: 0,
-                  cursor: "pointer",
-                  font: "inherit",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.textDecoration = "underline")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.textDecoration = "none")
-                }
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Back to TOC (purple) */}
-      <div>
-        <button
+        <div
+          role="dialog"
+          aria-modal="true"
           onClick={() => setShowAllPages(false)}
           style={{
-            width: 200,
-            backgroundColor: "#7b4bd8",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            padding: "0.75rem 1rem",
-            fontSize: "1.05rem",
-            fontWeight: 700,
-            cursor: "pointer",
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
           }}
         >
-          🪄 Back to TOC
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          <div
+            className="pixie-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              borderRadius: 18,
+              width: "92%",
+              maxWidth: 560,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              position: "relative",
+              padding: "1.25rem 1.25rem 1.5rem",
+              boxShadow: "0 12px 24px rgba(0,0,0,0.25)",
+              textAlign: "center",
+            }}
+          >
+            {/* Close X */}
+            <button
+              onClick={() => setShowAllPages(false)}
+              aria-label="Close"
+              style={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                background: "none",
+                border: "none",
+                fontSize: "1.4rem",
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              ✖
+            </button>
+
+            {/* Title */}
+            <h2
+              style={{
+                margin: "6px 0 14px",
+                color: "#2c62ba",
+                fontSize: "1.6rem",
+                fontWeight: 800,
+                letterSpacing: "0.2px",
+              }}
+            >
+              Jump Anywhere!
+            </h2>
+
+            {/* Detail Wrangler */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                Detail Wrangler
+              </div>
+              <ul
+                style={{
+                  listStyle: "disc",
+                  paddingLeft: 0,
+                  margin: 0,
+                  display: "inline-block",
+                  textAlign: "left",
+                  lineHeight: 1.75,
+                }}
+              >
+                {[
+                  ["Intro", "dwIntro"],
+                  ["Basics", "dwBasics"],
+                  ["Style", "dwStyle"],
+                  ["Wedding Costs", "dwCosts"],
+                  ["Save The Date", "saveTheDate"],
+                  ["Timeline", "timeline"],
+                  ["Set Tables", "setTables"],
+                ].map(([label, step]) => (
+                  <li key={label} style={{ marginBottom: 2 }}>
+                    <button
+                      onClick={() => {
+                        setShowAllPages(false);
+                        localStorage.setItem("magicStep", step as MagicStep);
+                        setStep(step as MagicStep);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#2c62ba",
+                        padding: 0,
+                        cursor: "pointer",
+                        font: "inherit",
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.textDecoration = "underline";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.textDecoration = "none";
+                      }}
+                    >
+                      {label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* VIPs & Photos */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                VIPs & Photos
+              </div>
+              <ul
+                style={{
+                  listStyle: "disc",
+                  paddingLeft: 0,
+                  margin: 0,
+                  display: "inline-block",
+                  textAlign: "left",
+                  lineHeight: 1.75,
+                }}
+              >
+                {[
+                  ["Intro", "photoVIPIntro"],
+                  ["Couple Info", "coupleInfo"],
+                  ["VIP List", "vip"],
+                  ["LB1 Shots", "photoShotList1"],
+                  ["LB2 Shots", "photoShotList2"],
+                  ["Combined Shots", "photoShotListCombined"],
+                  ["Export PDF", "photoPDF"],
+                ].map(([label, step]) => (
+                  <li key={label} style={{ marginBottom: 2 }}>
+                    <button
+                      onClick={() => {
+                        setShowAllPages(false);
+                        localStorage.setItem("magicStep", step as MagicStep);
+                        setStep(step as MagicStep);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#2c62ba",
+                        padding: 0,
+                        cursor: "pointer",
+                        font: "inherit",
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.textDecoration = "underline";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.textDecoration = "none";
+                      }}
+                    >
+                      {label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Back to TOC (purple) */}
+            <div>
+              <button
+                onClick={() => setShowAllPages(false)}
+                style={{
+                  width: 200,
+                  backgroundColor: "#7b4bd8",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "0.75rem 1rem",
+                  fontSize: "1.05rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                🪄 Back to TOC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

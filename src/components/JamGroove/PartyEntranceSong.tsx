@@ -38,7 +38,9 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
 
     if (isGuestUser) {
       try {
-        const local = JSON.parse(localStorage.getItem("jamGrooveProgress") || "{}");
+        const local = JSON.parse(
+          localStorage.getItem("jamGrooveProgress") || "{}"
+        );
         const ls = local?.jamGrooveSelections?.partyEntranceSong;
         if (ls) {
           setFormData({
@@ -47,7 +49,9 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
             versionUrl: ls.versionUrl || "",
           });
         }
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
   }, [jamSelections, isGuestUser]);
 
@@ -55,7 +59,7 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
     const updated = { ...formData, [field]: value };
     setFormData(updated);
 
-    // Sync to jamSelections immediately (keeps Checkout/Groove Guide in sync)
+    // keep central state in sync live
     setJamSelections((prev) => ({
       ...prev,
       jamGrooveSelections: {
@@ -72,7 +76,7 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
       versionUrl: formData.versionUrl.trim(),
     };
 
-    // Ensure central state is clean
+    // update in-memory
     setJamSelections((prev) => ({
       ...prev,
       jamGrooveSelections: {
@@ -94,13 +98,21 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
       }
     } else {
       try {
-        const local = JSON.parse(localStorage.getItem("jamGrooveProgress") || "{}");
+        const local = JSON.parse(
+          localStorage.getItem("jamGrooveProgress") || "{}"
+        );
         local.jamGrooveSelections = {
           ...(local.jamGrooveSelections || {}),
           partyEntranceSong: cleaned,
         };
-        localStorage.setItem("jamGrooveProgress", JSON.stringify(local));
-        console.log("💾 Saved partyEntranceSong to localStorage:", cleaned);
+        localStorage.setItem(
+          "jamGrooveProgress",
+          JSON.stringify(local)
+        );
+        console.log(
+          "💾 Saved partyEntranceSong to localStorage:",
+          cleaned
+        );
       } catch (err) {
         console.error("❌ localStorage error:", err);
       }
@@ -112,26 +124,31 @@ const PartyEntranceSong: React.FC<PartyEntranceSongProps> = ({
   return (
     <ScrollSongLayout
       title="Bridal Party Entrance Song"
-      sealImageSrc="/assets/images/party_seal.png"
+      // if your ScrollSongLayout prop is actually `sealImagesrc` (lowercase s),
+      // change this name to match
+      sealImageSrc={`${import.meta.env.BASE_URL}assets/images/party_seal.png`}
       onClose={onClose}
       onSave={handleSave}
     >
       <p className="scroll-header">
-        What song should be played as the bridal party (bridesmaids, groomsmen,
-        flower girls, etc.) walk down the aisle?
+        What song should be played as the bridal party (bridesmaids,
+        groomsmen, flower girls, etc.) walk down the aisle?
       </p>
 
       <input
+        className="px-input"
         placeholder="Song Title"
         value={formData.songTitle}
         onChange={(e) => handleChange("songTitle", e.target.value)}
       />
       <input
+        className="px-input"
         placeholder="Artist Name"
         value={formData.artist}
         onChange={(e) => handleChange("artist", e.target.value)}
       />
       <input
+        className="px-input"
         placeholder="Version URL (www.example.com)"
         value={formData.versionUrl}
         onChange={(e) => handleChange("versionUrl", e.target.value)}

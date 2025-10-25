@@ -157,7 +157,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
       {/* 🖼 Top image */}
       <div style={{ marginBottom: "0.5rem", textAlign: "center" }}>
         <img
-          src="/assets/images/gold_top.png"
+          src={`${import.meta.env.BASE_URL}assets/images/gold_top.png`}
           alt="VIP Clipboard Top"
           style={{ width: "86%", maxWidth: 520 }}
         />
@@ -322,7 +322,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
       {/* 🖼 Bottom image */}
       <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
         <img
-          src="/assets/images/gold_bottom.png"
+          src={`${import.meta.env.BASE_URL}assets/images/gold_bottom.png`}
           alt="VIP Clipboard Bottom"
           style={{ width: "86%", maxWidth: 520 }}
         />

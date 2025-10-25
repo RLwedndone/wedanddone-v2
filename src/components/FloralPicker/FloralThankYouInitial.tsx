@@ -14,12 +14,12 @@ const FloralThankYouInitial: React.FC<Props> = ({ onClose }) => {
   return (
     <div className="pixie-card">
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/unicorn_thankyou.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/unicorn_thankyou.mp4`}
           autoPlay loop muted playsInline
           className="px-media"
           style={{ maxWidth: 260, margin: "16px auto" }}

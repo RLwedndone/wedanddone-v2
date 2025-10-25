@@ -7,7 +7,7 @@ interface PDFOptions {
   guestCount: number;
   weddingDate: string;
   signatureImageUrl: string;
-  paymentSummary: string;          // ← we’ll render this verbatim if present
+  paymentSummary: string; // will render verbatim if present
   lineItems?: string[];
   dessertType?: string;
   selectedFlavorCombo?: string;
@@ -50,7 +50,11 @@ const generateDessertAgreementPDF = async ({
   const prettyDate = (d: string): string => {
     const dt = new Date(d);
     if (!isNaN(dt.getTime())) {
-      return dt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      return dt.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
     }
     return d;
   };
@@ -61,7 +65,9 @@ const generateDessertAgreementPDF = async ({
     doc.line(20, y - 8, pageW - 20, y - 8);
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text("Magically booked by Wed&Done", pageW / 2, y, { align: "center" });
+    doc.text("Magically booked by Wed&Done", pageW / 2, y, {
+      align: "center",
+    });
   };
 
   const addWatermark = (lockImg: HTMLImageElement) => {
@@ -71,8 +77,8 @@ const generateDessertAgreementPDF = async ({
 
   // ---------- assets ----------
   const [logo, lock] = await Promise.all([
-    loadImage("/assets/images/rainbow_logo.jpg"),
-    loadImage("/assets/images/lock_grey.jpg"),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
 
   // ---------- cover ----------
@@ -82,7 +88,9 @@ const generateDessertAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text("Dessert Agreement & Receipt", pageW / 2, 75, { align: "center" });
+  doc.text("Dessert Agreement & Receipt", pageW / 2, 75, {
+    align: "center",
+  });
 
   doc.setFontSize(12);
   const weddingPretty = prettyDate(weddingDate);
@@ -175,7 +183,13 @@ const generateDessertAgreementPDF = async ({
       const remaining = Math.max(0, total - deposit);
       doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, 25, y2);
       y2 += 8;
-      doc.text(`Remaining Balance: $${remaining.toFixed(2)} (billed per your plan)`, 25, y2);
+      doc.text(
+        `Remaining Balance: $${remaining.toFixed(
+          2
+        )} (billed per your plan)`,
+        25,
+        y2
+      );
       y2 += 8;
     } else {
       doc.text(`Total Paid in Full: $${total.toFixed(2)}`, 25, y2);

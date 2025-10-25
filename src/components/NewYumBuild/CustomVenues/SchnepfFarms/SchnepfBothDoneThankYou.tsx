@@ -17,13 +17,13 @@ const SchnepfBothDoneThankYou: React.FC<Props> = ({ onClose }) => {
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680, position: "relative", textAlign: "center" }}>
       {/* 🩷 Pink X Close → dashboard */}
       <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
   
       <div className="pixie-card__body">
         <div style={{ display: "flex", justifyContent: "center" }}>
           <video
-            src="/assets/videos/yum_thanks.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
             autoPlay
             loop
             muted

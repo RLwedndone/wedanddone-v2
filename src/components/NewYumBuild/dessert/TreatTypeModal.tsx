@@ -12,14 +12,14 @@ const treatOptions = [
     label: "Goodies Table",
     description:
       "A mix of lemon bars, brownies, cookies, tarts, shooters, and other bite-sized sweets!",
-    image: "/assets/images/YumYum/goodies_table.png",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/goodies_table.png`,
   },
   {
     key: "cupcakes",
     label: "Cupcake Table",
     description:
       "An elegant cupcake table with various flavors, arranged in a tower or tiered layout.",
-    image: "/assets/images/YumYum/cupcake_table.png",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/cupcake_table.png`,
   },
 ];
 
@@ -45,7 +45,7 @@ const TreatTypeModal: React.FC<TreatTypeModalProps> = ({ selected, onChange, onC
       >
         {/* Blue X close */}
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/blue_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
         </button>
 
         {/* Hide inner scrollbar */}

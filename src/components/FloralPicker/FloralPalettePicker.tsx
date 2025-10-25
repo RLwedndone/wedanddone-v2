@@ -5,11 +5,24 @@ interface FloralPalettePickerProps {
   onClose: () => void; // 👈 add this so the pink X works
 }
 
+// ✅ fixed image paths: proper template literal with backticks on both ends
 const palettes = [
-  { label: "Dusty Pastels", image: "/assets/images/dusty_pastels.jpg" },
-  { label: "Jewel Tones", image: "/assets/images/jewel_tones.jpg" },
-  { label: "Vibrant Wildflowers", image: "/assets/images/vibrant_wildflower.jpg" },
-  { label: "Whites & Greens", image: "/assets/images/whites_and_greens.jpg" },
+  {
+    label: "Dusty Pastels",
+    image: `${import.meta.env.BASE_URL}assets/images/dusty_pastels.jpg`,
+  },
+  {
+    label: "Jewel Tones",
+    image: `${import.meta.env.BASE_URL}assets/images/jewel_tones.jpg`,
+  },
+  {
+    label: "Vibrant Wildflowers",
+    image: `${import.meta.env.BASE_URL}assets/images/vibrant_wildflower.jpg`,
+  },
+  {
+    label: "Whites & Greens",
+    image: `${import.meta.env.BASE_URL}assets/images/whites_and_greens.jpg`,
+  },
 ];
 
 const FloralPalettePicker: React.FC<FloralPalettePickerProps> = ({
@@ -34,7 +47,10 @@ const FloralPalettePicker: React.FC<FloralPalettePickerProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body">

@@ -311,11 +311,11 @@ const VicVerradoMenuBuilderCatering: React.FC<Props> = ({
     img: string;
     show: boolean;
   }> = [
-    { key: "hors", label: "Hors d’oeuvres", img: "/assets/images/YumYum/hors.png", show: limits.hors > 0 },
-    { key: "salads", label: "Salads", img: "/assets/images/YumYum/salad.png", show: true },
-    { key: "entrees", label: "Entrées", img: "/assets/images/YumYum/Entrees.png", show: true },
-    { key: "starch", label: "Starch", img: "/assets/images/YumYum/starch.png", show: true },
-    { key: "veg", label: "Vegetable", img: "/assets/images/YumYum/Veggie.png", show: true },
+    { key: "hors", label: "Hors d’oeuvres", img: `${import.meta.env.BASE_URL}assets/images/YumYum/hors.png`, show: limits.hors > 0 },
+    { key: "salads", label: "Salads", img: `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`, show: true },
+    { key: "entrees", label: "Entrées", img: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`, show: true },
+    { key: "starch", label: "Starch", img: `${import.meta.env.BASE_URL}assets/images/YumYum/starch.png`, show: true },
+    { key: "veg", label: "Vegetable", img: `${import.meta.env.BASE_URL}assets/images/YumYum/Veggie.png`, show: true },
   ];
 
   return (
@@ -332,7 +332,7 @@ const VicVerradoMenuBuilderCatering: React.FC<Props> = ({
       </h2>
 
       <img
-        src="/assets/images/YumYum/piglet1.png"
+        src={`${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`}
         alt="Piglet Chef"
         style={{ width: "160px", margin: "0 auto 30px", display: "block" }}
       />

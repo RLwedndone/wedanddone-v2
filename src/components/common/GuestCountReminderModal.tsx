@@ -272,20 +272,20 @@ const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
         </button>
 
         {/* Looping video */}
-        <video
-          src="/assets/videos/guest_count_reminder.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{
-            width: "100%",
-            maxWidth: 220,
-            borderRadius: 12,
-            display: "block",
-            margin: "0 auto 0.75rem",
-          }}
-        />
+<video
+  src={`${import.meta.env.BASE_URL}assets/videos/guest_count_reminder.mp4`}
+  autoPlay
+  loop
+  muted
+  playsInline
+  style={{
+    width: "100%",
+    maxWidth: 220,
+    borderRadius: 12,
+    display: "block",
+    margin: "0 auto 0.75rem",
+  }}
+/>
 
         {/* Copy */}
         <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>

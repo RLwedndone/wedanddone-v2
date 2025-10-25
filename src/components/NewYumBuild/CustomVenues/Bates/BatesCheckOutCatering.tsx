@@ -403,12 +403,12 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/magic_clock.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
           autoPlay
           loop
           muted
@@ -432,12 +432,12 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/lock.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
           loop
           muted

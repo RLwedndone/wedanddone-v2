@@ -61,7 +61,7 @@ const saveAndClose = async () => {
     window.dispatchEvent(new Event("purchaseMade"));
 
     // 4) Sparkle sound (fix case-sensitive extension)
-    const sparkle = new Audio("/assets/sounds/sparkle.mp3");
+    const sparkle = new Audio(`${import.meta.env.BASE_URL}assets/sounds/sparkle.mp3`);
     sparkle.volume = 0.7;
     sparkle.play().catch((err) => console.warn("✨ Sparkle sound blocked:", err));
   }
@@ -133,7 +133,7 @@ const saveAndClose = async () => {
         {/* 🧁 Image */}
 <div style={{ textAlign: "center", marginBottom: "1rem" }}>
   <img
-    src="/assets/images/outside_purchase.png"
+    src={`${import.meta.env.BASE_URL}assets/images/outside_purchase.png`}
     alt="Outside Purchases"
     style={{ width: "80%", maxWidth: "300px" }}
   />

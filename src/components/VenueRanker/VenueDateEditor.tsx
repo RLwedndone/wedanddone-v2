@@ -106,7 +106,7 @@ const VenueDateEditor: React.FC<VenueDateEditorProps> = ({
           <div className="calendar-wrapper">
             <div style={{ textAlign: "center", marginBottom: "1rem" }}>
               <video
-                src="/assets/videos/calendar_loop.mp4"
+                src={`${import.meta.env.BASE_URL}assets/videos/calendar_loop.mp4`}
                 autoPlay
                 muted
                 loop

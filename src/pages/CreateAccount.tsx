@@ -107,7 +107,7 @@ const CreateAccount: React.FC<CreateAccountProps> = ({ onClose }) => {
   return (
     <div
       style={{
-        backgroundImage: `url(${isMobile ? "/assets/images/account_door_mobile.jpg" : "/assets/images/account_door_desktop_v2.jpg"})`,
+        backgroundImage: `url(${isMobile ? `${import.meta.env.BASE_URL}assets/images/account_door_mobile.jpg` : `${import.meta.env.BASE_URL}assets/images/account_door_desktop_v2.jpg`})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         height: "100vh",

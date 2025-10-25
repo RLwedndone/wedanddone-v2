@@ -49,7 +49,7 @@ const TIERS: FlowerTier[] = [
     id: "sunflower",
     name: "Sunflower",
     pricePerGuest: 69,
-    heroImg: "/assets/images/YumYum/sunflower.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/sunflower.png`,
     blurb: "Bright, joyful, and beautifully simple.",
     includes: [
       "One salad selection",
@@ -65,7 +65,7 @@ const TIERS: FlowerTier[] = [
     id: "rose",
     name: "Rose",
     pricePerGuest: 79,
-    heroImg: "/assets/images/YumYum/rose.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/rose.png`,
     blurb: "Romantic classics with a polished touch.",
     includes: [
       "One hors d’oeuvre",
@@ -83,7 +83,7 @@ const TIERS: FlowerTier[] = [
     id: "lily",
     name: "Lily",
     pricePerGuest: 89,
-    heroImg: "/assets/images/YumYum/lily.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/lily.png`,
     blurb: "Elevated flavors & guest-pleasing variety.",
     includes: [
       "Two hors d’oeuvres",
@@ -102,7 +102,7 @@ const TIERS: FlowerTier[] = [
     id: "dahlia",
     name: "Dahlia",
     pricePerGuest: 99,
-    heroImg: "/assets/images/YumYum/dahlia.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/dahlia.png`,
     blurb: "Premium, show-stopping culinary experience.",
     includes: [
       "Three hors d’oeuvres",

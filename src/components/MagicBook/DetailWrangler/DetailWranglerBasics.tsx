@@ -69,7 +69,7 @@ const DetailWranglerBasics: React.FC<DetailWranglerBasicsProps> = ({
       >
         {/* 🎥 Step 1: Budget */}
         <video autoPlay loop muted playsInline preload="metadata" style={videoStyle}>
-          <source src="/assets/videos/Magic_Book/Step_One.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Step_One.mp4`} type="video/mp4" />
         </video>
 
         <h2
@@ -86,7 +86,7 @@ const DetailWranglerBasics: React.FC<DetailWranglerBasicsProps> = ({
 
         {/* 🎥 Step 2: Calendar */}
         <video autoPlay loop muted playsInline preload="metadata" style={videoStyle}>
-          <source src="/assets/videos/Magic_Book/Step_Two.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Step_Two.mp4`} type="video/mp4" />
         </video>
 
         <h2
@@ -102,7 +102,7 @@ const DetailWranglerBasics: React.FC<DetailWranglerBasicsProps> = ({
 
         {/* 🎥 Step 3: Team Building */}
         <video autoPlay loop muted playsInline preload="metadata" style={videoStyle}>
-          <source src="/assets/videos/Magic_Book/Step_Three.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Step_Three.mp4`} type="video/mp4" />
         </video>
 
         <h2
@@ -119,7 +119,7 @@ const DetailWranglerBasics: React.FC<DetailWranglerBasicsProps> = ({
 
         {/* 🎥 Step 4: Attire */}
         <video autoPlay loop muted playsInline preload="metadata" style={videoStyle}>
-          <source src="/assets/videos/Magic_Book/Step_Four.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Step_Four.mp4`} type="video/mp4" />
         </video>
 
         <h2

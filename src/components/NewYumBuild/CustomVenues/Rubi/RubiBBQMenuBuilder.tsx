@@ -23,13 +23,13 @@ const STORAGE_KEY = "rubiBBQSelections";
 
 /** Images used in the category headers (clickable) */
 const IMG = {
-  pig: "/assets/images/YumYum/piglet1.png",
-  starters: "/assets/images/YumYum/apps.png",
-  meats: "/assets/images/YumYum/Rubi/meats.png",
+  pig: `${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`,
+  starters: `${import.meta.env.BASE_URL}assets/images/YumYum/apps.png`,
+  meats: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/meats.png`,
   // If you don’t have “sides.png” / “dessert.png”, feel free to point these
   // at any banner you prefer. The UI still works if images 404.
-  sides: "/assets/images/YumYum/sides.png",
-  desserts: "/assets/images/YumYum/Rubi/desserts.png",
+  sides: `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`,
+  desserts: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/desserts.png`,
 };
 
 const jsLine: React.CSSProperties = {
@@ -114,7 +114,7 @@ const RubiBBQMenuBuilder: React.FC<Props> = ({
     <div className="pixie-card" style={{ maxWidth: 780, margin: "0 auto" }}>
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -178,7 +178,7 @@ const RubiBBQMenuBuilder: React.FC<Props> = ({
             style={{ width: 260, display: "block", margin: "0 auto 6px", cursor: "pointer" }}
             onError={(e) => {
               // simple fallback if sides.png doesn't exist
-              (e.currentTarget as HTMLImageElement).src = "/assets/images/YumYum/salad.png";
+              (e.currentTarget as HTMLImageElement).src = `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`;
             }}
           />
           {localSel.bbqSides.map((s) => (

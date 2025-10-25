@@ -13,7 +13,7 @@ const FloralThankYouReturn: React.FC<Props> = ({ onClose, onAddMore }) => {
     >
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div
@@ -28,7 +28,7 @@ const FloralThankYouReturn: React.FC<Props> = ({ onClose, onAddMore }) => {
         }}
       >
         <video
-          src="/assets/videos/unicorn_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/unicorn_cart.mp4`}
           autoPlay
           loop
           muted

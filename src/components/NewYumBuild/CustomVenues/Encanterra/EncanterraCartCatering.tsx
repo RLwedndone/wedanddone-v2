@@ -273,10 +273,10 @@ const EncanterraCartCatering: React.FC<Props> = ({
       <div className="pixie-card" style={{ maxWidth: 720, textAlign: "center", position: "relative" }}>
   {/* 🩷 Pink X */}
   <button className="pixie-card__close" aria-label="Close" onClick={onClose}>
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

@@ -47,7 +47,7 @@ const TIERS: DiamondTier[] = [
     id: "carat1",
     name: "1 Carat",
     pricePerGuest: 60,
-    heroImg: "/assets/images/YumYum/Encanterra/1diamond.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Encanterra/1diamond.png`,
     blurb: "Traditional plated with guest-choice variety.",
     includes: [
       "Two hand-passed hors d’oeuvres",
@@ -61,7 +61,7 @@ const TIERS: DiamondTier[] = [
     id: "carat2",
     name: "2 Carat",
     pricePerGuest: 70,
-    heroImg: "/assets/images/YumYum/Encanterra/2diamonds.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Encanterra/2diamonds.png`,
     blurb: "Classic buffet with crowd-pleasing picks.",
     includes: [
       "Two hand-passed hors d’oeuvres",
@@ -75,7 +75,7 @@ const TIERS: DiamondTier[] = [
     id: "carat3",
     name: "3 Carat",
     pricePerGuest: 85,
-    heroImg: "/assets/images/YumYum/Encanterra/3diamonds.png",
+    heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Encanterra/3diamonds.png`,
     blurb: "Plated duet + dessert station.",
     includes: [
       "Three hand-passed hors d’oeuvres",
@@ -162,7 +162,7 @@ return (
   <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
     {onClose && (
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
     )}
 

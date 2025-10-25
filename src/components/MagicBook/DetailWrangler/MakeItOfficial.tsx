@@ -23,7 +23,7 @@ const MakeItOfficial: React.FC<MakeItOfficialProps> = ({ onNext, onBack, goToTOC
       >
         {/* Title Image */}
         <img
-          src="/assets/images/officiant.png"
+          src={`${import.meta.env.BASE_URL}assets/images/officiant.png`}
           alt="Make It Official"
           style={{
             width: "100%",
@@ -48,7 +48,7 @@ const MakeItOfficial: React.FC<MakeItOfficialProps> = ({ onNext, onBack, goToTOC
 
         {/* Looping Video */}
         <video
-          src="/assets/videos/Magic_Book/marriage_license.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/marriage_license.mp4`}
           autoPlay
           loop
           muted

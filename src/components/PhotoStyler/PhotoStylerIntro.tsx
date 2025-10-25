@@ -10,21 +10,21 @@ const PhotoStylerIntro: React.FC<PhotoStylerIntroProps> = ({ onContinue, onClose
     <div className="pixie-card">
       {/* 🩷 Pink X inside the card */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* 🖼️ Title Image */}
         <img
-          src="/assets/images/PhotoStyleIntro.png"
+          src={`${import.meta.env.BASE_URL}assets/images/PhotoStyleIntro.png`}
           alt="Photo Style Intro"
           className="px-media px-media--md"
         />
 
         {/* 🎥 Video */}
         <video
-  src="/assets/videos/photo_intro_loop.mp4"
+  src={`${import.meta.env.BASE_URL}assets/videos/photo_intro_loop.mp4`}
   autoPlay
   muted
   playsInline

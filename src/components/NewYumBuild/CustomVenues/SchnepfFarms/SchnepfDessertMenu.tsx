@@ -446,7 +446,7 @@ const SchnepfDessertMenu: React.FC<SchnepfDessertMenuProps> = ({
               style={{ marginBottom: "1.5rem", cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/cupcake.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
                 alt="Cupcakes"
                 className="px-media"
                 style={{
@@ -471,7 +471,7 @@ const SchnepfDessertMenu: React.FC<SchnepfDessertMenuProps> = ({
               style={{ cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/goodies.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/goodies.png`}
                 alt="Goodies"
                 className="px-media"
                 style={{

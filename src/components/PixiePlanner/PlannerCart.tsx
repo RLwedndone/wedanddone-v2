@@ -65,14 +65,14 @@ const PlannerCart: React.FC<PlannerCartProps> = ({ onContinue, onClose }) => {
     <div className="pixie-card">
       {/* 🔸 Pink X close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* ---------- Body ---------- */}
       <div className="pixie-card__body">
         {/* Character Video */}
         <video
-          src="/assets/videos/wedding_guests.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/wedding_guests.mp4`}
           autoPlay
           muted
           loop

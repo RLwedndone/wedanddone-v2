@@ -14,7 +14,7 @@ const VicVerradoIntro: React.FC<VicVerradoIntroProps> = ({
   return (
     <>
       <img
-        src="/assets/images/yumyumtitle.png"
+        src={`${import.meta.env.BASE_URL}assets/images/yumyumtitle.png`}
         alt="Yum Yum Title"
         style={{
           width: "100%",
@@ -25,7 +25,7 @@ const VicVerradoIntro: React.FC<VicVerradoIntroProps> = ({
       />
 
       <video
-        src="/assets/videos/yum_intro_loop2.mp4"
+        src={`${import.meta.env.BASE_URL}assets/videos/yum_intro_loop2.mp4`}
         autoPlay
         muted
         playsInline

@@ -10,7 +10,7 @@ const YumReturnBothBooked: React.FC<YumReturnBothBookedProps> = ({ onClose }) =>
     <div className="pixie-card pixie-card--modal" style={{ ["--pixie-card-w" as any]: "680px" }}>
       {/* 🩷 Pink X close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Hide scrollbar but keep scrollability */}
@@ -26,7 +26,7 @@ const YumReturnBothBooked: React.FC<YumReturnBothBookedProps> = ({ onClose }) =>
 
       <div className="pixie-card__body" style={{ textAlign: "center", maxHeight: "72vh", overflowY: "auto" }}>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

@@ -190,14 +190,14 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X (use Back to exit to cart like Floral/Jam) */}
       <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">
         <div className="px-center">
           {/* Header media */}
           <img
-            src="/assets/images/planner_button.png"
+            src={`${import.meta.env.BASE_URL}assets/images/planner_button.png`}
             alt="Pixie Planner"
             className="px-media"
             style={{ maxWidth: 100, marginBottom: 8 }}
@@ -353,7 +353,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
           ) : (
             <div className="px-cta-col" style={{ marginTop: 8 }}>
               <img
-                src="/assets/images/contract_signed.png"
+                src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
                 alt="Signed"
                 style={{ width: 120, marginBottom: 4 }}
               />

@@ -30,7 +30,7 @@ const PLATED_TIERS: Record<"silver" | "gold" | "platinum", {
   silver: {
     name: "Silver Tier",
     price: 96,
-    image: "/assets/images/YumYum/Tubac/silver.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/silver.jpg`,
     infoTitle: "SILVER TIER • SELECT TWO • 96",
     items: [
       { title: "Statler Chicken Veronique", desc: "Red grape & rosemary sauce, volcano rice, broccolini" },
@@ -41,7 +41,7 @@ const PLATED_TIERS: Record<"silver" | "gold" | "platinum", {
   gold: {
     name: "Gold Tier",
     price: 106,
-    image: "/assets/images/YumYum/Tubac/gold.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/gold.jpg`,
     infoTitle: "GOLD TIER • SELECT TWO • 106",
     items: [
       { title: "Chicken Catalan", desc: "Prune & apricot sauce, roasted Yukon potatoes, asparagus" },
@@ -52,7 +52,7 @@ const PLATED_TIERS: Record<"silver" | "gold" | "platinum", {
   platinum: {
     name: "Platinum Tier",
     price: 126,
-    image: "/assets/images/YumYum/Tubac/platinum.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/platinum.jpg`,
     infoTitle: "PLATINUM TIER • SELECT TWO • 126",
     items: [
       { title: "Pan-Seared Chilean Sea Bass", desc: "Clam–bacon–green onion risotto, asparagus, leek & watercress nage" },
@@ -70,7 +70,7 @@ const BUFFET_TIERS: Record<"peridot" | "emerald" | "turquoise" | "diamond", {
   peridot: {
     name: "Peridot Buffet",
     price: 96,
-    image: "/assets/images/YumYum/Tubac/peri.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/peri.jpg`,
     infoTitle: "BUFFET • PERIDOT • $96",
     entrees: [
       "Pan-Seared Salmon (arugula pesto, capers, citrus butter sauce)",
@@ -80,7 +80,7 @@ const BUFFET_TIERS: Record<"peridot" | "emerald" | "turquoise" | "diamond", {
   emerald: {
     name: "Emerald Buffet",
     price: 102,
-    image: "/assets/images/YumYum/Tubac/emerald.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/emerald.jpg`,
     infoTitle: "BUFFET • EMERALD • $102",
     entrees: [
       "Baseball Cut Top Sirloin (wild mushroom cabernet demi-glace)",
@@ -91,7 +91,7 @@ const BUFFET_TIERS: Record<"peridot" | "emerald" | "turquoise" | "diamond", {
   turquoise: {
     name: "Turquoise Buffet",
     price: 102,
-    image: "/assets/images/YumYum/Tubac/turquoise.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/turquoise.jpg`,
     infoTitle: "BUFFET • TURQUOISE • $102",
     entrees: [
       "Annatto Rubbed New York Strip (ranchero sauce)",
@@ -102,7 +102,7 @@ const BUFFET_TIERS: Record<"peridot" | "emerald" | "turquoise" | "diamond", {
   diamond: {
     name: "Diamond Buffet",
     price: 129,
-    image: "/assets/images/YumYum/Tubac/diamond.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/diamond.jpg`,
     infoTitle: "BUFFET • DIAMOND • $129 • 30 person minimum",
     entrees: [
       "Beef Tenderloin Diane (brandy, wild mushroom, Dijon demi-glace)",
@@ -231,7 +231,7 @@ useEffect(() => {
     >
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Jenna Sue header */}

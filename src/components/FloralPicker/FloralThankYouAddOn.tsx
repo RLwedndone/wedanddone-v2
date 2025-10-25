@@ -18,14 +18,14 @@ const FloralThankYouAddOn: React.FC<FloralThankYouAddOnProps> = ({ onClose }) =>
     <div className="pixie-card">
       {/* ✨ Pink X close button */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* 🌸 Card body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* 🎥 Thank-you animation */}
         <video
-          src="/assets/videos/unicorn_thankyou.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/unicorn_thankyou.mp4`}
           autoPlay
           loop
           muted

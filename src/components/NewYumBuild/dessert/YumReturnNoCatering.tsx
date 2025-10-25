@@ -79,7 +79,7 @@ const YumReturnNoCatering: React.FC<YumReturnNoCateringProps> = ({
         </button>
 
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

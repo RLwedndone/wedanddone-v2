@@ -51,8 +51,8 @@ export const generateJamAddOnReceiptPDF = async ({
 
   // assets
   const [logo, lock] = await Promise.all([
-    loadImage("/assets/images/rainbow_logo.jpg"),
-    loadImage("/assets/images/lock_grey.jpg"),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
 
   // watermark + logo

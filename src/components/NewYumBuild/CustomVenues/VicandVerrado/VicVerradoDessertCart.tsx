@@ -503,7 +503,7 @@ const VicVerradoDessertCart: React.FC<Props> = ({
     <div className="pixie-overlay">
       <div className="pixie-card" style={{ maxWidth: "700px", textAlign: "center" }}>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

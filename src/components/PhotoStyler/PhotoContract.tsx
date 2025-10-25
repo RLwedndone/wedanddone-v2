@@ -166,11 +166,11 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
     return (
       <div className="pixie-card">
         <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
         <div className="pixie-card__body px-center">
           <video
-            src="/assets/videos/calendar_loop.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/calendar_loop.mp4`}
             autoPlay loop muted playsInline
             className="px-media"
             style={{ maxWidth: 160 }}
@@ -196,14 +196,14 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
     <div className="pixie-card">
       {/* Pink X inside the card */}
       <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body px-center">
         {/* Header / Summary */}
         <img
-          src="/assets/images/photo_style_button.png"
+          src={`${import.meta.env.BASE_URL}assets/images/photo_style_button.png`}
           alt="Photography"
           className="px-media"
           style={{ maxWidth: 100, marginBottom: 8 }}
@@ -348,7 +348,7 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
         ) : (
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             <img
-              src="/assets/images/contract_signed.png"
+              src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
               alt="Signed"
               style={{ width: 120, marginBottom: 4 }}
             />

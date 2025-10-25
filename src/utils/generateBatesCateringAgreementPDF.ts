@@ -54,8 +54,8 @@ const generateBatesCateringAgreementPDF = async ({
 
   // header art
   const [logo, lock] = await Promise.all([
-    loadImage("/assets/images/rainbow_logo.jpg"),
-    loadImage("/assets/images/lock_grey.jpg"),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
   doc.addImage(lock, "JPEG", 40, 60, 130, 130);
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);

@@ -754,7 +754,7 @@ return (
     style={{ maxWidth: 700, margin: "0 auto", padding: "24px 24px 28px", textAlign: "center" }}
   >
     <video
-      src="/assets/videos/yum_cart.mp4"
+      src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
       autoPlay
       loop
       muted
@@ -923,7 +923,7 @@ return (
         }
         aria-label={`Decrease ${r.key}`}
       >
-        <img src="/assets/icons/qty_minus_pink_glossy.svg" alt="" aria-hidden="true" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
       </button>
 
       <input
@@ -951,7 +951,7 @@ return (
         }
         aria-label={`Increase ${r.key}`}
       >
-        <img src="/assets/icons/qty_plus_blue_glossy.svg" alt="" aria-hidden="true" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
       </button>
     </div>
 
@@ -1021,7 +1021,7 @@ return (
     }
     aria-label={`Decrease ${u.label} quantity`}
   >
-    <img src="/assets/icons/qty_minus_pink_glossy.svg" alt="" aria-hidden="true" />
+    <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
   </button>
 
   <input
@@ -1050,7 +1050,7 @@ return (
     }
     aria-label={`Increase ${u.label} quantity`}
   >
-    <img src="/assets/icons/qty_plus_blue_glossy.svg" alt="" aria-hidden="true" />
+    <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
   </button>
 </div>
         </div>

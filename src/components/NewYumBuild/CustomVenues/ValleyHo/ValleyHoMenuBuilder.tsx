@@ -49,18 +49,18 @@ interface Props {
 
 /* ---------------- Assets ---------------- */
 const IMG = {
-  titlePig: "/assets/images/YumYum/piglet1.png",
-  hors: "/assets/images/YumYum/hors.png",
-  salad: "/assets/images/YumYum/salad.png",
-  entrees: "/assets/images/YumYum/Entrees.png",
+  titlePig: `${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`,
+  hors: `${import.meta.env.BASE_URL}assets/images/YumYum/hors.png`,
+  salad: `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`,
+  entrees: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`,
 
-  antipasti: "/assets/images/YumYum/ValleyHo/antipasti.png",
+  antipasti: `${import.meta.env.BASE_URL}assets/images/YumYum/ValleyHo/antipasti.png`,
 
-  pasta: "/assets/images/YumYum/ValleyHo/pasta.png",
-  rice: "/assets/images/YumYum/ValleyHo/ricebowls.png",
+  pasta: `${import.meta.env.BASE_URL}assets/images/YumYum/ValleyHo/pasta.png`,
+  rice: `${import.meta.env.BASE_URL}assets/images/YumYum/ValleyHo/ricebowls.png`,
 
-  sliders: "/assets/images/YumYum/ValleyHo/sliders.png",
-  tacos: "/assets/images/YumYum/ValleyHo/tacobar.png",
+  sliders: `${import.meta.env.BASE_URL}assets/images/YumYum/ValleyHo/sliders.png`,
+  tacos: `${import.meta.env.BASE_URL}assets/images/YumYum/ValleyHo/tacobar.png`,
 };
 
 /* ---------------- Utils ---------------- */
@@ -325,7 +325,7 @@ const ValleyHoMenuBuilder: React.FC<Props> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

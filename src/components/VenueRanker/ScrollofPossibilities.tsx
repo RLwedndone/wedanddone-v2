@@ -133,7 +133,7 @@ const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
     <div className="pixie-card" style={{ position: "relative" }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">
@@ -201,7 +201,7 @@ const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
         {/* 🎥 Header video */}
         <video
           className="scroll-header-video"
-          src="/assets/videos/scroll_quill.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/scroll_quill.mp4`}
           autoPlay
           muted
           loop

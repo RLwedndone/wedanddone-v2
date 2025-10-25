@@ -16,7 +16,7 @@ const TubacIntro: React.FC<TubacIntroProps> = ({ onContinue, onClose }) => {
           onClick={onClose}
           aria-label="Close"
         >
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -24,7 +24,7 @@ const TubacIntro: React.FC<TubacIntroProps> = ({ onContinue, onClose }) => {
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* 🧁 Title Image — editable size */}
         <img
-          src="/assets/images/yumyumtitle.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yumyumtitle.png`}
           alt="Yum Yum Title"
           className="px-media px-media--md"
           style={{
@@ -37,7 +37,7 @@ const TubacIntro: React.FC<TubacIntroProps> = ({ onContinue, onClose }) => {
 
         {/* 🎥 Intro Video — editable size */}
         <video
-          src="/assets/videos/yum_intro_loop2.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_intro_loop2.mp4`}
           autoPlay
           muted
           playsInline

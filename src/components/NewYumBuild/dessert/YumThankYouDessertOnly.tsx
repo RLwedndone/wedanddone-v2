@@ -34,7 +34,7 @@ const YumThankYouDessertOnly: React.FC<YumThankYouProps> = ({ onClose, setStep }
 
   // Sparkle ✨
   useEffect(() => {
-    const sparkle = new Audio("/assets/sounds/sparkle.MP3");
+    const sparkle = new Audio(`${import.meta.env.BASE_URL}assets/sounds/sparkle.MP3`);
     sparkle.volume = 0.7;
     sparkle.play().catch((err) => console.warn("✨ Sparkle sound blocked:", err));
   }, []);
@@ -52,7 +52,7 @@ const YumThankYouDessertOnly: React.FC<YumThankYouProps> = ({ onClose, setStep }
         }}
       >
         <video
-          src="/assets/videos/yum_thanks.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
           autoPlay
           loop
           muted

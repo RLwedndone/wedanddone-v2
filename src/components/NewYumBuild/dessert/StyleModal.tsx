@@ -7,10 +7,10 @@ interface StyleModalProps {
 }
 
 const cakeStyles = [
-  { label: "Smooth", image: "/assets/images/YumYum/smooth.png" },
-  { label: "Semi-Naked", image: "/assets/images/YumYum/semi_naked.png" },
-  { label: "Rough or Stucco", image: "/assets/images/YumYum/stucco.png" },
-  { label: "Grooved", image: "/assets/images/YumYum/grooved.png" },
+  { label: "Smooth", image: `${import.meta.env.BASE_URL}assets/images/YumYum/smooth.png` },
+  { label: "Semi-Naked", image: `${import.meta.env.BASE_URL}assets/images/YumYum/semi_naked.png` },
+  { label: "Rough or Stucco", image: `${import.meta.env.BASE_URL}assets/images/YumYum/stucco.png` },
+  { label: "Grooved", image: `${import.meta.env.BASE_URL}assets/images/YumYum/grooved.png` },
 ];
 
 const StyleModal: React.FC<StyleModalProps> = ({ selected, onChange, onClose }) => {
@@ -57,7 +57,7 @@ const StyleModal: React.FC<StyleModalProps> = ({ selected, onChange, onClose }) 
         aria-label="Close"
         style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer" }}
       >
-        <img src="/assets/icons/blue_ex.png" alt="Close" style={{ width: 22, height: 22 }} />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" style={{ width: 22, height: 22 }} />
       </button>
 
       {/* Big Blue Jenna Sue title */}

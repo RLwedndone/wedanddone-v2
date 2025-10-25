@@ -97,7 +97,7 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
           }}
         >
           <img
-            src="/assets/icons/blue_ex.png"
+            src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
             alt="Close"
             style={{ width: "22px", height: "22px" }}
           />

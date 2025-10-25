@@ -89,7 +89,7 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
       }}
     >
       {/* 🎥 Top Video */}
-      <Vid src="/assets/videos/Magic_Book/time_line.mp4" />
+      <Vid src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/time_line.mp4`} />
 
       <h2
         className="boutique-title"
@@ -133,7 +133,7 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
       {/* 🎥 Bottom Video */}
       <div style={{ marginBottom: "2rem", textAlign: "center" }}>
         <video
-          src="/assets/videos/Magic_Book/icon_parade_final.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/icon_parade_final.mp4`}
           autoPlay
           loop
           muted

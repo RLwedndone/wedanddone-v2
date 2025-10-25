@@ -240,7 +240,7 @@ const handleSave = async () => {
 
         {/* 🌥️ Video */}
         <video
-          src="/assets/videos/new_madge_budget_cloud.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/new_madge_budget_cloud.mp4`}
           autoPlay
           muted
           loop

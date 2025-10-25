@@ -115,7 +115,7 @@ const SchnepfApps: React.FC<SchnepfAppsProps> = ({
   return (
     <div className="pixie-card" style={{ maxWidth: 720, textAlign: "center" }}>
       <img
-        src="/assets/images/YumYum/Schnepf/apps.png"
+        src={`${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/apps.png`}
         alt="Appetizers"
         onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
         style={{ width: 180, margin: "0 auto 12px", display: "block", borderRadius: 12 }}

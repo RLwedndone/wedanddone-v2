@@ -180,7 +180,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
         <div className="pixie-card">
           {/* Pink X */}
           <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-            <img src="/assets/icons/pink_ex.png" alt="Close" />
+            <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
           </button>
       
           {/* Standard card body */}
@@ -188,7 +188,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             <div className="px-center">
               {/* Little button image with extra top spacing */}
               <img
-                src="/assets/images/jam_groove_button.png"
+                src={`${import.meta.env.BASE_URL}assets/images/jam_groove_button.png`}
                 alt="Jam & Groove"
                 className="px-media"
                 style={{ maxWidth: 100, margin: "6px auto 12px" }}
@@ -349,7 +349,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
 ) : (
   <div className="px-cta-col" style={{ marginTop: 8 }}>
     <img
-      src="/assets/images/contract_signed.png"
+      src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
       alt="Signed"
       style={{ width: 120, marginBottom: 4 }}
     />

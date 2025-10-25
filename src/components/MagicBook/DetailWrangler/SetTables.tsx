@@ -69,7 +69,7 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
             backgroundColor: "#fff",
           }}
         >
-          <source src="/assets/videos/Magic_Book/setTable.mp4" type="video/mp4" />
+          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/setTable.mp4`} type="video/mp4" />
         </video>
       </div>
     </div>

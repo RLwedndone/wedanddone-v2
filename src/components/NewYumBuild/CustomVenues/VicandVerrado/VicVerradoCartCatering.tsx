@@ -255,7 +255,7 @@ const fnbProgress = showFnbProgress
     <div className="pixie-overlay">
       <div className="pixie-card" style={{ maxWidth: 720, textAlign: "center" }}>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

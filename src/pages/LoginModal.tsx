@@ -86,7 +86,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
         {/* 🖼️ Top image */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <img
-            src="/assets/images/LogIn.png"
+            src={`${import.meta.env.BASE_URL}assets/images/LogIn.png`}
             alt="Login"
             style={{
               width: "100%",
@@ -162,7 +162,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
         {/* 🔵 Google login image */}
         <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
           <img
-            src="/assets/images/google_signin.png"
+            src={`${import.meta.env.BASE_URL}assets/images/google_signin.png`}
             alt="Google Sign-In"
             onClick={handleGoogleLogin}
             style={{ width: "200px", cursor: "pointer", marginTop: "0.5rem" }}

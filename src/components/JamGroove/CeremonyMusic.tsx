@@ -225,7 +225,7 @@ const CeremonyMusic: React.FC<CeremonyMusicProps> = ({
       {/* Pink X (optional; overlay already has a close icon) */}
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -236,58 +236,77 @@ const CeremonyMusic: React.FC<CeremonyMusicProps> = ({
         </p>
 
         {/* Sections */}
-        <div style={{ display: "grid", gap: 18, justifyItems: "center" }}>
-          <Section
-            sectionKey="party"
-            imagePath="/assets/images/party_entrance.png"
-            label="Party Entrance"
-            fields={[
-              { label: "Song Title", key: "partyEntrance" },
-              { label: "Artist", key: "partyEntranceArtist" },
-              { label: "Version URL", key: "partyEntranceVersion", placeholder: "youtube.com/…" },
-            ]}
-          />
-          <Section
-            sectionKey="bride"
-            imagePath="/assets/images/bride_entrance.png"
-            label="Bride Entrance"
-            fields={[
-              { label: "Song Title", key: "brideEntrance" },
-              { label: "Artist", key: "brideEntranceArtist" },
-              { label: "Version URL", key: "brideEntranceVersion", placeholder: "spotify/YouTube link" },
-            ]}
-          />
-          <Section
-            sectionKey="other"
-            imagePath="/assets/images/other_songs.png"
-            label="Other Ceremony Songs"
-            fields={[
-              { label: "Song Title(s)", key: "otherSongs" },
-              { label: "Artist(s)", key: "otherSongsArtist" },
-              { label: "Version URL(s)", key: "otherSongsVersion", placeholder: "optional links" },
-            ]}
-          />
-          <Section
-            sectionKey="recessional"
-            imagePath="/assets/images/recessional.png"
-            label="Recessional Song"
-            fields={[
-              { label: "Song Title", key: "recessionalSong" },
-              { label: "Artist", key: "recessionalArtist" },
-              { label: "Version URL", key: "recessionalVersion", placeholder: "apple/YouTube link" },
-            ]}
-          />
-        </div>
+<div style={{ display: "grid", gap: 18, justifyItems: "center" }}>
+  <Section
+    sectionKey="party"
+    imagePath={`${import.meta.env.BASE_URL}assets/images/party_entrance.png`}
+    label="Party Entrance"
+    fields={[
+      { label: "Song Title", key: "partyEntrance" },
+      { label: "Artist", key: "partyEntranceArtist" },
+      {
+        label: "Version URL",
+        key: "partyEntranceVersion",
+        placeholder: "youtube.com/…",
+      },
+    ]}
+  />
 
-        {/* CTAs */}
-        <div className="px-cta-col" style={{ marginTop: 12 }}>
-          <button className="boutique-primary-btn" onClick={handleSave}>
-            Continue
-          </button>
-          <button className="boutique-back-btn" onClick={onBack}>
-            ⬅ Back
-          </button>
-        </div>
+  <Section
+    sectionKey="bride"
+    imagePath={`${import.meta.env.BASE_URL}assets/images/bride_entrance.png`}
+    label="Bride Entrance"
+    fields={[
+      { label: "Song Title", key: "brideEntrance" },
+      { label: "Artist", key: "brideEntranceArtist" },
+      {
+        label: "Version URL",
+        key: "brideEntranceVersion",
+        placeholder: "spotify/YouTube link",
+      },
+    ]}
+  />
+
+  <Section
+    sectionKey="other"
+    imagePath={`${import.meta.env.BASE_URL}assets/images/other_songs.png`}
+    label="Other Ceremony Songs"
+    fields={[
+      { label: "Song Title(s)", key: "otherSongs" },
+      { label: "Artist(s)", key: "otherSongsArtist" },
+      {
+        label: "Version URL(s)",
+        key: "otherSongsVersion",
+        placeholder: "optional links",
+      },
+    ]}
+  />
+
+  <Section
+    sectionKey="recessional"
+    imagePath={`${import.meta.env.BASE_URL}assets/images/recessional.png`}
+    label="Recessional Song"
+    fields={[
+      { label: "Song Title", key: "recessionalSong" },
+      { label: "Artist", key: "recessionalArtist" },
+      {
+        label: "Version URL",
+        key: "recessionalVersion",
+        placeholder: "apple/YouTube link",
+      },
+    ]}
+  />
+</div>
+
+{/* CTAs */}
+<div className="px-cta-col" style={{ marginTop: 12 }}>
+  <button className="boutique-primary-btn" onClick={handleSave}>
+    Continue
+  </button>
+  <button className="boutique-back-btn" onClick={onBack}>
+    ⬅ Back
+  </button>
+</div>
       </div>
     </div>
   );

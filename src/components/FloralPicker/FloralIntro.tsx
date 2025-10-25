@@ -15,21 +15,21 @@ const FloralIntro: React.FC<FloralIntroProps> = ({ onContinue, onClose }) => {
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body">
         {/* Title Image */}
         <img
-          src="/assets/images/FloralTitle.png"
+          src={`${import.meta.env.BASE_URL}assets/images/FloralTitle.png`}
           alt="Floral Picker"
           className="px-media px-media--md"
         />
 
         {/* Looping Intro Video */}
         <video
-          src="/assets/videos/floral_intro_loop.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/floral_intro_loop.mp4`}
           autoPlay
           muted
           playsInline

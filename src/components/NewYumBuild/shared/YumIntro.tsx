@@ -20,18 +20,18 @@ const YumIntro: React.FC<YumIntroProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <img
-          src="/assets/images/yumyumtitle.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yumyumtitle.png`}
           alt="Yum Yum Title"
           style={{ width: "100%", maxWidth: 225, margin: "0 auto 1rem", display: "block" }}
         />
 
         <video
-          src="/assets/videos/yum_intro_loop2.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_intro_loop2.mp4`}
           autoPlay
           muted
           playsInline

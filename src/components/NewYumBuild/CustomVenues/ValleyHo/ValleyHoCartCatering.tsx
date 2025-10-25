@@ -310,7 +310,7 @@ const ValleyHoCartCatering: React.FC<Props> = ({
           onClick={() => setQty(clamp(qty - 1))}
           aria-label={`Decrease ${label}`}
         >
-          <img src="/assets/icons/qty_minus_pink_glossy.svg" alt="" aria-hidden="true" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
         </button>
 
         <input
@@ -328,7 +328,7 @@ const ValleyHoCartCatering: React.FC<Props> = ({
           onClick={() => setQty(clamp(qty + 1))}
           aria-label={`Increase ${label}`}
         >
-          <img src="/assets/icons/qty_plus_blue_glossy.svg" alt="" aria-hidden="true" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -339,12 +339,12 @@ const ValleyHoCartCatering: React.FC<Props> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 760 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

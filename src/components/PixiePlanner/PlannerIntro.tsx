@@ -28,12 +28,12 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
   const HeaderMedia = (
     <>
       <img
-        src="/assets/images/planner_title.png"
+        src={`${import.meta.env.BASE_URL}assets/images/planner_title.png`}
         alt="Pixie Planner"
         className="px-media px-media--sm"
       />
       <video
-        src="/assets/videos/planner_intro.mp4"
+        src={`${import.meta.env.BASE_URL}assets/videos/planner_intro.mp4`}
         autoPlay
         muted
         playsInline
@@ -48,7 +48,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
     return (
       <div className="pixie-card">
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
         <div className="pixie-card__body">
@@ -72,7 +72,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
     return (
       <div className="pixie-card">
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
         <div className="pixie-card__body">
@@ -107,7 +107,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
   return (
     <div className="pixie-card">
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">

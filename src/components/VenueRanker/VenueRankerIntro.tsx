@@ -12,14 +12,14 @@ const VenueRankerIntro: React.FC<VenueRankerIntroProps> = ({ onContinue, onClose
     <div className="pixie-card">
       {/* 🩷 Pink X inside the card */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* 🖼️ Title Image */}
         <img
-          src="/assets/images/venue_title.png"
+          src={`${import.meta.env.BASE_URL}assets/images/venue_title.png`}
           alt="Venue Ranker"
           className="px-media px-media--sm"
           style={{ maxWidth: 200, marginBottom: "1rem" }}
@@ -27,7 +27,7 @@ const VenueRankerIntro: React.FC<VenueRankerIntroProps> = ({ onContinue, onClose
 
         {/* 🎥 Intro Video */}
         <video
-          src="/assets/videos/venue_intro_loop.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/venue_intro_loop.mp4`}
           autoPlay
           muted
           playsInline

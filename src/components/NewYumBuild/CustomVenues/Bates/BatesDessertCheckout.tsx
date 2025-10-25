@@ -337,12 +337,12 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
     <div className="pixie-card pixie-card--modal">
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">
         <video
-          src="/assets/videos/lock.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
           loop
           muted

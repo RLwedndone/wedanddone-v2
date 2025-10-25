@@ -61,7 +61,7 @@ const WeddingDateConfirmScreen: React.FC<WeddingDateConfirmScreenProps> = ({
     <div className="pixie-card pixie-card--modal">
       {/* close (pink X) */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
   
       <div className="pixie-card__body">
@@ -72,7 +72,7 @@ const WeddingDateConfirmScreen: React.FC<WeddingDateConfirmScreenProps> = ({
             loop
             muted
             playsInline
-            src="/assets/videos/calendar_loop.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/calendar_loop.mp4`}
           />
         </div>
   

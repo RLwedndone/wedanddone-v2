@@ -107,7 +107,7 @@ const MusicalGenres: React.FC<MusicalGenresProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">
@@ -174,7 +174,7 @@ const MusicalGenres: React.FC<MusicalGenresProps> = ({
         <div className="pixie-overlay">
           <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520 }}>
             <button className="pixie-card__close" onClick={closeGenreModal} aria-label="Close">
-              <img src="/assets/icons/pink_ex.png" alt="Close" />
+              <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
             </button>
 
             <div className="pixie-card__body">

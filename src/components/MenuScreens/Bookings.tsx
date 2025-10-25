@@ -1,4 +1,4 @@
-// src/components/Bookings/Bookings.tsx
+// src/components/MenuScreens/Bookings.tsx
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -45,24 +45,24 @@ const useDebugBoxes = () => {
 
 /** Completed buttons (same art you’re already using) */
 const COMPLETED_BUTTON: Record<BoutiqueKey, string> = {
-  floral: "/assets/images/completed_floral_button.png",
-  photography: "/assets/images/completed_photo_button.png",
-  catering: "/assets/images/completed_yum_button.png",
-  venue: "/assets/images/completed_venue_button.png",
-  planner: "/assets/images/completed_planner_button.png",
-  desserts: "/assets/images/completed_yum_button.png",
-  jam: "/assets/images/completed_jam_button.png",
+  floral: `${import.meta.env.BASE_URL}assets/images/completed_floral_button.png`,
+  photography: `${import.meta.env.BASE_URL}assets/images/completed_photo_button.png`,
+  catering: `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`,
+  venue: `${import.meta.env.BASE_URL}assets/images/completed_venue_button.png`,
+  planner: `${import.meta.env.BASE_URL}assets/images/completed_planner_button.png`,
+  desserts: `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`,
+  jam: `${import.meta.env.BASE_URL}assets/images/completed_jam_button.png`,
 };
 
 /** Small icons shown at the top of the explainer modal */
 const MODAL_ICON: Record<BoutiqueKey, string> = {
-  venue: "/assets/images/BookingIcons/venue.png",
-  photography: "/assets/images/BookingIcons/photography.png",
-  floral: "/assets/images/BookingIcons/florist.png",
-  planner: "/assets/images/BookingIcons/planner.png",
-  catering: "/assets/images/BookingIcons/catering.png",
-  desserts: "/assets/images/BookingIcons/desserts.png",
-  jam: "/assets/images/BookingIcons/DJ.png",
+  venue: `${import.meta.env.BASE_URL}assets/images/BookingIcons/venue.png`,
+  photography: `${import.meta.env.BASE_URL}assets/images/BookingIcons/photography.png`,
+  floral: `${import.meta.env.BASE_URL}assets/images/BookingIcons/florist.png`,
+  planner: `${import.meta.env.BASE_URL}assets/images/BookingIcons/planner.png`,
+  catering: `${import.meta.env.BASE_URL}assets/images/BookingIcons/catering.png`,
+  desserts: `${import.meta.env.BASE_URL}assets/images/BookingIcons/desserts.png`,
+  jam: `${import.meta.env.BASE_URL}assets/images/BookingIcons/DJ.png`,
 };
 
 /** Button copy in the modal (“Go to the ___”) */
@@ -113,7 +113,16 @@ const HOTSPOTS: Array<{
 /** Map booking key -> overlay type + (optional) startAt */
 const LAUNCH_MAP: Record<
   BoutiqueKey,
-  { type: "venueRanker" | "photo" | "floral" | "planner" | "yumyum" | "jam"; startAt?: string }
+  {
+    type:
+      | "venueRanker"
+      | "photo"
+      | "floral"
+      | "planner"
+      | "yumyum"
+      | "jam";
+    startAt?: string;
+  }
 > = {
   venue: { type: "venueRanker" },
   photography: { type: "photo" },
@@ -127,7 +136,7 @@ const LAUNCH_MAP: Record<
 const Bookings: React.FC<BookingsScreenProps> = ({
   onClose,
   onLaunchBoutique,
-  backgroundSrc = "/assets/images/BookingIcons/cobbles.png",
+  backgroundSrc = `${import.meta.env.BASE_URL}assets/images/BookingIcons/cobbles.png`,
 }) => {
   const debug = useDebugBoxes();
 
@@ -167,10 +176,16 @@ const Bookings: React.FC<BookingsScreenProps> = ({
   // Normalize “desserts” UI key to Firestore “dessert”
   const isBooked = (key: BoutiqueKey) => {
     const fromFS =
-      key === "desserts" ? Boolean(bookings?.dessert) : Boolean((bookings as any)?.[key]);
+      key === "desserts"
+        ? Boolean(bookings?.dessert)
+        : Boolean((bookings as any)?.[key]);
+
     const fromLS =
-      (key === "desserts" && localStorage.getItem("yumBookedDessert") === "true") ||
-      (key === "catering" && localStorage.getItem("yumBookedCatering") === "true");
+      (key === "desserts" &&
+        localStorage.getItem("yumBookedDessert") === "true") ||
+      (key === "catering" &&
+        localStorage.getItem("yumBookedCatering") === "true");
+
     return fromFS || fromLS;
   };
 
@@ -184,14 +199,21 @@ const Bookings: React.FC<BookingsScreenProps> = ({
       onClose();
       return;
     }
+
     // Prefer parent launcher; otherwise dispatch a generic event
     if (onLaunchBoutique) {
       onLaunchBoutique(target.type, target.startAt);
     } else {
       window.dispatchEvent(
-        new CustomEvent("openOverlay", { detail: { type: target.type, startAt: target.startAt || "intro" } })
+        new CustomEvent("openOverlay", {
+          detail: {
+            type: target.type,
+            startAt: target.startAt || "intro",
+          },
+        })
       );
     }
+
     closeModal();
     onClose();
   };
@@ -223,8 +245,9 @@ const Bookings: React.FC<BookingsScreenProps> = ({
           boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
           position: "relative",
           overflow: "hidden",
-          display: "flex",          // <-- make the card a flex column
-          flexDirection: "column",  // <--
+
+          display: "flex", // make this card a flex column
+          flexDirection: "column",
         }}
       >
         {/* Close */}
@@ -243,7 +266,7 @@ const Bookings: React.FC<BookingsScreenProps> = ({
         >
           ✖
         </button>
-  
+
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "0.75rem" }}>
           <h2
@@ -257,17 +280,18 @@ const Bookings: React.FC<BookingsScreenProps> = ({
             Your Magical Booking Path!
           </h2>
           <p style={{ margin: "0.25rem 0 0.75rem", color: "#444" }}>
-            Tap a stone to start checking off your wedding planning to-do's!
+            Tap a stone to start checking off your wedding planning
+            to-do's!
           </p>
         </div>
-  
+
         {/* Scrollable image + hotspots */}
         <div
           style={{
-            flex: 1,                      // <-- allow this area to fill remaining height
-            minHeight: 0,                 // <-- critical so the child can actually scroll
+            flex: 1, // fill remaining space
+            minHeight: 0, // allow child to scroll
             position: "relative",
-            maxHeight: "70vh",            // you can tweak or remove; flex+minHeight:0 is the key
+            maxHeight: "70vh",
             overflowY: "auto",
             WebkitOverflowScrolling: "touch",
             paddingRight: 6,
@@ -296,10 +320,11 @@ const Bookings: React.FC<BookingsScreenProps> = ({
               }}
               draggable={false}
             />
-  
+
             {/* Hotspots or 'Booked' badges */}
             {HOTSPOTS.map((h) => {
               const booked = isBooked(h.id);
+
               if (booked) {
                 return (
                   <img
@@ -319,6 +344,7 @@ const Bookings: React.FC<BookingsScreenProps> = ({
                   />
                 );
               }
+
               return (
                 <button
                   key={h.id}
@@ -331,8 +357,12 @@ const Bookings: React.FC<BookingsScreenProps> = ({
                     width: `${h.width}%`,
                     height: `${h.height}%`,
                     transform: "translate(-50%, -50%)",
-                    background: debug ? "rgba(255, 200, 0, 0.25)" : "transparent",
-                    border: debug ? "1px dashed #f8b400" : "none",
+                    background: debug
+                      ? "rgba(255, 200, 0, 0.25)"
+                      : "transparent",
+                    border: debug
+                      ? "1px dashed #f8b400"
+                      : "none",
                     borderRadius: 16,
                     cursor: "pointer",
                   }}
@@ -366,7 +396,8 @@ const Bookings: React.FC<BookingsScreenProps> = ({
                 width: "min(560px, 92vw)",
                 maxHeight: "92vh",
                 padding: "1.25rem 1.25rem 1.75rem",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+                boxShadow:
+                  "0 12px 40px rgba(0,0,0,0.25)",
                 position: "relative",
                 overflow: "hidden",
                 textAlign: "center",
@@ -393,16 +424,19 @@ const Bookings: React.FC<BookingsScreenProps> = ({
                 alt={modalKey}
                 style={{
                   width: "300px",
-                  margin: "0 auto 1rem auto",
+                  margin:
+                    "0 auto 1rem auto",
                   display: "block",
                 }}
               />
 
               <h3
                 style={{
-                  margin: "0.25rem 0 0.25rem",
+                  margin:
+                    "0.25rem 0 0.25rem",
                   color: "#2c62ba",
-                  fontFamily: "'Jenna Sue', cursive",
+                  fontFamily:
+                    "'Jenna Sue', cursive",
                   fontSize: "1.6rem",
                 }}
               >
@@ -411,7 +445,8 @@ const Bookings: React.FC<BookingsScreenProps> = ({
 
               <p
                 style={{
-                  margin: "0.25rem 0 1rem",
+                  margin:
+                    "0.25rem 0 1rem",
                   color: "#444",
                   lineHeight: 1.5,
                 }}
@@ -424,7 +459,8 @@ const Bookings: React.FC<BookingsScreenProps> = ({
                 className="boutique-primary-btn"
                 style={{ minWidth: 220 }}
               >
-                Go to the {BOUTIQUE_NAME[modalKey]}
+                Go to the{" "}
+                {BOUTIQUE_NAME[modalKey]}
               </button>
             </div>
           </div>

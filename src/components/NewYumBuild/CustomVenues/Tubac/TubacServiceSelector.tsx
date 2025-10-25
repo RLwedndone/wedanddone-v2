@@ -90,7 +90,7 @@ const TubacServiceSelector: React.FC<TubacServiceSelectorProps> = ({
 
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* 💙 Title */}
@@ -117,7 +117,7 @@ const TubacServiceSelector: React.FC<TubacServiceSelectorProps> = ({
             style={imgWrap(selected === "plated")}
           >
             <img
-              src="/assets/images/YumYum/Tubac/plated.jpg"
+              src={`${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/plated.jpg`}
               alt="Two-Course Plated Dinner"
               style={imgStyle}
             />
@@ -143,7 +143,7 @@ const TubacServiceSelector: React.FC<TubacServiceSelectorProps> = ({
             style={imgWrap(selected === "buffet")}
           >
             <img
-              src="/assets/images/YumYum/Tubac/buffet.jpg"
+              src={`${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/buffet.jpg`}
               alt="Buffet Dinner"
               style={imgStyle}
             />

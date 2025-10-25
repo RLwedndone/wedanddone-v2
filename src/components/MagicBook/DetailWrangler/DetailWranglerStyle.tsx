@@ -74,7 +74,7 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({ onNext, onBac
         {/* 🌈 Full Background Image */}
         <div style={{ paddingTop: "2rem" }}>
           <img
-            src="/assets/images/style_baby.png"
+            src={`${import.meta.env.BASE_URL}assets/images/style_baby.png`}
             alt="Style Baby Background"
             style={{
               width: "100%",

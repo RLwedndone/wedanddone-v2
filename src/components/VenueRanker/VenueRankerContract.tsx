@@ -406,7 +406,7 @@ const formattedWeekday = weddingDateObj
           onClick={() => setCurrentScreen("scroll-of-possibilities")}
           aria-label="Close"
         >
-          <img src="/assets/icons/pink_ex.png" alt="Close"/>
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close"/>
         </button>
   
         {/* Body */}
@@ -417,7 +417,7 @@ const formattedWeekday = weddingDateObj
   
           {/* Seal – explicitly size it */}
           <img
-            src="/assets/images/venue_ranker_contract_seal.png"
+            src={`${import.meta.env.BASE_URL}assets/images/venue_ranker_contract_seal.png`}
             alt="Venue Ranker Icon"
             className="px-media"
             style={{ width: 150, height: "auto", margin: "0 auto 14px" }}
@@ -623,7 +623,7 @@ const formattedWeekday = weddingDateObj
 ) : (
   <>
     <img
-      src="/assets/images/contract_signed.png"
+      src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
       alt="Signed"
       style={{ width: 120, margin: "4px auto 8px", display: "block" }}
     />
@@ -665,7 +665,7 @@ const formattedWeekday = weddingDateObj
         onClick={() => setShowSignatureModal(false)}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

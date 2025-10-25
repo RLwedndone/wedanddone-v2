@@ -412,7 +412,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         {/* Hero video */}
         <video
-          src="/assets/videos/wedding_guests.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/wedding_guests.mp4`}
           autoPlay
           loop
           muted
@@ -539,7 +539,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div style={styles.overlayCard}>
                   {/* Floating lock video (same vibe as other checkouts) */}
                   <video
-                    src="/assets/videos/lock.mp4"
+                    src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
                     autoPlay
                     muted
                     playsInline

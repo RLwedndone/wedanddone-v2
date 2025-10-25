@@ -87,7 +87,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
     return (
       <div className="pixie-card pixie-card--modal">
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
         <div className="pixie-card__body">
           <p style={{ textAlign: "center" }}>Loading your info...</p>
@@ -516,7 +516,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
         aria-label="Close"
       >
         <img
-          src="/assets/icons/pink_ex.png"
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
         />
       </button>
@@ -533,7 +533,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
             style={{ marginTop: "10px" }}
           >
             <video
-              src="/assets/videos/magic_clock.mp4"
+              src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
               autoPlay
               loop
               muted
@@ -559,7 +559,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
         ) : (
           <>
             <video
-              src="/assets/videos/lock.mp4"
+              src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
               autoPlay
               loop
               muted

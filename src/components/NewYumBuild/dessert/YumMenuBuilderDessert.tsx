@@ -210,7 +210,7 @@ const prettyGoodie = (key: string) => {
       onClick={onClose}
       aria-label="Close"
     >
-      <img src="/assets/icons/pink_ex.png" alt="Close" />
+      <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
     </button>
   )}
 
@@ -427,7 +427,7 @@ const prettyGoodie = (key: string) => {
       <div className="pixie-overlay" style={{ zIndex: 1001 }}>
         <div className="pixie-card pixie-card--modal" style={{ maxWidth: 600, position: "relative" }}>
           <button className="pixie-card__close" onClick={() => setShowModal(null)} aria-label="Close">
-            <img src="/assets/icons/blue_ex.png" alt="Close" />
+            <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
           </button>
 
           <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -447,7 +447,7 @@ const prettyGoodie = (key: string) => {
               style={{ marginBottom: "1.5rem", cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/cupcake.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
                 alt="Cupcakes"
                 style={{
                   width: "80%",
@@ -471,7 +471,7 @@ const prettyGoodie = (key: string) => {
               style={{ cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/goodies.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/goodies.png`}
                 alt="Goodies"
                 style={{
                   width: "80%",

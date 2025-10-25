@@ -48,7 +48,7 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
       <div style={{ width: "75%", margin: "0 auto 1.5rem" }}>
         <div style={{ position: "relative", paddingTop: "56.25%" }}>
           <video
-            src="/assets/videos/Magic_Book/red_carpet.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/red_carpet.mp4`}
             autoPlay
             loop
             muted

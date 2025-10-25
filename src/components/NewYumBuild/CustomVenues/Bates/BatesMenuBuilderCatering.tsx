@@ -58,9 +58,9 @@ const isPaired = (name: string) =>
 const orderedSections: Array<"hors" | "salads" | "entrees"> = ["hors", "salads", "entrees"];
 
 const bannerSrc: Record<"hors" | "salads" | "entrees", string> = {
-  hors: "/assets/images/YumYum/butlerpassed.png",
-  salads: "/assets/images/YumYum/salad.png",
-  entrees: "/assets/images/YumYum/Entrees.png",
+  hors: `${import.meta.env.BASE_URL}assets/images/YumYum/butlerpassed.png`,
+  salads: `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`,
+  entrees: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`,
 };
 
 const titleMap: Record<"hors" | "salads" | "entrees", string> = {
@@ -198,7 +198,7 @@ const BatesMenuBuilderCatering: React.FC<BatesMenuBuilderProps> = ({
       {/* 🩷 Pink X Close */}
       {onClose && (
         <button className="pixie-card__close" aria-label="Close" onClick={onClose}>
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -222,7 +222,7 @@ const BatesMenuBuilderCatering: React.FC<BatesMenuBuilderProps> = ({
         </h2>
 
         <img
-          src="/assets/images/YumYum/piglet1.png"
+          src={`${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`}
           alt="Piglet Chef"
           style={{ width: 160, margin: "0 auto 24px", display: "block" }}
         />

@@ -15,14 +15,14 @@ const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body">
         {/* Header media */}
         <img
-          src="/assets/images/pixie_included.jpg"
+          src={`${import.meta.env.BASE_URL}assets/images/pixie_included.jpg`}
           alt="Pixie Planner Included"
           className="px-media-sm"
           style={{ maxWidth: 300, marginBottom: "1rem" }}

@@ -233,17 +233,17 @@ const EncanterraMenuBuilder: React.FC<Props> = ({
     img: string;
     show: boolean;
   }> = [
-    { key: "hors",    label: "Hors d’oeuvres", img: "/assets/images/YumYum/hors.png",     show: limits.hors > 0 && HORS.length > 0 },
-    { key: "salads",  label: "Salads",         img: "/assets/images/YumYum/salad.png",    show: true },
-    { key: "entrees", label: "Entrées",        img: "/assets/images/YumYum/Entrees.png",  show: true },
-    { key: "sides",   label: "Sides",          img: "/assets/images/YumYum/sides.png",    show: true },
+    { key: "hors",    label: "Hors d’oeuvres", img: `${import.meta.env.BASE_URL}assets/images/YumYum/hors.png`,     show: limits.hors > 0 && HORS.length > 0 },
+    { key: "salads",  label: "Salads",         img: `${import.meta.env.BASE_URL}assets/images/YumYum/salad.png`,    show: true },
+    { key: "entrees", label: "Entrées",        img: `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`,  show: true },
+    { key: "sides",   label: "Sides",          img: `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`,    show: true },
   ];
 
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 560, position: "relative" }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" aria-label="Close" onClick={onClose}>
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div
@@ -258,7 +258,7 @@ const EncanterraMenuBuilder: React.FC<Props> = ({
         </h2>
 
         <img
-          src="/assets/images/YumYum/piglet1.png"
+          src={`${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`}
           alt="Piglet Chef"
           style={{ width: 160, margin: "0 auto 24px", display: "block" }}
         />

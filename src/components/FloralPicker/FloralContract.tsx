@@ -157,13 +157,13 @@ const FloralContract: React.FC<FloralContractProps> = ({
     <div className="pixie-card">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body">
         <div className="px-center">
           <img
-            src="/assets/images/floral_picker_button.png"
+            src={`${import.meta.env.BASE_URL}assets/images/floral_picker_button.png`}
             alt="Floral"
             className="px-media"
             style={{ maxWidth: 100, marginBottom: 8 }}
@@ -307,7 +307,7 @@ const FloralContract: React.FC<FloralContractProps> = ({
           ) : (
             <div className="px-cta-col" style={{ marginTop: 8 }}>
               <img
-                src="/assets/images/contract_signed.png"
+                src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
                 alt="Signed"
                 style={{ width: 120, marginBottom: 4 }}
               />

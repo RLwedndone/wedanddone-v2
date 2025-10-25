@@ -358,7 +358,7 @@ const formatDateString = (isoDate: string | null): string => {
     return (
       <div className="castle-modal">
         <button className="modal-close" onClick={onClose} aria-label="Close">
-  <img src="/assets/icons/blue_ex.png" alt="Close" />
+  <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
 </button>
         <p>Oops! No details found for this venue.</p>
       </div>
@@ -427,7 +427,7 @@ const handleBookItClick = () => {
 return (
   <div className="castle-modal">
     <button className="modal-close" onClick={onClose} aria-label="Close">
-  <img src="/assets/icons/blue_ex.png" alt="Close" />
+  <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
 </button>
 
     <div style={{ padding: "2rem" }}>
@@ -654,7 +654,7 @@ return (
 {isAvailable === true && !isOverCapacity && planPreview?.total != null && (
   <div style={{ textAlign: "center", marginTop: "2rem" }}>
     <img
-      src="/assets/images/book_gold_seal.png"
+      src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
       alt="Book It Now"
       onClick={handleBookItClick}
       style={{

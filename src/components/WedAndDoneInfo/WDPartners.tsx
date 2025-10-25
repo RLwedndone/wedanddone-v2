@@ -69,7 +69,7 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
           }}
         >
           <video
-            src="/assets/videos/magic_hall.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_hall.mp4`}
             autoPlay
             loop
             muted

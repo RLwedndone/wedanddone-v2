@@ -18,7 +18,7 @@ const playMagicSound = (sessionKey?: string) => {
     const now = Date.now();
     if (now - lastPlayedAt < 800) return;
 
-    const audio = new Audio("/assets/sounds/sparkle.MP3"); // keep your path/case
+    const audio = new Audio(`${import.meta.env.BASE_URL}assets/sounds/sparkle.MP3`); // keep your path/case
     audio.currentTime = 0;
 
     const tryPlay = () =>

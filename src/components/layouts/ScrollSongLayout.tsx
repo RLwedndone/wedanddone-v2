@@ -21,7 +21,7 @@ const ScrollSongLayout: React.FC<ScrollSongLayoutProps> = ({
       <div className="scroll-song-card">
         {onClose && (
           <img
-            src="/assets/icons/pink_ex.png"
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
             alt="Close"
             className="custom-x-button"
             onClick={onClose}

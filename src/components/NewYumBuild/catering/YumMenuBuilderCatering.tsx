@@ -271,7 +271,7 @@ const menuData: {
               aria-label="Close"
               onClick={onClose}
             >
-              <img src="/assets/icons/pink_ex.png" alt="Close" />
+              <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
             </button>
         
             <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -287,7 +287,7 @@ const menuData: {
               </h2>
         
               <img
-                src="/assets/images/YumYum/piglet1.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`}
                 alt="Piglet Chef"
                 style={{ width: "160px", margin: "0 auto 30px", display: "block" }}
               />

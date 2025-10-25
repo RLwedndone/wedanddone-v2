@@ -27,7 +27,7 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
 
         {/* Logo Image */}
         <img
-          src="/assets/images/WD_Gold_3D_Logo.png"
+          src={`${import.meta.env.BASE_URL}assets/images/WD_Gold_3D_Logo.png`}
           alt="Wed&Done Logo"
           style={{
             width: "100%",

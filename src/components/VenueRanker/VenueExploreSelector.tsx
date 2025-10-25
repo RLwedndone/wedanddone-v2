@@ -18,7 +18,7 @@ const VenueExploreSelector: React.FC<VenueExploreSelectorProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* 📜 Scrollable Body */}
@@ -35,7 +35,7 @@ const VenueExploreSelector: React.FC<VenueExploreSelectorProps> = ({
         </h2>
 
         <video
-  src="/assets/videos/vibe_explore.mp4"
+  src={`${import.meta.env.BASE_URL}assets/videos/vibe_explore.mp4`}
   autoPlay
   loop
   muted

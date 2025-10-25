@@ -21,7 +21,7 @@ const OurStory: React.FC<OurStoryProps> = ({ onClose }) => {
       {/* Title */}
       <div style={{ textAlign: "center", marginBottom: "3rem" }}>
         <img
-          src="/assets/images/magic_quill.png"
+          src={`${import.meta.env.BASE_URL}assets/images/magic_quill.png`}
           alt="Our Story header"
           style={{
             width: "260px",
@@ -33,7 +33,7 @@ const OurStory: React.FC<OurStoryProps> = ({ onClose }) => {
       {/* Rachel Section */}
       <div style={{ marginBottom: "4rem", overflow: "hidden", textAlign: isMobile ? "center" : "left" }}>
         <img
-          src="/assets/images/Rachel_Headshot.png"
+          src={`${import.meta.env.BASE_URL}assets/images/Rachel_Headshot.png`}
           alt="Rachel headshot"
           style={{
             float: isMobile ? "none" : "left",
@@ -57,7 +57,7 @@ const OurStory: React.FC<OurStoryProps> = ({ onClose }) => {
       {/* Karen Section */}
       <div style={{ marginBottom: "4rem", overflow: "hidden", textAlign: isMobile ? "center" : "left" }}>
         <img
-          src="/assets/images/Karen_Headshot.png"
+          src={`${import.meta.env.BASE_URL}assets/images/Karen_Headshot.png`}
           alt="Karen headshot"
           style={{
             float: isMobile ? "none" : "right",
@@ -81,7 +81,7 @@ const OurStory: React.FC<OurStoryProps> = ({ onClose }) => {
       {/* Divider Icon */}
       <div style={{ textAlign: "center", margin: "3rem 0" }}>
         <img
-          src="/assets/images/magic_divider.png"
+          src={`${import.meta.env.BASE_URL}assets/images/magic_divider.png`}
           alt="Divider icon"
           style={{ width: "120px", height: "auto" }}
         />

@@ -22,12 +22,12 @@ interface VenueVibeSelectorProps {
 }
 
 const vibes: Vibe[] = [
-  { id: "desert-dream", title: "🌵 Desert Dream ☀️", description: "Perfectly pristine desert landscaping and authentic desert backdrops. These venues showcase the Sonoran Desert in all its cacti glory.", video: "/assets/videos/desert_dream.mp4" },
-  { id: "garden-greenery", title: "🌳 Garden Greenery 💐", description: "An oasis in the desert, you'll enjoy lush gardens, grassy spaces, and trees!", video: "/assets/videos/garden_greenery.mp4" },
-  { id: "industrial", title: "🏗️ Industrial 🧱", description: "Clean, minimal, classic, and perfectly pulled together.", video: "/assets/videos/industrial.mp4" },
-  { id: "modern", title: "🔷 Modern 🔶", description: "Fun, sleek, and cool, cool, cool... very cool.", video: "/assets/videos/modern.mp4" },
-  { id: "rustic-chic", title: "💖 Rustic Yet Chic 💖", description: "Classic and cozy spaces that are classed up and ready for a party.", video: "/assets/videos/rustic_chic.mp4" },
-  { id: "distinctly-arizona", title: "🌞 Distinctly Arizona 🏜️", description: "The definition of the Southwest's history and present.", video: "/assets/videos/distinctly_arizona.mp4" },
+  { id: "desert-dream", title: "🌵 Desert Dream ☀️", description: "Perfectly pristine desert landscaping and authentic desert backdrops. These venues showcase the Sonoran Desert in all its cacti glory.", video: `${import.meta.env.BASE_URL}assets/videos/desert_dream.mp4` },
+  { id: "garden-greenery", title: "🌳 Garden Greenery 💐", description: "An oasis in the desert, you'll enjoy lush gardens, grassy spaces, and trees!", video: `${import.meta.env.BASE_URL}assets/videos/garden_greenery.mp4` },
+  { id: "industrial", title: "🏗️ Industrial 🧱", description: "Clean, minimal, classic, and perfectly pulled together.", video: `${import.meta.env.BASE_URL}assets/videos/industrial.mp4` },
+  { id: "modern", title: "🔷 Modern 🔶", description: "Fun, sleek, and cool, cool, cool... very cool.", video: `${import.meta.env.BASE_URL}assets/videos/modern.mp4` },
+  { id: "rustic-chic", title: "💖 Rustic Yet Chic 💖", description: "Classic and cozy spaces that are classed up and ready for a party.", video: `${import.meta.env.BASE_URL}assets/videos/rustic_chic.mp4` },
+  { id: "distinctly-arizona", title: "🌞 Distinctly Arizona 🏜️", description: "The definition of the Southwest's history and present.", video: `${import.meta.env.BASE_URL}assets/videos/distinctly_arizona.mp4` },
 ];
 
 const VenueVibeSelector: React.FC<VenueVibeSelectorProps> = ({
@@ -105,7 +105,7 @@ const VenueVibeSelector: React.FC<VenueVibeSelectorProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

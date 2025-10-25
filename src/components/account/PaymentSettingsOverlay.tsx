@@ -132,22 +132,22 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
         </button>
 
         {/* looping lock/credit-card video */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <video
-            src="/assets/videos/lock.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              width: 140,
-              height: 140,
-              borderRadius: 16,
-              objectFit: "cover",
-              boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
-            }}
-          />
-        </div>
+<div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+  <video
+    src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      width: 140,
+      height: 140,
+      borderRadius: 16,
+      objectFit: "cover",
+      boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+    }}
+  />
+</div>
 
         {/* centered title */}
         <h1

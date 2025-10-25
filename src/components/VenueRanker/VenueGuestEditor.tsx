@@ -151,7 +151,7 @@ const VenueGuestEditor: React.FC<VenueGuestEditorProps> = ({
 
         {/* Header / Visual */}
         <video
-          src="/assets/videos/wedding_guests.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/wedding_guests.mp4`}
           autoPlay
           muted
           loop

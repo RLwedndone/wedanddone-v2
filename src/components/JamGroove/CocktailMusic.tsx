@@ -86,7 +86,7 @@ const CocktailMusic: React.FC<CocktailMusicProps> = ({
       {/* Pink X Close */}
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -96,7 +96,7 @@ const CocktailMusic: React.FC<CocktailMusicProps> = ({
         </h2>
 
         <img
-          src="/assets/images/cocktail_hour.png"
+          src={`${import.meta.env.BASE_URL}assets/images/cocktail_hour.png`}
           alt="Cocktail Hour"
           className="px-media"
           style={{ maxWidth: 300, marginBottom: 12 }}

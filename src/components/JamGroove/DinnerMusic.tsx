@@ -78,7 +78,7 @@ const DinnerMusic: React.FC<DinnerMusicProps> = ({
       {/* Pink X Close */}
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
@@ -86,7 +86,7 @@ const DinnerMusic: React.FC<DinnerMusicProps> = ({
         <h2 className="px-title" style={{ marginBottom: 8 }}>Dinner Music</h2>
 
         <img
-          src="/assets/images/dinner_music.png"
+          src={`${import.meta.env.BASE_URL}assets/images/dinner_music.png`}
           alt="Dinner Music"
           className="px-media"
           style={{ maxWidth: 300, marginBottom: 12 }}

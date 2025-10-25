@@ -99,7 +99,7 @@ const CoupleInfo: React.FC<CoupleInfoProps> = ({ onNext, onBack, goToTOC }) => {
           {/* 🌟 Icon image */}
           <div style={{ textAlign: "center" }}>
             <img
-              src="/assets/images/all_about.png"
+              src={`${import.meta.env.BASE_URL}assets/images/all_about.png`}
               alt="Love Birds Icon"
               style={{ maxWidth: "320px", width: "82%", height: "auto", marginBottom: "1.5rem" }}
             />

@@ -70,7 +70,7 @@ const DetailWranglerWeddingCosts: React.FC<DetailWranglerWeddingCostsProps> = ({
         {/* 🎥 Video */}
         <div style={{ marginBottom: "1.5rem" }}>
           <video autoPlay loop muted playsInline preload="metadata" style={videoStyle}>
-            <source src="/assets/videos/Magic_Book/wedding_costs.mp4" type="video/mp4" />
+            <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/wedding_costs.mp4`} type="video/mp4" />
           </video>
         </div>
 
@@ -86,7 +86,7 @@ const DetailWranglerWeddingCosts: React.FC<DetailWranglerWeddingCostsProps> = ({
         {/* 🎥 Video */}
         <div style={{ marginBottom: "1.5rem" }}>
           <video autoPlay loop muted playsInline preload="metadata" style={{ ...videoStyle, width: "45%" }}>
-            <source src="/assets/videos/Magic_Book/piggy_bank.mp4" type="video/mp4" />
+            <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/piggy_bank.mp4`} type="video/mp4" />
           </video>
         </div>
 

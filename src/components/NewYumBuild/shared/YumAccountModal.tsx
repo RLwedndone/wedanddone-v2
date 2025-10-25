@@ -78,13 +78,13 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
       <div className="pixie-card" onClick={(e) => e.stopPropagation()}>
         {/* Pink X in the top-right */}
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
           {/* Header image */}
           <img
-            src="/assets/images/account_bar.png"
+            src={`${import.meta.env.BASE_URL}assets/images/account_bar.png`}
             alt="Account"
             className="px-media"
             style={{ maxWidth: 240, marginBottom: "1rem" }}
@@ -151,7 +151,7 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
           <p style={{ margin: "1rem 0 0.5rem", fontWeight: "bold", color: "#999" }}>— or —</p>
 
           <button className="px-google-btn" onClick={handleGoogleSignup}>
-            <img src="/assets/images/google.png" alt="Google icon" />
+            <img src={`${import.meta.env.BASE_URL}assets/images/google.png`} alt="Google icon" />
             Sign in with Google
           </button>
         </div>

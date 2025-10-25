@@ -13,14 +13,34 @@ interface YumCuisineSelectorCateringProps {
 }
 
 const cuisines = [
-  { key: "italian",  label: "Italian Bounty",   image: "/assets/images/YumYum/ItalianIcon.png",
-    description: "Delights from Italy! With options like Salami Caprese appetizers, Tuscan grilled chicken and fettuccine alfredo." },
-  { key: "american", label: "Classic American", image: "/assets/images/YumYum/americanIcon.png",
-    description: "Hearty Americana dishes such as sirloin skewers, BBQ glazed pork chops, lemon glazed salmon, and roasted red potatoes." },
-  { key: "mexican",  label: "Mexican Fiesta",   image: "/assets/images/YumYum/mexicanIcon.png",
-    description: "Decadence from south of the border! Options include shrimp ceviche, mini chicken tinga tacos and baked Mahi Mahi Veracruz style." },
-  { key: "taco",     label: "Taco Bar",         image: "/assets/images/YumYum/tacoBar.png",
-    description: "Your choice of 3 appetizers, 3 meats, and 2 sides — fully customizable taco deliciousness!" },
+  {
+    key: "italian",
+    label: "Italian Bounty",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/ItalianIcon.png`,
+    description:
+      "Delights from Italy! With options like Salami Caprese appetizers, Tuscan grilled chicken and fettuccine alfredo.",
+  },
+  {
+    key: "american",
+    label: "Classic American",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/americanIcon.png`,
+    description:
+      "Hearty Americana dishes such as sirloin skewers, BBQ glazed pork chops, lemon glazed salmon, and roasted red potatoes.",
+  },
+  {
+    key: "mexican",
+    label: "Mexican Fiesta",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/mexicanIcon.png`,
+    description:
+      "Decadence from south of the border! Options include shrimp ceviche, mini chicken tinga tacos and baked Mahi Mahi Veracruz style.",
+  },
+  {
+    key: "taco",
+    label: "Taco Bar",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/tacoBar.png`,
+    description:
+      "Your choice of 3 appetizers, 3 meats, and 2 sides — fully customizable taco deliciousness!",
+  },
 ];
 
 const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
@@ -32,69 +52,131 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
 }) => {
   const auth = getAuth();
 
-  // ✂️ REMOVED: restore-on-mount effect (it was re-hydrating stale cuisine right after user clicked)
-
-  // ✅ Save cuisine when it changes (unchanged)
+  // ✅ Save cuisine when it changes
   useEffect(() => {
     if (!selectedCuisine) return;
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const cuisineRef = doc(db, "users", user.uid, "yumYumData", "cuisineSelection");
-          await setDoc(cuisineRef, { selectedCuisine }, { merge: true });
+          // store cuisine choice under /users/{uid}/yumYumData/cuisineSelection
+          const cuisineRef = doc(
+            db,
+            "users",
+            user.uid,
+            "yumYumData",
+            "cuisineSelection"
+          );
+          await setDoc(
+            cuisineRef,
+            { selectedCuisine },
+            { merge: true }
+          );
+
+          // also write lightweight progress marker
           const progressRef = doc(db, "users", user.uid);
-          await setDoc(progressRef, { progress: { yumYum: { step: "cuisine" } } }, { merge: true });
+          await setDoc(
+            progressRef,
+            { progress: { yumYum: { step: "cuisine" } } },
+            { merge: true }
+          );
         } catch (err) {
           console.error("❌ Error saving cuisine:", err);
         }
       } else {
+        // guest path: stash locally
         try {
           localStorage.setItem("yumSelectedCuisine", selectedCuisine);
           localStorage.setItem("yumStep", "cuisine");
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
     });
+
     return () => unsub();
-  }, [selectedCuisine]);
+  }, [auth, selectedCuisine]);
 
   // ✅ Clear previous menu picks when switching cuisines, then set the cuisine
   const handleSelectCuisine = async (key: string) => {
     if (selectedCuisine !== key) {
-      // Clear menu selections so modals aren't "maxed out"
+      // nuke prior menuSelections so it doesn't carry forward appetizers/mains/sides
       try {
         localStorage.removeItem("yumMenuSelections");
-      } catch {}
+      } catch {
+        /* ignore */
+      }
+
       const user = getAuth().currentUser;
       if (user) {
         try {
-          const ref = doc(db, "users", user.uid, "yumYumData", "menuSelections");
-          await setDoc(ref, { appetizers: [], mains: [], sides: [] }, { merge: true });
+          const ref = doc(
+            db,
+            "users",
+            user.uid,
+            "yumYumData",
+            "menuSelections"
+          );
+          await setDoc(
+            ref,
+            { appetizers: [], mains: [], sides: [] },
+            { merge: true }
+          );
         } catch (e) {
-          console.warn("Could not clear menuSelections in Firestore:", e);
+          console.warn(
+            "Could not clear menuSelections in Firestore:",
+            e
+          );
         }
       }
     }
+
     setSelectedCuisine(key);
-    try { localStorage.setItem("yumSelectedCuisine", key); } catch {}
+    try {
+      localStorage.setItem("yumSelectedCuisine", key);
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 560 }}>
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 560 }}
+    >
       {onClose && (
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
       )}
 
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
-        <h2 className="px-title-lg" style={{ marginBottom: "0.75rem" }}>
+      <div
+        className="pixie-card__body"
+        style={{ textAlign: "center" }}
+      >
+        <h2
+          className="px-title-lg"
+          style={{ marginBottom: "0.75rem" }}
+        >
           Choose Your Cuisine
         </h2>
-        <p className="px-prose-narrow" style={{ marginBottom: "1.5rem" }}>
-          Select one of our delicious menu cuisines below — next you can customize your menu!
+
+        <p
+          className="px-prose-narrow"
+          style={{ marginBottom: "1.5rem" }}
+        >
+          Select one of our delicious menu cuisines below — next
+          you can customize your menu!
         </p>
 
-        {/* Vertical stack */}
+        {/* Vertical stack of cuisine cards */}
         <div
           style={{
             display: "flex",
@@ -117,10 +199,11 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
                   background: "#fff",
                   borderRadius: "14px",
                   boxShadow: isActive
-                    ? "0 0 28px 10px rgba(70, 140, 255, 0.65)" // rich blue glow
+                    ? "0 0 28px 10px rgba(70, 140, 255, 0.65)" // blue glow when active
                     : "0 2px 8px rgba(0,0,0,0.08)",
                   cursor: "pointer",
-                  transition: "box-shadow 0.2s ease, transform 0.2s ease",
+                  transition:
+                    "box-shadow 0.2s ease, transform 0.2s ease",
                   padding: "0.5rem 0.75rem 1rem",
                   position: "relative",
                 }}
@@ -137,9 +220,17 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
                     margin: "0.5rem auto 0.75rem",
                   }}
                 />
-                <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: "0.25rem" }}>
+
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "1.05rem",
+                    marginBottom: "0.25rem",
+                  }}
+                >
                   {c.label}
                 </div>
+
                 <div
                   style={{
                     fontSize: "0.92rem",
@@ -156,7 +247,10 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
           })}
         </div>
 
-        <div className="px-cta-col" style={{ marginTop: "2rem" }}>
+        <div
+          className="px-cta-col"
+          style={{ marginTop: "2rem" }}
+        >
           <button
             className="boutique-primary-btn"
             onClick={onNext}
@@ -165,7 +259,11 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
           >
             Continue
           </button>
-          <button className="boutique-back-btn" onClick={onBack}>
+
+          <button
+            className="boutique-back-btn"
+            onClick={onBack}
+          >
             ← Back
           </button>
         </div>

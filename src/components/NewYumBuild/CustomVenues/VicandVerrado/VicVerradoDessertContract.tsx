@@ -237,7 +237,7 @@ const VicVerradoDessertContract: React.FC<VicVerradoDessertContractProps> = ({
     <div className="pixie-overlay">
       <div className="pixie-card" style={{ maxWidth: "700px", textAlign: "center" }}>
         <img
-          src="/assets/images/yum_yum_button.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Dessert Icon"
           style={{ width: "100px", margin: "0 auto 1rem", display: "block" }}
         />
@@ -399,7 +399,7 @@ const VicVerradoDessertContract: React.FC<VicVerradoDessertContractProps> = ({
           ) : (
             <>
               <img
-                src="/assets/images/contract_signed.png"
+                src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
                 alt="Contract Signed"
                 style={{ width: "150px", margin: "0.75rem auto 1rem", display: "block" }}
               />

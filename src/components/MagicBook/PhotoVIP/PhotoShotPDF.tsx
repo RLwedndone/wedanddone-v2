@@ -139,7 +139,7 @@ const PhotoShotPDF: React.FC<Props> = ({ onBack, onClose, goToTOC }) => {
   return (
     <div style={{ textAlign: "center", padding: 4, color: "#111" }}>
       <img
-        src="/assets/images/Camera_wand.png"
+        src={`${import.meta.env.BASE_URL}assets/images/Camera_wand.png`}
         alt="Camera Wand"
         style={{ width: 96, height: 96, objectFit: "contain", margin: "0 auto 12px", display: "block" }}
         onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}

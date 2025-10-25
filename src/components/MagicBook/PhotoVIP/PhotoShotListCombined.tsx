@@ -171,9 +171,9 @@ const PhotoShotListCombined: React.FC<PhotoShotListCombinedProps> = ({ onNext, o
 
   const shotList: ShotDef[] = useMemo(() => {
     const shots: ShotDef[] = [];
-    if (hasEveryoneCard) shots.push({ key: "everyone", img: "/assets/images/Shot_Cards/everyone.png" });
-    if (hasParentsCard)  shots.push({ key: "parents",  img: "/assets/images/Shot_Cards/parents.png" });
-    if (hasWeddingCard)  shots.push({ key: "wedding_party", img: "/assets/images/Shot_Cards/wedding_party.png" });
+    if (hasEveryoneCard) shots.push({ key: "everyone", img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/everyone.png` });
+    if (hasParentsCard)  shots.push({ key: "parents",  img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/parents.png` });
+    if (hasWeddingCard)  shots.push({ key: "wedding_party", img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/wedding_party.png` });
     return shots;
   }, [hasEveryoneCard, hasParentsCard, hasWeddingCard]);
 
@@ -232,7 +232,7 @@ const PhotoShotListCombined: React.FC<PhotoShotListCombinedProps> = ({ onNext, o
     <div className="pixie-overlay">
       <div className="pixie-card" style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem" }}>
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-          <img src="/assets/images/combined_shots.png" alt="Combined Shot List Icon" style={{ width: "100%", maxWidth: 350 }} />
+          <img src={`${import.meta.env.BASE_URL}assets/images/combined_shots.png`} alt="Combined Shot List Icon" style={{ width: "100%", maxWidth: 350 }} />
         </div>
 
         <h2 style={headerFont}>Combined Formal Shot List</h2>

@@ -26,7 +26,7 @@ const YumThankYouBothBooked: React.FC<YumThankYouProps> = ({ onClose }) => {
 
   // Sparkle sfx (non-blocking)
   useEffect(() => {
-    const sparkle = new Audio("/assets/sounds/sparkle.MP3");
+    const sparkle = new Audio(`${import.meta.env.BASE_URL}assets/sounds/sparkle.MP3`);
     sparkle.volume = 0.7;
     sparkle.play().catch((err) => console.warn("✨ Sparkle sound blocked:", err));
   }, []);
@@ -36,7 +36,7 @@ const YumThankYouBothBooked: React.FC<YumThankYouProps> = ({ onClose }) => {
     <div className="pixie-card pixie-card--modal" style={{ ["--pixie-card-w" as any]: "680px" }}>
       {/* 🩷 Pink X close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Hide scrollbar but keep scrollability */}
@@ -53,7 +53,7 @@ const YumThankYouBothBooked: React.FC<YumThankYouProps> = ({ onClose }) => {
       {/* Body */}
       <div className="pixie-card__body" style={{ textAlign: "center", maxHeight: "72vh", overflowY: "auto" }}>
         <video
-          src="/assets/videos/yum_thanks.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
           autoPlay
           loop
           muted

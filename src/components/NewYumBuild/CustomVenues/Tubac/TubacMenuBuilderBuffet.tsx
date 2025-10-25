@@ -10,10 +10,10 @@ interface Props {
 }
 
 const IMG = {
-  pig: "/assets/images/YumYum/piglet1.png",
-  apps: "/assets/images/YumYum/apps.png",
-  sides: "/assets/images/YumYum/sides.png",
-  mains: "/assets/images/YumYum/mains.png",
+  pig: `${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`,
+  apps: `${import.meta.env.BASE_URL}assets/images/YumYum/apps.png`,
+  sides: `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`,
+  mains: `${import.meta.env.BASE_URL}assets/images/YumYum/mains.png`,
 };
 
 const BUFFET = {
@@ -138,7 +138,7 @@ const TubacMenuBuilderBuffet: React.FC<Props> = ({
   return (
     <div className="pixie-card" style={{ maxWidth: 700 }}>
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

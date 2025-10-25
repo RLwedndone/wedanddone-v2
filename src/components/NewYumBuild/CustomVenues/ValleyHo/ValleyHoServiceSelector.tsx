@@ -137,7 +137,7 @@ const ValleyHoServiceSelector: React.FC<ValleyHoServiceSelectorProps> = ({
 
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       {/* Title */}
@@ -164,7 +164,7 @@ const ValleyHoServiceSelector: React.FC<ValleyHoServiceSelectorProps> = ({
             style={imgWrap(selected === "plated")}
           >
             {/* Reuse Tubac image per your note */}
-            <img src="/assets/images/YumYum/Tubac/plated.jpg" alt="Plated Dinner" style={imgStyle} />
+            <img src={`${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/plated.jpg`} alt="Plated Dinner" style={imgStyle} />
           </div>
 
           {open === "plated" && (
@@ -186,7 +186,7 @@ const ValleyHoServiceSelector: React.FC<ValleyHoServiceSelectorProps> = ({
             style={imgWrap(selected === "stations")}
           >
             {/* Reuse Tubac buffet image as the stations visual */}
-            <img src="/assets/images/YumYum/Tubac/buffet.jpg" alt="Reception Stations" style={imgStyle} />
+            <img src={`${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/buffet.jpg`} alt="Reception Stations" style={imgStyle} />
           </div>
 
           {open === "stations" && (

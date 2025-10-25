@@ -14,10 +14,10 @@ interface Props {
 }
 
 const IMG = {
-  pig: "/assets/images/YumYum/piglet1.png",
+  pig: `${import.meta.env.BASE_URL}assets/images/YumYum/piglet1.png`,
   // 👇 you said you'll add these PNGs
-  passed: "/assets/images/YumYum/Tubac/hand.png",
-  displayed: "/assets/images/YumYum/Tubac/displayed.png",
+  passed: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/hand.png`,
+  displayed: `${import.meta.env.BASE_URL}assets/images/YumYum/Tubac/displayed.png`,
 };
 
 const MAX_PASSED = 2;
@@ -98,7 +98,7 @@ const TubacHorsSelector: React.FC<Props> = ({
     <div className="pixie-card" style={{ maxWidth: 700 }}>
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>

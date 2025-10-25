@@ -60,21 +60,21 @@ const EncanterraDessertSelector: React.FC<Props> = ({
     {
       key: "tieredCake",
       label: "Tiered Cake",
-      image: "/assets/images/YumYum/cake.png",
+      image: `${import.meta.env.BASE_URL}assets/images/YumYum/cake.png`,
       blurb: "A traditional multi-tiered wedding cake.",
       priceLine: `$${PER_GUEST_TIERED}/guest`,
     },
     {
       key: "smallCakeTreats",
       label: "Small Cake & Treats",
-      image: "/assets/images/YumYum/small_cake.png",
+      image: `${import.meta.env.BASE_URL}assets/images/YumYum/small_cake.png`,
       blurb: "A small cake for cutting plus a table of treats.",
       priceLine: `Small cutting cake $${SMALL_CAKE_PRICE} • treats $${goodiesMin}–$${goodiesMax}/dz • cupcakes $${CUPCAKE_PRICE_EACH}/ea (~$${cupcakesDozenApprox}/dz)`,
     },
     {
       key: "treatsOnly",
       label: "Treats Table Only",
-      image: "/assets/images/YumYum/treats.png",
+      image: `${import.meta.env.BASE_URL}assets/images/YumYum/treats.png`,
       blurb: "Cupcakes or a table of little goodies like brownies, cookies, tarts, and shooters.",
       priceLine: `Treats by the dozen $${goodiesMin}–$${goodiesMax}/dz • cupcakes $${CUPCAKE_PRICE_EACH}/ea (~$${cupcakesDozenApprox}/dz)`,
     },
@@ -85,7 +85,7 @@ const EncanterraDessertSelector: React.FC<Props> = ({
       {/* 🩷 Pink X */}
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 

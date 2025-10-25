@@ -251,11 +251,11 @@ onContinueToCheckout();
         aria-label="Close"
         style={{ position: "absolute", top: "1rem", right: "1rem", background: "none", border: "none", cursor: "pointer" }}
       >
-        <img src="/assets/icons/pink_ex.png" alt="Close" style={{ width: 22, height: 22 }} />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" style={{ width: 22, height: 22 }} />
       </button>
   
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

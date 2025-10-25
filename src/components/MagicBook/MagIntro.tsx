@@ -25,7 +25,7 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
 
         {/* Title Image */}
         <img
-          src="/assets/images/MagicBookTextIntro.png"
+          src={`${import.meta.env.BASE_URL}assets/images/MagicBookTextIntro.png`}
           alt="Magic Book Intro Title"
           style={{
             width: "100%",
@@ -50,7 +50,7 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
           }}
         >
           <source
-            src="/assets/videos/Magic_Book/Mag_Book_Intro.mp4"
+            src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Mag_Book_Intro.mp4`}
             type="video/mp4"
           />
         </video>

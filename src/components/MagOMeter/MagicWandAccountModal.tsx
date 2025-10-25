@@ -136,7 +136,7 @@ const MagicWandAccountModal: React.FC<MagicWandAccountModalProps> = ({ onSuccess
         </button>
 
         <img
-          src="/assets/images/account_bar.png"
+          src={`${import.meta.env.BASE_URL}assets/images/account_bar.png`}
           alt="Account"
           style={{ width: "200px", margin: "0 auto 1rem", display: "block" }}
         />
@@ -204,7 +204,7 @@ const MagicWandAccountModal: React.FC<MagicWandAccountModalProps> = ({ onSuccess
         <p style={{ margin: "1rem 0 0.25rem", fontWeight: "bold", color: "#999" }}>— or —</p>
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
           <img
-            src="/assets/images/google.png"
+            src={`${import.meta.env.BASE_URL}assets/images/google.png`}
             alt="Google icon"
             style={{ width: "28px", height: "28px" }}
           />

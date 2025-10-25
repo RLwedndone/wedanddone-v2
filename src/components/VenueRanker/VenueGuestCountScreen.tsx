@@ -56,7 +56,7 @@ const VenueGuestCountScreen: React.FC<VenueGuestCountScreenProps> = ({ onContinu
     <div className="pixie-card">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -70,7 +70,7 @@ const VenueGuestCountScreen: React.FC<VenueGuestCountScreenProps> = ({ onContinu
             className="px-media"
             style={{ maxWidth: 260, borderRadius: 16 }}
           >
-            <source src="/assets/videos/wedding_guests.mp4" type="video/mp4" />
+            <source src={`${import.meta.env.BASE_URL}assets/videos/wedding_guests.mp4`} type="video/mp4" />
           </video>
         </div>
 

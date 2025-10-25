@@ -450,7 +450,7 @@ const VicVerradoDessertMenu: React.FC<VicVerradoDessertMenuProps> = ({
               style={{ marginBottom: "1.5rem", cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/cupcake.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
                 alt="Cupcakes"
                 style={{
                   width: "80%",
@@ -474,7 +474,7 @@ const VicVerradoDessertMenu: React.FC<VicVerradoDessertMenuProps> = ({
               style={{ cursor: "pointer" }}
             >
               <img
-                src="/assets/images/YumYum/goodies.png"
+                src={`${import.meta.env.BASE_URL}assets/images/YumYum/goodies.png`}
                 alt="Goodies"
                 style={{
                   width: "80%",

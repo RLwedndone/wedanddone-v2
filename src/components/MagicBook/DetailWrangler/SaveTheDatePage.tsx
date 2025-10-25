@@ -40,7 +40,7 @@ const SaveTheDatePage: React.FC<SaveTheDatePageProps> = ({ onNext, onBack, goToT
         {/* 📷 Full-bleed image */}
         <div style={{ paddingTop: "2rem", textAlign: "center" }}>
           <img
-            src="/assets/images/save_date.png"
+            src={`${import.meta.env.BASE_URL}assets/images/save_date.png`}
             alt="Save the Date"
             style={{
               width: "100%",

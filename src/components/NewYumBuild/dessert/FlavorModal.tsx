@@ -19,46 +19,46 @@ const combos = [
     title: "Malted Vanilla",
     desc:
       "All vanilla, all the way! Our Vanilla Butter Cake, filled with our malted vanilla cream and finished with Vanilla Italian Meringue Buttercream.",
-    img: "/assets/images/YumYum/Flavor_Icons/malted_vanilla.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/malted_vanilla.png`,
   },
   {
     key: "sunshineLemon",
     title: "Arizona’s Sunshine Lemon Cake",
     desc: "Bright Lemon Cake, filled with Lemon Cream & intense Lemon Curd.",
-    img: "/assets/images/YumYum/Flavor_Icons/sunshine_lemon.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/sunshine_lemon.png`,
   },
   {
     key: "strawberriesChampagne",
     title: "Strawberries & Champagne",
     desc:
       "An all time favorite… Our delicate Sparkling Champagne Cake layered with Strawberry Cream.",
-    img: "/assets/images/YumYum/Flavor_Icons/strawberries_champagne.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/strawberries_champagne.png`,
   },
   {
     key: "aztecChocolate",
     title: "Aztec Chocolate",
     desc:
       "Our moist Chocolate Brown Sugar Cake, layered with our cinnamon & cayenne pepper chocolate mousse.",
-    img: "/assets/images/YumYum/Flavor_Icons/aztec_chocolate.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/aztec_chocolate.png`,
   },
   {
     key: "almondRaspberry",
     title: "Almond Raspberry",
     desc: "Tender Almond Poppy Seed Cake, layered with Raspberry Cream.",
-    img: "/assets/images/YumYum/Flavor_Icons/almond_raspberry.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/almond_raspberry.png`,
   },
   {
     key: "caramelMacchiato",
     title: "Caramel Macchiato",
     desc:
       "Our Vanilla cake, layered with Espresso Buttercream & drizzled with our very own Caramel Sauce.",
-    img: "/assets/images/YumYum/Flavor_Icons/caramel_macchiato.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/caramel_macchiato.png`,
   },
   {
     key: "tangerineDream",
     title: "Tangerine Dream",
     desc: "Our light Tangerine Chiffon Cake paired with Whipped Mascarpone Cream.",
-    img: "/assets/images/YumYum/Flavor_Icons/tangerine_dream.png",
+    img: `${import.meta.env.BASE_URL}assets/images/YumYum/Flavor_Icons/tangerine_dream.png`,
   },
 ] as const;
 
@@ -88,9 +88,12 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
   const [pickedKeys, setPickedKeys] = useState<string[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
+  // hydrate from parent prop
   useEffect(() => {
     if (selected?.length) {
-      const asKeys = selected.map((t) => titleToKey[t]).filter(Boolean) as string[];
+      const asKeys = selected
+        .map((t) => titleToKey[t])
+        .filter(Boolean) as string[];
       setPickedKeys(asKeys.slice(0, maxSelections));
       setActiveKey(asKeys[0] ?? null);
     } else {
@@ -114,16 +117,20 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
   };
 
   const handleSave = () => {
-    const titles = pickedKeys.map((k) => keyToTitle[k]).filter(Boolean) as string[];
+    const titles = pickedKeys
+      .map((k) => keyToTitle[k])
+      .filter(Boolean) as string[];
     const subtitle =
       titles.length <= 1
         ? titles[0] || ""
-        : titles.slice(0, 2).join(" & ") + (titles.length > 2 ? "…" : "");
+        : titles.slice(0, 2).join(" & ") +
+          (titles.length > 2 ? "…" : "");
     onChange({ titles, subtitle });
     onClose();
   };
 
-  const canSave = pickedKeys.length > 0 && pickedKeys.length <= maxSelections;
+  const canSave =
+    pickedKeys.length > 0 && pickedKeys.length <= maxSelections;
 
   return (
     <div
@@ -148,19 +155,19 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
           padding: "18px 18px 22px",
           position: "relative",
           boxShadow: "0 18px 50px rgba(0,0,0,0.18)",
-          scrollbarWidth: "none", // ✅ hides scrollbar for Firefox
-        }}
+          scrollbarWidth: "none", // hide scrollbar in Firefox
+        } as React.CSSProperties}
       >
         <style>
           {`
-            /* ✅ hides scrollbar for WebKit browsers */
+            /* hide scrollbar in WebKit browsers */
             div::-webkit-scrollbar {
               display: none;
             }
           `}
         </style>
 
-        {/* 🔹 Blue X Close */}
+        {/* Blue X Close */}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -174,20 +181,26 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
           }}
         >
           <img
-            src="/assets/icons/blue_ex.png"
+            src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
             alt="Close"
             style={{ width: 22, height: 22 }}
           />
         </button>
 
+        {/* Top icon */}
         <div style={{ textAlign: "center", marginBottom: 4 }}>
           <img
-            src="/assets/images/YumYum/filling_icon.png"
+            src={`${import.meta.env.BASE_URL}assets/images/YumYum/filling_icon.png`}
             alt=""
-            style={{ width: 56, height: 56, display: "inline-block" }}
+            style={{
+              width: 56,
+              height: 56,
+              display: "inline-block",
+            }}
           />
         </div>
 
+        {/* Title */}
         <h3
           style={{
             textAlign: "center",
@@ -213,7 +226,14 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
           )}
         </h3>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Flavor cards */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
           {combos.map((c) => {
             const isPicked = pickedKeys.includes(c.key);
             const showDesc = activeKey === c.key;
@@ -226,22 +246,27 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
                 }}
               >
                 <button
-  onClick={() => toggle(c.key)}
-  style={{
-    display: "block",
-    width: "100%",
-    background: "#fff",
-    border: isPicked ? "2px solid transparent" : "1.5px solid #e7e7e7", // ✅ soften border
-    borderRadius: 14,
-    padding: 10,
-    cursor: "pointer",
-    transition: "box-shadow 0.25s ease, transform 0.2s ease",
-    boxShadow: isPicked
-      ? "0 0 12px 4px rgba(44,98,186,0.35)" // ✅ soft glowing blue halo
-      : "0 1px 3px rgba(0,0,0,0.05)",
-    transform: isPicked ? "scale(1.03)" : "scale(1)", // ✅ subtle pop when active
-  }}
->
+                  onClick={() => toggle(c.key)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    background: "#fff",
+                    border: isPicked
+                      ? "2px solid transparent"
+                      : "1.5px solid #e7e7e7",
+                    borderRadius: 14,
+                    padding: 10,
+                    cursor: "pointer",
+                    transition:
+                      "box-shadow 0.25s ease, transform 0.2s ease",
+                    boxShadow: isPicked
+                      ? "0 0 12px 4px rgba(44,98,186,0.35)"
+                      : "0 1px 3px rgba(0,0,0,0.05)",
+                    transform: isPicked
+                      ? "scale(1.03)"
+                      : "scale(1)",
+                  }}
+                >
                   <div
                     style={{
                       width: "100%",
@@ -262,6 +287,7 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
                       }}
                     />
                   </div>
+
                   <div
                     style={{
                       fontFamily: "'Jenna Sue', cursive",
@@ -284,13 +310,19 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
                       borderRadius: 12,
                       border: "1px dashed #e7e7e7",
                       background: "#fafbff",
-                      fontFamily: "Nunito, system-ui, sans-serif",
+                      fontFamily:
+                        "Nunito, system-ui, sans-serif",
                       fontSize: ".9rem",
                       color: "#444",
                       lineHeight: 1.4,
                     }}
                   >
-                    <strong style={{ color: "#2c62ba" }}>{c.title}:</strong> {c.desc}
+                    <strong
+                      style={{ color: "#2c62ba" }}
+                    >
+                      {c.title}:
+                    </strong>{" "}
+                    {c.desc}
                   </div>
                 )}
               </div>
@@ -298,12 +330,22 @@ const FlavorModal: React.FC<FlavorModalProps> = ({
           })}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+        {/* Save CTA */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: 18,
+          }}
+        >
           <button
             className="boutique-primary-btn"
             onClick={handleSave}
             disabled={!canSave}
-            style={{ minWidth: 220, opacity: canSave ? 1 : 0.6 }}
+            style={{
+              minWidth: 220,
+              opacity: canSave ? 1 : 0.6,
+            }}
           >
             Add to Menu
           </button>

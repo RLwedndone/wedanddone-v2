@@ -96,13 +96,13 @@ const PreDinnerWelcomeScreen: React.FC<PreDinnerWelcomeScreenProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* Title image / media */}
         <img
-          src="/assets/images/pre_dinner.jpg"
+          src={`${import.meta.env.BASE_URL}assets/images/pre_dinner.jpg`}
           alt="Pre-Dinner Welcome"
           className="px-media px-media--lg"
           style={{ borderRadius: 12 }}

@@ -174,7 +174,7 @@ const QtyControls: React.FC<{ value: number; onChange: (n: number) => void }> = 
         onClick={() => onChange(Math.max(0, val - 1))}
         aria-label="Decrease quantity"
       >
-        <img src="/assets/icons/qty_minus_pink_glossy.svg" alt="" aria-hidden="true" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
       </button>
 
       <input
@@ -192,7 +192,7 @@ const QtyControls: React.FC<{ value: number; onChange: (n: number) => void }> = 
         onClick={() => onChange(val + 1)}
         aria-label="Increase quantity"
       >
-        <img src="/assets/icons/qty_plus_blue_glossy.svg" alt="" aria-hidden="true" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
       </button>
     </div>
   );
@@ -518,12 +518,12 @@ useEffect(() => {
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 780 }}>
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
-          src="/assets/videos/yum_cart.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay
           loop
           muted

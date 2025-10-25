@@ -58,8 +58,8 @@ export const generateYumAddOnReceiptPDF = async ({
 
   // 🐷 Load images
   const [bgImg, logoImg] = await Promise.all([
-    loadImage("/assets/images/lock_grey.png"),
-    loadImage("/assets/images/yum_yum_button.png"),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.png`),
+    loadImage(`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`),
   ]);
 
   // 🌈 Centered images (background watermark + logo)

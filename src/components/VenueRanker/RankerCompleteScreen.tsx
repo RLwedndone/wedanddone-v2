@@ -46,7 +46,7 @@ const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink close (standard) */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -56,7 +56,7 @@ const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
           loop
           muted
           playsInline
-          src="/assets/videos/ranker_complete.mp4"
+          src={`${import.meta.env.BASE_URL}assets/videos/ranker_complete.mp4`}
           style={{
             width: "100%",
             maxWidth: 300,

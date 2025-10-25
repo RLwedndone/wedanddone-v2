@@ -366,7 +366,7 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src="/assets/icons/pink_ex.png" alt="Close" />
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div
@@ -377,7 +377,7 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
   }}
 >
         <img
-          src="/assets/images/yum_yum_button.png"
+          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Catering Seal"
           className="px-media"
           style={{ maxWidth: 120, marginBottom: 8 }}
@@ -503,7 +503,7 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
         ) : (
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             <img
-              src="/assets/images/contract_signed.png"
+              src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
               alt="Agreement Signed"
               className="px-media"
               style={{ maxWidth: 140 }}
@@ -559,7 +559,7 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
           <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520, position: "relative", overflowY: "hidden" }}>
             {/* Blue X */}
             <button className="pixie-card__close" onClick={() => setShowSignatureModal(false)} aria-label="Close">
-              <img src="/assets/icons/blue_ex.png" alt="Close" />
+              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
             </button>
 
             <div className="pixie-card__body" style={{ textAlign: "center" }}>

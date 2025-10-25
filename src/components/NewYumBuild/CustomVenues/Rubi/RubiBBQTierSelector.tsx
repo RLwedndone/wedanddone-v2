@@ -40,7 +40,7 @@ const BBQ_TIERS: Record<RubiBBQTierId, TierDef> = {
   bbq_casual: {
     name: "Casual BroJo",
     price: 32,
-    image: "/assets/images/YumYum/Rubi/casual.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/casual.jpg`,
     infoTitle: "CASUAL • $32 • Select 1 starter, 2 meats, 3 sides",
     blurb: "Great value: one starter, two pit-smoked meats, and three classic sides.",
     counts: { startersOrSoup: 1, meats: 2, sides: 3 },
@@ -48,7 +48,7 @@ const BBQ_TIERS: Record<RubiBBQTierId, TierDef> = {
   bbq_standard: {
     name: "Standard BroJo",
     price: 38,
-    image: "/assets/images/YumYum/Rubi/standard.jpg",
+    image: `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/standard.jpg`,
     infoTitle: "STANDARD • $38 • Select 1 starter, 3 meats, 3 sides, 1 dessert",
     blurb: "Most popular: one starter, three meats, three sides, plus dessert.",
     counts: { startersOrSoup: 1, meats: 3, sides: 3, desserts: 1 },
@@ -124,7 +124,7 @@ const RubiBBQTierSelector: React.FC<Props> = ({
     <div className="pixie-card" style={{ maxWidth: 700, paddingTop: 28, paddingBottom: 28, margin: "0 auto" }}>
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src="/assets/icons/pink_ex.png" alt="Close" />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 

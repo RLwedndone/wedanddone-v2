@@ -50,7 +50,9 @@ const OtherCeremonySongs: React.FC<OtherCeremonySongsProps> = ({
             versionUrl: ls.versionUrl || "",
           });
         }
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
   }, [jamSelections, isGuestUser]);
 
@@ -106,7 +108,8 @@ const OtherCeremonySongs: React.FC<OtherCeremonySongsProps> = ({
   return (
     <ScrollSongLayout
       title="Other Ceremony Songs"
-      sealImageSrc="/assets/images/other_seal.png"
+      // if ScrollSongLayout expects 'sealImagesrc', change this prop name back
+      sealImageSrc={`${import.meta.env.BASE_URL}assets/images/other_seal.png`}
       onClose={onClose}
       onSave={handleSave}
     >
@@ -115,21 +118,25 @@ const OtherCeremonySongs: React.FC<OtherCeremonySongsProps> = ({
       </p>
 
       <input
+        className="px-input"
         placeholder="Event (e.g. candle lighting)"
         value={formData.event}
         onChange={(e) => handleChange("event", e.target.value)}
       />
       <input
+        className="px-input"
         placeholder="Song Title"
         value={formData.songTitle}
         onChange={(e) => handleChange("songTitle", e.target.value)}
       />
       <input
+        className="px-input"
         placeholder="Artist Name"
         value={formData.artist}
         onChange={(e) => handleChange("artist", e.target.value)}
       />
       <input
+        className="px-input"
         placeholder="Version URL (www.example.com)"
         value={formData.versionUrl}
         onChange={(e) => handleChange("versionUrl", e.target.value)}
