@@ -112,35 +112,34 @@ const DesertFoothills: React.FC<DesertFoothillsProps> = ({
         </h2>
 
         {/* 🎥 Responsive 16:9 Vimeo (large) */}
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: 960, // ← larger video
-            margin: "0 auto 1.25rem",
-            borderRadius: 12,
-            overflow: "hidden",
-            background: "#000",
-          }}
-        >
-          <div style={{ paddingTop: "56.25%" }} />
-          <iframe
-            // IMPORTANT: no dynamic key — prevents remount/flash on re-render
-            src="https://player.vimeo.com/video/829584056?autoplay=0&muted=0&playsinline=1"
-            title="Desert Foothills"
-            loading="lazy"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              border: 0,
-              display: "block",
-            }}
-          />
-        </div>
+<div
+  style={{
+    position: "relative",
+    width: "100%",
+    maxWidth: 720,
+    margin: "0 auto 1.25rem",
+    borderRadius: 12,
+    overflow: "hidden",
+    background: "#000",
+    aspectRatio: "16 / 9",
+  }}
+>
+  <iframe
+    src="https://player.vimeo.com/video/829584056?autoplay=0&muted=0&playsinline=1"
+    title="Desert Foothills"
+    loading="lazy"
+    allow="autoplay; fullscreen; picture-in-picture"
+    allowFullScreen
+    style={{
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      border: 0,
+      display: "block",
+    }}
+  />
+</div>
 
         {/* Prompt */}
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>

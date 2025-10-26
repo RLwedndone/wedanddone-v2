@@ -114,14 +114,14 @@ const Ocotillo: React.FC<OcotilloProps> = ({
   style={{
     position: "relative",
     width: "100%",
-    maxWidth: 960,
+    maxWidth: 720,
     margin: "0 auto 1.25rem",
     borderRadius: 12,
     overflow: "hidden",
     background: "#000",
+    aspectRatio: "16 / 9",
   }}
 >
-  <div style={{ paddingTop: "56.25%" }} />
   <iframe
     src="https://player.vimeo.com/video/829585981?autoplay=0&muted=0&playsinline=1"
     title="Ocotillo"

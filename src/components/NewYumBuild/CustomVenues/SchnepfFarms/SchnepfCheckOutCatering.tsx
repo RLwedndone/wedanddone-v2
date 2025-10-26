@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Schnepf/SchnepfCheckOutCatering.tsx
 import React, { useEffect, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -873,37 +871,24 @@ const SchnepfCheckOutCatering: React.FC<Props> = ({
           </div>
         </div>
 
-        <Elements stripe={stripePromise}>
-          <CheckoutForm
-            total={amountDueToday}
-            onSuccess={handleSuccess}
-            setStepSuccess={
-              onComplete
-            }
-            isAddon={false}
-            customerEmail={
-              getAuth()
-                .currentUser
-                ?.email ||
-              undefined
-            }
-            customerName={`${firstName || "Magic"} ${
-              lastName || "User"
-            }`}
-            customerId={(() => {
-              try {
-                return (
-                  localStorage.getItem(
-                    "stripeCustomerId"
-                  ) ||
-                  undefined
-                );
-              } catch {
-                return undefined;
-              }
-            })()}
-          />
-        </Elements>
+        {/* Stripe Elements — comfortably wide */}
+<div className="px-elements" aria-busy={isGenerating}>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={handleSuccess} // this keeps TS happy; it's unused in most flows
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
 
         <div
           style={{

@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/VicandVerrado/VicVerradoCheckOutCatering.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -25,8 +23,7 @@ import {
 import generateVicVerradoAgreementPDF from "../../../../utils/generateVicVerradoAgreementPDF";
 
 // small helpers
-const round2 = (n: number) =>
-  Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 const toPretty = (d: Date) =>
   d.toLocaleDateString("en-US", {
@@ -120,23 +117,16 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       0
   );
 
-  const paymentSummaryText =
-    localStorage.getItem("vvPaymentSummaryText") ?? "";
+  const paymentSummaryText = localStorage.getItem("vvPaymentSummaryText") ?? "";
 
-  const venueName =
-    localStorage.getItem("vvVenueName") || "The Vic";
+  const venueName = localStorage.getItem("vvVenueName") || "The Vic";
 
-  const weddingDateISO =
-    localStorage.getItem("vvWeddingDate") || "";
-
-  const dayOfWeek =
-    localStorage.getItem("vvDayOfWeek") || "";
+  const weddingDateISO = localStorage.getItem("vvWeddingDate") || "";
+  const dayOfWeek = localStorage.getItem("vvDayOfWeek") || "";
 
   const vvSelections = (() => {
     try {
-      return JSON.parse(
-        localStorage.getItem("vvSelections") || "{}"
-      );
+      return JSON.parse(localStorage.getItem("vvSelections") || "{}");
     } catch {
       return {};
     }
@@ -144,9 +134,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
 
   const vvLineItems = (() => {
     try {
-      return JSON.parse(
-        localStorage.getItem("vvLineItems") || "[]"
-      );
+      return JSON.parse(localStorage.getItem("vvLineItems") || "[]");
     } catch {
       return [];
     }
@@ -156,30 +144,21 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
   const flowerTier: VVFlowerTier =
     flowerTierProp ||
     (tierIdLS
-      ? (tierIdLS.charAt(0).toUpperCase() +
-          tierIdLS.slice(1)) as VVFlowerTier
+      ? (tierIdLS.charAt(0).toUpperCase() + tierIdLS.slice(1)) as VVFlowerTier
       : ("Sunflower" as VVFlowerTier));
 
   const perGuestPrice =
-    Number(localStorage.getItem("vicVerradoPerGuest")) ||
-    TIER_PRICE[flowerTier];
+    Number(localStorage.getItem("vicVerradoPerGuest")) || TIER_PRICE[flowerTier];
 
   // === 2) Decide what we charge today ===
-  const amountDueTodayCents = payFull
-    ? totalCents
-    : depositCents;
-  const amountDueToday = round2(
-    amountDueTodayCents / 100
-  );
+  const amountDueTodayCents = payFull ? totalCents : depositCents;
+  const amountDueToday = round2(amountDueTodayCents / 100);
 
-  const remainingBalance = round2(
-    Math.max(0, total - amountDueToday)
-  );
+  const remainingBalance = round2(Math.max(0, total - amountDueToday));
 
   // final due = 35 days before wedding (pretty label for emails/PDF)
   const finalDueDateStr = (() => {
-    if (!weddingDateISO)
-      return "35 days before your wedding date";
+    if (!weddingDateISO) return "35 days before your wedding date";
     const base = new Date(weddingDateISO);
     base.setDate(base.getDate() - 35);
     return toPretty(base);
@@ -191,10 +170,8 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
     "";
 
   // === 3) Minimal user record for emails/PDF ===
-  const [firstName, setFirstName] =
-    useState<string>("Magic");
-  const [lastName, setLastName] =
-    useState<string>("User");
+  const [firstName, setFirstName] = useState<string>("Magic");
+  const [lastName, setLastName] = useState<string>("User");
 
   useEffect(() => {
     (async () => {
@@ -213,11 +190,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
   }, []);
 
   // === 4) On successful payment ===
-  const handleSuccess = async ({
-    customerId,
-  }: {
-    customerId?: string;
-  } = {}) => {
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
       console.warn(
         "[VicVerradoCheckOutCatering] handleSuccess already ran — ignoring re-entry"
@@ -238,20 +211,13 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       const userDoc = snap.data() || {};
 
       // Store Stripe customer id if new
-      if (
-        customerId &&
-        customerId !== userDoc?.stripeCustomerId
-      ) {
+      if (customerId && customerId !== userDoc?.stripeCustomerId) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
-          "stripe.updatedAt":
-            serverTimestamp(),
+          "stripe.updatedAt": serverTimestamp(),
         });
         try {
-          localStorage.setItem(
-            "stripeCustomerId",
-            customerId
-          );
+          localStorage.setItem("stripeCustomerId", customerId);
         } catch {}
       }
 
@@ -259,194 +225,114 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       let guestCountFinal = 0;
       try {
         const st = await getGuestState();
-        guestCountFinal = Number(
-          (st as any)?.value || 0
-        );
+        guestCountFinal = Number((st as any)?.value || 0);
       } catch {}
       if (!guestCountFinal) {
         guestCountFinal =
           Number(
-            localStorage.getItem(
-              "yumGuestCount"
-            ) ||
-              localStorage.getItem(
-                "magicGuestCount"
-              ) ||
+            localStorage.getItem("yumGuestCount") ||
+              localStorage.getItem("magicGuestCount") ||
               0
           ) || 0;
       }
       if (!guestCountFinal) {
         const snap2 = await getDoc(userRef);
         const data2 = snap2.data() || {};
-        guestCountFinal = Number(
-          data2?.guestCount || 0
-        );
+        guestCountFinal = Number(data2?.guestCount || 0);
       }
 
-      const safeFirst =
-        userDoc?.firstName ||
-        firstName ||
-        "Magic";
-      const safeLast =
-        userDoc?.lastName ||
-        lastName ||
-        "User";
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
       const fullName = `${safeFirst} ${safeLast}`;
-      const wedding =
-        weddingDateISO ||
-        userDoc?.weddingDate ||
-        "TBD";
-      const purchaseDate =
-        new Date().toISOString();
+      const wedding = weddingDateISO || userDoc?.weddingDate || "TBD";
+      const purchaseDate = new Date().toISOString();
 
       // ---------- Route FIRST + fire Budget Wand ----------
       try {
-        localStorage.setItem(
-          "vvJustBookedCatering",
-          "true"
-        );
-        localStorage.setItem(
-          "vvCateringBooked",
-          "true"
-        );
-        localStorage.setItem(
-          "vvYumStep",
-          "vicVerradoCateringThankYou"
-        );
-        localStorage.setItem(
-          "yumStep",
-          "vicVerradoCateringThankYou"
-        );
+        localStorage.setItem("vvJustBookedCatering", "true");
+        localStorage.setItem("vvCateringBooked", "true");
+        localStorage.setItem("vvYumStep", "vicVerradoCateringThankYou");
+        localStorage.setItem("yumStep", "vicVerradoCateringThankYou");
       } catch {}
-      window.dispatchEvent(
-        new Event("purchaseMade")
-      );
+      window.dispatchEvent(new Event("purchaseMade"));
       onComplete(); // overlay advances to Catering TY immediately
 
       // ---------- Generate agreement PDF ----------
-      const pdfBlob =
-        await generateVicVerradoAgreementPDF({
-          venueName:
-            (localStorage.getItem(
-              "vvVenueName"
-            ) as any) || "The Vic",
-          fullName,
-          total, // grand total
-          deposit: payFull
-            ? 0
-            : round2(total * 0.25),
-          guestCount: guestCountFinal,
-          weddingDate: wedding,
-          signatureImageUrl,
-          paymentSummary:
-            paymentSummaryText ||
-            (payFull
-              ? `Paid in full today: $${amountDueToday.toFixed(
-                  2
-                )}.`
-              : `Deposit today: $${amountDueToday.toFixed(
-                  2
-                )}. Remaining $${remainingBalance.toFixed(
-                  2
-                )} due by ${finalDueDateStr}.`),
-          flowerTier,
-          selections: {
-            hors:
-              menuSelections.hors ||
-              vvSelections.hors ||
-              [],
-            salads:
-              menuSelections.salads ||
-              vvSelections.salads ||
-              [],
-            starches:
-              menuSelections.starches ||
-              vvSelections.starches ||
-              vvSelections.starch ||
-              [],
-            vegetables:
-              menuSelections.vegetables ||
-              vvSelections.vegetables ||
-              vvSelections.veg ||
-              [],
-            entrees:
-              menuSelections.entrees ||
-              vvSelections.entrees ||
-              [],
-          },
-          lineItems:
-            lineItems?.length
-              ? lineItems
-              : vvLineItems,
-        });
+      const pdfBlob = await generateVicVerradoAgreementPDF({
+        venueName: (localStorage.getItem("vvVenueName") as any) || "The Vic",
+        fullName,
+        total, // grand total
+        deposit: payFull ? 0 : round2(total * 0.25),
+        guestCount: guestCountFinal,
+        weddingDate: wedding,
+        signatureImageUrl,
+        paymentSummary:
+          paymentSummaryText ||
+          (payFull
+            ? `Paid in full today: $${amountDueToday.toFixed(2)}.`
+            : `Deposit today: $${amountDueToday.toFixed(
+                2
+              )}. Remaining $${remainingBalance.toFixed(
+                2
+              )} due by ${finalDueDateStr}.`),
+        flowerTier,
+        selections: {
+          hors: menuSelections.hors || vvSelections.hors || [],
+          salads: menuSelections.salads || vvSelections.salads || [],
+          starches:
+            menuSelections.starches ||
+            vvSelections.starches ||
+            vvSelections.starch ||
+            [],
+          vegetables:
+            menuSelections.vegetables ||
+            vvSelections.vegetables ||
+            vvSelections.veg ||
+            [],
+          entrees: menuSelections.entrees || vvSelections.entrees || [],
+        },
+        lineItems: lineItems?.length ? lineItems : vvLineItems,
+      });
 
       // ---------- Upload PDF ----------
-      const storage = getStorage(
-        app,
-        "gs://wedndonev2.firebasestorage.app"
-      );
+      const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
       const filename = `VicVerradoCateringAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(
-        storage,
-        `public_docs/${user.uid}/${filename}`
-      );
+      const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
       await uploadBytes(fileRef, pdfBlob);
-      const publicUrl = await getDownloadURL(
-        fileRef
-      );
+      const publicUrl = await getDownloadURL(fileRef);
 
       // ---------- Pricing snapshot ----------
       await setDoc(
-        doc(
-          userRef,
-          "pricingSnapshots",
-          "catering"
-        ),
+        doc(userRef, "pricingSnapshots", "catering"),
         {
           booked: true,
-          guestCountAtBooking:
-            guestCountFinal,
+          guestCountAtBooking: guestCountFinal,
           perGuest: perGuestPrice,
           venueCaterer: "vic_verrado",
           tier: flowerTier,
-          lineItems:
-            lineItems?.length
-              ? lineItems
-              : vvLineItems,
+          lineItems: lineItems?.length ? lineItems : vvLineItems,
           totalBooked: total,
-          createdAt:
-            new Date().toISOString(),
-          updatedAt:
-            new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
 
       // ---------- Robot billing snapshot & user doc updates ----------
-      const planMonths =
-        planMonthsLS || 0;
-      const perMonthCents =
-        perMonthCentsLS || 0;
-      const lastPaymentCents =
-        lastPaymentCentsLS || 0;
-      const finalDueAtISO =
-        localStorage.getItem(
-          "vvDueByISO"
-        ) || null;
+      const planMonths = planMonthsLS || 0;
+      const perMonthCents = perMonthCentsLS || 0;
+      const lastPaymentCents = lastPaymentCentsLS || 0;
+      const finalDueAtISO = localStorage.getItem("vvDueByISO") || null;
       const nextChargeAt =
         !payFull && planMonths > 0
-          ? new Date(
-              Date.now() + 60 * 1000
-            ).toISOString()
+          ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
       await updateDoc(userRef, {
         documents: arrayUnion({
-          title:
-            "Vic/Verrado Catering Agreement",
+          title: "Vic/Verrado Catering Agreement",
           url: publicUrl,
-          uploadedAt:
-            new Date().toISOString(),
+          uploadedAt: new Date().toISOString(),
         }),
 
         "bookings.catering": true,
@@ -454,24 +340,13 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
 
         purchases: arrayUnion({
           label: "yum",
-          amount: Number(
-            (amountDueTodayCents / 100).toFixed(
-              2
-            )
-          ),
+          amount: Number((amountDueTodayCents / 100).toFixed(2)),
           date: purchaseDate,
-          method: payFull
-            ? "full"
-            : "deposit",
+          method: payFull ? "full" : "deposit",
         }),
 
         spendTotal: increment(
-          Number(
-            (
-              amountDueTodayCents /
-              100
-            ).toFixed(2)
-          )
+          Number((amountDueTodayCents / 100).toFixed(2))
         ),
 
         paymentPlan: payFull
@@ -484,8 +359,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               finalDueDate: null,
               finalDueAt: null,
               depositPercent: 1,
-              createdAt:
-                new Date().toISOString(),
+              createdAt: new Date().toISOString(),
             }
           : {
               product: "yum",
@@ -494,12 +368,9 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               depositPercent: 0.25,
               paidNow: amountDueToday,
               remainingBalance,
-              finalDueDate:
-                finalDueDateStr,
-              finalDueAt:
-                finalDueAtISO,
-              createdAt:
-                new Date().toISOString(),
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueAtISO,
+              createdAt: new Date().toISOString(),
             },
 
         paymentPlanAuto: payFull
@@ -507,12 +378,10 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               version: 1,
               product: "yum",
               status: "complete",
-              strategy:
-                "paid_in_full",
+              strategy: "paid_in_full",
               currency: "usd",
               totalCents,
-              depositCents:
-                totalCents,
+              depositCents: totalCents,
               remainingCents: 0,
               planMonths: 0,
               perMonthCents: 0,
@@ -521,31 +390,22 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               finalDueAt: null,
               stripeCustomerId:
                 customerId ||
-                localStorage.getItem(
-                  "stripeCustomerId"
-                ) ||
+                localStorage.getItem("stripeCustomerId") ||
                 null,
-              venueCaterer:
-                "vic_verrado",
+              venueCaterer: "vic_verrado",
               tier: flowerTier,
-              createdAt:
-                new Date().toISOString(),
-              updatedAt:
-                new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
             }
           : {
               version: 1,
               product: "yum",
               status: "active",
-              strategy:
-                "monthly_until_final",
+              strategy: "monthly_until_final",
               currency: "usd",
               totalCents,
               depositCents,
-              remainingCents: Math.max(
-                0,
-                totalCents - depositCents
-              ),
+              remainingCents: Math.max(0, totalCents - depositCents),
               planMonths,
               perMonthCents,
               lastPaymentCents,
@@ -553,35 +413,22 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               finalDueAt: finalDueAtISO,
               stripeCustomerId:
                 customerId ||
-                localStorage.getItem(
-                  "stripeCustomerId"
-                ) ||
+                localStorage.getItem("stripeCustomerId") ||
                 null,
-              venueCaterer:
-                "vic_verrado",
+              venueCaterer: "vic_verrado",
               tier: flowerTier,
-              createdAt:
-                new Date().toISOString(),
-              updatedAt:
-                new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
             },
 
-        "progress.yumYum.step":
-          "vicVerradoCateringThankYou",
+        "progress.yumYum.step": "vicVerradoCateringThankYou",
       });
 
       // Let any doc viewers refresh
-      window.dispatchEvent(
-        new Event("documentsUpdated")
-      );
+      window.dispatchEvent(new Event("documentsUpdated"));
     } catch (err) {
-      console.error(
-        "❌ Error in Vic/Verrado Catering checkout:",
-        err
-      );
-      alert(
-        "Something went wrong saving your receipt. Please contact support."
-      );
+      console.error("❌ Error in Vic/Verrado Catering checkout:", err);
+      alert("Something went wrong saving your receipt. Please contact support.");
     } finally {
       setLocalGenerating(false);
     }
@@ -590,10 +437,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
   // ========== Spinner card ==========
   if (isGenerating) {
     return (
-      <div
-        className="pixie-card pixie-card--modal"
-        style={{ maxWidth: 700 }}
-      >
+      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
         {/* 🩷 Pink X */}
         <button
           className="pixie-card__close"
@@ -606,10 +450,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
           />
         </button>
 
-        <div
-          className="pixie-card__body"
-          style={{ textAlign: "center" }}
-        >
+        <div className="pixie-card__body" style={{ textAlign: "center" }}>
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
@@ -625,10 +466,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
               display: "block",
             }}
           />
-          <h3
-            className="px-title"
-            style={{ margin: 0, color: "#2c62ba" }}
-          >
+          <h3 className="px-title" style={{ margin: 0, color: "#2c62ba" }}>
             Madge is working her magic…
           </h3>
 
@@ -649,12 +487,8 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
 
   // UI copy for above the form
   const summaryText = payFull
-    ? `Total due today: $${(
-        amountDueTodayCents / 100
-      ).toFixed(2)}.`
-    : `Deposit due today: $${(
-        amountDueTodayCents / 100
-      ).toFixed(
+    ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
+    : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(
         2
@@ -662,10 +496,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
 
   // ========== Main checkout card ==========
   return (
-    <div
-      className="pixie-card pixie-card--modal"
-      style={{ maxWidth: 700 }}
-    >
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"
@@ -678,10 +509,7 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
         />
       </button>
 
-      <div
-        className="pixie-card__body"
-        style={{ textAlign: "center" }}
-      >
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
@@ -720,43 +548,27 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
           {summaryText}
         </p>
 
-        {/* Stripe Elements */}
+        {/* Stripe form (no <Elements> wrapper now, StripeProvider handles it) */}
         <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday} // dollars (not cents)
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={
-                getAuth().currentUser?.email ||
-                undefined
+          <CheckoutForm
+            total={amountDueToday} // dollars (not cents)
+            onSuccess={handleSuccess}
+            setStepSuccess={onComplete}
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return localStorage.getItem("stripeCustomerId") || undefined;
+              } catch {
+                return undefined;
               }
-              customerName={`${firstName || "Magic"} ${
-                lastName || "User"
-              }`}
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem(
-                      "stripeCustomerId"
-                    ) || undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+            })()}
+          />
         </div>
 
         {/* Back */}
-        <div
-          style={{
-            marginTop: 16,
-            textAlign: "center",
-          }}
-        >
+        <div style={{ marginTop: 16, textAlign: "center" }}>
           <button
             className="boutique-back-btn"
             style={{ width: 250 }}

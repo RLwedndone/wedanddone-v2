@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/ValleyHo/ValleyHoCheckOutCatering.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -526,8 +524,7 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
               fontStyle: "italic",
             }}
           >
-            Madge is working her
-            magic…
+            Madge is working her magic…
           </p>
         </div>
       </div>
@@ -585,34 +582,30 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
           {summaryText}
         </p>
 
-        {/* Stripe form */}
-        <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={
-                getAuth().currentUser
-                  ?.email || undefined
+        {/* Stripe Card Entry (global StripeProvider wraps App, so no <Elements>) */}
+        <div className="px-elements" aria-busy={isGenerating}>
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={onComplete}
+            isAddon={false}
+            customerEmail={
+              getAuth().currentUser?.email || undefined
+            }
+            customerName={`${firstName || "Magic"} ${
+              lastName || "User"
+            }`}
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
               }
-              customerName={`${firstName || "Magic"} ${
-                lastName || "User"
-              }`}
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem(
-                      "stripeCustomerId"
-                    ) || undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+            })()}
+          />
         </div>
 
         {/* Back button */}

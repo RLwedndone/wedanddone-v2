@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesCheckOutCatering.tsx
 import React, { useRef, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import generateBatesCateringAgreementPDF from "../../../../utils/generateBatesCateringAgreementPDF";
 import { uploadPdfBlob } from "../../../../helpers/firebaseUtils";
@@ -47,7 +45,7 @@ interface BatesCheckOutProps {
   // 🔹 Overlay / navigation
   onClose: () => void;            // allows user to exit overlay cleanly
   onSuccess: () => void;          // advance to thank-you screen
-  onBack: () => void; 
+  onBack: () => void;
 
   // 🔹 Payment + display
   total: number;                  // GRAND total (incl. taxes + fees)
@@ -83,11 +81,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   lineItems,
   uid,
   guestCount,
-  onBack, // optional, goes to cart
+  onBack,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  // add near other refs/state
   const didRunRef = useRef(false);
 
   const DEPOSIT_PCT = 0.25;     // same policy
@@ -155,7 +152,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       salads: string[];
       entrees: string[];
     }> {
-      // 1) Try localStorage first (fast + offline)
+      // 1) Try localStorage first
       try {
         const ls = localStorage.getItem("batesMenuSelections");
         if (ls) {
@@ -168,7 +165,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         }
       } catch {}
 
-      // 2) Fallback: Firestore subdoc set during the contract step
+      // 2) Fallback: Firestore subdoc
       try {
         const ref = doc(db, "users", uid, "yumYumData", "batesMenuSelections");
         const snap = await getDoc(ref);
@@ -388,14 +385,11 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("documentsUpdated"));
 
-    // 🔔 mark this session as just booked catering so ThankYou shows "fresh" copy & chimes
     try {
       localStorage.setItem("batesJustBookedCatering", "true");
-      // (optional) this can be used by any listeners if you add them later
       window.dispatchEvent(new Event("cateringCompletedNow"));
     } catch {}
 
-    // Keep spinner up while we transition to Thank You
     onSuccess();
   };
 
@@ -414,15 +408,25 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
           muted
           playsInline
           className="px-media"
-          style={{ width: "100%", maxWidth: 340, borderRadius: 12, margin: "0 auto 14px", display: "block" }}
+          style={{
+            width: "100%",
+            maxWidth: 340,
+            borderRadius: 12,
+            margin: "0 auto 14px",
+            display: "block",
+          }}
         />
         <h3 className="px-title" style={{ margin: 0 }}>
           Madge is working her magic… hold tight!
         </h3>
 
-        {/* Back (inside card) */}
         <div style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+            disabled
+          >
             ← Back to Cart
           </button>
         </div>
@@ -435,7 +439,11 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
-      <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        ref={scrollRef}
+        style={{ textAlign: "center" }}
+      >
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
@@ -443,7 +451,13 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
           muted
           playsInline
           className="px-media"
-          style={{ width: 160, maxWidth: "90%", borderRadius: 12, margin: "0 auto 16px", display: "block" }}
+          style={{
+            width: 160,
+            maxWidth: "90%",
+            borderRadius: 12,
+            margin: "0 auto 16px",
+            display: "block",
+          }}
         />
 
         <h2
@@ -462,32 +476,32 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             ? paymentSummary
             : payFull
             ? `Total due today: $${total.toFixed(2)}.`
-            : `Deposit due today: $${amountDueToday.toFixed(2)} (25%). Remaining $${remainingBalance.toFixed(
+            : `Deposit due today: $${amountDueToday.toFixed(
+                2
+              )} (25%). Remaining $${remainingBalance.toFixed(
                 2
               )} — final payment due ${finalDueDateStr}.`}
         </p>
 
-        {/* Stripe Elements — comfortably wide */}
+        {/* Stripe form (now using global <StripeProvider /> in App) */}
         <div className="px-elements" aria-busy={isGenerating}>
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-              customerId={(() => {
-                try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={onSuccess}
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return localStorage.getItem("stripeCustomerId") || undefined;
+              } catch {
+                return undefined;
+              }
+            })()}
+          />
         </div>
 
-        {/* Back (inside the white card) */}
         <div style={{ marginTop: 12 }}>
           <button
             className="boutique-back-btn"

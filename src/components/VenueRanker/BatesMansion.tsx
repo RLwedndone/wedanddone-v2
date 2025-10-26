@@ -112,20 +112,22 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
 
         {/* Title */}
         <h2 className="px-title" style={{ marginBottom: 10 }}>Bates Mansion</h2>
-
-        {/* 🎥 Responsive 16:9 Vimeo (large) */}
+{/* 🎥 Venue video */}
 <div
   style={{
-    position: "relative",
     width: "100%",
-    maxWidth: 960,
+    maxWidth: 560,           // keeps it nice inside the card
     margin: "0 auto 1.25rem",
     borderRadius: 12,
     overflow: "hidden",
     background: "#000",
+    // give it a stable viewing window:
+    position: "relative",
+    aspectRatio: "16 / 9",   // modern browsers
+    minHeight: 220,          // safety for older/smaller viewports
+    maxHeight: 320,          // don't let it get comically tall on huge screens
   }}
 >
-  <div style={{ paddingTop: "56.25%" }} />
   <iframe
     src="https://player.vimeo.com/video/829586701?autoplay=0&muted=0&playsinline=1"
     title="Bates Mansion"
@@ -139,6 +141,7 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
       height: "100%",
       border: 0,
       display: "block",
+      objectFit: "cover",
     }}
   />
 </div>

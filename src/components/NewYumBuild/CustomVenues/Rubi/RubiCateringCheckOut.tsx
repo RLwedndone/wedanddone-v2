@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Rubi/RubiCateringCheckOut.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -542,36 +540,24 @@ const RubiCateringCheckOut: React.FC<Props> = ({
           {summaryText}
         </p>
 
-        {/* Stripe Elements */}
-        <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={
-                getAuth()
-                  .currentUser?.email ||
-                undefined
-              }
-              customerName={`${firstName || "Magic"} ${
-                lastName || "User"
-              }`}
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem(
-                      "stripeCustomerId"
-                    ) || undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
-        </div>
+        {/* Stripe Elements — comfortably wide */}
+<div className="px-elements" aria-busy={isGenerating}>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={handleSuccess} // this keeps TS happy; it's unused in most flows
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
 
         {/* Back (inside card) */}
         <div style={{ marginTop: 12 }}>

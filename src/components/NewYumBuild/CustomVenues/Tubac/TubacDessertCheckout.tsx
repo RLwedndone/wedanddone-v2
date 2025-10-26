@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Tubac/TubacDessertCheckout.tsx
-import React, { useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
+import React, { useEffect, useState } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -22,32 +20,18 @@ import emailjs from "emailjs-com";
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
-const round2 = (n: number) =>
-  Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 const parseLocalYMD = (ymd?: string | null): Date | null =>
-  !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)
-    ? null
-    : new Date(`${ymd}T12:00:00`);
+  !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? null : new Date(`${ymd}T12:00:00`);
 
 const asStartOfDayUTC = (d: Date) =>
-  new Date(
-    Date.UTC(
-      d.getUTCFullYear(),
-      d.getUTCMonth(),
-      d.getUTCDate(),
-      0,
-      0,
-      1
-    )
-  );
+  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
 
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
   const b = new Date(to.getFullYear(), to.getMonth(), 1);
-  let months =
-    (b.getFullYear() - a.getFullYear()) * 12 +
-    (b.getMonth() - a.getMonth());
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
@@ -56,9 +40,7 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
   const d = from.getUTCDate();
-  const dt = new Date(
-    Date.UTC(y, m + 1, d, 0, 0, 1)
-  );
+  const dt = new Date(Date.UTC(y, m + 1, d, 0, 0, 1));
   return dt.toISOString();
 }
 
@@ -92,21 +74,34 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
   setStep,
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
-  const isGenerating =
-    localGenerating || isGeneratingFromOverlay;
+  const isGenerating = localGenerating || isGeneratingFromOverlay;
+
+  // lightweight user name for CheckoutForm + emails
+  const [firstName, setFirstName] = useState("Magic");
+  const [lastName, setLastName] = useState("User");
+  useEffect(() => {
+    (async () => {
+      const user = getAuth().currentUser;
+      if (!user) return;
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const data = snap.data() || {};
+        setFirstName(data.firstName || "Magic");
+        setLastName(data.lastName || "User");
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
 
   // Plan selections saved on the dessert contract screen (TubacDessertContract)
   const DEPOSIT_PCT = 0.25;
 
   const totalEffective = round2(
-    Number(localStorage.getItem("yumTotal")) ||
-      Number(total) ||
-      0
+    Number(localStorage.getItem("yumTotal")) || Number(total) || 0
   );
 
-  const planKey = (localStorage.getItem(
-    "yumPaymentPlan"
-  ) ||
+  const planKey = (localStorage.getItem("yumPaymentPlan") ||
     localStorage.getItem("yumPayPlan") ||
     "full") as "full" | "monthly";
 
@@ -122,28 +117,21 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       Math.max(0, totalEffective - depositAmount)
   );
 
-  const planMonths =
-    Number(localStorage.getItem("yumPlanMonths")) || 0;
+  const planMonths = Number(localStorage.getItem("yumPlanMonths")) || 0;
 
   const perMonth =
-    (Number(
-      localStorage.getItem("yumPerMonthCents")
-    ) || 0) / 100;
+    (Number(localStorage.getItem("yumPerMonthCents")) || 0) / 100;
 
   const finalDuePretty =
     localStorage.getItem("yumFinalDuePretty") ||
     "35 days before your wedding date";
 
   // What we actually charge right now
-  const amountDueToday = usingFull
-    ? totalEffective
-    : depositAmount;
+  const amountDueToday = usingFull ? totalEffective : depositAmount;
 
   // UI copy
   const paymentMessage = usingFull
-    ? `You're paying $${amountDueToday.toFixed(
-        2
-      )} today.`
+    ? `You're paying $${amountDueToday.toFixed(2)} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
@@ -151,7 +139,7 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       )} (final due ${finalDuePretty}).`;
 
   // Success → finalize, upload PDF, route to Tubac Dessert TY
-  const handleSuccess = async (): Promise<void> => {
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -161,14 +149,27 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
 
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
-      const userDoc = snap.exists()
-        ? (snap.data() as any)
-        : {};
-      const fullName = `${userDoc?.firstName || "Magic"} ${
-        userDoc?.lastName || "User"
-      }`;
-      const weddingYMD: string | null =
-        userDoc?.weddingDate || null;
+      const userDoc = snap.exists() ? (snap.data() as any) : {};
+
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
+      const weddingYMD: string | null = userDoc?.weddingDate || null;
+
+      // Save Stripe customerId if we just learned it
+      try {
+        if (customerId && customerId !== userDoc?.stripeCustomerId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {}
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not save stripeCustomerId:", e);
+      }
 
       // Final due date = wedding - 35 days
       const wedding = parseLocalYMD(weddingYMD || "");
@@ -192,28 +193,14 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       let lastPaymentCents = 0;
       let nextChargeAtISO: string | null = null;
 
-      if (
-        !usingFull &&
-        finalDueDate &&
-        remainingBalance > 0
-      ) {
-        mths = monthsBetweenInclusive(
-          new Date(),
-          finalDueDate
-        );
-        const remainingCents = Math.round(
-          remainingBalance * 100
-        );
-        const base = Math.floor(
-          remainingCents / Math.max(1, mths)
-        );
-        const tail =
-          remainingCents - base * Math.max(0, mths - 1);
+      if (!usingFull && finalDueDate && remainingBalance > 0) {
+        mths = monthsBetweenInclusive(new Date(), finalDueDate);
+        const remainingCents = Math.round(remainingBalance * 100);
+        const base = Math.floor(remainingCents / Math.max(1, mths));
+        const tail = remainingCents - base * Math.max(0, mths - 1);
         perMonthCents = base;
         lastPaymentCents = tail;
-        nextChargeAtISO = firstMonthlyChargeAtUTC(
-          new Date()
-        );
+        nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
       }
 
       // Firestore: mark dessert booked and persist plan snapshot
@@ -235,18 +222,9 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       );
 
       try {
-        localStorage.setItem(
-          "tubacJustBookedDessert",
-          "true"
-        );
-        localStorage.setItem(
-          "tubacDessertsBooked",
-          "true"
-        );
-        localStorage.setItem(
-          "yumStep",
-          "tubacDessertThankYou"
-        );
+        localStorage.setItem("tubacJustBookedDessert", "true");
+        localStorage.setItem("tubacDessertsBooked", "true");
+        localStorage.setItem("yumStep", "tubacDessertThankYou");
       } catch {}
 
       // Purchases entry
@@ -255,46 +233,28 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         category: "dessert",
         boutique: "dessert",
         source: "W&D",
-        amount: Number(
-          amountDueToday.toFixed(2)
-        ),
-        amountChargedToday: Number(
-          amountDueToday.toFixed(2)
-        ),
-        contractTotal: Number(
-          totalEffective.toFixed(2)
-        ),
+        amount: Number(amountDueToday.toFixed(2)),
+        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        contractTotal: Number(totalEffective.toFixed(2)),
         payFull: usingFull,
-        deposit: usingFull
-          ? 0
-          : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull
-          ? 0
-          : +perMonth.toFixed(2),
+        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
         months: usingFull ? 0 : mths,
-        method: usingFull
-          ? "paid_in_full"
-          : "deposit",
+        method: usingFull ? "paid_in_full" : "deposit",
         items: lineItems,
         date: new Date().toISOString(),
       };
 
       await updateDoc(userRef, {
         purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(
-          Number(amountDueToday.toFixed(2))
-        ),
+        spendTotal: increment(Number(amountDueToday.toFixed(2))),
         paymentPlan: {
           product: "dessert",
-          type: usingFull
-            ? "paid_in_full"
-            : "deposit",
+          type: usingFull ? "paid_in_full" : "deposit",
           total: totalEffective,
           depositPercent: usingFull ? 1 : 0.25,
           paidNow: amountDueToday,
-          remainingBalance: usingFull
-            ? 0
-            : remainingBalance,
+          remainingBalance: usingFull ? 0 : remainingBalance,
           finalDueDate: finalDueDateStr,
           finalDueAt: finalDueISO,
           createdAt: new Date().toISOString(),
@@ -307,41 +267,28 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
             : remainingBalance > 0
             ? "active"
             : "complete",
-          strategy: usingFull
-            ? "paid_in_full"
-            : "monthly_until_final",
+          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
           currency: "usd",
-          totalCents: Math.round(
-            totalEffective * 100
-          ),
+          totalCents: Math.round(totalEffective * 100),
           depositCents: Math.round(
             (usingFull ? 0 : amountDueToday) * 100
           ),
           remainingCents: Math.round(
-            (usingFull
-              ? 0
-              : remainingBalance) * 100
+            (usingFull ? 0 : remainingBalance) * 100
           ),
           planMonths: usingFull ? 0 : mths,
-          perMonthCents: usingFull
-            ? 0
-            : Math.round(perMonth * 100),
-          lastPaymentCents: usingFull
-            ? 0
-            : lastPaymentCents,
-          nextChargeAt: usingFull
-            ? null
-            : nextChargeAtISO,
+          perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
+          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+          nextChargeAt: usingFull ? null : nextChargeAtISO,
           finalDueAt: finalDueISO,
           stripeCustomerId:
-            localStorage.getItem(
-              "stripeCustomerId"
-            ) || null,
+            customerId ||
+            localStorage.getItem("stripeCustomerId") ||
+            null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
-        "progress.yumYum.step":
-          "tubacDessertThankYou",
+        "progress.yumYum.step": "tubacDessertThankYou",
       });
 
       // Build PDF
@@ -350,42 +297,31 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         localStorage.getItem("yumSignature") ||
         "";
 
-      const pdfBlob =
-        await generateDessertAgreementPDF({
-          fullName,
-          total: totalEffective,
-          deposit: amountDueToday,
-          guestCount,
-          weddingDate: weddingYMD || "TBD",
-          signatureImageUrl,
-          paymentSummary:
-            paymentSummaryText ||
-            (usingFull
-              ? `You're paying $${amountDueToday.toFixed(
-                  2
-                )} today.`
-              : `You're paying $${amountDueToday.toFixed(
-                  2
-                )} today, then ${mths} monthly payments of about $${(
-                  perMonthCents / 100
-                ).toFixed(
-                  2
-                )} (final due ${finalDueDateStr}).`),
-          selectedStyle,
-          selectedFlavorCombo,
-          lineItems,
-        });
+      const pdfBlob = await generateDessertAgreementPDF({
+        fullName,
+        total: totalEffective,
+        deposit: amountDueToday,
+        guestCount,
+        weddingDate: weddingYMD || "TBD",
+        signatureImageUrl,
+        paymentSummary:
+          paymentSummaryText ||
+          (usingFull
+            ? `You're paying $${amountDueToday.toFixed(2)} today.`
+            : `You're paying $${amountDueToday.toFixed(
+                2
+              )} today, then ${mths} monthly payments of about $${(
+                perMonthCents / 100
+              ).toFixed(2)} (final due ${finalDueDateStr}).`),
+        selectedStyle,
+        selectedFlavorCombo,
+        lineItems,
+      });
 
       // Upload PDF
-      const storage = getStorage(
-        app,
-        "gs://wedndonev2.firebasestorage.app"
-      );
+      const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
       const filename = `YumDessertAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(
-        storage,
-        `public_docs/${user.uid}/${filename}`
-      );
+      const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
@@ -403,40 +339,26 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
           "service_xayel1i",
           "template_nvsea3z",
           {
-            user_email:
-              user.email || "Unknown",
+            user_email: user.email || "Unknown",
             user_full_name: fullName,
-            wedding_date:
-              weddingYMD || "TBD",
+            wedding_date: weddingYMD || "TBD",
             total: totalEffective.toFixed(2),
             line_items: lineItems.join(", "),
             pdf_url: publicUrl,
-            pdf_title:
-              "Yum Yum Dessert Agreement",
-            payment_now:
-              amountDueToday.toFixed(2),
-            remaining_balance:
-              remainingBalance.toFixed(2),
+            pdf_title: "Yum Yum Dessert Agreement",
+            payment_now: amountDueToday.toFixed(2),
+            remaining_balance: remainingBalance.toFixed(2),
             final_due: finalDueDateStr,
           },
-          // keep parity with Bates
-          import.meta.env
-            .VITE_EMAILJS_PUBLIC_KEY
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
         );
       } catch (e) {
-        console.warn(
-          "EmailJS failed (continuing):",
-          e
-        );
+        console.warn("EmailJS failed (continuing):", e);
       }
 
       // UI fan-out
-      window.dispatchEvent(
-        new Event("purchaseMade")
-      );
-      window.dispatchEvent(
-        new Event("dessertCompletedNow")
-      );
+      window.dispatchEvent(new Event("purchaseMade"));
+      window.dispatchEvent(new Event("dessertCompletedNow"));
       window.dispatchEvent(
         new CustomEvent("bookingsChanged", {
           detail: { dessert: true },
@@ -444,17 +366,13 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       );
 
       // Advance wizard
-      const nextStep: TubacStep =
-        "tubacDessertThankYou";
+      const nextStep: TubacStep = "tubacDessertThankYou";
       try {
         localStorage.setItem("yumStep", nextStep);
       } catch {}
       setStep(nextStep);
     } catch (err) {
-      console.error(
-        "❌ [Tubac][DessertCheckout] finalize error:",
-        err
-      );
+      console.error("❌ [Tubac][DessertCheckout] finalize error:", err);
     } finally {
       setLocalGenerating(false);
     }
@@ -513,20 +431,28 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
           {paymentMessage}
         </p>
 
-        {/* Stripe Elements — comfortably wide */}
-        <div
-          className="px-elements"
-          aria-busy={isGenerating}
-        >
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={() => {
-                /* step advanced inside handleSuccess */
-              }}
-            />
-          </Elements>
+        {/* Stripe Card Entry (global StripeProvider wraps App, so no <Elements>) */}
+        <div className="px-elements" aria-busy={isGenerating}>
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={() => {
+              /* handled in handleSuccess */
+            }}
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
+              }
+            })()}
+          />
         </div>
 
         {/* Back */}

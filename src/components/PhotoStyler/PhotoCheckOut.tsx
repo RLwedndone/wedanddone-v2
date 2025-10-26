@@ -1,7 +1,5 @@
 // src/components/photo/PhotoCheckOut.tsx
 import React, { useRef, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
-import { stripePromise } from "../../utils/stripePromise";
 import CheckoutForm from "../../CheckoutForm";
 import { getAuth } from "firebase/auth";
 import {
@@ -142,7 +140,6 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
     } catch {}
   }
 
-  // debug (kept)
   console.log(
     "[PHOTO CHECKOUT] totalEffective:",
     totalEffective,
@@ -251,9 +248,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
       }
 
       const months = payFull ? 0 : planMonths;
-      const monthlyAmount = payFull
-        ? 0
-        : +(perMonthCents / 100).toFixed(2);
+      const monthlyAmount = payFull ? 0 : +(perMonthCents / 100).toFixed(2);
 
       // 1) Record purchase & booking flags
       await updateDoc(userRef, {
@@ -295,9 +290,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
               product: "photo",
               type: "deposit",
               total: totalEffective,
-              depositPercent: +(
-                amountDueToday / totalEffective
-              ).toFixed(2),
+              depositPercent: +(amountDueToday / totalEffective).toFixed(2),
               paidNow: amountDueToday,
               remainingBalance,
               finalDueDate: finalDueDate
@@ -387,8 +380,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             total: totalEffective,
             deposit: depositForPdf,
             paymentSummary,
-            weddingDate:
-              (userDoc as any)?.weddingDate || "TBD",
+            weddingDate: (userDoc as any)?.weddingDate || "TBD",
             signatureImageUrl: signatureImage || "",
             lineItems,
           });
@@ -397,9 +389,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         pdfUrl = await uploadPdfBlob(pdfBlob, pdfFilePath);
 
         const docItem = {
-          title: isAddon
-            ? "Photo Add-On Receipt"
-            : "Photo Agreement",
+          title: isAddon ? "Photo Add-On Receipt" : "Photo Agreement",
           url: pdfUrl,
           uploadedAt: new Date().toISOString(),
           kind: isAddon ? "receipt" : "agreement",
@@ -411,25 +401,18 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           photoPdfUrl: pdfUrl,
         });
 
-        await addDoc(
-          collection(db, "users", uidToUse, "documents"),
-          docItem
-        );
+        await addDoc(collection(db, "users", uidToUse, "documents"), docItem);
 
         window.dispatchEvent(new Event("documentsUpdated"));
       } catch (pdfErr) {
-        console.warn(
-          "⚠️ PDF generate/upload failed—continuing:",
-          pdfErr
-        );
+        console.warn("⚠️ PDF generate/upload failed—continuing:", pdfErr);
       }
 
       // 3) Email (best-effort)
       try {
         const service = import.meta.env.VITE_EMAILJS_SERVICE_ID;
         const template = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey =
-          import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
         if (service && template && publicKey) {
           await emailjs.send(
             service,
@@ -449,10 +432,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           );
         }
       } catch (emailErr) {
-        console.warn(
-          "⚠️ EmailJS send failed—continuing:",
-          emailErr
-        );
+        console.warn("⚠️ EmailJS send failed—continuing:", emailErr);
       }
 
       // 4) Fan-out events
@@ -476,18 +456,14 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   if (isGenerating) {
     return (
       <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
-        <div
-          className="pixie-card__body"
-          style={{ textAlign: "center" }}
-        >
+        <div className="pixie-card__body" style={{ textAlign: "center" }}>
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
@@ -503,10 +479,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             }}
           />
 
-          <h3
-            className="px-title"
-            style={{ margin: 0 }}
-          >
+          <h3 className="px-title" style={{ margin: 0 }}>
             Madge is working her magic…
           </h3>
         </div>
@@ -530,12 +503,11 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X Close */}
-      <button
-        className="pixie-card__close"
-        onClick={onClose}
-        aria-label="Close"
-      >
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       {/* Body */}
@@ -566,52 +538,34 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           Checkout
         </h2>
 
-        <p
-          className="px-prose-narrow"
-          style={{ marginBottom: 16 }}
-        >
+        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
           {checkoutSummary}
         </p>
 
-        {/* Stripe Elements */}
-        <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onSuccess}
-              isAddon={false}
-              customerEmail={
-                getAuth().currentUser?.email || undefined
+        {/* Stripe form (no <Elements /> now) */}
+        <div className="px-elements" aria-busy={isGenerating}>
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={onSuccess}
+            isAddon={isAddon}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={
+              `${getAuth().currentUser?.displayName || ""}`.trim() || undefined
+            }
+            customerId={(() => {
+              try {
+                return localStorage.getItem("stripeCustomerId") || undefined;
+              } catch {
+                return undefined;
               }
-              customerName={
-                `${
-                  getAuth().currentUser?.displayName || ""
-                }`.trim() || undefined
-              }
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem("stripeCustomerId") ||
-                    undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+            })()}
+          />
         </div>
 
         {/* Back button */}
-        <div
-          className="px-cta-col"
-          style={{ marginTop: 12 }}
-        >
-          <button
-            className="boutique-back-btn"
-            onClick={onBack}
-          >
+        <div className="px-cta-col" style={{ marginTop: 12 }}>
+          <button className="boutique-back-btn" onClick={onBack}>
             ⬅ Back
           </button>
         </div>

@@ -1,9 +1,8 @@
 // src/components/jam/JamCheckOut.tsx
 import React, { useRef, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../CheckoutForm";
-import { stripePromise } from "../../utils/stripePromise";
 import { useUser } from "../../contexts/UserContext";
+import { getAuth } from "firebase/auth";
 import { generateJamAgreementPDF } from "../../utils/generateJamAgreementPDF";
 import { generateJamAddOnReceiptPDF } from "../../utils/generateJamAddOnReceiptPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
@@ -338,26 +337,23 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
                   )} will be billed monthly, with the final payment due ${finalDuePretty}.`}
             </p>
 
-            {/* Stripe Elements */}
             <div className="px-elements">
-              <Elements stripe={stripePromise}>
-                <CheckoutForm
-                  total={amountDueToday}
-                  onSuccess={handleSuccess}
-                  setStepSuccess={onSuccess}
-                  isAddon={isAddon}
-                  customerEmail={userData?.email}
-                  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-                  customerId={(() => {
-                    try {
-                      return localStorage.getItem("stripeCustomerId") || undefined;
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
-                />
-              </Elements>
-            </div>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={onSuccess}
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
 
             <div className="px-cta-col" style={{ marginTop: 12 }}>
               <button className="boutique-back-btn" onClick={onBack}>

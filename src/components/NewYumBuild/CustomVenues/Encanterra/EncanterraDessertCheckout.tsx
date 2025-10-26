@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Encanterra/EncanterraDessertCheckout.tsx
-import React, { useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
+import React, { useState, useEffect } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -97,6 +95,29 @@ const EncanterraDessertCheckout: React.FC<
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
 
+  // We'll also mirror Firestore first/last name for CheckoutForm label
+  const [checkoutName, setCheckoutName] = useState("Magic User");
+
+  useEffect(() => {
+    // Grab best-guess display name ASAP so Stripe form isn't blank
+    (async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        const data = snap.exists() ? (snap.data() as any) : {};
+        const safeFirst = data?.firstName || "Magic";
+        const safeLast = data?.lastName || "User";
+        setCheckoutName(`${safeFirst} ${safeLast}`);
+      } catch {
+        // fallback stays "Magic User"
+      }
+    })();
+  }, []);
+
   // Plan selections saved on the contract screen
   const DEPOSIT_PCT = 0.25;
 
@@ -160,9 +181,9 @@ const EncanterraDessertCheckout: React.FC<
       const userDoc = snap.exists()
         ? (snap.data() as any)
         : {};
-      const fullName = `${
-        userDoc?.firstName || "Magic"
-      } ${userDoc?.lastName || "User"}`;
+      const safeFirst = userDoc?.firstName || "Magic";
+      const safeLast = userDoc?.lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
       const weddingYMD: string | null =
         userDoc?.weddingDate || null;
 
@@ -500,20 +521,26 @@ const EncanterraDessertCheckout: React.FC<
           {paymentMessage}
         </p>
 
-        {/* Stripe Elements — comfortably wide */}
-        <div
-          className="px-elements"
-          aria-busy={isGenerating}
-        >
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={() => {
-                /* step advanced inside handleSuccess */
-              }}
-            />
-          </Elements>
+        {/* Stripe Card Entry */}
+        <div className="px-elements">
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            // we don't need setStepSuccess here because handleSuccess already drives navigation
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={checkoutName}
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
+              }
+            })()}
+          />
         </div>
 
         {/* Back */}

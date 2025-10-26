@@ -465,16 +465,51 @@ return (
         </div>
   
         <div className="considerations-block" style={{ marginTop: "1.25rem" }}>
-  <button
-    className="considerations-toggle"
-    onClick={() => setShowMadgeTip((prev) => !prev)}
-    style={{
-      animation: !showMadgeTip ? "pulseGlow 1.6s ease-in-out infinite" : "none",
-      boxShadow: !showMadgeTip ? "0 0 10px 2px rgba(44, 98, 186, 0.6)" : "none",
-    }}
-  >
-    Castle Considerations
-  </button>
+        <button
+  className="castle-considerations-btn"
+  onClick={() => setShowMadgeTip((prev) => !prev)}
+  style={{
+    // keep the pulse glow if it's not open
+    animation: !showMadgeTip ? "pulseGlow 1.6s ease-in-out infinite" : "none",
+
+    // 🔵 VISUAL STYLE (force it inline so nothing can override)
+    fontFamily: "'Jenna Sue','JennaSue',cursive",
+    fontSize: "1.8rem",
+    lineHeight: 1.2,
+    fontWeight: 400,
+    color: "#fff",
+
+    backgroundColor: "#2c62ba",
+    border: "0",
+    borderRadius: "12px",
+    padding: "0.75rem 1rem",
+    minWidth: "280px",
+    maxWidth: "90%",
+    margin: "1rem auto 0",
+    textAlign: "center",
+    display: "block",
+    cursor: "pointer",
+
+    // glow / hover base
+    boxShadow: !showMadgeTip
+      ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
+      : "0 8px 20px rgba(44,98,186,0.35)",
+    transition: "box-shadow 0.2s ease, transform 0.2s ease",
+  }}
+  onMouseEnter={(e) => {
+    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+      "0 10px 24px rgba(44,98,186,0.5)";
+    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+  }}
+  onMouseLeave={(e) => {
+    (e.currentTarget as HTMLButtonElement).style.boxShadow = !showMadgeTip
+      ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
+      : "0 8px 20px rgba(44,98,186,0.35)";
+    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+  }}
+>
+  Castle Considerations
+</button>
 
   {showMadgeTip && (
     <>

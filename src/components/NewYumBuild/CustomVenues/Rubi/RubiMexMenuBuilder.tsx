@@ -118,17 +118,17 @@ const modalToSoupName = new Map(SOUPS_MODAL_OPTIONS.map((lbl) => [lbl, lbl.split
 /** Entrées */
 const STREET_TACO_LABEL = "Mexican Street Tacos Bar";
 const TACO_FILLINGS = [
-  "Grilled Carne Asada",
-  "Al pastor",
-  "Carnitas de Puerco",
-  "Chorizo",
-  "Cabeza",
-  "Suadero",
-  "Pescado",
-  "Al vapor de papa (v)",
-  "Lengua",
-  "Buche",
-  "Tripas de leche",
+  { name: "Grilled Carne Asada", desc: "Seasoned charbroiled steak" },
+  { name: "Al pastor", desc: "Spit grilled marinated pork cooked sliced directly off the 'Trompo'" },
+  { name: "Carnitas de Puerco", desc: "Pork cooked 'confit' style" },
+  { name: "Chorizo", desc: "House-ground and seasoned ground pork chorizo" },
+  { name: "Cabeza", desc: "Smoked and shredded beef cheek" },
+  { name: "Suadero", desc: "Slow-smoked beef brisket" },
+  { name: "Pescado", desc: "Tempura battered cod, cilantro lime slaw, pico de gallo" },
+  { name: "Al vapor de papa (v)", desc: "Steamed potato, onion, poblano chili & Oaxaca cheese" },
+  { name: "Lengua", desc: "Slow-braised beef tongue" },
+  { name: "Buche", desc: "Pork stomach slowly smoked, then flash fried crispy" },
+  { name: "Tripas de leche", desc: "Beef milk intestines char grilled, then cooked 'confit' until tender" },
 ];
 
 type EntreeMeta = { name: string; desc?: string; beefSubAllowed?: boolean };
@@ -255,24 +255,39 @@ const RubiMexMenuBuilder: React.FC<Props> = ({
     });
   };
 
-  /* ---------- Street Tacos helpers ---------- */
-  const getStoredTacoFillings = (): string[] => {
-    const raw = localSel.mexEntrees.find((e) => e.startsWith(STREET_TACO_LABEL));
-    if (!raw) return [];
-    const parts = raw.split("—")[1]?.trim();
-    if (!parts) return [];
-    return parts.split("+").map((s) => s.trim()).filter(Boolean).slice(0, 2);
-  };
-  const formatTacoEntree = (fills: string[]) =>
-    `${STREET_TACO_LABEL} — ${fills.slice(0, 2).join(" + ")}`;
-  const openTacoFillings = () => setShow("tacos");
-  const saveTacoFillings = (fills: string[]) => {
-    const pretty = formatTacoEntree(fills);
-    setLocalSel((prev) => {
-      const others = prev.mexEntrees.filter((e) => !e.startsWith(STREET_TACO_LABEL));
-      return { ...prev, mexEntrees: [...others, pretty].slice(0, maxEntrees) };
-    });
-  };
+  //* ---------- Street Tacos helpers ---------- */
+const getStoredTacoFillings = (): string[] => {
+  const raw = localSel.mexEntrees.find((e) => e.startsWith(STREET_TACO_LABEL));
+  if (!raw) return [];
+
+  // expecting format: "Street Tacos — Filling A, Filling B"
+  const parts = raw.split("—")[1]?.trim();
+  if (!parts) return [];
+
+  return parts
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+};
+
+const formatTacoEntree = (fills: string[]) =>
+  `${STREET_TACO_LABEL} — ${fills.slice(0, 2).join(", ")}`;
+
+const openTacoFillings = () => setShow("tacos");
+
+const saveTacoFillings = (fills: string[]) => {
+  const pretty = formatTacoEntree(fills);
+  setLocalSel((prev) => {
+    const others = prev.mexEntrees.filter(
+      (e) => !e.startsWith(STREET_TACO_LABEL)
+    );
+    return {
+      ...prev,
+      mexEntrees: [...others, pretty].slice(0, maxEntrees),
+    };
+  });
+};
 
   /* ---------- inline option setters (rendered on the card) ---------- */
   const setInlineVariant = (
@@ -686,16 +701,18 @@ const RubiMexMenuBuilder: React.FC<Props> = ({
 
       {show === "tacos" && (
         <SelectionModal
-          title="Street Tacos — choose up to 2 fillings"
-          options={TACO_FILLINGS}
-          max={2}
-          selected={getStoredTacoFillings()}
-          onChange={(fills) => {
-            saveTacoFillings(fills);
-            setShow(null);
-          }}
-          onClose={() => setShow(null)}
-        />
+        title="Street Tacos — choose up to 2 fillings"
+        options={TACO_FILLINGS.map((t) => `${t.name} — ${t.desc}`)}
+        max={2}
+        selected={getStoredTacoFillings()}
+        onChange={(fills) => {
+          // 🧩 Save short names only
+          const shortNames = fills.map((f) => f.split(" — ")[0]);
+          saveTacoFillings(shortNames);
+          setShow(null);
+        }}
+        onClose={() => setShow(null)}
+      />
       )}
 
       {show === "sides" && (

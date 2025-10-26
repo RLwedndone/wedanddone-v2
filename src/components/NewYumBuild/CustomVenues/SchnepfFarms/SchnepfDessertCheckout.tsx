@@ -1,9 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Schnepf/SchnepfDessertCheckout.tsx
-import React, { useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
+import React, { useState, useEffect } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
-
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -21,17 +18,22 @@ import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreem
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
 const parseLocalYMD = (ymd?: string | null): Date | null =>
   !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? null : new Date(`${ymd}T12:00:00`);
+
 const asStartOfDayUTC = (d: Date) =>
   new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
   const b = new Date(to.getFullYear(), to.getMonth(), 1);
-  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  let months =
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
+
 function firstMonthlyChargeAtUTC(from = new Date()): string {
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
@@ -69,6 +71,28 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+
+  // We'll also grab first/last name once so we can pass to CheckoutForm nicely
+  const [firstName, setFirstName] = useState("Magic");
+  const [lastName, setLastName] = useState("User");
+
+  useEffect(() => {
+    (async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        const data = snap.exists() ? (snap.data() as any) : {};
+        if (data?.firstName) setFirstName(data.firstName);
+        if (data?.lastName) setLastName(data.lastName);
+      } catch (err) {
+        console.warn("⚠️ Could not load user names for SchnepfDessertCheckout:", err);
+      }
+    })();
+  }, []);
 
   // Plan selections saved on contract
   const DEPOSIT_PCT = 0.25;
@@ -119,7 +143,9 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
 
   const paymentMessage = usingFull
     ? `You're paying $${amountDueToday.toFixed(2)} today.`
-    : `You're paying $${amountDueToday.toFixed(2)} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
+    : `You're paying $${amountDueToday.toFixed(
+        2
+      )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
         2
       )} (final due ${finalDuePretty}).`;
 
@@ -142,7 +168,11 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
       const finalDueDate = wedding ? new Date(wedding.getTime() - 35 * MS_DAY) : null;
       const finalDueISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
       const finalDueDateStr = finalDueDate
-        ? finalDueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+        ? finalDueDate.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
         : "35 days before your wedding date";
 
       // Build monthly plan (even split; tail gets remainder)
@@ -179,8 +209,8 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
       try {
         localStorage.setItem("schnepfJustBookedDessert", "true");
         localStorage.setItem("schnepfDessertsBooked", "true");
-        localStorage.setItem("schnepfYumStep", "schnepfDessertThankYou"); // NEW
-        localStorage.setItem("yumStep", "schnepfDessertThankYou");       // NEW
+        localStorage.setItem("schnepfYumStep", "schnepfDessertThankYou");
+        localStorage.setItem("yumStep", "schnepfDessertThankYou");
       } catch {}
 
       const purchaseEntry = {
@@ -217,22 +247,29 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
         paymentPlanAuto: {
           version: 1,
           product: "dessert",
-          status: usingFull ? "complete" : remainingBalance > 0 ? "active" : "complete",
+          status: usingFull
+            ? "complete"
+            : remainingBalance > 0
+            ? "active"
+            : "complete",
           strategy: usingFull ? "paid_in_full" : "monthly_until_final",
           currency: "usd",
           totalCents: Math.round(totalEffective * 100),
           depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-          remainingCents: Math.round((usingFull ? 0 : remainingBalance) * 100),
+          remainingCents: Math.round(
+            (usingFull ? 0 : remainingBalance) * 100
+          ),
           planMonths: usingFull ? 0 : mths,
           perMonthCents: usingFull ? 0 : perMonthCents,
           lastPaymentCents: usingFull ? 0 : lastPaymentCents,
           nextChargeAt: usingFull ? null : nextChargeAtISO,
           finalDueAt: finalDueISO,
-          stripeCustomerId: localStorage.getItem("stripeCustomerId") || null,
+          stripeCustomerId:
+            localStorage.getItem("stripeCustomerId") || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
-        // NEW: progress writes to dessert TY
+        // progress snapshot so TY screen shows correctly
         "progress.yumYum.step": "schnepfDessertThankYou",
       });
 
@@ -256,9 +293,9 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
             ? `You're paying $${amountDueToday.toFixed(2)} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
-              )} today, then ${mths} monthly payments of about $${(perMonthCents / 100).toFixed(
-                2
-              )} (final due ${finalDueDateStr}).`),
+              )} today, then ${mths} monthly payments of about $${(
+                perMonthCents / 100
+              ).toFixed(2)} (final due ${finalDueDateStr}).`),
         selectedStyle,
         selectedFlavorCombo,
         lineItems,
@@ -296,7 +333,7 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
     }
   };
 
-  // --- unified spinner styles (same look/size as Vic/Verrado) ---
+  // --- unified spinner styles ---
   const overlayStyle: React.CSSProperties = {
     position: "fixed",
     inset: 0,
@@ -368,7 +405,10 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
           onClick={onClose}
           aria-label="Close"
         >
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
       )}
 
@@ -399,52 +439,26 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
           className="px-prose-narrow"
           style={{ margin: "0 auto 16px" }}
         >
-          <p>
-            {usingFull ? (
-              <>
-                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today.
-              </>
-            ) : (
-              <>
-                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today,
-                then {planMonths} monthly payments of about{" "}
-                <strong>${perMonth.toFixed(2)}</strong> (final due {finalDuePretty}).
-              </>
-            )}
-          </p>
+          <p>{paymentMessage}</p>
         </div>
 
-        {/* Stripe Elements — comfortably wide (same as Floral) */}
-        <div style={{ width: "min(520px, 90%)", margin: "10px auto 0" }}>
-          <Elements
-            stripe={stripePromise}
-            options={{
-              appearance: { variables: { fontSizeBase: "16px" } },
-            }}
-          >
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={
-                getAuth().currentUser?.displayName ||
-                getAuth().currentUser?.email?.split("@")[0] ||
-                "Wed&Done User"
+        {/* Stripe Card Entry (global StripeProvider wraps App) */}
+        <div className="px-elements" aria-busy={isGenerating}>
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={handleSuccess} // harmless passthrough
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return localStorage.getItem("stripeCustomerId") || undefined;
+              } catch {
+                return undefined;
               }
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem("stripeCustomerId") ||
-                    undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+            })()}
+          />
         </div>
 
         <div className="px-cta-col" style={{ marginTop: 16 }}>

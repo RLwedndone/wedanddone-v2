@@ -1,8 +1,7 @@
 // src/components/NewYumBuild/CustomVenues/Encanterra/EncanterraCheckOutCatering.tsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
+
 
 import { getAuth } from "firebase/auth";
 import {
@@ -503,29 +502,24 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           {paymentSummaryText ? paymentSummaryText : summaryText}
         </p>
 
-        {/* Stripe Elements */}
-        <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem("stripeCustomerId") || undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
-        </div>
-
+        {/* Stripe Card Entry */}
+<div className="px-elements">
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={onComplete} // still okay to forward this
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
         {/* Back (inside card) */}
         <div style={{ marginTop: 12 }}>
           <button

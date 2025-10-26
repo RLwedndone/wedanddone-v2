@@ -35,7 +35,7 @@ function fmtPretty(d: Date | null): string {
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
 interface VenueCheckOutProps {
-  onClose: () => void;
+  onClose?: () => void; // keeping optional so we don't break callers
   setStepSuccess?: () => void;
   setCurrentScreen: (screen: string) => void;
 }
@@ -55,7 +55,7 @@ const sanitizeForPdf = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
+const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStepSuccess }) => {
   const { userData } = useUser();
   const auth = getAuth();
   const user = auth.currentUser;
@@ -71,11 +71,17 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [contractData, setContractData] = useState<any>(null);
 
+  // minimal local name fallbacks for CheckoutForm
+  const [firstNameLocal, setFirstNameLocal] = useState<string>("Magic");
+  const [lastNameLocal, setLastNameLocal] = useState<string>("User");
+
   useEffect(() => {
+    // hydrate contractData from localStorage
     const raw = localStorage.getItem("venueContractData");
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
+
       const venueNameLS = localStorage.getItem("venueName") || "";
       const slug = (localStorage.getItem("venueSlug") || "").trim();
       const fallbackFromSlug = slug
@@ -85,7 +91,9 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
         parsed.venueName || venueNameLS || fallbackFromSlug || "Selected Venue";
 
       const arr = (x: any) => (Array.isArray(x) ? x : []);
-      const venueSpecificDetails = arr(parsed.venueSpecificDetails || parsed.venueTerms).map(sanitizeForPdf);
+      const venueSpecificDetails = arr(parsed.venueSpecificDetails || parsed.venueTerms).map(
+        sanitizeForPdf
+      );
       const bookingTerms = arr(parsed.bookingTerms).map(sanitizeForPdf);
 
       setContractData({
@@ -94,6 +102,10 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
         venueSpecificDetails,
         bookingTerms,
       });
+
+      // populate local name fallback for Stripe
+      if (parsed.firstName) setFirstNameLocal(parsed.firstName);
+      if (parsed.lastName) setLastNameLocal(parsed.lastName);
     } catch (e) {
       console.error("❌ Failed to parse venueContractData:", e);
     }
@@ -156,15 +168,23 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
 
       const venueSlug = (localStorage.getItem("venueSlug") || "").trim();
       const venueNameFromLS = localStorage.getItem("venueName") || venueName;
-      const metaFromMap = VENUE_MENU_MAP[venueSlug] || VENUE_MENU_MAP.santi_default;
+      const metaFromMap =
+        VENUE_MENU_MAP[venueSlug] || VENUE_MENU_MAP.santi_default;
       const cateringType =
-        localStorage.getItem("cateringType") || metaFromMap?.cateringType || "custom";
-      const setMenuId = localStorage.getItem("setMenuId") || metaFromMap?.setMenuId || null;
+        localStorage.getItem("cateringType") ||
+        metaFromMap?.cateringType ||
+        "custom";
+      const setMenuId =
+        localStorage.getItem("setMenuId") ||
+        metaFromMap?.setMenuId ||
+        null;
 
       localStorage.setItem("cateringType", cateringType);
       if (setMenuId) localStorage.setItem("setMenuId", setMenuId);
 
-      const safeVenueSpecificDetails: string[] = Array.isArray(contractData?.venueSpecificDetails)
+      const safeVenueSpecificDetails: string[] = Array.isArray(
+        contractData?.venueSpecificDetails
+      )
         ? contractData.venueSpecificDetails
         : Array.isArray(contractData?.venueTerms)
         ? contractData.venueTerms
@@ -172,10 +192,13 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
 
       const defaultBookingTerms: string[] = [
         "Deposit & payments. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout.",
-        `Date & availability. Booking is for ${new Date(`${weddingDate}T12:00:00`).toLocaleDateString(
-          "en-US",
-          { year: "numeric", month: "long", day: "numeric" }
-        )} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
+        `Date & availability. Booking is for ${new Date(
+          `${weddingDate}T12:00:00`
+        ).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
         `Guest count lock. Your guest count for this booking is ${
           userData.guestCount ?? "the number on file"
         }.`,
@@ -188,7 +211,8 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
       ];
 
       const safeBookingTerms: string[] =
-        Array.isArray(contractData?.bookingTerms) && contractData.bookingTerms.length
+        Array.isArray(contractData?.bookingTerms) &&
+        contractData.bookingTerms.length
           ? contractData.bookingTerms
           : defaultBookingTerms;
 
@@ -237,9 +261,12 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
             venueName: venueNameFromLS,
             planner: true,
             createdAt: new Date().toISOString(),
-            dayOfWeek: new Date(weddingDate + "T12:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-            }),
+            dayOfWeek: new Date(weddingDate + "T12:00:00").toLocaleDateString(
+              "en-US",
+              {
+                weekday: "long",
+              }
+            ),
           },
           dateLocked: true,
           weddingDateLocked: true,
@@ -249,7 +276,11 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
           venuePdfUrl: pdfUrl,
           documents: [
             ...existingDocs,
-            { title: "Venue Agreement", url: pdfUrl, uploadedAt: new Date().toISOString() },
+            {
+              title: "Venue Agreement",
+              url: pdfUrl,
+              uploadedAt: new Date().toISOString(),
+            },
           ],
           purchases: arrayUnion({
             label: "venue",
@@ -351,7 +382,10 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
                   display: "block",
                 }}
               />
-              <h3 className="px-title" style={{ margin: 0, color: "#2c62ba", fontFamily: "'Jenna Sue', cursive" }}>
+              <h3
+                className="px-title"
+                style={{ margin: 0, color: "#2c62ba", fontFamily: "'Jenna Sue', cursive" }}
+              >
                 Madge is working her magic… hold tight!
               </h3>
             </div>
@@ -401,11 +435,13 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
           <p style={{ marginBottom: "1.5rem", fontSize: "1rem", textAlign: "center" }}>
             {isPayingFull ? (
               <>
-                Today, you’re paying the full venue cost of <strong>${fmtMoney(total)}</strong>.
+                Today, you’re paying the full venue cost of{" "}
+                <strong>${fmtMoney(total)}</strong>.
               </>
             ) : (
               <>
-                Today, you’re paying a deposit of <strong>${fmtMoney(amountDueToday)}</strong>
+                Today, you’re paying a deposit of{" "}
+                <strong>${fmtMoney(amountDueToday)}</strong>
                 <br />
                 followed by <strong>{numMonthlyPayments}</strong> monthly payments of{" "}
                 <strong>${fmtMoney(monthlyPayment)}</strong>. The final payment is due by{" "}
@@ -415,7 +451,26 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen }) => {
           </p>
 
           <Elements stripe={stripePromise}>
-            <CheckoutForm total={amountDueToday} onSuccess={handleSuccess} isAddon={false} receiptLabel="Venue Booking" />
+            <CheckoutForm
+              total={amountDueToday}
+              onSuccess={handleSuccess}
+              setStepSuccess={setStepSuccess}
+              isAddon={false}
+              customerEmail={userData.email || undefined}
+              customerName={`${firstNameLocal || firstName || "Magic"} ${
+                lastNameLocal || lastName || "User"
+              }`}
+              customerId={
+                (() => {
+                  try {
+                    return localStorage.getItem("stripeCustomerId") || undefined;
+                  } catch {
+                    return undefined;
+                  }
+                })()
+              }
+              receiptLabel="Venue Booking"
+            />
           </Elements>
 
           <div style={{ textAlign: "center", marginTop: "1rem" }}>

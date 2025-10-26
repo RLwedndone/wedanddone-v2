@@ -449,30 +449,22 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             </p>
 
             <div className="px-elements">
-              {stripePromise ? (
-                <Elements stripe={stripePromise}>
-                  <CheckoutForm
-                    total={amountDueToday}
-                    onSuccess={handleSuccess}
-                    setStepSuccess={onSuccess}
-                    isAddon={false}
-                    customerEmail={getAuth().currentUser?.email || undefined}
-                    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-                    customerId={(() => {
-                      try {
-                        return localStorage.getItem("stripeCustomerId") || undefined;
-                      } catch {
-                        return undefined;
-                      }
-                    })()}
-                  />
-                </Elements>
-              ) : (
-                <div style={{ textAlign: "center", padding: 20 }}>
-                  Payments are disabled on this staging build.
-                </div>
-              )}
-            </div>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={onSuccess}
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
           </>
         )}
       </div>

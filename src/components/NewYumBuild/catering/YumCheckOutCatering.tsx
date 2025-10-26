@@ -1,9 +1,6 @@
 // src/components/NewYumBuild/catering/YumCheckOutCatering.tsx
 import React, { useEffect, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../CheckoutForm";
-import { stripePromise } from "../../../utils/stripePromise";
-
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -22,7 +19,8 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
 // ⏱️ helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -531,26 +529,23 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               {summaryText}
             </p>
 
-            {/* Stripe Elements — comfortably wide */}
             <div className="px-elements">
-              <Elements stripe={stripePromise}>
-                <CheckoutForm
-                  total={amountDueToday}
-                  onSuccess={handleSuccess}
-                  setStepSuccess={onComplete}
-                  isAddon={false}
-                  customerEmail={getAuth().currentUser?.email || undefined}
-                  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-                  customerId={(() => {
-                    try {
-                      return localStorage.getItem("stripeCustomerId") || undefined;
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
-                />
-              </Elements>
-            </div>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={onComplete}
+    isAddon={false}
+    customerEmail={getAuth().currentUser?.email || undefined}
+    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+    customerId={(() => {
+      try {
+        return localStorage.getItem("stripeCustomerId") || undefined;
+      } catch {
+        return undefined;
+      }
+    })()}
+  />
+</div>
 
             {/* Back button (standard width) */}
             <div style={{ marginTop: "1rem", textAlign: "center" }}>

@@ -24,6 +24,9 @@ import { UserProvider } from "./contexts/UserContext";
 // 🔝 Global scroll helper
 import { useScrollToTopOnChange } from "./hooks/useScrollToTop";
 
+// 🧾 NEW: global Stripe context
+import StripeProvider from "./components/StripeProvider";
+
 /** Mounted once inside AppRoutes to force top on any route/query/hash change */
 const ScrollOnRouteChange: React.FC = () => {
   const { pathname, search, hash } = useLocation();
@@ -80,39 +83,41 @@ const App: React.FC = () => {
 
   return (
     <UserProvider>
-      <AppRoutes />
+      <StripeProvider>
+        <AppRoutes />
 
-      {showSignupModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.6)",
-            zIndex: 1000,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-          onClick={() => setShowSignupModal(false)}
-        >
+        {showSignupModal && (
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
-              background: "white",
-              borderRadius: "16px",
-              padding: "2rem",
-              width: "90%",
-              maxWidth: "500px",
-              boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              backgroundColor: "rgba(0,0,0,0.6)",
+              zIndex: 1000,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
             }}
+            onClick={() => setShowSignupModal(false)}
           >
-            <CreateAccount onClose={() => setShowSignupModal(false)} />
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "2rem",
+                width: "90%",
+                maxWidth: "500px",
+                boxShadow: "0 0 20px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <CreateAccount onClose={() => setShowSignupModal(false)} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </StripeProvider>
     </UserProvider>
   );
 };

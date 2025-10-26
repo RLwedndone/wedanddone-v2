@@ -1,8 +1,6 @@
 // src/components/NewYumBuild/CustomVenues/Tubac/TubacCheckOutCatering.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../../../CheckoutForm";
-import { stripePromise } from "../../../../utils/stripePromise";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -62,6 +60,24 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
 
+  // Minimal user info for CheckoutForm display
+  const [firstName, setFirstName] = useState("Magic");
+  const [lastName, setLastName] = useState("User");
+  useEffect(() => {
+    (async () => {
+      const user = getAuth().currentUser;
+      if (!user) return;
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const data = snap.data() || {};
+        setFirstName(data.firstName || "Magic");
+        setLastName(data.lastName || "User");
+      } catch {
+        /* noop */
+      }
+    })();
+  }, []);
+
   // === 1) Read handoff keys saved by the Tubac contract screen ===
   const payFull = useMemo(() => {
     try {
@@ -98,7 +114,7 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
     ? pretty(new Date(dueByISO))
     : "35 days before your wedding";
 
-  // 🔹 the missing piece — text shown above the card form
+  // 🔹 explainer text above card box
   const summaryText = payFull
     ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
@@ -122,24 +138,6 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
     Number(localStorage.getItem("tubacPerGuest")) ||
     Number(localStorage.getItem("encanterraPerGuest")) || // harmless fallback
     0;
-
-  // Minimal user info for CheckoutForm display
-  const [firstName, setFirstName] = useState("Magic");
-  const [lastName, setLastName] = useState("User");
-  useEffect(() => {
-    (async () => {
-      const user = getAuth().currentUser;
-      if (!user) return;
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.data() || {};
-        setFirstName(data.firstName || "Magic");
-        setLastName(data.lastName || "User");
-      } catch {
-        /* noop */
-      }
-    })();
-  }, []);
 
   // === 2) Success path (Stripe -> PDF -> Firestore snapshots) ===
   const handleSuccess = async ({
@@ -460,33 +458,26 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
           {summaryText}
         </p>
 
-        {/* ✅ Use the same wrapper class as NoVenue so Stripe inputs aren't squished */}
+        {/* ✅ Stripe Card Entry (global StripeProvider wraps App now, so no <Elements>) */}
         <div className="px-elements">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={
-                getAuth().currentUser?.email || undefined
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={onComplete}
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
               }
-              customerName={`${firstName || "Magic"} ${
-                lastName || "User"
-              }`}
-              customerId={(() => {
-                try {
-                  return (
-                    localStorage.getItem(
-                      "stripeCustomerId"
-                    ) || undefined
-                  );
-                } catch {
-                  return undefined;
-                }
-              })()}
-            />
-          </Elements>
+            })()}
+          />
         </div>
 
         {/* Back button */}
