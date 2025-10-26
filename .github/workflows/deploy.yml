@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -23,16 +23,18 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18   # 👈 match local environment
+          node-version: 20
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build the project
+        env:
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
         run: |
           npm run build
-          cp dist/index.html dist/404.html  # 👈 SPA fallback for React Router
+          npm run postbuild
 
       - name: Upload build output
         uses: actions/upload-pages-artifact@v3
