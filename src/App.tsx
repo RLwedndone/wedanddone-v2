@@ -34,6 +34,8 @@ const ScrollOnRouteChange: React.FC = () => {
   return null;
 };
 
+// redeploy test — force rebuild for Stripe checkout fix
+
 const AppRoutes: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
