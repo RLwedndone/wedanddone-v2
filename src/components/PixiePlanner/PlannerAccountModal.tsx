@@ -131,12 +131,45 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({ onSuccess, on
             Create Account
           </button>
 
-          <p style={{ margin: "1rem 0 0.5rem", fontWeight: "bold", color: "#999" }}>— or —</p>
-
-          <button className="px-google-btn" onClick={handleGoogleSignup}>
-            <img src={`${import.meta.env.BASE_URL}assets/images/google.png`} alt="Google icon" />
-            Sign in with Google
-          </button>
+          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+  <button
+    onClick={handleGoogleSignup}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "10px",
+      width: "80%",
+      maxWidth: 300,
+      minHeight: 44,
+      backgroundColor: "#fff",
+      border: "1px solid #dadce0",
+      borderRadius: "6px",
+      boxShadow:
+        "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+      fontSize: "15px",
+      fontWeight: 500,
+      color: "#3c4043",
+      lineHeight: 1.2,
+      cursor: "pointer",
+      padding: "0 16px",
+      boxSizing: "border-box",
+      backgroundClip: "padding-box",
+    }}
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+      alt="Google icon"
+      style={{
+        width: 20,
+        height: 20,
+        objectFit: "contain",
+        flexShrink: 0,
+      }}
+    />
+    <span>Sign in with Google</span>
+  </button>
+</div>
         </div>
       </div>
     </div>

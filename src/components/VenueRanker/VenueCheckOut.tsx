@@ -1,7 +1,9 @@
 // src/components/VenueRanker/VenueCheckOut.tsx
 import React, { useState, useEffect, useRef } from "react";
-import { Elements } from "@stripe/react-stripe-js";
-import { stripePromise } from "../../utils/stripePromise";
+// ⛔️ REMOVE THESE TWO because we don't wrap locally anymore
+// import { Elements } from "@stripe/react-stripe-js";
+// import { stripePromise } from "../../utils/stripePromise";
+
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
@@ -450,28 +452,27 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
             )}
           </p>
 
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={setStepSuccess}
-              isAddon={false}
-              customerEmail={userData.email || undefined}
-              customerName={`${firstNameLocal || firstName || "Magic"} ${
-                lastNameLocal || lastName || "User"
-              }`}
-              customerId={
-                (() => {
-                  try {
-                    return localStorage.getItem("stripeCustomerId") || undefined;
-                  } catch {
-                    return undefined;
-                  }
-                })()
-              }
-              receiptLabel="Venue Booking"
-            />
-          </Elements>
+          {/* ✅ Stripe Elements no longer wrapped here because App already provides it */}
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={setStepSuccess}
+            isAddon={false}
+            customerEmail={userData.email || undefined}
+            customerName={`${firstNameLocal || firstName || "Magic"} ${
+              lastNameLocal || lastName || "User"
+            }`}
+            customerId={
+              (() => {
+                try {
+                  return localStorage.getItem("stripeCustomerId") || undefined;
+                } catch {
+                  return undefined;
+                }
+              })()
+            }
+            receiptLabel="Venue Booking"
+          />
 
           <div style={{ textAlign: "center", marginTop: "1rem" }}>
             <button

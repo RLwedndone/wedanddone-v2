@@ -338,27 +338,48 @@ const RubiCateringContract: React.FC<Props> = ({
         </div>
 
         {/* Sign / Continue */}
-        {!signatureSubmitted ? (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-            <button
-              className="boutique-primary-btn"
-              onClick={handleSignClick}
-              disabled={!agreeChecked}
-              style={{ width: 260, opacity: agreeChecked ? 1 : 0.5, cursor: agreeChecked ? "pointer" : "not-allowed" }}
-            >
-              Sign Agreement
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-            <img
-              src={signatureImage || `${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-              alt="Agreement Signed"
-              className="px-media"
-              style={{ maxWidth: 240 }}
-            />
-          </div>
-        )}
+{!signatureSubmitted ? (
+  <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+    <button
+      className="boutique-primary-btn"
+      onClick={handleSignClick}
+      disabled={!agreeChecked}
+      style={{
+        width: 260,
+        opacity: agreeChecked ? 1 : 0.5,
+        cursor: agreeChecked ? "pointer" : "not-allowed",
+      }}
+    >
+      Sign Agreement
+    </button>
+  </div>
+) : (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      marginTop: 8,
+    }}
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
+      alt="Agreement Signed"
+      className="px-media"
+      style={{ maxWidth: 100, marginBottom: 6 }}
+    />
+    <div
+      className="px-prose-narrow"
+      style={{
+        fontSize: ".9rem",
+        color: "#2c62ba",
+        textAlign: "center",
+      }}
+    >
+      Agreement signed ✔
+    </div>
+  </div>
+)}
 
         {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 10 }}>

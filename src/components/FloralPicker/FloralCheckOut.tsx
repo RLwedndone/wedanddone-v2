@@ -1,6 +1,5 @@
 
 import React, { useState, useRef } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../CheckoutForm";
 import { generateFloralAgreementPDF } from "../../utils/generateFloralAgreementPDF";
 import { generateFloralAddOnReceiptPDF } from "../../utils/generateFloralAddOnReceiptPDF";
@@ -16,7 +15,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import emailjs from "@emailjs/browser";
-import { stripePromise } from "../../utils/stripePromise"; // ✅ shared Stripe loader
 
 // helper – round to cents (kept for parity if needed later)
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;

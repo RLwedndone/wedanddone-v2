@@ -10,15 +10,33 @@ interface SelectionModalProps {
 
   /** Optional: disable specific options based on current picks */
   isDisabled?: (option: string, selections: string[]) => boolean;
+
   /** Optional: normalize the next selections on each toggle */
   transformOnToggle?: (nextSelections: string[]) => string[];
-  // 👇 NEW: let callers custom-render an option (for Schnepf salad dressing)
+
+  /** Optional: caller-defined custom row renderer */
   renderOption?: (args: {
     option: string;
     selected: string[];
     setSelected: (next: string[]) => void;
     disabled: boolean;
   }) => React.ReactNode | null;
+
+  /** Optional: extra UI below the main checkbox list (we'll use this for Taco fillings) */
+  children?: React.ReactNode;
+
+  /**
+   * ⭐ NEW: liveSelections / onLiveChange
+   * If provided, the modal becomes "controlled-ish":
+   *  - We mirror your liveSelections into our localSelections
+   *  - Every toggle also calls onLiveChange(next)
+   * This lets parent know which entrees are currently checked
+   * so it can react immediately (show taco fillings, etc.)
+   *
+   * If you don't pass these, behavior is unchanged.
+   */
+  liveSelections?: string[];
+  onLiveChange?: (next: string[]) => void;
 }
 
 const SelectionModal: React.FC<SelectionModalProps> = ({
@@ -31,12 +49,35 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
   isDisabled,
   transformOnToggle,
   renderOption,
+  children,
+  liveSelections,
+  onLiveChange,
 }) => {
-  const [localSelections, setLocalSelections] = useState<string[]>(selected);
+  // internal working list of checked boxes
+  const [localSelections, setLocalSelections] = useState<string[]>(
+    liveSelections ?? selected
+  );
 
+  // if parent updates `selected` or `liveSelections`, sync
   useEffect(() => {
-    setLocalSelections(selected);
-  }, [selected]);
+    if (liveSelections) {
+      setLocalSelections(liveSelections);
+    } else {
+      setLocalSelections(selected);
+    }
+  }, [selected, liveSelections]);
+
+  const setBoth = (next: string[]) => {
+    // apply transform rule if any (pairing logic, etc)
+    const finalNext = transformOnToggle ? transformOnToggle(next) : next;
+
+    setLocalSelections(finalNext);
+
+    // tell parent live
+    if (onLiveChange) {
+      onLiveChange(finalNext);
+    }
+  };
 
   const toggleOption = (item: string) => {
     // block clicks on disabled items
@@ -48,19 +89,16 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
       ? [...localSelections, item]
       : localSelections;
 
-    // let caller enforce special rules (e.g., collapse to just the paired entrée)
-    if (transformOnToggle) next = transformOnToggle(next);
-
-    setLocalSelections(next);
+    setBoth(next);
   };
 
   return (
     <div
-      className="pixie-overlay" // ✅ same overlay class as standard boutique screens
+      className="pixie-overlay"
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.35)", // same translucent backdrop as main overlays
+        backgroundColor: "rgba(0, 0, 0, 0.35)",
         zIndex: 1000,
         display: "flex",
         justifyContent: "center",
@@ -75,15 +113,15 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
           background: "#fff",
           borderRadius: "18px",
           padding: "2rem 2rem 3rem",
-          maxWidth: "600px",      // ✅ standard overlay card width
+          maxWidth: "600px",
           width: "90%",
-          maxHeight: "90vh",      // ✅ same height as main flow cards
+          maxHeight: "90vh",
           overflowY: "auto",
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
           position: "relative",
         }}
       >
-        {/* Blue X close button */}
+        {/* Blue X close */}
         <button
           onClick={() => onClose(localSelections)}
           aria-label="Close"
@@ -102,8 +140,8 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
             style={{ width: "22px", height: "22px" }}
           />
         </button>
-  
-        {/* Max badge image */}
+
+        {/* badge img */}
         <img
           src={`/assets/images/YumYum/max${max}.png`}
           alt={`Select up to ${max}`}
@@ -114,7 +152,7 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
             display: "block",
           }}
         />
-  
+
         <h3
           style={{
             fontSize: "2rem",
@@ -126,24 +164,38 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
         >
           {title}
         </h3>
-  
-        <div style={{ marginBottom: "2rem", textAlign: "left" }}>
+
+        {/* OPTIONS LIST */}
+        <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
           {options.map((item) => {
             const disabled = isDisabled?.(item, localSelections) ?? false;
-  
+
             if (renderOption) {
               const node = renderOption({
                 option: item,
                 selected: localSelections,
                 disabled,
-                setSelected: (next) =>
-                  setLocalSelections(transformOnToggle ? transformOnToggle(next) : next),
+                setSelected: (next) => setBoth(next),
               });
-              if (node) return <div key={item}>{node}</div>;
+              if (node) {
+                return (
+                  <div key={item} style={{ marginBottom: "0.5rem" }}>
+                    {node}
+                  </div>
+                );
+              }
             }
-  
+
             return (
-              <label key={item} style={{ display: "block", marginBottom: "0.5rem" }}>
+              <label
+                key={item}
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  opacity: disabled ? 0.5 : 1,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={localSelections.includes(item)}
@@ -156,7 +208,28 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
             );
           })}
         </div>
-  
+
+        {/* CHILD CONTENT (like Taco Fillings) */}
+        {children && (
+          <div
+            style={{
+              borderTop: "1px solid #ccc",
+              paddingTop: "1rem",
+              marginBottom: "2rem",
+            }}
+          >
+            {/*
+              We want children to be able to read/write liveSelections,
+              so we inject extra context via render props-style cloning:
+              BUT to keep this component dead simple and backward compatible,
+              we won't auto-inject props. Instead, parent passes a <ChildComponent />
+              that already has the state & callbacks it needs.
+            */}
+            {children}
+          </div>
+        )}
+
+        {/* CTA */}
         <button
           onClick={() => {
             onChange(localSelections);
