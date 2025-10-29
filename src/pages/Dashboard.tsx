@@ -32,6 +32,264 @@ import MenuController from "../components/NewYumBuild/shared/MenuController";
 import "../styles/globals/boutique.master.css";
 import "./Dashboard.css";
 
+// ─────────────────────────────────────────────
+// 🧪 DevPresetLoader — instantly fake a venue booking
+// ─────────────────────────────────────────────
+const DevPresetLoader: React.FC = () => {
+  const [preset, setPreset] = React.useState<
+    | "none"
+    | "rubi80"
+    | "soho100"
+    | "bates85"
+    | "encanterra125"
+    | "schnepf100"
+    | "tubac150"
+    | "valleyho150"
+    | "vicverrado120"
+  >("none");
+  const [loading, setLoading] = React.useState(false);
+
+  const handleLoadPreset = async () => {
+    if (preset === "none") return;
+    setLoading(true);
+
+    const authObj = getAuth();
+    const currentUser = authObj.currentUser;
+
+    if (!currentUser) {
+      alert("No user signed in. Log in first, then try again.");
+      setLoading(false);
+      return;
+    }
+
+    const presets: Record<
+  string,
+  {
+    venueName: string;
+    venueSlug: string;
+    weddingDate: string;
+    guestCount: number;
+    overlayHint?: string;
+    forceYumStep?: string;
+    cateringBookedFlag?: boolean;
+    dessertBookedFlag?: boolean;
+  }
+> = {
+  rubi80: {
+    venueName: "Rubi House",
+    venueSlug: "rubi",
+    weddingDate: "2027-12-12",
+    guestCount: 80,
+    forceYumStep: "intro",
+    cateringBookedFlag: false,
+    dessertBookedFlag: false,
+  },
+      soho100: {
+        venueName: "SoHo63",
+        venueSlug: "soho",
+        weddingDate: "2027-11-20",
+        guestCount: 100,
+        overlayHint: "noVenue",
+      },
+      bates85: {
+        venueName: "Bates Mansion",
+        venueSlug: "bates",
+        weddingDate: "2027-10-05",
+        guestCount: 85,
+      },
+      encanterra125: {
+        venueName: "Encanterra",
+        venueSlug: "encanterra",
+        weddingDate: "2027-09-14",
+        guestCount: 125,
+      },
+      schnepf100: {
+        venueName: "Schnepf Farm House",
+        venueSlug: "schnepf",
+        weddingDate: "2027-08-08",
+        guestCount: 100,
+      },
+      tubac150: {
+        venueName: "Tubac Golf Resort",
+        venueSlug: "tubac",
+        weddingDate: "2027-07-15",
+        guestCount: 150,
+      },
+      valleyho150: {
+        venueName: "Hotel Valley Ho",
+        venueSlug: "valleyho",
+        weddingDate: "2027-06-22",
+        guestCount: 150,
+      },
+      vicverrado120: {
+        venueName: "The Vic at Verrado",
+        venueSlug: "vicverrado",
+        weddingDate: "2027-05-30",
+        guestCount: 120,
+      },
+    };
+
+    const seedData = presets[preset];
+    if (!seedData) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+
+      await setDoc(
+        userRef,
+        {
+          firstName: "Test",
+          lastName: "User",
+      
+          // top-level wedding basics
+          venueBooked: seedData.venueName,
+          weddingDate: seedData.weddingDate,
+          guestCount: seedData.guestCount,
+      
+          // 💡 NEW: top-level slug so MenuController can grab it immediately
+          venueSlug: seedData.venueSlug, // <- "rubi", "batesmansion", etc.
+      
+          // this is what a real booked user has after Ranker
+          venueComplete: true,
+      
+          // bookings block
+          bookings: {
+            // 💡 keep existing
+            venue: seedData.venueSlug, // this is fine (we already had this)
+      
+            // 💡 NEW: ALSO store venueSlug here specifically because MenuController checks bookings.venueSlug
+            venueSlug: seedData.venueSlug,
+      
+            // optional, but nice:
+            venueName: seedData.venueName,
+      
+            catering: seedData.cateringBookedFlag ?? false,
+            dessert: seedData.dessertBookedFlag ?? false,
+          },
+      
+          progress: {
+            yumYum: {
+              step:
+                seedData.overlayHint === "noVenue"
+                  ? "noVenueIntro"
+                  : seedData.forceYumStep || "intro",
+            },
+          },
+      
+          // Rubi-specific flags the flow uses later
+          rubiCateringBooked: seedData.cateringBookedFlag ?? false,
+          rubiDessertBooked: seedData.dessertBookedFlag ?? false,
+        },
+        { merge: true }
+      );
+
+      localStorage.setItem("selectedVenue", seedData.venueName);
+localStorage.setItem("venueSlug", seedData.venueSlug);
+localStorage.setItem("yumWeddingDate", seedData.weddingDate);
+localStorage.setItem("yumSelectedDate", seedData.weddingDate);
+localStorage.setItem("rubiWeddingDate", seedData.weddingDate);
+localStorage.setItem("magicGuestCount", String(seedData.guestCount));
+localStorage.setItem("yumGuestCount", String(seedData.guestCount));
+localStorage.setItem("rubiGuestCount", String(seedData.guestCount));
+
+localStorage.setItem("venueCompleted", "true"); // 👈 NEW
+localStorage.setItem("yumStep", seedData.forceYumStep || "intro"); // 👈 UPDATED
+
+// preload Rubi catering defaults
+localStorage.setItem("rubiMenuChoice", "bbq");
+localStorage.setItem("rubiTierLabel", "QA Test Tier");
+localStorage.setItem("rubiPerGuest", "32");
+localStorage.setItem("rubiPerGuestExtrasCents", "0");
+
+      console.log("🧪 Dev preset seeded:", seedData);
+      alert(
+        `${seedData.venueName} preset loaded for ${seedData.guestCount} guests!`
+      );
+    } catch (err) {
+      console.error("❌ Error seeding preset:", err);
+      alert("Error seeding preset, check console.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.08)",
+        border: "1px solid rgba(255,255,255,0.2)",
+        borderRadius: "8px",
+        padding: "0.5rem",
+        color: "#fff",
+        fontSize: "0.8rem",
+        lineHeight: 1.4,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+        QA Preset Loader
+      </div>
+
+      <select
+        style={{
+          width: "100%",
+          borderRadius: "6px",
+          padding: "0.4rem",
+          fontSize: "0.8rem",
+        }}
+        value={preset}
+        onChange={(e) =>
+          setPreset(
+            e.target.value as
+              | "none"
+              | "rubi80"
+              | "soho100"
+              | "bates85"
+              | "encanterra125"
+              | "schnepf100"
+              | "tubac150"
+              | "valleyho150"
+              | "vicverrado120"
+          )
+        }
+        disabled={loading}
+      >
+        <option value="none">-- choose preset --</option>
+        <option value="rubi80">Rubi House (80 guests)</option>
+        <option value="soho100">SoHo63 (100 guests, NoVenue flow)</option>
+        <option value="bates85">Bates Mansion (85 guests)</option>
+        <option value="encanterra125">Encanterra (125 guests)</option>
+        <option value="schnepf100">Schnepf Farm House (100 guests)</option>
+        <option value="tubac150">Tubac Golf Resort (150 guests)</option>
+        <option value="valleyho150">Hotel Valley Ho (150 guests)</option>
+        <option value="vicverrado120">The Vic at Verrado (120 guests)</option>
+      </select>
+
+      <button
+        style={{
+          width: "100%",
+          marginTop: "0.5rem",
+          padding: "0.4rem 0.6rem",
+          fontSize: "0.8rem",
+          fontWeight: 600,
+          borderRadius: "6px",
+          background: "#2c62ba",
+          color: "#fff",
+          border: "none",
+          cursor: "pointer",
+          opacity: loading ? 0.6 : 1,
+        }}
+        disabled={loading || preset === "none"}
+        onClick={handleLoadPreset}
+      >
+        {loading ? "Seeding..." : "Load Preset"}
+      </button>
+    </div>
+  );
+};
+
 // --- unify completion flags from Firestore + legacy fields + localStorage ---
 function deriveCompletionFlags(data: any) {
   const b = data?.bookings ?? {};
@@ -806,59 +1064,67 @@ const Dashboard: React.FC = () => {
         onOpenGuestCountFlow={handleOpenGuestCountFlow}
       />
 
-      {/* Dev-only nuke/reset button */}
-      {process.env.NODE_ENV !== "production" && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "1rem",
-            left: "1rem",
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-          }}
-        >
-          <button
-            style={{
-              padding: "0.5rem 1rem",
-              background: "#ff5555",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontWeight: "bold",
-              cursor: "pointer",
-            }}
-            onClick={async () => {
-              const currentUser = auth.currentUser;
-              if (currentUser) {
-                const userRef = doc(db, "users", currentUser.uid);
-                await setDoc(
-                  userRef,
-                  {
-                    jamGrooveCompleted: false,
-                    floralSigned: false,
-                    photoCompleted: false,
-                    documents: [],
-                    purchases: [],
-                    budget: 0,
-                  },
-                  { merge: true }
-                );
-                await signOut(auth);
-              }
+      {/* 🧪 Dev-only tools (preset loader + reset) */}
+{process.env.NODE_ENV !== "production" && (
+  <div
+    style={{
+      position: "absolute",
+      bottom: "1rem",
+      left: "1rem",
+      zIndex: 10,
+      display: "flex",
+      flexDirection: "column",
+      gap: "0.5rem",
+      padding: "0.75rem",
+      background: "rgba(0,0,0,0.5)",
+      borderRadius: "8px",
+      color: "#fff",
+      maxWidth: "240px",
+    }}
+  >
+    {/* --- DEV PRESET LOADER --- */}
+    <DevPresetLoader />
 
-              localStorage.clear();
-              console.log(
-                "🧼 Fully reset system. Reloading as guest..."
-              );
-              window.location.reload();
-            }}
-          >
-            🧼 Start Fresh as Guest
-          </button>
-        </div>
-      )}
+    {/* --- DEV RESET BUTTON --- */}
+    <button
+      style={{
+        padding: "0.5rem 1rem",
+        background: "#ff5555",
+        color: "white",
+        border: "none",
+        borderRadius: "8px",
+        fontWeight: "bold",
+        cursor: "pointer",
+        width: "100%",
+      }}
+      onClick={async () => {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const userRef = doc(db, "users", currentUser.uid);
+          await setDoc(
+            userRef,
+            {
+              jamGrooveCompleted: false,
+              floralSigned: false,
+              photoCompleted: false,
+              documents: [],
+              purchases: [],
+              budget: 0,
+            },
+            { merge: true }
+          );
+          await signOut(auth);
+        }
+
+        localStorage.clear();
+        console.log("🧼 Fully reset system. Reloading as guest...");
+        window.location.reload();
+      }}
+    >
+      🧼 Start Fresh as Guest
+    </button>
+  </div>
+)}
 
       {/* overlay stack driven by activeOverlay (new system) */}
       {activeOverlay === "jamgroove" && (

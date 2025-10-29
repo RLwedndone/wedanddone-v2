@@ -16,7 +16,9 @@ function addFooter(doc: jsPDF) {
   doc.line(MARGIN_X, FOOTER_Y - 8, 190, FOOTER_Y - 8);
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", 105, FOOTER_Y, { align: "center" });
+  doc.text("Magically booked by Wed&Done", 105, FOOTER_Y, {
+    align: "center",
+  });
 }
 
 function ensureSpace(doc: jsPDF, y: number, needed = 12): number {
@@ -79,34 +81,72 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
 
 /* ---------- Types ---------- */
 export interface RubiAgreementPDFOptions {
-  fullName: string;                 // "Taylor Swift"
-  menuChoice: "bbq" | "mexican";    // determines wording in title
-  tierLabel: string;                // prettyName from tierSelection
+  fullName: string; // "Taylor Swift"
+
+  // booking context
+  venueName: string; // "Rubi House"
+  catererName: string; // "Brother John’s Catering"
+  menuChoice: "bbq" | "mexican";
+  selectedPackage: string; // "Casual BroJo", "Street Taco Feast", etc.
+
+  // wedding info
   guestCount: number;
-  weddingDate: string;              // "YYYY-MM-DD" ideally
-  total: number;                    // grand total $
-  depositPaidToday: number;         // what we actually charged on Checkout right now
-  paymentSummary: string;           // human text from checkout/contract
-  lineItems: string[];              // each line of the cart
-  signatureImageUrl: string;        // data URL from contract signature
+  weddingDate: string; // "YYYY-MM-DD" or "TBD"
+
+  // menu detail
+  selections: any; // { bbqMeats: [...], mexEntrees: [...], ... }
+
+  // pricing detail
+  lineItems: string[]; // bullet lines from cart
+  totals: {
+    baseCateringSubtotal: number;
+    serviceCharge: number;
+    taxableBase: number;
+    taxes: number;
+    cardFees: number;
+    grandTotal: number;
+  };
+
+  pricePerGuestBase: number; // before extras
+  pricePerGuestWithExtras: number; // after extras
+
+  // payment info
+  totalDueOverall: number; // full agreement total $
+  depositPaidToday: number; // charged today
+  paymentSummary: string; // "Deposit due today: $___ ..."
+
+  // signature
+  signatureImageUrl: string; // data URL from contract signature
 }
 
 /* ---------- Main ---------- */
-const generateRubiAgreementPDF = async ({
-  fullName,
-  menuChoice,
-  tierLabel,
-  guestCount,
-  weddingDate,
-  total,
-  depositPaidToday,
-  paymentSummary,
-  lineItems,
-  signatureImageUrl,
-}: RubiAgreementPDFOptions): Promise<Blob> => {
+export default async function generateRubiAgreementPDF(
+  opts: RubiAgreementPDFOptions
+): Promise<Blob> {
+  console.log("🪶 [PDF] generateRubiAgreementPDF called with:", opts);
+
+  const {
+    fullName,
+    venueName,
+    catererName,
+    menuChoice,
+    selectedPackage,
+    guestCount,
+    weddingDate,
+    selections,
+    lineItems,
+    totals,
+    pricePerGuestBase,
+    pricePerGuestWithExtras,
+    totalDueOverall,
+    depositPaidToday,
+    paymentSummary,
+    signatureImageUrl,
+  } = opts;
+
   const doc = new jsPDF();
 
-  // assets we'll watermark with
+  // assets for header/branding
   const [logo, lock] = await Promise.all([
     loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
     loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
@@ -117,13 +157,18 @@ const generateRubiAgreementPDF = async ({
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
   // header title
-  const catererLabel =
-    menuChoice === "bbq" ? "Brother John’s BBQ" : "Brother John’s Mexican";
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
+
+  // ex: "Rubi House Catering Agreement & Receipt — Brother John’s BBQ"
+  const catererDisplay =
+    menuChoice === "bbq"
+      ? `${catererName || "Brother John’s BBQ"}`
+      : `${catererName || "Brother John’s Mexican"}`;
+
   doc.text(
-    `Rubi House Catering Agreement & Receipt — ${catererLabel}`,
+    `${venueName} Catering Agreement & Receipt — ${catererDisplay}`,
     105,
     75,
     { align: "center" }
@@ -139,77 +184,186 @@ const generateRubiAgreementPDF = async ({
     dueByPretty = toPrettyDate(minus35ISO);
   }
 
-  // basics / who / what
+  // ============== BASIC INFO BLOCK (Name / Date / Package / etc.) ==============
   doc.setFontSize(12);
   let y = 90;
-  doc.text(`Name: ${fullName}`, MARGIN_X, y); y += LINE_GAP;
-  doc.text(`Wedding Date: ${weddingPretty}`, MARGIN_X, y); y += LINE_GAP;
-  if (tierLabel) {
-    doc.text(`Selected Package: ${tierLabel}`, MARGIN_X, y);
-    y += LINE_GAP;
-  }
-  doc.text(`Caterer: ${catererLabel}`, MARGIN_X, y); y += LINE_GAP;
-  doc.text(`Guest Count: ${guestCount}`, MARGIN_X, y); y += LINE_GAP;
+  doc.text(`Name: ${fullName}`, MARGIN_X, y);
   y += LINE_GAP;
 
-  // Included menu / line items
-  if (lineItems && lineItems.length) {
-    y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
+  doc.text(`Wedding Date: ${weddingPretty}`, MARGIN_X, y);
+  y += LINE_GAP;
+
+  if (selectedPackage) {
+    doc.text(`Selected Package: ${selectedPackage}`, MARGIN_X, y);
+    y += LINE_GAP;
+  }
+
+  doc.text(`Caterer: ${catererDisplay}`, MARGIN_X, y);
+  y += LINE_GAP;
+
+  doc.text(`Guest Count: ${guestCount}`, MARGIN_X, y);
+  y += LINE_GAP * 2;
+
+  // ============== MENU SELECTIONS ("Your Selections") ==============
+  {
     doc.setFontSize(14);
-    doc.text("Included Items:", MARGIN_X, y);
+    doc.text("Your Selections:", MARGIN_X, y);
     y += PARA_GAP;
     doc.setFontSize(12);
 
+    // always have some object
+    const safeSelections: any = selections || {};
+
+    // helper to print one labeled group if there are items in it
+    const addSelectionGroup = (label: string, items: unknown) => {
+      if (!Array.isArray(items) || items.length === 0) return;
+      const stringItems = items.join(", ");
+      const line = `${label}: ${stringItems}`;
+      const wrapped = doc.splitTextToSize(line, 170) as string[];
+      wrapped.forEach((ln: string) => {
+        y = ensureSpace(doc, y, LINE_GAP);
+        doc.text(ln, MARGIN_X + 5, y);
+        y += LINE_GAP;
+      });
+    };
+
+    // BBQ keys we expect:
+    addSelectionGroup("Starters", safeSelections.bbqStarters);
+    addSelectionGroup("Smoked Meats", safeSelections.bbqMeats);
+    addSelectionGroup("Sides", safeSelections.bbqSides);
+    addSelectionGroup("Desserts", safeSelections.bbqDesserts);
+
+    // Mexican keys we expect:
+    addSelectionGroup("Passed Appetizers", safeSelections.mexPassedApps);
+    addSelectionGroup("Starter or Soup", safeSelections.mexStartersOrSoup);
+    addSelectionGroup("Entrées", safeSelections.mexEntrees);
+    addSelectionGroup("Sides", safeSelections.mexSides);
+    addSelectionGroup("Desserts", safeSelections.mexDesserts);
+
+    // Notes (from either flow)
+    if (
+      typeof safeSelections.notes === "string" &&
+      safeSelections.notes.trim() !== ""
+    ) {
+      const wrappedNotes = doc.splitTextToSize(
+        `Notes: ${safeSelections.notes}`,
+        170
+      ) as string[];
+      wrappedNotes.forEach((ln: string) => {
+        y = ensureSpace(doc, y, LINE_GAP);
+        doc.text(ln, MARGIN_X + 5, y);
+        y += LINE_GAP;
+      });
+    }
+
+    y += PARA_GAP;
+  }
+
+  // ============== COST BREAKDOWN / LINE ITEMS ==============
+  if (lineItems && lineItems.length) {
+    y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
+    doc.setFontSize(14);
+    doc.text("Included Items / Pricing:", MARGIN_X, y);
+    y += PARA_GAP;
+    doc.setFontSize(12);
+
+    // example lineItems:
+    // ["Brother John’s BBQ — 75 guests @ $32.00/guest = $2,400.00", "22% Service Charge — $528.00", ...]
     for (const item of lineItems) {
-      const lines = doc.splitTextToSize(`• ${item}`, 170);
+      const lines = doc.splitTextToSize(`• ${item}`, 170) as string[];
       for (const ln of lines) {
         y = ensureSpace(doc, y, LINE_GAP);
         doc.text(ln, MARGIN_X + 5, y);
         y += LINE_GAP;
       }
     }
+
+    // -- SAFE PER-GUEST INFO --
+    const hasExtrasNumber =
+      typeof pricePerGuestWithExtras === "number" &&
+      !isNaN(pricePerGuestWithExtras);
+
+    const hasBaseNumber =
+      typeof pricePerGuestBase === "number" &&
+      !isNaN(pricePerGuestBase);
+
+    if (hasExtrasNumber) {
+      y = ensureSpace(doc, y, LINE_GAP);
+      doc.text(
+        `Effective price per guest: $${pricePerGuestWithExtras!.toFixed(2)}`,
+        MARGIN_X + 5,
+        y
+      );
+      y += LINE_GAP;
+    }
+
+    if (
+      hasBaseNumber &&
+      hasExtrasNumber &&
+      pricePerGuestWithExtras !== pricePerGuestBase
+    ) {
+      y = ensureSpace(doc, y, LINE_GAP);
+      doc.text(
+        `(Base $${pricePerGuestBase!.toFixed(2)} + upgrades)`,
+        MARGIN_X + 5,
+        y
+      );
+      y += LINE_GAP;
+    }
   }
 
-  // Payment summary block
   y += PARA_GAP;
+
+  // ============== PAYMENT SUMMARY BLOCK ==============
   y = ensureSpace(doc, y, LINE_GAP * 4 + PARA_GAP);
   doc.setTextColor(0);
   doc.setFontSize(12);
   doc.text("Payment Summary:", MARGIN_X, y);
   y += LINE_GAP;
 
-  // caller already built a human string like:
   // "Deposit due today: $123.45 (25%). Remaining $456.78 — final payment due June 1st, 2025."
-  const humanLines = doc.splitTextToSize(paymentSummary, 170);
+  const humanLines = doc.splitTextToSize(paymentSummary || "", 170) as string[];
   for (const ln of humanLines) {
     y = ensureSpace(doc, y, LINE_GAP);
     doc.text(ln, MARGIN_X + 5, y);
     y += LINE_GAP;
   }
 
-  // detail rows
+  // detail rows, all guarded so .toFixed never explodes
+  const safeDeposit =
+    typeof depositPaidToday === "number" && !isNaN(depositPaidToday)
+      ? depositPaidToday
+      : 0;
+
+  const safeTotalDue =
+    typeof totalDueOverall === "number" && !isNaN(totalDueOverall)
+      ? totalDueOverall
+      : 0;
+
+  y = ensureSpace(doc, y, LINE_GAP);
   doc.text(
-    `Amount Paid Today: $${depositPaidToday.toFixed(2)}`,
+    `Amount Paid Today: $${safeDeposit.toFixed(2)}`,
     MARGIN_X + 5,
     y
   );
   y += LINE_GAP;
 
+  y = ensureSpace(doc, y, LINE_GAP);
   doc.text(
-    `Total Contract Amount: $${total.toFixed(2)}`,
+    `Total Contract Amount: $${safeTotalDue.toFixed(2)}`,
     MARGIN_X + 5,
     y
   );
   y += LINE_GAP;
 
+  y = ensureSpace(doc, y, LINE_GAP);
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;
 
-  // Rubi-specific reminder: bar, F&B minimum, etc.
+  // venue reminder text
   {
-    const banner =
-      "Reminder: This catering counts toward your food & beverage minimum with Rubi House. Any remaining spend to hit that minimum (like bar service) is handled directly with the venue and must follow Arizona liquor laws. Guest count locks 30 days before your wedding.";
-    const lines = doc.splitTextToSize(banner, 170);
+    const banner = `${venueName} note: This catering counts toward your food & beverage minimum with ${venueName}. Any remaining spend to hit that minimum (like bar service) is handled directly with the venue and must follow Arizona liquor laws. Guest count locks 30 days before your wedding.`;
+    const lines = doc.splitTextToSize(banner, 170) as string[];
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
       doc.text(ln, MARGIN_X, y);
@@ -218,14 +372,14 @@ const generateRubiAgreementPDF = async ({
     y += 4;
   }
 
-  // Legal-ish terms (mirrors RubiCateringContract copy)
+  // ============== LEGAL TERMS / POLICIES ==============
   const writeParagraph = (title: string, body: string) => {
     y = ensureSpace(doc, y, PARA_GAP);
     doc.setFontSize(13);
     doc.text(title, MARGIN_X, y);
     y += LINE_GAP;
     doc.setFontSize(12);
-    const lines = doc.splitTextToSize(body, 170);
+    const lines = doc.splitTextToSize(body, 170) as string[];
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
       doc.text(ln, MARGIN_X, y);
@@ -264,7 +418,7 @@ const generateRubiAgreementPDF = async ({
     "Neither party is liable for delays outside reasonable control. We'll work in good faith to reschedule; if that’s not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred. Our liability is limited to a refund of payments made."
   );
 
-  // Signature block
+  // ============== SIGNATURE BLOCK ==============
   if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
@@ -293,11 +447,7 @@ const generateRubiAgreementPDF = async ({
 
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(
-    `Signed by: ${fullName}`,
-    MARGIN_X,
-    sigTop + 5 + SIG_IMG_H + 12
-  );
+  doc.text(`Signed by: ${fullName}`, MARGIN_X, sigTop + 5 + SIG_IMG_H + 12);
   doc.text(
     `Signature date: ${todayPretty}`,
     MARGIN_X,
@@ -306,6 +456,4 @@ const generateRubiAgreementPDF = async ({
 
   addFooter(doc);
   return doc.output("blob");
-};
-
-export default generateRubiAgreementPDF;
+}

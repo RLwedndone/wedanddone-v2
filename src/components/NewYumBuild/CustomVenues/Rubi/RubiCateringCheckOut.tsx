@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { app } from "../../../../firebase/firebaseConfig";
+import { app, db } from "../../../../firebase/firebaseConfig";
 import generateRubiAgreementPDF from "../../../../utils/generateRubiAgreementPDF";
 
 import { getAuth } from "firebase/auth";
@@ -14,11 +14,11 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../../../../firebase/firebaseConfig";
 
 import type { RubiTierSelectionBBQ } from "./RubiBBQTierSelector";
 import type { RubiTierSelection as RubiTierSelectionMex } from "./RubiMexTierSelector";
 
+// ---------- helpers ----------
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
   d.toLocaleDateString("en-US", {
@@ -36,7 +36,8 @@ interface Props {
   lineItems: string[];
   menuChoice: RubiMenuChoice;
   tierSelection: RubiTierSelection;
-  signatureImage: string | null;     // ✅ passed in
+  cateringSummary?: any;
+  signatureImage: string | null;
   weddingDate?: string | null;
   onBack: () => void;
   onComplete: () => void;
@@ -50,6 +51,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   lineItems,
   menuChoice,
   tierSelection,
+  cateringSummary,
   signatureImage,
   weddingDate,
   onBack,
@@ -62,7 +64,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didRunRef = useRef(false);
 
-  // --- Pull plan handoff data from LS ---
+  // --- Pull payment plan handoff data from LS ---
   const payFull = useMemo(() => {
     try {
       return JSON.parse(
@@ -116,7 +118,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   // snapshot of per-guest pricing for receipts
   const perGuestPrice =
     Number(localStorage.getItem("rubiPerGuest") || 0) ||
-    tierSelection?.pricePerGuest ||
+    (tierSelection as any)?.pricePerGuest ||
     0;
 
   // how much we actually charge right now
@@ -129,6 +131,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
   // name for PDF / CheckoutForm
   const [firstName, setFirstName] = useState<string>("Magic");
   const [lastName, setLastName] = useState<string>("User");
+
   useEffect(() => {
     (async () => {
       const user = getAuth().currentUser;
@@ -136,8 +139,8 @@ const RubiCateringCheckOut: React.FC<Props> = ({
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const data = snap.data() || {};
-        setFirstName(data.firstName || "Magic");
-        setLastName(data.lastName || "User");
+        setFirstName((data as any).firstName || "Magic");
+        setLastName((data as any).lastName || "User");
       } catch {
         /* ignore */
       }
@@ -153,8 +156,77 @@ const RubiCateringCheckOut: React.FC<Props> = ({
         2
       )} — final payment due ${finalDueDateStr}.`;
 
+  // 📝 single source of truth for PDF + Firestore snapshot
+  const pdfData = useMemo(() => {
+    const safeSummary = cateringSummary || {};
+
+    // figure out package label nicely for receipts / PDF
+    const selectedPackage =
+      safeSummary.selectedPackage ||
+      (tierSelection as any)?.prettyName ||
+      (tierSelection as any)?.id ||
+      "Selected Package";
+
+    return {
+      // who/when
+      guestCount: safeSummary.guestCount ?? guestCount ?? 0,
+      weddingDate:
+        weddingDate ||
+        localStorage.getItem("yumSelectedDate") ||
+        localStorage.getItem("rubiWeddingDate") ||
+        "TBD",
+
+      // what they booked
+      venueName: safeSummary.venueName || "Rubi House",
+      catererName: safeSummary.catererName || "Brother John’s Catering",
+      menuChoice: safeSummary.menuChoice || menuChoice,
+      selectedPackage,
+
+      // menu picks from cart (bbqSides, mexEntrees, etc.)
+      selections: safeSummary.selections || {},
+
+      // money details
+      pricePerGuestBase:
+        safeSummary.pricePerGuestBase ?? perGuestPrice ?? 0,
+      pricePerGuestWithExtras:
+        safeSummary.pricePerGuestWithExtras ?? perGuestPrice ?? 0,
+      lineItems: safeSummary.lineItems || lineItems || [],
+      totals:
+        safeSummary.totals || {
+          baseCateringSubtotal: total,
+          serviceCharge: 0,
+          taxableBase: total,
+          taxes: 0,
+          cardFees: 0,
+          grandTotal: total,
+        },
+
+      // payment / money timing
+      totalDueOverall: total,
+      depositPaidToday: Number(
+        (amountDueTodayCents / 100).toFixed(2)
+      ),
+      paymentSummary: summaryText,
+    };
+  }, [
+    cateringSummary,
+    guestCount,
+    weddingDate,
+    menuChoice,
+    tierSelection,
+    perGuestPrice,
+    lineItems,
+    total,
+    summaryText,
+    amountDueTodayCents,
+  ]);
+
   // --- success handler from Stripe ---
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}) => {
     if (didRunRef.current) return;
     didRunRef.current = true;
 
@@ -171,7 +243,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
       const purchaseDate = new Date().toISOString();
 
       // persist/remember stripe customer id
-      if (customerId && customerId !== userDoc?.stripeCustomerId) {
+      if (customerId && customerId !== (userDoc as any)?.stripeCustomerId) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
           "stripe.updatedAt": serverTimestamp(),
@@ -190,7 +262,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
       window.dispatchEvent(new Event("purchaseMade"));
       onComplete();
 
-      // build payment plan snapshot
+      // build payment plan snapshot pieces
       const planMonths = planMonthsLS || 0;
       const perMonthCents = perMonthCentsLS || 0;
       const lastPaymentCents = lastPaymentCentsLS || 0;
@@ -199,22 +271,28 @@ const RubiCateringCheckOut: React.FC<Props> = ({
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
-      const amountNow = Number((amountDueTodayCents / 100).toFixed(2));
-      const tierLabel =
-        tierSelection?.prettyName || tierSelection?.id || "";
+      const amountNow = Number(
+        (amountDueTodayCents / 100).toFixed(2)
+      );
 
-      // pricingSnapshots (receipt-ish data)
+      const tierLabel =
+        (tierSelection as any)?.prettyName ||
+        (tierSelection as any)?.id ||
+        "";
+
+      // Save pricing snapshot (admin fulfillment view)
       await setDoc(
         doc(userRef, "pricingSnapshots", "rubiCatering"),
         {
           booked: true,
-          guestCountAtBooking: guestCount,
-          perGuest: perGuestPrice,
-          caterer: "Brother John's Catering",
-          menuChoice,
-          tier: tierLabel,
-          selections: {}, // already captured during Contract step
-          lineItems,
+          guestCountAtBooking: pdfData.guestCount,
+          perGuest:
+            pdfData.pricePerGuestWithExtras ?? perGuestPrice,
+          caterer: pdfData.catererName,
+          menuChoice: pdfData.menuChoice,
+          tier: pdfData.selectedPackage || tierLabel,
+          selections: pdfData.selections || {}, // actual menu picks
+          lineItems: pdfData.lineItems || [],
           totalBooked: total,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -227,10 +305,12 @@ const RubiCateringCheckOut: React.FC<Props> = ({
         "progress.yumYum.step": "rubiCateringThankYou",
         bookings: {
           ...(userDoc as any)?.bookings,
-          catering: true, // ✅ mark catering booked
+          catering: true,
         },
         purchases: arrayUnion({
-          label: `Catering — Brother John’s ${menuChoice === "bbq" ? "BBQ" : "Mexican"} (${tierLabel})`,
+          label: `Catering — Brother John’s ${
+            menuChoice === "bbq" ? "BBQ" : "Mexican"
+          } (${tierLabel})`,
           amount: amountNow,
           date: purchaseDate,
           method: payFull ? "full" : "deposit",
@@ -256,7 +336,8 @@ const RubiCateringCheckOut: React.FC<Props> = ({
               paidNow: amountNow,
               remainingBalance,
               finalDueDate: finalDueDateStr,
-              finalDueAt: localStorage.getItem("rubiDueBy") || null,
+              finalDueAt:
+                localStorage.getItem("rubiDueBy") || null,
               createdAt: new Date().toISOString(),
             },
         paymentPlanAuto: payFull
@@ -291,12 +372,16 @@ const RubiCateringCheckOut: React.FC<Props> = ({
               currency: "usd",
               totalCents,
               depositCents,
-              remainingCents: Math.max(0, totalCents - depositCents),
+              remainingCents: Math.max(
+                0,
+                totalCents - depositCents
+              ),
               planMonths,
               perMonthCents,
               lastPaymentCents,
               nextChargeAt,
-              finalDueAt: localStorage.getItem("rubiDueBy") || null,
+              finalDueAt:
+                localStorage.getItem("rubiDueBy") || null,
               stripeCustomerId:
                 customerId ||
                 localStorage.getItem("stripeCustomerId") ||
@@ -310,34 +395,53 @@ const RubiCateringCheckOut: React.FC<Props> = ({
 
       // ✅ build & upload PDF receipt/contract
       try {
-        const fullName = `${firstName || "Magic"} ${lastName || "User"}`;
+        const fullNameFinal = `${firstName || "Magic"} ${
+          lastName || "User"
+        }`;
 
-        // prefer prop weddingDate, fallback to LS (yumSelectedDate/rubiWeddingDate)
-        const weddingYMD =
-          weddingDate ||
-          localStorage.getItem("yumSelectedDate") ||
-          localStorage.getItem("rubiWeddingDate") ||
-          "TBD";
+        // prefer the computed date in pdfData
+        const weddingYMD = pdfData.weddingDate || "TBD";
 
         const pdfBlob = await generateRubiAgreementPDF({
-          fullName,
-          menuChoice,
-          tierLabel,
-          guestCount,
-          weddingDate: weddingYMD || "TBD",
-          total,
-          depositPaidToday: amountNow,
-          paymentSummary: summaryText,
-          lineItems,
+          fullName: fullNameFinal,
+          venueName: pdfData.venueName,
+          catererName: pdfData.catererName,
+          menuChoice: pdfData.menuChoice,
+          selectedPackage: pdfData.selectedPackage,
+          guestCount: pdfData.guestCount,
+          weddingDate: weddingYMD,
+
+          // menu details
+          selections: pdfData.selections,
+
+          // money details
+          lineItems: pdfData.lineItems,
+          totals: pdfData.totals,
+          pricePerGuestBase: pdfData.pricePerGuestBase,
+          pricePerGuestWithExtras:
+            pdfData.pricePerGuestWithExtras,
+
+          // payment details
+          totalDueOverall: pdfData.totalDueOverall,
+          depositPaidToday: pdfData.depositPaidToday,
+          paymentSummary: pdfData.paymentSummary,
+
+          // signature
           signatureImageUrl:
             signatureImage ||
             localStorage.getItem("yumSignature") ||
             "",
         });
 
-        const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
+        const storage = getStorage(
+          app,
+          "gs://wedndonev2.firebasestorage.app"
+        );
         const filename = `RubiCateringAgreement_${Date.now()}.pdf`;
-        const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
+        const fileRef = ref(
+          storage,
+          `public_docs/${user.uid}/${filename}`
+        );
         await uploadBytes(fileRef, pdfBlob);
         const publicUrl = await getDownloadURL(fileRef);
 
@@ -349,27 +453,52 @@ const RubiCateringCheckOut: React.FC<Props> = ({
           }),
         });
       } catch (pdfErr) {
-        console.warn("[RubiCateringCheckout] PDF upload failed (continuing):", pdfErr);
+        console.warn(
+          "[RubiCateringCheckout] PDF upload failed (continuing):",
+          pdfErr
+        );
       }
     } catch (err) {
-      console.error("❌ Error in Rubi Catering checkout:", err);
-      alert("Something went wrong saving your receipt. Please contact support.");
+      console.error(
+        "❌ Error in Rubi Catering checkout:",
+        err
+      );
+      alert(
+        "Something went wrong saving your receipt. Please contact support."
+      );
     } finally {
       setLocalGenerating(false);
     }
   };
 
-  // spinner UI
+  // ---------- spinner UI ----------
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 700 }}
+      >
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${
+              import.meta.env.BASE_URL
+            }assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
           <video
-            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+            src={`${
+              import.meta.env.BASE_URL
+            }assets/videos/magic_clock.mp4`}
             autoPlay
             loop
             muted
@@ -383,12 +512,20 @@ const RubiCateringCheckOut: React.FC<Props> = ({
               display: "block",
             }}
           />
-          <h3 className="px-title" style={{ margin: 0 }}>
+          <h3
+            className="px-title"
+            style={{ margin: 0 }}
+          >
             Madge is working her magic…
           </h3>
 
           <div style={{ marginTop: 12 }}>
-            <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
+            <button
+              className="boutique-back-btn"
+              style={{ width: 250 }}
+              onClick={onBack}
+              disabled
+            >
               ← Back to Cart
             </button>
           </div>
@@ -397,16 +534,34 @@ const RubiCateringCheckOut: React.FC<Props> = ({
     );
   }
 
-  // normal checkout UI
+  // ---------- normal checkout UI ----------
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700 }}
+    >
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${
+            import.meta.env.BASE_URL
+          }assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
-      <div className="pixie-card__body" ref={scrollRef} style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        ref={scrollRef}
+        style={{ textAlign: "center" }}
+      >
         <video
-          src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+          src={`${
+            import.meta.env.BASE_URL
+          }assets/videos/lock.mp4`}
           autoPlay
           loop
           muted
@@ -432,21 +587,36 @@ const RubiCateringCheckOut: React.FC<Props> = ({
           Checkout
         </h2>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+        <p
+          className="px-prose-narrow"
+          style={{ marginBottom: 16 }}
+        >
           {summaryText}
         </p>
 
-        <div className="px-elements" aria-busy={isGenerating}>
+        <div
+          className="px-elements"
+          aria-busy={isGenerating}
+        >
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
             setStepSuccess={handleSuccess}
             isAddon={false}
-            customerEmail={getAuth().currentUser?.email || undefined}
-            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerEmail={
+              getAuth().currentUser?.email ||
+              undefined
+            }
+            customerName={`${firstName || "Magic"} ${
+              lastName || "User"
+            }`}
             customerId={(() => {
               try {
-                return localStorage.getItem("stripeCustomerId") || undefined;
+                return (
+                  localStorage.getItem(
+                    "stripeCustomerId"
+                  ) || undefined
+                );
               } catch {
                 return undefined;
               }
@@ -455,7 +625,11 @@ const RubiCateringCheckOut: React.FC<Props> = ({
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack}>
+          <button
+            className="boutique-back-btn"
+            style={{ width: 250 }}
+            onClick={onBack}
+          >
             ← Back to Cart
           </button>
         </div>

@@ -101,17 +101,31 @@ export const generateFloralAgreementPDF = async ({
   const longDate = (d: Date) =>
     `${d.toLocaleString("en-US", { month: "long" })} ${fmtOrdinal(d.getDate())}, ${d.getFullYear()}`;
 
-  const prettyWedding = (() => {
-    const d = new Date(weddingDate);
-    return isNaN(d.getTime()) ? weddingDate : longDate(d);
-  })();
+// Parse "YYYY-MM-DD" safely in local time (no UTC shift).
+const parseLocalYMD = (ymd: string): Date | null => {
+  // match "2027-12-12"
 
-  const finalDueDate = (() => {
-    const d = new Date(weddingDate);
-    if (isNaN(d.getTime())) return null;
-    d.setDate(d.getDate() - 30);
-    return d;
-  })();
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const monthIndex = Number(m[2]) - 1; // JS months are 0-based
+  const day = Number(m[3]);
+  return new Date(year, monthIndex, day, 12, 0, 0); 
+  // noon local time so subtraction math like "-30 days" is safer
+};
+
+  const prettyWedding = (() => {
+  const safe = parseLocalYMD(weddingDate) || new Date(weddingDate);
+  return isNaN(safe.getTime()) ? weddingDate : longDate(safe);
+})();
+
+const finalDueDate = (() => {
+  const base = parseLocalYMD(weddingDate) || new Date(weddingDate);
+  if (isNaN(base.getTime())) return null;
+  const d = new Date(base.getTime());
+  d.setDate(d.getDate() - 30);
+  return d;
+})();
   const finalDueStr = finalDueDate ? longDate(finalDueDate) : "30 days prior to event";
 
   // ---- Assets ----

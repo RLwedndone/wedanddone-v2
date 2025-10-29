@@ -30,7 +30,7 @@ interface Props {
   setLineItems: (items: string[]) => void;
   setPaymentSummaryText: (text: string) => void;
   setAddonsTotal?: (amount: number) => void; // fees portion
-  onContinueToCheckout: () => void;
+  onContinueToCheckout: (summary: any) => void;
   onBackToMenu: () => void;
   onClose: () => void;
 }
@@ -244,6 +244,45 @@ const RubiCateringCart: React.FC<Props> = ({
     cardFees,
   ]);
 
+    // 👇 This is the payload we’ll pass forward into contract/checkout/PDF
+    const bookingSummary = {
+      venueName: "Rubi House",
+  
+      catererName: "Brother John’s BBQ", // even for mexican choice it's still Brother John's, right?
+                                         // if that changes vendor-by-menu, update this string accordingly
+  
+      menuChoice,                        // "bbq" or "mexican"
+  
+      guestCount: lockedGuestCount,
+  
+      // This is usually shown to the user as "Casual BroJo", "Street Taco Bar", etc.
+      // You already have tierSelection coming in from the tier selector,
+      // so we’ll try to grab something human-readable off it:
+      selectedPackage:
+        (tierSelection as any)?.label ||
+        (tierSelection as any)?.tierName ||
+        (tierSelection as any)?.displayName ||
+        "Selected Package",
+  
+      // Detailed menu picks so admin knows exactly what to book
+      selections, // <-- this already contains bbqStarters, bbqMeats, etc. or mexEntrees, mexSides, etc.
+  
+      // Money breakdown
+      pricePerGuestBase: pricePerGuest, // without extras
+      pricePerGuestWithExtras,         // with extras
+      perGuestExtrasCents: extrasCents,
+  
+      lineItems: summaryItems,         // the human-readable bullet lines you show in the PDF
+      totals: {
+        baseCateringSubtotal,
+        serviceCharge,
+        taxableBase,
+        taxes,
+        cardFees,
+        grandTotal,
+      },
+    };
+
   /* ---------- UI ---------- */
   const header = `Brother John’s ${menuChoice === "bbq" ? "BBQ" : "Mexican"} — Review`;
 
@@ -313,9 +352,15 @@ const RubiCateringCart: React.FC<Props> = ({
 
         {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 14 }}>
-          <button className="boutique-primary-btn" style={{ width: 260 }} onClick={onContinueToCheckout}>
-            Continue
-          </button>
+        <button
+  className="boutique-primary-btn"
+  style={{ width: 260 }}
+  onClick={() => {
+    onContinueToCheckout(bookingSummary);
+  }}
+>
+  Continue
+</button>
           <button className="boutique-back-btn" style={{ width: 260 }} onClick={onBackToMenu}>
             ⬅ Back to Menu
           </button>

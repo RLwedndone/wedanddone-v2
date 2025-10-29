@@ -57,6 +57,7 @@ type Props = ContractInput & {
   weddingDate: string | null;
   dayOfWeek: string | null;
   lineItems: string[];
+  cateringSummary?: any;
 
   signatureImage: string | null;
   setSignatureImage: (v: string) => void;
@@ -77,6 +78,7 @@ const RubiCateringContract: React.FC<Props> = ({
   lineItems,
   menuChoice,
   tierSelection,
+  cateringSummary, 
   selections,
   // use signatureImage to avoid "unused" errors and show it if present
   signatureImage,

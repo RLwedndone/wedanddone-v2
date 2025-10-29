@@ -36,8 +36,9 @@ import RubiDessertSelector from "./RubiDessertSelector";
 import RubiDessertMenu from "./RubiDessertMenu";
 import RubiDessertCart from "./RubiDessertCart";
 import RubiDessertContract from "./RubiDessertContract";
-import RubiDessertCheckout from "./RubiDessertCheckout2";
+import RubiDessertCheckout from "./RubiDessertCheckout";
 import RubiBothDoneThankYou from "./RubiBothDoneThankYou";
+import RubiDessertThankYou from "./RubiDessertThankYou";
 
 // ---------------- Types ----------------
 
@@ -58,13 +59,14 @@ export type RubiStep =
   | "rubiDessertCart"
   | "rubiDessertContract"
   | "rubiDessertCheckout"
+  | "rubiDessertThankYou"  
   | "rubiBothDoneThankYou";
 
 type RubiMenuChoice = "bbq" | "mexican";
 type AnyTierSelection = RubiTierSelectionBBQ | RubiTierSelectionMex;
 
 // Dessert local state types (mirrors Bates flow)
-type DessertType = "tieredCake" | "smallCakeTreats" | "treatsOnly" | "";
+type DessertType = "tieredCake" | "smallCakeTreats" | "treatsOnly";
 type TreatType = "" | "cupcakes" | "goodies";
 
 interface DessertSelectionsSnapshot {
@@ -108,7 +110,7 @@ const EMPTY_MEX: RubiMexSelections = {
 
 // Blank dessert snapshot
 const EMPTY_DESSERT: DessertSelectionsSnapshot = {
-  dessertType: "",
+  dessertType: "tieredCake" as DessertType,
   flavorFilling: [],
   cakeStyle: "",
   treatType: "",
@@ -117,16 +119,23 @@ const EMPTY_DESSERT: DessertSelectionsSnapshot = {
 };
 
 const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
+  // 1. loading gate for auth/user info
   const [loading, setLoading] = useState(true);
 
-  // master step
+  // 2. master step for which sub-screen we're showing
   const [step, setStep] = useState<RubiStep>(startAt);
 
+  // 3. ref stuff (overlay behaviors / scroll mgmt)
   const cardRef = useRef<HTMLDivElement | null>(null);
   useOverlayOpen(cardRef);
   useScrollToTopOnChange([step], { targetRef: cardRef });
 
-  // ---- Catering branch core state ----
+  // 4. 🍽 bookingSummary from cart (this is the NEW state we added)
+  // IMPORTANT: we declare this EARLY, before any effects that might branch logic,
+  // so React sees it in the same hook order every render.
+  const [cateringSummary, setCateringSummary] = useState<any>(null);
+
+  // 5. ---- Catering branch core state ----
   const [menuChoice, setMenuChoice] = useState<RubiMenuChoice>(() => {
     try {
       return (
@@ -138,9 +147,7 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     }
   });
 
-  const [tierSel, setTierSel] = useState<AnyTierSelection | null>(
-    null
-  );
+  const [tierSel, setTierSel] = useState<AnyTierSelection | null>(null);
 
   // split catering picks
   const [bbqSelections, setBBQSelections] =
@@ -148,14 +155,12 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
   const [mexSelections, setMexSelections] =
     useState<RubiMexSelections>(EMPTY_MEX);
 
-  // ---- Dessert branch state (mirrors Bates) ----
+  // 6. ---- Dessert branch state ----
   const [dessertSel, setDessertSel] = useState<DessertSelectionsSnapshot>(
     () => {
       // hydrate from LS if present
       try {
-        const raw = localStorage.getItem(
-          "yumDessertSelections"
-        );
+        const raw = localStorage.getItem("yumDessertSelections");
         if (!raw) return EMPTY_DESSERT;
         const parsed = JSON.parse(raw);
         return {
@@ -172,9 +177,8 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     }
   );
 
-  // Individual dessert pieces we pass down explicitly
   const [dessertType, setDessertType] = useState<DessertType>(
-    dessertSel.dessertType
+    (dessertSel.dessertType as DessertType) || "tieredCake"
   );
   const [flavorFilling, setFlavorFilling] = useState<string[]>(
     dessertSel.flavorFilling
@@ -192,29 +196,28 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     dessertSel.cupcakes
   );
 
-  // ---- Totals / receipts ----
-  const [total, setTotal] = useState<number>(0); // reused for catering & dessert cart totals
+  // 7. ---- Totals / receipts ----
+  const [total, setTotal] = useState<number>(0); // reused catering & dessert
   const [lineItems, setLineItems] = useState<string[]>([]);
   const [paymentSummaryText, setPaymentSummaryText] =
     useState<string>("");
 
-  // ---- For both contracts ----
-  const [signatureImage, setSignatureImage] = useState<
-    string | null
-  >(null);
+  // 8. ---- For both contracts ----
+  const [signatureImage, setSignatureImage] = useState<string | null>(
+    null
+  );
   const [signatureSubmitted, setSignatureSubmitted] =
     useState(false);
 
-  // wedding date context (shown in contracts)
-  const [userWeddingDate, setUserWeddingDate] = useState<
-    string | null
-  >(null);
-  const [userDayOfWeek, setUserDayOfWeek] = useState<
-    string | null
-  >(null);
+  // 9. wedding date context
+  const [userWeddingDate, setUserWeddingDate] = useState<string | null>(
+    null
+  );
+  const [userDayOfWeek, setUserDayOfWeek] = useState<string | null>(
+    null
+  );
 
-  // We'll use this for both catering & dessert, but lock
-  // logic is handled in the cart components.
+  // 10. ---- Guest count ----
   const [guestCount] = useState<number>(() => {
     try {
       return Number(
@@ -228,13 +231,13 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     }
   });
 
-  // ---- Are they already booked? ----
+  // 11. ---- Are they already booked? ----
   const [hasCateringBooking, setHasCateringBooking] =
     useState(false);
   const [hasDessertBooking, setHasDessertBooking] =
     useState(false);
 
-  // ---- Boot / resume from account ----
+  // 12. ---- Boot / resume from account ----
   useEffect(() => {
     const unsub = onAuthStateChanged(
       getAuth(),
@@ -291,10 +294,7 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
           setHasCateringBooking(bookedCatering);
           setHasDessertBooking(bookedDessert);
 
-          // resume logic:
-          // - both booked -> final TY
-          // - catering booked only -> catering TY (with "Book Desserts" CTA)
-          // - else start at intro
+          // resume logic
           if (bookedCatering && bookedDessert) {
             setStep("rubiBothDoneThankYou");
           } else if (bookedCatering) {
@@ -311,6 +311,9 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     );
     return () => unsub();
   }, []);
+  // -------------- end of hooks --------------
+
+  // ...rest of your RubiOverlay render (return (...) etc.)
 
   if (loading) return null;
 
@@ -541,112 +544,71 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
 
         {/* -------- Catering Cart -------- */}
         {step === "rubiCart" && tierSel && (
-          <RubiCateringCart
-            menuChoice={menuChoice}
-            tierSelection={tierSel}
-            selections={
-              menuChoice === "bbq"
-                ? bbqSelections
-                : mexSelections
-            }
-            setTotal={setTotal}
-            setLineItems={setLineItems}
-            setPaymentSummaryText={
-              setPaymentSummaryText
-            }
-            onContinueToCheckout={() =>
-              setStep("rubiContract")
-            }
-            onBackToMenu={() =>
-              setStep(
-                menuChoice === "bbq"
-                  ? "bbqMenu"
-                  : "mexMenu"
-              )
-            }
-            onClose={onClose}
-          />
-        )}
+  <RubiCateringCart
+    menuChoice={menuChoice}
+    tierSelection={tierSel}
+    selections={menuChoice === "bbq" ? bbqSelections : mexSelections}
+    guestCount={guestCount}
+    setTotal={setTotal}
+    setLineItems={setLineItems}
+    setPaymentSummaryText={setPaymentSummaryText}
+    onContinueToCheckout={(summaryFromCart) => {
+      // save everything the cart knows (guest count, menu picks, totals, etc.)
+      setCateringSummary(summaryFromCart);
+      // move forward in the flow
+      setStep("rubiContract");
+    }}
+    onBackToMenu={() =>
+      setStep(menuChoice === "bbq" ? "bbqMenu" : "mexMenu")
+    }
+    onClose={onClose}
+  />
+)}
 
         {/* -------- Catering Contract -------- */}
-        {step === "rubiContract" &&
-          tierSel &&
-          menuChoice === "bbq" && (
-            <RubiCateringContract
-              menuChoice="bbq"
-              tierSelection={
-                tierSel as RubiTierSelectionBBQ
-              }
-              selections={bbqSelections}
-              total={total}
-              guestCount={guestCount}
-              weddingDate={userWeddingDate}
-              dayOfWeek={userDayOfWeek}
-              lineItems={lineItems}
-              signatureImage={
-                signatureImage
-              }
-              setSignatureImage={
-                setSignatureImage
-              }
-              signatureSubmitted={
-                signatureSubmitted
-              }
-              setSignatureSubmitted={
-                setSignatureSubmitted
-              }
-              onBack={() =>
-                setStep("rubiCart")
-              }
-              onContinueToCheckout={() =>
-                setStep("rubiCheckout")
-              }
-              onClose={onClose}
-              onComplete={() =>
-                setStep("rubiCheckout")
-              }
-            />
-          )}
+        {step === "rubiContract" && tierSel && menuChoice === "bbq" && (
+  <RubiCateringContract
+    menuChoice="bbq"
+    tierSelection={tierSel as RubiTierSelectionBBQ}
+    selections={bbqSelections}
+    total={total}
+    guestCount={guestCount}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    cateringSummary={cateringSummary}            // 👈 NEW
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    onBack={() => setStep("rubiCart")}
+    onContinueToCheckout={() => setStep("rubiCheckout")}
+    onClose={onClose}
+    onComplete={() => setStep("rubiCheckout")}
+  />
+)}
 
-        {step === "rubiContract" &&
-          tierSel &&
-          menuChoice === "mexican" && (
-            <RubiCateringContract
-              menuChoice="mexican"
-              tierSelection={
-                tierSel as RubiTierSelectionMex
-              }
-              selections={mexSelections}
-              total={total}
-              guestCount={guestCount}
-              weddingDate={userWeddingDate}
-              dayOfWeek={userDayOfWeek}
-              lineItems={lineItems}
-              signatureImage={
-                signatureImage
-              }
-              setSignatureImage={
-                setSignatureImage
-              }
-              signatureSubmitted={
-                signatureSubmitted
-              }
-              setSignatureSubmitted={
-                setSignatureSubmitted
-              }
-              onBack={() =>
-                setStep("rubiCart")
-              }
-              onContinueToCheckout={() =>
-                setStep("rubiCheckout")
-              }
-              onClose={onClose}
-              onComplete={() =>
-                setStep("rubiCheckout")
-              }
-            />
-          )}
-
+{step === "rubiContract" && tierSel && menuChoice === "mexican" && (
+  <RubiCateringContract
+    menuChoice="mexican"
+    tierSelection={tierSel as RubiTierSelectionMex}
+    selections={mexSelections}
+    total={total}
+    guestCount={guestCount}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    cateringSummary={cateringSummary}            // 👈 NEW
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    onBack={() => setStep("rubiCart")}
+    onContinueToCheckout={() => setStep("rubiCheckout")}
+    onClose={onClose}
+    onComplete={() => setStep("rubiCheckout")}
+  />
+)}
         {/* -------- Catering Checkout -------- */}
         {step === "rubiCheckout" && tierSel && (
   <RubiCateringCheckOut
@@ -655,8 +617,17 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     lineItems={lineItems}
     menuChoice={menuChoice}
     tierSelection={tierSel}
-    signatureImage={signatureImage || localStorage.getItem("yumSignature") || ""} // ✅ add
-    weddingDate={userWeddingDate || localStorage.getItem("yumSelectedDate") || null} // ✅ add
+    cateringSummary={cateringSummary}      // 👈 NEW
+    signatureImage={
+      signatureImage ||
+      localStorage.getItem("yumSignature") ||
+      ""
+    }
+    weddingDate={
+      userWeddingDate ||
+      localStorage.getItem("yumSelectedDate") ||
+      null
+    }
     onBack={() => setStep("rubiContract")}
     onComplete={() =>
       setStep(
@@ -681,178 +652,104 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
           />
         )}
 
-        {/* -------- Dessert Selector -------- */}
-        {step === "rubiDessertSelector" && (
-          <RubiDessertSelector
-            onSelectType={(type) => {
-              setDessertType(type);
-              saveDessertSnapshot({
-                dessertType: type,
-                // wipe dessert picks when type changes
-                flavorFilling: [],
-                cakeStyle: "",
-                treatType: "",
-                goodies: [],
-                cupcakes: [],
-              });
-            }}
-            onBack={() =>
-              // if they already booked catering we want them to land back on catering thank you
-              setStep("rubiCateringThankYou")
-            }
-            onClose={onClose}
-            onContinue={() => {
-              setStep("rubiDessertMenu");
-            }}
-          />
-        )}
+        {/* -------- Dessert Thank-you -------- */}
+{step === "rubiDessertThankYou" && <RubiDessertThankYou onClose={onClose} />}
 
-        {/* -------- Dessert Menu Builder -------- */}
-        {step === "rubiDessertMenu" && (
-          <RubiDessertMenu
-            dessertType={
-              dessertType as Exclude<
-                DessertType,
-                ""
-              >
-            }
-            flavorFilling={flavorFilling}
-            setFlavorFilling={
-              setFlavorFilling
-            }
-            onContinue={({
-              flavorFilling: ff,
-              cakeStyle: cs,
-              treatType: tt,
-              goodies: gd,
-              cupcakes: cc,
-            }) => {
-              setFlavorFilling(ff);
-              setCakeStyle(cs || "");
-              setTreatType(
-                (tt ||
-                  "") as TreatType
-              );
-              setGoodies(gd || []);
-              setCupcakes(cc || []);
+{/* -------- Both Done Thank-you -------- */}
+{step === "rubiBothDoneThankYou" && <RubiBothDoneThankYou onClose={onClose} />}
 
-              saveDessertSnapshot({
-                flavorFilling: ff,
-                cakeStyle: cs || "",
-                treatType:
-                  (tt ||
-                    "") as TreatType,
-                goodies: gd || [],
-                cupcakes: cc || [],
-              });
+{/* -------- Dessert Selector -------- */}
+{step === "rubiDessertSelector" && (
+  <RubiDessertSelector
+    onSelectType={(t) => {
+      setDessertType(t);
+      localStorage.setItem("yumDessertType", t);
+    }}
+    onContinue={() => setStep("rubiDessertMenu")}
+    onBack={() => setStep("rubiCateringThankYou")}
+    onClose={onClose}
+  />
+)}
 
-              setStep("rubiDessertCart");
-            }}
-            onBack={() =>
-              setStep("rubiDessertSelector")
-            }
-            onClose={onClose}
-          />
-        )}
+{/* -------- Dessert Menu -------- */}
+{step === "rubiDessertMenu" && (
+  <RubiDessertMenu
+    dessertType={dessertType}
+    flavorFilling={flavorFilling}
+    setFlavorFilling={setFlavorFilling}
+    onContinue={(sel) => {
+      setFlavorFilling(sel.flavorFilling || []);
+      setCakeStyle(sel.cakeStyle || "");
+      setTreatType(sel.treatType || "");
+      setGoodies(sel.goodies || []);
+      setCupcakes(sel.cupcakes || []);
+      setStep("rubiDessertCart");
+    }}
+    onBack={() => setStep("rubiDessertSelector")}
+    onClose={onClose}
+  />
+)}
 
-        {/* -------- Dessert Cart -------- */}
-        {step === "rubiDessertCart" && (
-          <RubiDessertCart
-            guestCount={guestCount}
-            dessertStyle={
-              dessertType as Exclude<
-                DessertType,
-                ""
-              >
-            }
-            flavorFilling={flavorFilling}
-            cakeStyle={cakeStyle}
-            treatType={treatType}
-            cupcakes={cupcakes}
-            goodies={goodies}
-            setTotal={setTotal}
-            setLineItems={setLineItems}
-            setPaymentSummaryText={
-              setPaymentSummaryText
-            }
-            onContinueToCheckout={() =>
-              setStep("rubiDessertContract")
-            }
-            onStartOver={() =>
-              setStep("rubiDessertMenu")
-            }
-            onClose={onClose}
-            weddingDate={userWeddingDate}
-          />
-        )}
+{/* -------- Dessert Cart -------- */}
+{step === "rubiDessertCart" && (
+  <RubiDessertCart
+    guestCount={guestCount}
+    onGuestCountChange={(n) =>
+      localStorage.setItem("yumGuestCount", String(n))
+    }
+    dessertStyle={dessertType}
+    flavorFilling={flavorFilling}
+    cakeStyle={cakeStyle}
+    treatType={treatType}
+    cupcakes={cupcakes}
+    goodies={goodies}
+    setTotal={setTotal}
+    setLineItems={setLineItems}
+    setPaymentSummaryText={setPaymentSummaryText}
+    onContinueToCheckout={() => setStep("rubiDessertContract")}
+    onStartOver={() => setStep("rubiDessertSelector")}
+    onClose={onClose}
+    weddingDate={userWeddingDate}
+  />
+)}
 
-        {/* -------- Dessert Contract -------- */}
-        {step === "rubiDessertContract" && (
-          <RubiDessertContract
-            total={total}
-            guestCount={guestCount}
-            weddingDate={userWeddingDate}
-            dayOfWeek={userDayOfWeek}
-            lineItems={lineItems}
-            signatureImage={
-              signatureImage
-            }
-            setSignatureImage={
-              setSignatureImage
-            }
-            setStep={setStep}
-            dessertStyle={
-              dessertType ||
-              ""
-            }
-            flavorCombo={
-              flavorFilling.join(
-                " + "
-              )
-            }
-            onClose={onClose}
-            onComplete={(sig) => {
-              // signature captured, user will proceed
-              setSignatureImage(sig);
-            }}
-          />
-        )}
+{/* -------- Dessert Contract -------- */}
+{step === "rubiDessertContract" && (
+  <RubiDessertContract
+    total={total}
+    guestCount={guestCount}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    dessertStyle={dessertType}
+    flavorCombo={flavorFilling.join(" + ")}
+    setStep={(next) => setStep(next as RubiStep)}
+    onClose={onClose}
+    onComplete={(sig) => {
+      setSignatureImage(sig);
+      setStep("rubiDessertCheckout");
+    }}
+  />
+)}
 
-        {/* -------- Dessert Checkout -------- */}
-        {step === "rubiDessertCheckout" && (
-          <RubiDessertCheckout
-            total={total}
-            guestCount={guestCount}
-            selectedStyle={
-              dessertType ||
-              ""
-            }
-            selectedFlavorCombo={flavorFilling.join(
-              " + "
-            )}
-            paymentSummaryText={
-              paymentSummaryText
-            }
-            lineItems={lineItems}
-            signatureImage={
-              signatureImage
-            }
-            onBack={() =>
-              setStep("rubiDessertContract")
-            }
-            onClose={onClose}
-            isGenerating={false}
-            firstName={undefined}
-            lastName={undefined}
-          />
-        )}
-
-        {/* -------- Both Done Thank You -------- */}
-        {step === "rubiBothDoneThankYou" && (
-          <RubiBothDoneThankYou
-            onClose={onClose}
-          />
-        )}
+{/* -------- Dessert Checkout -------- */}
+{step === "rubiDessertCheckout" && (
+  <RubiDessertCheckout
+    total={total}
+    guestCount={guestCount}
+    selectedStyle={dessertType}
+    selectedFlavorCombo={flavorFilling.join(" + ")}
+    paymentSummaryText={paymentSummaryText}
+    lineItems={lineItems}
+    signatureImage={signatureImage}
+    setStep={(next) => setStep(next as RubiStep)}
+    onBack={() => setStep("rubiDessertContract")}
+    onClose={onClose}
+    isGenerating={false}
+  />
+)}
       </div>
     </div>
   );

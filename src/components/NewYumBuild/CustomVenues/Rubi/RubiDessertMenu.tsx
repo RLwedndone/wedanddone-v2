@@ -2,8 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import FlavorModal from "../../dessert/FlavorModal";
 import GoodiesModal from "../../dessert/GoodiesModal";
-import { GOODIE_CATALOG } from "../../dessert/dessertPricing";
 import StyleModal from "../../dessert/StyleModal";
+import { GOODIE_CATALOG } from "../../dessert/dessertPricing";
 
 interface RubiDessertMenuProps {
   dessertType: "tieredCake" | "smallCakeTreats" | "treatsOnly";
@@ -13,16 +13,14 @@ interface RubiDessertMenuProps {
     flavorFilling: string[];
     cakeStyle?: string;
     treatType?: "" | "cupcakes" | "goodies";
-    cupcakes?: string[]; // titles
-    goodies?: string[]; // "Group::Label" keys
+    cupcakes?: string[];
+    goodies?: string[];
   }) => void;
   onBack: () => void;
   onClose: () => void;
 }
 
-// helper to resolve art with BASE_URL
-const png = (name: string) =>
-  `${import.meta.env.BASE_URL}assets/images/YumYum/${name}.png`;
+const png = (name: string) => `/assets/images/YumYum/${name}.png`;
 
 const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
   dessertType,
@@ -41,10 +39,8 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
   const [goodies, setGoodies] = useState<string[]>([]);
   const [cupcakes, setCupcakes] = useState<string[]>([]);
 
-  // derive from catalog so venue stays in sync with master list
   const goodiesList = useMemo(() => Object.keys(GOODIE_CATALOG), []);
 
-  // When dessertType changes, wipe transient picks
   useEffect(() => {
     setTreatType("");
     setGoodies([]);
@@ -64,36 +60,25 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
           cupcakes: [],
         })
       );
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }, [dessertType, setFlavorFilling]);
 
-  // Restore last snapshot if present
   useEffect(() => {
     const raw = localStorage.getItem("yumDessertSelections");
     if (!raw) return;
     try {
       const s = JSON.parse(raw);
       if (typeof s?.cakeStyle === "string") setCakeStyle(s.cakeStyle);
-      if (s?.treatType === "cupcakes" || s?.treatType === "goodies")
-        setTreatType(s.treatType);
+      if (s?.treatType === "cupcakes" || s?.treatType === "goodies") setTreatType(s.treatType);
       if (Array.isArray(s?.goodies)) setGoodies(s.goodies);
       if (Array.isArray(s?.cupcakes)) setCupcakes(s.cupcakes);
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }, []);
 
-  // Pin current step
   useEffect(() => {
     try {
       localStorage.setItem("yumStep", "dessertMenu");
-      // mark venue so the checkout / summary can attribute desserts to Rubi
-      localStorage.setItem("yumVenue", "rubi");
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }, []);
 
   const headerStyle: React.CSSProperties = {
@@ -117,22 +102,8 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
     textAlign: "center",
   };
 
-  // allow 1 cake flavor combo; cupcake flavors reuse cake combo titles
-  const cupcakeFlavorTitles = [
-    "The Golden Orchid",
-    "Arizona’s Sunshine Lemon Cake",
-    "Strawberries & Champagne",
-    "Aztec Chocolate",
-    "Almond Raspberry",
-    "Caramel Macchiato",
-    "Taste of the Tropics",
-  ];
-  // not rendered directly, but the FlavorModal titles map into these anyway
-
   const canContinue = (): boolean => {
-    if (dessertType === "tieredCake") {
-      return flavorFilling.length > 0 && !!cakeStyle;
-    }
+    if (dessertType === "tieredCake") return flavorFilling.length > 0 && !!cakeStyle;
     if (dessertType === "smallCakeTreats") {
       if (!flavorFilling.length || !cakeStyle || !treatType) return false;
       if (treatType === "goodies") return goodies.length > 0;
@@ -148,15 +119,13 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
     return false;
   };
 
-  const persistSnapshot = (
-    extra?: Partial<{
-      flavorFilling: string[];
-      cakeStyle: string;
-      treatType: "" | "cupcakes" | "goodies";
-      goodies: string[];
-      cupcakes: string[];
-    }>
-  ) => {
+  const persistSnapshot = (extra?: Partial<{
+    flavorFilling: string[];
+    cakeStyle: string;
+    treatType: "" | "cupcakes" | "goodies";
+    goodies: string[];
+    cupcakes: string[];
+  }>) => {
     const snap = {
       dessertType,
       flavorFilling,
@@ -168,19 +137,11 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
     };
     try {
       localStorage.setItem("yumDessertSelections", JSON.stringify(snap));
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   };
 
   const handleContinue = () => {
-    const selections = {
-      flavorFilling,
-      cakeStyle,
-      treatType,
-      goodies,
-      cupcakes,
-    };
+    const selections = { flavorFilling, cakeStyle, treatType, goodies, cupcakes };
     console.log("[RUBI][DessertMenu] continue with →", selections);
     persistSnapshot(selections);
     onContinue(selections);
@@ -190,18 +151,12 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
       <div className="pixie-card__body">
-        <h2
-          className="px-title-lg"
-          style={{ marginBottom: "0.85rem", textAlign: "center" }}
-        >
+        <h2 className="px-title-lg" style={{ marginBottom: "0.85rem", textAlign: "center" }}>
           Build Your{" "}
           {dessertType === "tieredCake"
             ? "Tiered Cake"
@@ -213,15 +168,10 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
         <img
           src={png("dessert_piglet")}
           alt="Dessert Piglet"
-          style={{
-            width: 160,
-            margin: "0 auto 20px",
-            display: "block",
-          }}
+          style={{ width: 160, margin: "0 auto 20px", display: "block" }}
         />
 
-        {(dessertType === "tieredCake" ||
-          dessertType === "smallCakeTreats") && (
+        {(dessertType === "tieredCake" || dessertType === "smallCakeTreats") && (
           <div
             style={{
               display: "flex",
@@ -231,61 +181,39 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
               marginBottom: "2rem",
             }}
           >
-            {/* Flavor/Filling */}
             <div onClick={() => setShowModal("flavor")}>
               <img
                 src={png("cakeFlavorFilling")}
                 alt="Cake Flavor"
                 style={headerStyle}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.transform =
-                    "scale(1.08)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.transform =
-                    "scale(1)";
-                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.08)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
               />
             </div>
             {flavorFilling.map((item) => (
-              <div
-                key={item}
-                onClick={() => setShowModal("flavor")}
-                style={selectionStyle}
-              >
+              <div key={item} onClick={() => setShowModal("flavor")} style={selectionStyle}>
                 {item}
               </div>
             ))}
 
-            {/* Cake Style */}
             <div onClick={() => setShowModal("style")}>
               <img
                 src={png("cake_style")}
                 alt="Cake Style"
                 style={headerStyle}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.transform =
-                    "scale(1.08)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.transform =
-                    "scale(1)";
-                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.08)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
               />
             </div>
             {cakeStyle && (
-              <div
-                onClick={() => setShowModal("style")}
-                style={selectionStyle}
-              >
+              <div onClick={() => setShowModal("style")} style={selectionStyle}>
                 {cakeStyle}
               </div>
             )}
           </div>
         )}
 
-        {(dessertType === "smallCakeTreats" ||
-          dessertType === "treatsOnly") && (
+        {(dessertType === "smallCakeTreats" || dessertType === "treatsOnly") && (
           <>
             <img
               src={png("treat_types")}
@@ -294,9 +222,7 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
               style={headerStyle}
             />
             {!!treatType && (
-              <div style={selectionStyle}>
-                {treatType === "cupcakes" ? "Cupcakes" : "Goodies"}
-              </div>
+              <div style={selectionStyle}>{treatType === "cupcakes" ? "Cupcakes" : "Goodies"}</div>
             )}
 
             {treatType === "cupcakes" && (
@@ -308,11 +234,7 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                   style={headerStyle}
                 />
                 {cupcakes.map((title) => (
-                  <div
-                    key={title}
-                    onClick={() => setShowModal("cupcakes")}
-                    style={selectionStyle}
-                  >
+                  <div key={title} onClick={() => setShowModal("cupcakes")} style={selectionStyle}>
                     {title}
                   </div>
                 ))}
@@ -335,19 +257,10 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                     const group = groupRaw?.trim() || "Other treats";
                     const label = labelRaw?.trim() || token;
                     if (!byGroup[group]) byGroup[group] = [];
-                    if (!byGroup[group].includes(label)) {
-                      byGroup[group].push(label);
-                    }
+                    if (!byGroup[group].includes(label)) byGroup[group].push(label);
                   }
-
                   return Object.entries(byGroup).map(([group, labels]) => (
-                    <div
-                      key={group}
-                      style={{
-                        marginBottom: "1.25rem",
-                        textAlign: "center",
-                      }}
-                    >
+                    <div key={group} style={{ marginBottom: "1.25rem", textAlign: "center" }}>
                       <div
                         onClick={() => setShowModal("goodies")}
                         style={{
@@ -360,16 +273,11 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                       >
                         {group}
                       </div>
-
                       {labels.map((label) => (
                         <div
                           key={`${group}::${label}`}
                           onClick={() => setShowModal("goodies")}
-                          style={{
-                            ...selectionStyle,
-                            fontSize: "1.35rem",
-                            marginBottom: "0.25rem",
-                          }}
+                          style={{ ...selectionStyle, fontSize: "1.35rem", marginBottom: "0.25rem" }}
                         >
                           {label}
                         </div>
@@ -382,7 +290,6 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
           </>
         )}
 
-        {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: "1rem" }}>
           <button
             className="boutique-primary-btn"
@@ -397,8 +304,7 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
         </div>
       </div>
 
-      {/* -------- Modals -------- */}
-
+      {/* Modals */}
       {showModal === "flavor" && (
         <FlavorModal
           selected={flavorFilling}
@@ -446,19 +352,9 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
           onChange={(labels) => {
             setGoodies(labels);
             try {
-              const snap = JSON.parse(
-                localStorage.getItem("yumDessertSelections") || "{}"
-              );
-              localStorage.setItem(
-                "yumDessertSelections",
-                JSON.stringify({
-                  ...snap,
-                  goodies: labels,
-                })
-              );
-            } catch {
-              /* ignore */
-            }
+              const snap = JSON.parse(localStorage.getItem("yumDessertSelections") || "{}");
+              localStorage.setItem("yumDessertSelections", JSON.stringify({ ...snap, goodies: labels }));
+            } catch {}
           }}
           onClose={() => setShowModal(null)}
         />
@@ -466,19 +362,9 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
 
       {showModal === "treatType" && (
         <div className="pixie-overlay" style={{ zIndex: 1001 }}>
-          <div
-            className="pixie-card pixie-card--modal"
-            style={{ maxWidth: 600, position: "relative" }}
-          >
-            <button
-              className="pixie-card__close"
-              onClick={() => setShowModal(null)}
-              aria-label="Close"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
-                alt="Close"
-              />
+          <div className="pixie-card pixie-card--modal" style={{ maxWidth: 600, position: "relative" }}>
+            <button className="pixie-card__close" onClick={() => setShowModal(null)} aria-label="Close">
+              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
             </button>
 
             <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -486,23 +372,15 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                 Which type of treat table would you like?
               </h3>
 
-              {/* Cupcakes */}
               <div
                 onClick={() => {
                   setTreatType("cupcakes");
                   setGoodies([]);
                   setShowModal(null);
                   setTimeout(() => setShowModal("cupcakes"), 0);
-                  persistSnapshot({
-                    treatType: "cupcakes",
-                    goodies: [],
-                    cupcakes,
-                  });
+                  persistSnapshot({ treatType: "cupcakes", goodies: [], cupcakes });
                 }}
-                style={{
-                  marginBottom: "1.5rem",
-                  cursor: "pointer",
-                }}
+                style={{ marginBottom: "1.5rem", cursor: "pointer" }}
               >
                 <img
                   src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
@@ -511,34 +389,19 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                     width: "80%",
                     maxWidth: 300,
                     borderRadius: 12,
-                    border:
-                      treatType === "cupcakes"
-                        ? "3px solid #2c62ba"
-                        : "1px solid #ccc",
+                    border: treatType === "cupcakes" ? "3px solid #2c62ba" : "1px solid #ccc",
                   }}
                 />
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    marginTop: "0.5rem",
-                  }}
-                >
-                  Cupcakes
-                </div>
+                <div style={{ fontWeight: "bold", marginTop: "0.5rem" }}>Cupcakes</div>
               </div>
 
-              {/* Goodies */}
               <div
                 onClick={() => {
                   setTreatType("goodies");
                   setCupcakes([]);
                   setShowModal(null);
                   setTimeout(() => setShowModal("goodies"), 0);
-                  persistSnapshot({
-                    treatType: "goodies",
-                    cupcakes: [],
-                    goodies,
-                  });
+                  persistSnapshot({ treatType: "goodies", cupcakes: [], goodies });
                 }}
                 style={{ cursor: "pointer" }}
               >
@@ -549,20 +412,10 @@ const RubiDessertMenu: React.FC<RubiDessertMenuProps> = ({
                     width: "80%",
                     maxWidth: 300,
                     borderRadius: 12,
-                    border:
-                      treatType === "goodies"
-                        ? "3px solid #2c62ba"
-                        : "1px solid #ccc",
+                    border: treatType === "goodies" ? "3px solid #2c62ba" : "1px solid #ccc",
                   }}
                 />
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    marginTop: "0.5rem",
-                  }}
-                >
-                  Goodies
-                </div>
+                <div style={{ fontWeight: "bold", marginTop: "0.5rem" }}>Goodies</div>
               </div>
             </div>
           </div>

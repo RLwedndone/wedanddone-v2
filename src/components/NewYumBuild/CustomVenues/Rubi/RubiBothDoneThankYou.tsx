@@ -9,30 +9,31 @@ interface Props {
 }
 
 const RubiBothDoneThankYou: React.FC<Props> = ({ onClose }) => {
-  // Mark progress for restore + dashboard continuity
   useEffect(() => {
     try {
-      localStorage.setItem("rubiStep", "rubiBothDoneThankYou");
-      localStorage.setItem("yumStep", "rubiBothDoneThankYou"); // fallback so we can resume
+      localStorage.setItem("yumStep", "rubiBothDoneThankYou");
     } catch {}
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
-        "progress.rubiHouse.step": "rubiBothDoneThankYou",
-      }).catch(() => {
-        /* non-blocking */
-      });
+        "progress.yumYum.step": "rubiBothDoneThankYou",
+      }).catch(() => {});
     }
   }, []);
 
+  const handleClose = () => {
+    try {
+      localStorage.setItem("yumStep", "home");
+      localStorage.removeItem("rubiYumStep");
+      window.dispatchEvent(new Event("yumStepChanged"));
+    } catch {}
+    onClose();
+  };
+
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
-      {/* 🩷 Pink X close */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img
-          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-          alt="Close"
-        />
+      <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -56,26 +57,20 @@ const RubiBothDoneThankYou: React.FC<Props> = ({ onClose }) => {
         </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: "0.75rem" }}>
-          You’re all set for <strong>catering and desserts</strong> at Rubi House!
+          You’re all set for <strong>catering and desserts</strong>!
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: "0.75rem" }}>
-          Your receipts and contracts are saved under <em>Documents</em> in your
-          menu bar.
+          Your receipts and contracts are saved under <em>Documents</em> in your menu bar.
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: "1.5rem" }}>
-          Keep a look out for the <strong>Guest Count Scroll</strong> — it’ll
-          appear about <strong>45 days before your wedding</strong> so you can
-          make any updates.
+          Keep a look out for the <strong>Guest Count Scroll</strong> — it’ll appear about{" "}
+          <strong>45 days before your wedding</strong> so you can make any updates.
         </p>
 
         <div className="px-cta-col" style={{ marginTop: 8 }}>
-          <button
-            className="boutique-primary-btn"
-            onClick={onClose}
-            style={{ width: 250 }}
-          >
+          <button className="boutique-primary-btn" onClick={handleClose} style={{ width: 250 }}>
             🏠 Return to Dashboard
           </button>
         </div>

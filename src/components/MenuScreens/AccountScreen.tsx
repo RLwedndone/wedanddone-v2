@@ -16,6 +16,8 @@ import {
   type GuestLockReason,
 } from "../../utils/guestCountStore";
 
+const DEFAULT_AVATAR = `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`;
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.75rem",
@@ -37,6 +39,29 @@ const isPastYMD = (ymd?: string) => {
 // For the <input type="date" min=...>
 const todayYMD = new Date().toISOString().slice(0, 10);
 
+// Pretty date helper, e.g. "December 12th, 2027"
+function prettyWeddingDate(ymd: string | null | undefined) {
+  if (!ymd) return "";
+  const d = new Date(`${ymd}T12:00:00`);
+  if (isNaN(d.getTime())) return ymd;
+
+  const month = d.toLocaleString("en-US", { month: "long" });
+  const dayNum = d.getDate();
+  const year = d.getFullYear();
+
+  // suffix logic
+  const suffix =
+    dayNum % 10 === 1 && dayNum !== 11
+      ? "st"
+      : dayNum % 10 === 2 && dayNum !== 12
+      ? "nd"
+      : dayNum % 10 === 3 && dayNum !== 13
+      ? "rd"
+      : "th";
+
+  return `${month} ${dayNum}${suffix}, ${year}`;
+}
+
 type AccountScreenProps = {
   onClose: () => void;
 };
@@ -49,9 +74,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   const [fianceFirst, setFianceFirst] = useState("");
   const [fianceLast, setFianceLast] = useState("");
   const [phone, setPhone] = useState("");
-  const [profileImage, setProfileImage] = useState(
-    `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`
-  );
+  const [profileImage, setProfileImage] = useState(DEFAULT_AVATAR);
   const [isGuest, setIsGuest] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
 
@@ -89,10 +112,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setFirstName(data.firstName || "");
       setLastName(data.lastName || "");
       setEmail(data.email || user.email || "");
-      setProfileImage(
-        data.profileImage ||
-          `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`
-      );
+      setProfileImage(data.profileImage || DEFAULT_AVATAR);
       setFianceFirst(data.fianceFirst || "");
       setFianceLast(data.fianceLast || "");
       setPhone(data.phone || "");
@@ -121,8 +141,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     let mounted = true;
 
     function lockBanner(reasons: GuestLockReason[]) {
-      if (!reasons || reasons.length === 0)
-        return "Guest count is locked.";
+      if (!reasons || reasons.length === 0) return "Guest count is locked.";
       const pretty: Record<GuestLockReason, string> = {
         venue: "a venue booking",
         planner: "a planner booking",
@@ -196,19 +215,12 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
     const auth = getAuth();
     try {
-      // create account
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // set display name
       await updateProfile(userCred.user, {
         displayName: `${firstName} ${lastName}`,
       });
 
-      // persist profile (guestCount stays owned by the store → null here)
       await saveUserProfile({
         uid: userCred.user.uid,
         firstName,
@@ -220,14 +232,11 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         phone,
         weddingDate,
         dayOfWeek,
-        guestCount: null, // single source of truth is the store
+        guestCount: null,
       });
 
-      // ensure current GC (if any) is saved under this new uid
-      const n = Math.max(
-        0,
-        Math.min(250, Math.floor(Number(gc) || 0))
-      );
+      // push guest count into the shared store
+      const n = Math.max(0, Math.min(250, Math.floor(Number(gc) || 0)));
       await setGuestCount(n);
 
       setIsGuest(false);
@@ -235,9 +244,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       console.error("❌ Failed to create account:", err);
-      alert(
-        err?.message || "Account creation failed. Please try again."
-      );
+      alert(err?.message || "Account creation failed. Please try again.");
     }
   };
 
@@ -250,21 +257,18 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       const u = result.user;
 
       // Derive a first/last from displayName (fallbacks are friendly)
-      const [given, ...rest] = (u.displayName || "Magic User").split(
-        " "
-      );
+      const [given, ...rest] = (u.displayName || "Magic User").split(" ");
       const first = given || "Magic";
       const last = rest.join(" ") || "User";
 
-      // Persist base profile (guestCount is managed by guestCountStore)
+      const photo = u.photoURL || DEFAULT_AVATAR;
+
       await saveUserProfile({
         uid: u.uid,
         firstName: first,
         lastName: last,
         email: u.email || "",
-        profileImage:
-          u.photoURL ||
-          `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`,
+        profileImage: photo,
         fianceFirst: "",
         fianceLast: "",
         phone: "",
@@ -273,27 +277,17 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         guestCount: null,
       });
 
-      // Reflect in local UI
       setIsGuest(false);
       setEmail(u.email || "");
       setFirstName(first);
       setLastName(last);
-      setProfileImage(
-        u.photoURL ||
-          `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`
-      );
+      setProfileImage(photo);
       setAccountCreated(true);
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
-      // common auth errors made human
-      if (err?.code === "auth/popup-closed-by-user") return; // silent
-      if (
-        err?.code ===
-        "auth/account-exists-with-different-credential"
-      ) {
-        alert(
-          "An account with this email exists with a different sign-in method. Try email/password."
-        );
+      if (err?.code === "auth/popup-closed-by-user") return;
+      if (err?.code === "auth/account-exists-with-different-credential") {
+        alert("An account with this email exists with a different sign-in method. Try email/password.");
         return;
       }
       console.error("❌ Google sign-up failed:", err);
@@ -307,23 +301,19 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) {
-      setBannerMsg(
-        "Please create an account first (email + password)."
-      );
+      setBannerMsg("Please create an account first (email + password).");
       return;
     }
 
     // 🚫 block saving a past date (if editable)
     if (!dateLocked && weddingDate && isPastYMD(weddingDate)) {
       setDateError("Please choose a future date.");
-      setBannerMsg(
-        "Your wedding date appears to be in the past. Please update it before saving."
-      );
+      setBannerMsg("Your wedding date appears to be in the past. Please update it before saving.");
       return;
     }
 
     try {
-      // 1) Save profile (do NOT write GC here)
+      // 1) profile core (NOT guest count)
       await saveUserProfile({
         uid: user.uid,
         firstName,
@@ -335,13 +325,14 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         phone,
         weddingDate,
         dayOfWeek,
-        guestCount: null, // keep null; store owns GC
+        guestCount: null,
       });
 
-      // 2) Guest-count: only update if not locked & changed
+      // 2) Guest-count logic
       const gcChanged = Number(gc) !== Number(originalGC);
 
       if (locked && gcChanged) {
+        // they tried to change while locked → open scroll
         window.dispatchEvent(
           new CustomEvent("openUserMenuScreen", {
             detail: "guestListScroll",
@@ -359,7 +350,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         if (n < 0) n = 0;
         if (n > GLOBAL_MAX) n = GLOBAL_MAX;
 
-        await setGuestCount(n); // updates Firestore/localStorage/emits events
+        await setGuestCount(n); // writes firestore/store & emits events
         setGC(n);
         setOriginalGC(n);
       }
@@ -368,9 +359,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setChangesSaved(false), 3000);
     } catch (error) {
       console.error("❌ Failed to save account info:", error);
-      setBannerMsg(
-        "Something went wrong saving your changes. Please try again."
-      );
+      setBannerMsg("Something went wrong saving your changes. Please try again.");
     }
   };
 
@@ -380,9 +369,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      alert(
-        "📩 A password reset link has been sent to your email."
-      );
+      alert("📩 A password reset link has been sent to your email.");
     } catch (error) {
       console.error("❌ Password reset failed:", error);
       alert("Something went wrong. Please try again.");
@@ -442,12 +429,10 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               display: "inline-block",
               cursor: "pointer",
             }}
-            onClick={() =>
-              document.getElementById("fileInput")?.click()
-            }
+            onClick={() => document.getElementById("fileInput")?.click()}
           >
             <img
-              src={profileImage}
+              src={profileImage || DEFAULT_AVATAR}
               alt="Profile"
               style={{
                 width: 120,
@@ -507,9 +492,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
+                onChange={(e) => setPassword(e.target.value)}
                 style={inputStyle}
               />
             </>
@@ -518,18 +501,14 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           <label>Fiancé’s First Name</label>
           <input
             value={fianceFirst}
-            onChange={(e) =>
-              setFianceFirst(e.target.value)
-            }
+            onChange={(e) => setFianceFirst(e.target.value)}
             style={inputStyle}
           />
 
           <label>Fiancé’s Last Name</label>
           <input
             value={fianceLast}
-            onChange={(e) =>
-              setFianceLast(e.target.value)
-            }
+            onChange={(e) => setFianceLast(e.target.value)}
             style={inputStyle}
           />
 
@@ -551,10 +530,8 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   fontWeight: "bold",
                 }}
               >
-                {weddingDate} —{" "}
-                <span style={{ color: "#2c62ba" }}>
-                  {dayOfWeek}
-                </span>
+                {prettyWeddingDate(weddingDate)} —{" "}
+                <span style={{ color: "#2c62ba" }}>{dayOfWeek}</span>
               </p>
               <p
                 style={{
@@ -564,8 +541,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   marginBottom: "1.5rem",
                 }}
               >
-                Your date is locked after a booking. Contact us
-                if you need to make a change!
+                Your date is locked after a booking. Contact us if you need to make a change!
               </p>
             </>
           ) : (
@@ -573,32 +549,23 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               <input
                 type="date"
                 value={weddingDate}
-                min={todayYMD} // 🔒 blocks selecting past dates via picker
+                min={todayYMD}
                 onChange={(e) => {
                   const date = e.target.value;
                   setWeddingDate(date);
 
-                  if (
-                    date &&
-                    !isNaN(
-                      new Date(`${date}T12:00:00`).getTime()
-                    )
-                  ) {
-                    const weekday = new Date(
-                      `${date}T12:00:00`
-                    ).toLocaleDateString("en-US", {
-                      weekday: "long",
-                    });
+                  if (date && !isNaN(new Date(`${date}T12:00:00`).getTime())) {
+                    const weekday = new Date(`${date}T12:00:00`).toLocaleDateString(
+                      "en-US",
+                      { weekday: "long" }
+                    );
                     setDayOfWeek(weekday);
                   } else {
                     setDayOfWeek("");
                   }
 
-                  // live validation
                   if (date && isPastYMD(date)) {
-                    setDateError(
-                      "Please choose a future date."
-                    );
+                    setDateError("Please choose a future date.");
                   } else {
                     setDateError(null);
                   }
@@ -609,9 +576,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   borderColor: dateError ? "#d33" : "#ccc",
                 }}
                 aria-invalid={!!dateError}
-                aria-describedby={
-                  dateError ? "weddingDateError" : undefined
-                }
+                aria-describedby={dateError ? "weddingDateError" : undefined}
               />
               {dayOfWeek && !dateError && (
                 <p
@@ -663,36 +628,23 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                     ...inputStyle,
                     background: "#f4f6fb",
                     color: "#666",
+                    marginBottom: ".5rem",
                   }}
                 />
                 <div
                   style={{
                     fontSize: ".9rem",
                     color: "#666",
-                    marginTop: ".25rem",
+                    marginBottom: ".75rem",
                   }}
                 >
                   Locked after:{" "}
                   <strong>
-                    {(lockReasons || []).join(", ") ||
-                      "a booking"}
+                    {(lockReasons || []).join(", ") || "a booking"}
                   </strong>
                   .
                 </div>
-                <button
-                  className="boutique-secondary-btn"
-                  style={{ marginTop: ".75rem" }}
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent(
-                        "openUserMenuScreen",
-                        { detail: "guestListScroll" }
-                      )
-                    )
-                  }
-                >
-                  Change my guest count
-                </button>
+                {/* ⛔️ DO NOT render "Change my guest count" button here if locked */}
               </>
             ) : (
               <>
@@ -702,22 +654,15 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   pattern="[0-9]*"
                   value={String(gc)}
                   onChange={(e) => {
-                    const raw =
-                      e.target.value.replace(/[^\d]/g, "");
-                    const n =
-                      raw === "" ? 0 : Number(raw);
-                    setGC(
-                      Number.isFinite(n) ? n : 0
-                    );
+                    const raw = e.target.value.replace(/[^\d]/g, "");
+                    const n = raw === "" ? 0 : Number(raw);
+                    setGC(Number.isFinite(n) ? n : 0);
                   }}
                   onBlur={() => {
                     const GLOBAL_MAX = 250;
-                    let n = Math.floor(
-                      Number(gc) || 0
-                    );
+                    let n = Math.floor(Number(gc) || 0);
                     if (n < 0) n = 0;
-                    if (n > GLOBAL_MAX)
-                      n = GLOBAL_MAX;
+                    if (n > GLOBAL_MAX) n = GLOBAL_MAX;
                     if (n !== gc) setGC(n);
                   }}
                   style={inputStyle}
@@ -728,18 +673,33 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   style={{
                     fontSize: ".9rem",
                     color: "#666",
-                    marginTop: ".25rem",
+                    marginTop: "-0.5rem",
+                    marginBottom: "1rem",
                   }}
                 >
-                  Max allowed:{" "}
-                  <strong>250</strong>
+                  Max allowed: <strong>250</strong>
                 </div>
+
+                {/* ✅ Only show this button when NOT locked */}
+                <button
+                  className="boutique-secondary-btn"
+                  style={{ marginBottom: ".75rem" }}
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent("openUserMenuScreen", {
+                        detail: "guestListScroll",
+                      })
+                    );
+                  }}
+                >
+                  Change my guest count
+                </button>
               </>
             )}
           </section>
         </div>
 
-        {/* Toast/Banner */}
+        {/* Status banners (under the form, above CTA buttons) */}
         {bannerMsg && (
           <div
             style={{
@@ -806,40 +766,34 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               Save Changes
             </button>
 
-              <button
-                className="boutique-secondary-btn"
-                onClick={async () => {
-                  if (locked) {
-                    setBannerMsg(
-                      "Guest count is locked after a booking. Use the Guest Count Scroll to request a change."
-                    );
-                    return;
-                  }
-                  const n = Math.max(
-                    0,
-                    Math.min(
-                      250,
-                      Math.floor(Number(gc) || 0)
-                    )
+            <button
+              className="boutique-secondary-btn"
+              onClick={async () => {
+                if (locked) {
+                  setBannerMsg(
+                    "Guest count is locked after a booking. Use the Guest Count Scroll to request a change."
                   );
-                  await setGuestCount(n);
-                  setOriginalGC(n);
-                  setChangesSaved(true);
-                  setTimeout(
-                    () => setChangesSaved(false),
-                    2000
-                  );
-                }}
-                style={{
-                  marginTop: "0.5rem",
-                  width: "260px",
-                  padding: "0.65rem",
-                  fontSize: "0.95rem",
-                  borderRadius: "12px",
-                }}
-              >
-                Save Guest Count Only
-              </button>
+                  return;
+                }
+                const n = Math.max(
+                  0,
+                  Math.min(250, Math.floor(Number(gc) || 0))
+                );
+                await setGuestCount(n);
+                setOriginalGC(n);
+                setChangesSaved(true);
+                setTimeout(() => setChangesSaved(false), 2000);
+              }}
+              style={{
+                marginTop: "0.5rem",
+                width: "260px",
+                padding: "0.65rem",
+                fontSize: "0.95rem",
+                borderRadius: "12px",
+              }}
+            >
+              Save Guest Count Only
+            </button>
 
             <button
               className="boutique-back-btn"
