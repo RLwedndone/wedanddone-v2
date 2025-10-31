@@ -37,16 +37,17 @@ import "./Dashboard.css";
 // ─────────────────────────────────────────────
 const DevPresetLoader: React.FC = () => {
   const [preset, setPreset] = React.useState<
-    | "none"
-    | "rubi80"
-    | "soho100"
-    | "bates85"
-    | "encanterra125"
-    | "schnepf100"
-    | "tubac150"
-    | "valleyho150"
-    | "vicverrado120"
-  >("none");
+  | "none"
+  | "rubi80"
+  | "ocotillo80"
+  | "soho100"
+  | "bates85"
+  | "encanterra125"
+  | "schnepf100"
+  | "tubac150"
+  | "valleyho150"
+  | "vicverrado120"
+>("none");
   const [loading, setLoading] = React.useState(false);
 
   const handleLoadPreset = async () => {
@@ -79,6 +80,16 @@ const DevPresetLoader: React.FC = () => {
     venueName: "Rubi House",
     venueSlug: "rubi",
     weddingDate: "2027-12-12",
+    guestCount: 80,
+    forceYumStep: "intro",
+    cateringBookedFlag: false,
+    dessertBookedFlag: false,
+  },
+
+  ocotillo80: {
+    venueName: "Ocotillo",
+    venueSlug: "ocotillo",
+    weddingDate: "2027-12-01",
     guestCount: 80,
     forceYumStep: "intro",
     cateringBookedFlag: false,
@@ -188,21 +199,32 @@ const DevPresetLoader: React.FC = () => {
 
       localStorage.setItem("selectedVenue", seedData.venueName);
 localStorage.setItem("venueSlug", seedData.venueSlug);
+
+// wedding date into all the usual places
 localStorage.setItem("yumWeddingDate", seedData.weddingDate);
 localStorage.setItem("yumSelectedDate", seedData.weddingDate);
 localStorage.setItem("rubiWeddingDate", seedData.weddingDate);
+localStorage.setItem("ocotilloWeddingDate", seedData.weddingDate);
+
+// guest count into all the usual places
 localStorage.setItem("magicGuestCount", String(seedData.guestCount));
 localStorage.setItem("yumGuestCount", String(seedData.guestCount));
 localStorage.setItem("rubiGuestCount", String(seedData.guestCount));
+localStorage.setItem("ocotilloGuestCount", String(seedData.guestCount));
 
-localStorage.setItem("venueCompleted", "true"); // 👈 NEW
-localStorage.setItem("yumStep", seedData.forceYumStep || "intro"); // 👈 UPDATED
+localStorage.setItem("venueCompleted", "true");
+localStorage.setItem("yumStep", seedData.forceYumStep || "intro");
 
-// preload Rubi catering defaults
+// preload Rubi catering defaults (Rubi flow still needs these)
 localStorage.setItem("rubiMenuChoice", "bbq");
 localStorage.setItem("rubiTierLabel", "QA Test Tier");
 localStorage.setItem("rubiPerGuest", "32");
 localStorage.setItem("rubiPerGuestExtrasCents", "0");
+
+// preload Ocotillo catering defaults (so OcotilloOverlay doesn't start undefined)
+localStorage.setItem("ocotilloTierLabel", "Tier 1");
+localStorage.setItem("ocotilloPerGuest", "65"); // whatever per-guest you use in Tier 1
+localStorage.setItem("ocotilloPerGuestExtrasCents", "0");
 
       console.log("🧪 Dev preset seeded:", seedData);
       alert(
@@ -245,6 +267,7 @@ localStorage.setItem("rubiPerGuestExtrasCents", "0");
             e.target.value as
               | "none"
               | "rubi80"
+              | "ocotillo80"
               | "soho100"
               | "bates85"
               | "encanterra125"
@@ -258,13 +281,14 @@ localStorage.setItem("rubiPerGuestExtrasCents", "0");
       >
         <option value="none">-- choose preset --</option>
         <option value="rubi80">Rubi House (80 guests)</option>
-        <option value="soho100">SoHo63 (100 guests, NoVenue flow)</option>
-        <option value="bates85">Bates Mansion (85 guests)</option>
-        <option value="encanterra125">Encanterra (125 guests)</option>
-        <option value="schnepf100">Schnepf Farm House (100 guests)</option>
-        <option value="tubac150">Tubac Golf Resort (150 guests)</option>
-        <option value="valleyho150">Hotel Valley Ho (150 guests)</option>
-        <option value="vicverrado120">The Vic at Verrado (120 guests)</option>
+<option value="ocotillo80">Ocotillo (80 guests)</option>
+<option value="soho100">SoHo63 (100 guests, NoVenue flow)</option>
+<option value="bates85">Bates Mansion (85 guests)</option>
+<option value="encanterra125">Encanterra (125 guests)</option>
+<option value="schnepf100">Schnepf Farm House (100 guests)</option>
+<option value="tubac150">Tubac Golf Resort (150 guests)</option>
+<option value="valleyho150">Hotel Valley Ho (150 guests)</option>
+<option value="vicverrado120">The Vic at Verrado (120 guests)</option>
       </select>
 
       <button

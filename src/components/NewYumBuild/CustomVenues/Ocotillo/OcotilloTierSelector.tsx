@@ -12,8 +12,8 @@ export interface OcotilloTierSelection {
 interface Props {
   onSelect: (selection: OcotilloTierSelection) => void;
   onContinue: () => void;
-  onBack: () => void;        // ✅ added
-  onClose: () => void;       // ✅ added (for pink X button)
+  onBack: () => void;
+  onClose: () => void;
   defaultSelectedId?: OcotilloTierId;
 }
 
@@ -25,24 +25,39 @@ const TIERS: {
   name: string;
   pricePerGuest: number;
   heroImg: string;
+  blurbHeader: string;
+  blurbSubhead: string;
+  blurbBody: string;
 }[] = [
   {
     id: "tier1",
     name: "Tier 1",
     pricePerGuest: 85,
     heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Ocotillo/Tier1.jpg`,
+    blurbHeader: "Tier 1 — Classic Celebration",
+    blurbSubhead: "Comfort food with a chef’s kiss.",
+    blurbBody:
+      "Includes crowd-pleasing favorites like herb-roasted chicken with lemon jus, slow-braised short ribs, and seasonal roasted vegetables. Perfect for couples who love a traditional, elegant dinner that feels homey yet elevated.",
   },
   {
     id: "tier2",
     name: "Tier 2",
     pricePerGuest: 110,
     heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Ocotillo/Tier2.jpg`,
+    blurbHeader: "Tier 2 — Signature Soirée",
+    blurbSubhead: "A step up in flair and flavor.",
+    blurbBody:
+      "Showcases dishes like grilled salmon with citrus beurre blanc, chimichurri-marinated steak, and truffle whipped potatoes — plus premium presentation touches. Ideal for foodies who want a polished, restaurant-style experience.",
   },
   {
     id: "tier3",
     name: "Tier 3",
     pricePerGuest: 135,
     heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Ocotillo/Tier3.jpg`,
+    blurbHeader: "Tier 3 — Chef’s Showcase",
+    blurbSubhead: "The wow-factor wedding menu.",
+    blurbBody:
+      "Features filet medallions with red wine demi-glace, pesto-stuffed chicken roulade, and pan-seared sea bass with champagne cream — all crafted with upscale plating and extra sides. A luxurious, multi-course feast for couples who want their guests talking about dinner all night long.",
   },
 ];
 
@@ -94,177 +109,240 @@ const OcotilloTierSelector: React.FC<Props> = ({
   };
 
   return (
-    <>
-      <h2 style={styles.h2}>Choose your menu tier</h2>
-      <p style={styles.sub}>
-        Each tier is a full four-course buffet dinner —{" "}
-        <strong>stationed appetizers, salads, entrées, and dessert</strong>.
-        The only difference is the price per guest.
-      </p>
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
+      {/* 💖 Pink X Close */}
+      {onClose && (
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+      )}
 
-      <div style={styles.grid}>
-        {TIERS.map((tier) => {
-          const isSelected = selected === tier.id;
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        {/* title */}
+        <h2
+          style={{
+            margin: "0 0 0.5rem",
+            color: "#2c62ba",
+            fontSize: "2.2rem",
+            textAlign: "center",
+            fontWeight: 800,
+          }}
+        >
+          Choose your menu tier
+        </h2>
 
-          return (
-            <div
-              key={tier.id}
-              style={{
-                ...styles.card,
-                outline: isSelected ? "3px solid #2c62ba" : "1px solid #e8ecff",
-                boxShadow: isSelected
-                  ? "0 10px 28px rgba(44,98,186,.25)"
-                  : "0 8px 18px rgba(0,0,0,.08)",
-              }}
-            >
+        <p style={styles.sub}>
+          Each tier is a full four-course buffet dinner —{" "}
+          <strong>stationed appetizers, salads, entrées, and dessert</strong>.
+          The only difference is the price per guest.
+        </p>
+
+        {/* Tier list */}
+        <div style={styles.tierList}>
+          {TIERS.map((tier) => {
+            const isSelected = selected === tier.id;
+
+            return (
               <button
+                key={tier.id}
                 onClick={() => handleChoose(tier)}
-                style={styles.cardButton}
+                style={{
+                  ...styles.tierButton,
+                  height: isSelected ? 360 : 260,
+                  boxShadow: isSelected
+                    ? "0 0 28px rgba(44,98,186,0.45)"
+                    : "0 6px 16px rgba(0,0,0,.1)",
+                  transform: isSelected ? "scale(1.03)" : "scale(1)",
+                }}
                 aria-pressed={isSelected}
               >
-                <div style={styles.square}>
+                {/* image area */}
+                <div style={styles.imgWrap}>
                   <img
                     src={tier.heroImg}
-                    alt={`${tier.name} tier`}
-                    style={styles.squareImg}
+                    alt={tier.name}
+                    style={styles.img}
                   />
                 </div>
 
-                <div style={styles.cardHeader}>
-                  <div>
-                    <div style={styles.tierName}>{tier.name}</div>
+                {/* price row */}
+                <div style={styles.priceRow}>
+                  <span style={styles.priceMain}>
+                    ${tier.pricePerGuest.toFixed(0)}
+                  </span>
+                  <span style={styles.priceSub}>/guest</span>
+                </div>
+
+                {/* blurb (only if selected) */}
+                <div
+                  style={{
+                    ...styles.blurbBlock,
+                    opacity: isSelected ? 1 : 0,
+                    maxHeight: isSelected ? 200 : 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: "#2c62ba",
+                      fontSize: ".9rem",
+                      lineHeight: 1.4,
+                      marginBottom: "0.4rem",
+                      textAlign: "center",
+                    }}
+                  >
+                    {tier.blurbHeader}
                   </div>
-                  <div style={styles.price}>
-                    ${tier.pricePerGuest.toFixed(0)}{" "}
-                    <span style={styles.per}>/guest</span>
+
+                  <div
+                    style={{
+                      color: "#1f2a44",
+                      fontSize: ".9rem",
+                      lineHeight: 1.4,
+                      textAlign: "center",
+                    }}
+                  >
+                    <strong>{tier.blurbSubhead}</strong>{" "}
+                    {tier.blurbBody}
                   </div>
                 </div>
               </button>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {/* footer / summary / nav */}
+        <div style={styles.footerBlock}>
+          {selectedTier ? (
+            <span style={{ fontSize: "1rem", color: "#1f2a44" }}>
+              You’ve selected <strong>{selectedTier.name}</strong> —{" "}
+              <strong>${selectedTier.pricePerGuest.toFixed(0)}/guest</strong>
+            </span>
+          ) : (
+            <span style={{ opacity: 0.8 }}>Select a tier to continue</span>
+          )}
+
+          <button
+            className="boutique-primary-btn"
+            disabled={!selectedTier}
+            onClick={onContinue}
+            style={{
+              opacity: selectedTier ? 1 : 0.6,
+              cursor: selectedTier ? "pointer" : "not-allowed",
+              width: "260px",
+            }}
+          >
+            Continue to Menu ✨
+          </button>
+
+          <button
+            className="boutique-back-btn"
+            style={{ width: "260px" }}
+            onClick={onBack}
+          >
+            Back
+          </button>
+        </div>
       </div>
-
-      {/* footer / selection summary */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "0.75rem",
-          marginTop: "1.5rem",
-        }}
-      >
-        {selectedTier ? (
-          <span style={{ fontSize: "1rem", color: "#1f2a44" }}>
-            You’ve selected <strong>{selectedTier.name}</strong> —{" "}
-            <strong>${selectedTier.pricePerGuest.toFixed(0)}/guest</strong>
-          </span>
-        ) : (
-          <span style={{ opacity: 0.8 }}>Select a tier to continue</span>
-        )}
-
-        <button
-          className="boutique-primary-btn"
-          disabled={!selectedTier}
-          onClick={onContinue}
-          style={{
-            opacity: selectedTier ? 1 : 0.6,
-            cursor: selectedTier ? "pointer" : "not-allowed",
-            width: "260px",
-          }}
-        >
-          Continue to Menu ✨
-        </button>
-
-        {/* ✅ Only the Back button, not the close button */}
-        <button
-          className="boutique-back-btn"
-          style={{ width: "260px" }}
-          onClick={onBack}
-        >
-          Back
-        </button>
-      </div>
-    </>
+    </div>
   );
 };
 
 // ---------- styles ----------
 const styles: Record<string, React.CSSProperties> = {
-  h2: {
-    margin: "0 0 .25rem",
-    color: "#2c62ba",
-    fontSize: "1.65rem",
-    textAlign: "center",
-    fontWeight: 800,
-  },
   sub: {
     textAlign: "center",
-    margin: "0 0 1.25rem",
+    margin: "0 0 1.5rem",
     color: "#333",
+    lineHeight: 1.45,
+    fontSize: "1rem",
+    maxWidth: 560,
+    marginLeft: "auto",
+    marginRight: "auto",
   },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: 14,
-    maxWidth: 500,
-    margin: "0 auto",
+
+  tierList: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "1.25rem",
+    marginBottom: "1.5rem",
   },
-  card: {
-    borderRadius: 16,
+
+  tierButton: {
+    width: 260,
+    borderRadius: 20,
     background: "#fff",
-    overflow: "hidden",
-    transition: "all .2s ease",
-    maxWidth: 400,
-    margin: "0 auto",
-  },
-  square: {
-    position: "relative",
-    width: "100%",
-    paddingTop: "80%",
-    overflow: "hidden",
-    borderRadius: 14,
-  },
-  squareImg: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    display: "block",
-    background: "#fff",
-  },
-  cardButton: {
-    display: "block",
-    width: "100%",
-    background: "transparent",
-    border: "none",
-    textAlign: "left" as const,
-    padding: 0,
+    display: "flex",
+    flexDirection: "column" as const,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+    padding: "0.75rem 0.75rem 0.75rem",
     cursor: "pointer",
+    textAlign: "left" as const,
+    transition: "all .25s ease",
+    border: "1px solid #e4e8ff",
+    overflow: "hidden", // important for maxHeight anim
   },
-  cardHeader: {
+
+  imgWrap: {
+    flex: "0 0 auto",
+    borderRadius: 16,
+    overflow: "hidden",
+    background: "#fff",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 12px",
-    gap: 10,
+    justifyContent: "center",
+    height: 140,
   },
-  tierName: {
-    fontWeight: 900,
-    fontSize: "1rem",
-    color: "#1f2a44",
+
+  img: {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "block",
   },
-  price: {
-    fontWeight: 900,
-    fontSize: "1rem",
+
+  priceRow: {
+    flexShrink: 0,
+    paddingTop: "0.5rem",
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: "0.4rem",
+  },
+  priceMain: {
+    fontWeight: 800,
+    fontSize: "1.1rem",
     color: "#2c62ba",
-    whiteSpace: "nowrap" as const,
+    lineHeight: 1.1,
   },
-  per: {
-    fontSize: ".75rem",
-    color: "#667",
+  priceSub: {
+    fontSize: ".8rem",
+    color: "#444a63",
+    lineHeight: 1.1,
+  },
+
+  blurbBlock: {
+    transition: "all .25s ease",
+    overflow: "hidden",
+    marginTop: "0.5rem",
+    padding: "0 0.5rem 0.25rem",
+  },
+
+  footerBlock: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "0.75rem",
+    marginTop: "0.5rem",
   },
 };
 

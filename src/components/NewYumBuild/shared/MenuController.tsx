@@ -12,9 +12,10 @@ import VicVerradoOverlay from "../CustomVenues/VicandVerrado/VicVerradoOverlay";
 import EncanterraOverlay from "../CustomVenues/Encanterra/EncanterraOverlay";
 import TubacOverlay from "../CustomVenues/Tubac/TubacOverlay";
 import ValleyHoOverlay from "../CustomVenues/ValleyHo/ValleyHoOverlay";
-
-// ✅ NEW: Rubi overlay (Brother John’s)
 import RubiOverlay, { type RubiStep } from "../CustomVenues/Rubi/RubiOverlay";
+import OcotilloOverlay, {
+  type OcotilloStep,
+} from "../CustomVenues/Ocotillo/OcotilloOverlay";
 
 // Steps
 import type { YumStep } from "../yumTypes";
@@ -23,7 +24,7 @@ import type { EncanterraStep } from "../CustomVenues/Encanterra/EncanterraOverla
 
 interface MenuControllerProps {
   onClose: () => void;
-  startAt?: YumStep | BatesStep | EncanterraStep | RubiStep; // pass-through
+  startAt?: YumStep | BatesStep | EncanterraStep | RubiStep | OcotilloStep;
 }
 
 // defensively normalize values we might read from Firestore
@@ -79,6 +80,26 @@ function isRubiByName(name?: string | null) {
     n.includes("brother john’s") || // curly apostrophe variant
     n.includes("brother johns")
   );
+}
+
+// ✅ NEW: helpers for Ocotillo detection
+const OCOTILLO_SLUGS = [
+  "ocotillo",
+  "ocotillo-restaurant",
+  "ocotillo-venue",
+  "ocotillo-catering",
+  "ocotillo-az",
+];
+
+function isOcotilloBySlug(slug?: string | null) {
+  const s = normalizeSlug(slug);
+  return OCOTILLO_SLUGS.includes(s);
+}
+
+function isOcotilloByName(name?: string | null) {
+  const n = normalizeName(name);
+  // let’s be forgiving because venues might come through like "Ocotillo Restaurant & Bar"
+  return n.includes("ocotillo");
 }
 
 const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => {
@@ -235,6 +256,34 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
   if (venueName.includes("tubac")) {
     return <TubacOverlay onClose={onClose} startAt={(startAt as any) || "intro"} />;
   }
+
+    // ✅ NEW: Ocotillo by slug first…
+    if (isOcotilloBySlug(venueSlug)) {
+      return (
+        <OcotilloOverlay
+          onClose={onClose}
+          startAt={(startAt as OcotilloStep) || "intro"}
+        />
+      );
+    }
+  
+    // …then by name if slug is missing/unknown
+    const ocotilloNameGuess =
+      (rawUserData?.venueName ||
+        rawUserData?.bookings?.venueName ||
+        rawUserData?.venueRankerData?.booking?.venueName ||
+        rawUserData?.selectedVenueName ||
+        ""
+      ).toString();
+  
+    if (isOcotilloByName(ocotilloNameGuess)) {
+      return (
+        <OcotilloOverlay
+          onClose={onClose}
+          startAt={(startAt as OcotilloStep) || "intro"}
+        />
+      );
+    }
 
   // Default / guests / unknown venue → generic flow
   return <NoVenueOverlay onClose={onClose} startAt={(startAt as YumStep) || "intro"} />;

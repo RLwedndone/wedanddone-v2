@@ -45,30 +45,33 @@ const CLOUD_IMAGES = [
   `${import.meta.env.BASE_URL}assets/images/cloud4.png`,
 ];
 
-const SKY_BG = `${import.meta.env.BASE_URL}/assets/images/Starry_Night.png`;
+// ✅ make sure this filename matches exactly in /public/assets/images/
+const SKY_BG = `${import.meta.env.BASE_URL}assets/images/Starry_Night.png`;
+
+// ✅ new constant for Madge bubble art
+const MADGE_BUBBLE = `${import.meta.env.BASE_URL}assets/images/madge_bubble.png`;
 
 const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
   const [active, setActive] = useState<{ q: string; a: string } | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 600;
 
-  // make the bubble and inner card taller so we don't need scrolling
-const bubble = isMobile
-? { width: 380, height: 620, cardTop: 190, cardBottom: 72, side: 24, close: 10 }
-: { width: 600, height: 780, cardTop: 270, cardBottom: 120, side: 40, close: 12 };
+  const bubble = isMobile
+    ? { width: 380, height: 620, cardTop: 190, cardBottom: 72, side: 24, close: 10 }
+    : { width: 600, height: 780, cardTop: 270, cardBottom: 120, side: 40, close: 12 };
 
-return (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "100%",
-      backgroundImage: `url(${SKY_BG})`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-    }}
-  >
-    {/* Header */}
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100%",
+        backgroundImage: `url(${SKY_BG})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Header */}
       <div style={{ padding: "1.25rem 1.25rem 0.5rem 1.25rem" }}>
         <h2
           style={{
@@ -170,10 +173,7 @@ return (
         ))}
       </div>
 
-      {/* =========================
-          Madge Bubble Answer Modal
-          (fixed overlay, centered)
-      ========================== */}
+      {/* Modal */}
       {active && (
   <>
     {/* Dark backdrop */}
@@ -187,7 +187,7 @@ return (
       }}
     />
 
-    {/* Bubble container */}
+    {/* Bubble with Madge */}
     <div
       role="dialog"
       aria-modal="true"
@@ -197,8 +197,8 @@ return (
         left: "50%",
         transform: "translate(-50%, -50%)",
         width: bubble.width,
-        height: bubble.height,            // ⬅️ taller bubble
-        backgroundImage: 'url(`${import.meta.env.BASE_URL}assets/images/madge_bubble.png`)',
+        height: bubble.height,
+        backgroundImage: `url(${MADGE_BUBBLE})`,
         backgroundSize: "contain",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
@@ -208,47 +208,64 @@ return (
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Close button */}
-      <button
-        onClick={() => setActive(null)}
-        aria-label="Close answer"
-        style={{
-          position: "absolute",
-          top: bubble.close,
-          right: bubble.close,
-          background: "none",
-          border: "none",
-          fontSize: isMobile ? "1.4rem" : "1.6rem",
-          color: "#2c62ba",
-          fontWeight: 800,
-          cursor: "pointer",
-        }}
-      >
-        ✕
-      </button>
-
-      {/* White answer card—now taller, no inner scrollbar */}
+      {/* White answer card */}
       <div
         style={{
           position: "absolute",
-          top: bubble.cardTop,            // ⬅️ sits lower under Madge’s arms
+          top: bubble.cardTop,
           left: bubble.side,
           right: bubble.side,
-          bottom: bubble.cardBottom,      // ⬅️ leaves space above the bubble tail
+          bottom: bubble.cardBottom,
           background: "rgba(255,255,255,0.96)",
           borderRadius: 16,
           boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
           padding: isMobile ? "1rem 1.1rem" : "1.25rem 1.35rem",
-          overflow: "visible",            // ⬅️ no scrolling inside the card
+          overflow: "visible",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
         }}
       >
-        <div style={{ fontWeight: 800, marginBottom: 10, textAlign: "center", fontSize: isMobile ? "1.05rem" : "1.15rem" }}>
+        {/* ✕ close button INSIDE the white card */}
+        <button
+          onClick={() => setActive(null)}
+          aria-label="Close answer"
+          style={{
+            position: "absolute",
+            top: isMobile ? "0.5rem" : "0.75rem",
+            right: isMobile ? "0.5rem" : "0.75rem",
+            background: "none",
+            border: "none",
+            fontSize: isMobile ? "1.25rem" : "1.35rem",
+            color: "#2c62ba",
+            fontWeight: 800,
+            cursor: "pointer",
+            lineHeight: 1,
+          }}
+        >
+          ✕
+        </button>
+
+        {/* Question text */}
+        <div
+          style={{
+            fontWeight: 800,
+            marginBottom: 10,
+            textAlign: "center",
+            fontSize: isMobile ? "1.05rem" : "1.15rem",
+          }}
+        >
           {active.q}
         </div>
-        <div style={{ lineHeight: 1.6, textAlign: "center", fontSize: isMobile ? "0.98rem" : "1.05rem" }}>
+
+        {/* Answer text */}
+        <div
+          style={{
+            lineHeight: 1.6,
+            textAlign: "center",
+            fontSize: isMobile ? "0.98rem" : "1.05rem",
+          }}
+        >
           {active.a}
         </div>
       </div>

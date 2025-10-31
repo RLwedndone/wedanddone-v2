@@ -136,7 +136,7 @@ const [menuSelections, setMenuSelections] = useState<{
   // ─────────────────────────────────────────────
   useEffect(() => {
     const auth = getAuth();
-
+  
     // allowed linear paths before catering is booked
     const allowedPreCatering: OcotilloStep[] = [
       "intro",
@@ -146,7 +146,7 @@ const [menuSelections, setMenuSelections] = useState<{
       "cateringContract",
       "cateringCheckout",
     ];
-
+  
     // dessert flow linear path
     const dessertStepsLinear: OcotilloStep[] = [
       "dessertStyle",
@@ -156,10 +156,10 @@ const [menuSelections, setMenuSelections] = useState<{
       "dessertCheckout",
       "ocotilloDessertThankYou",
     ];
-
+  
     const unsub = onAuthStateChanged(auth, async (user) => {
       console.log("[OcotilloOverlay] onAuthStateChanged user:", !!user);
-
+  
       if (!user) {
         // guest user path
         setStep("intro");
@@ -167,13 +167,13 @@ const [menuSelections, setMenuSelections] = useState<{
         window.scrollTo(0, 0);
         return;
       }
-
+  
       try {
         const userRef = doc(db, "users", user.uid);
         const snap = await getDoc(userRef);
         const data = (snap.data() || {}) as any;
-
-        // Pull wedding date for contract/checkout summaries
+  
+        // wedding date for contract/checkout summaries
         const fsDate = data?.weddingDate || data?.profileData?.weddingDate || null;
         const dayOfWeek = data?.dayOfWeek || null;
         if (fsDate) {
@@ -186,26 +186,25 @@ const [menuSelections, setMenuSelections] = useState<{
             }
           } catch {}
         }
-
+  
         // detect whether user already booked catering and/or dessert
         const hasCatering =
           !!data?.bookings?.catering ||
           localStorage.getItem("ocotilloCateringBooked") === "true";
-
+  
         const hasDessert =
           !!data?.bookings?.dessert ||
           localStorage.getItem("ocotilloDessertsBooked") === "true";
-
+  
         let next: OcotilloStep;
-
+  
         if (hasCatering && hasDessert) {
           next = "ocotilloBothDoneThankYou";
         } else if (hasCatering) {
           // they've done catering, maybe mid-dessert flow
           const fsStep = data?.progress?.yumYum?.step as OcotilloStep | undefined;
-          const lsStep = (localStorage.getItem(STORAGE.step) ||
-            "") as OcotilloStep;
-
+          const lsStep = (localStorage.getItem(STORAGE.step) || "") as OcotilloStep;
+  
           if (fsStep && dessertStepsLinear.includes(fsStep)) {
             next = fsStep;
           } else if (lsStep && dessertStepsLinear.includes(lsStep)) {
@@ -214,25 +213,15 @@ const [menuSelections, setMenuSelections] = useState<{
             next = "ocotilloCateringThankYou";
           }
         } else {
-          // haven't booked catering yet → stick to catering path
-          const fsStep = data?.progress?.yumYum?.step as OcotilloStep | undefined;
-          const lsStep = (localStorage.getItem(STORAGE.step) ||
-            "") as OcotilloStep;
-
-          if (fsStep && allowedPreCatering.includes(fsStep)) {
-            next = fsStep;
-          } else if (lsStep && allowedPreCatering.includes(lsStep)) {
-            next = lsStep;
-          } else {
-            next = "intro";
-          }
+          // ❗ NOT booked catering yet → always start at intro (ignore old saved step)
+          next = "intro";
         }
-
+  
         setStep(next);
         try {
           localStorage.setItem(STORAGE.step, next);
         } catch {}
-
+  
         requestAnimationFrame(() =>
           window.scrollTo({
             top: 0,
@@ -247,7 +236,7 @@ const [menuSelections, setMenuSelections] = useState<{
         setLoading(false);
       }
     });
-
+  
     return () => unsub();
   }, [startAt]);
 
@@ -347,28 +336,31 @@ const [menuSelections, setMenuSelections] = useState<{
   />
 )}
 
-<OcotilloCateringContract
-  total={total}
-  guestCount={guestCount}
-  weddingDate={userWeddingDate}
-  dayOfWeek={userDayOfWeek}
-  lineItems={lineItems}
-  selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
-  menuSelections={{
-    tier: (menuSelections.tier as OcotilloTierId) || "tier1",
-    appetizers: menuSelections.appetizers || [],
-    salads: menuSelections.salads || [],
-    entrees: menuSelections.entrees || [],
-    desserts: menuSelections.desserts || [],
-  }}
-  signatureImage={signatureImage}
-  setSignatureImage={setSignatureImage}
-  signatureSubmitted={signatureSubmitted}
-  setSignatureSubmitted={setSignatureSubmitted}
-  setStep={(next) => setStep(next as OcotilloStep)}
-  onClose={onClose}
-  onComplete={() => setStep("cateringCheckout")}
-/>
+{/* Catering Contract */}
+{step === "cateringContract" && (
+  <OcotilloCateringContract
+    total={total}
+    guestCount={guestCount}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
+    menuSelections={{
+      tier: (menuSelections.tier as OcotilloTierId) || "tier1",
+      appetizers: menuSelections.appetizers || [],
+      salads: menuSelections.salads || [],
+      entrees: menuSelections.entrees || [],
+      desserts: menuSelections.desserts || [],
+    }}
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    setStep={(next) => setStep(next as OcotilloStep)}
+    onClose={onClose}
+    onComplete={() => setStep("cateringCheckout")}
+  />
+)}
 
         {/* Catering Checkout */}
 {step === "cateringCheckout" && (
