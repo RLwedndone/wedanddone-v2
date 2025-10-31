@@ -45,6 +45,8 @@ const CLOUD_IMAGES = [
   `${import.meta.env.BASE_URL}assets/images/cloud4.png`,
 ];
 
+const SKY_BG = `${import.meta.env.BASE_URL}assets/images/assets/images/Starry_Night.png`;
+
 const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
   const [active, setActive] = useState<{ q: string; a: string } | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 600;
@@ -54,9 +56,19 @@ const bubble = isMobile
 ? { width: 380, height: 620, cardTop: 190, cardBottom: 72, side: 24, close: 10 }
 : { width: 600, height: 780, cardTop: 270, cardBottom: 120, side: 40, close: 12 };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      {/* Header */}
+return (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      minHeight: "100%",
+      backgroundImage: `url(${SKY_BG})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    }}
+  >
+    {/* Header */}
       <div style={{ padding: "1.25rem 1.25rem 0.5rem 1.25rem" }}>
         <h2
           style={{
