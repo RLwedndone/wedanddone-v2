@@ -45,7 +45,7 @@ const CLOUD_IMAGES = [
   `${import.meta.env.BASE_URL}assets/images/cloud4.png`,
 ];
 
-const SKY_BG = `${import.meta.env.BASE_URL}assets/images/assets/images/Starry_Night.png`;
+const SKY_BG = `${import.meta.env.BASE_URL}/assets/images/Starry_Night.png`;
 
 const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
   const [active, setActive] = useState<{ q: string; a: string } | null>(null);

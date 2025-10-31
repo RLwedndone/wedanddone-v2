@@ -59,6 +59,7 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
               fontSize: "1rem",
               lineHeight: "1.6",
               marginBottom: "1.5rem",
+              padding: "1.5rem 2rem",
             }}
           >
             Welcome to <strong>Wed&Done</strong> —

@@ -371,45 +371,42 @@ const [menuSelections, setMenuSelections] = useState<{
 />
 
         {/* Catering Checkout */}
-        {step === "cateringCheckout" && (
-          <OcotilloCateringCheckout
-            total={total}
-            guestCount={guestCount}
-            lineItems={lineItems}
-            tierLabel={
-              ((): string => {
-                try {
-                  return (
-                    localStorage.getItem(STORAGE.tierLabel) ||
-                    (tierSel?.name ?? "Tier 1")
-                  );
-                } catch {
-                  return tierSel?.name ?? "Tier 1";
-                }
-              })()
-            }
-            menuSelections={{
-              hors: menuSelections.hors,
-              salads: menuSelections.salads,
-              starches: menuSelections.starch,
-              vegetables: menuSelections.veg,
-              entrees: menuSelections.entrees,
-            }}
-            onBack={() => setStep("cateringContract")}
-            onComplete={() => {
-              try {
-                localStorage.setItem("ocotilloCateringBooked", "true");
-                localStorage.setItem(
-                  STORAGE.step,
-                  "ocotilloCateringThankYou"
-                );
-              } catch {}
-              setStep("ocotilloCateringThankYou");
-            }}
-            onClose={onClose}
-            isGenerating={false}
-          />
-        )}
+{step === "cateringCheckout" && (
+  <OcotilloCateringCheckout
+    total={total}
+    guestCount={guestCount}
+    lineItems={lineItems}
+    tier={(() => {
+      try {
+        return (
+          (localStorage.getItem(STORAGE.tierLabel) as
+            | "Tier 1"
+            | "Tier 2"
+            | "Tier 3"
+            | null) || (tierSel?.name as "Tier 1" | "Tier 2" | "Tier 3") || "Tier 1"
+        );
+      } catch {
+        return (tierSel?.name as "Tier 1" | "Tier 2" | "Tier 3") || "Tier 1";
+      }
+    })()}
+    menuSelections={{
+      appetizers: menuSelections.appetizers || [],
+      salads: menuSelections.salads || [],
+      entrees: menuSelections.entrees || [],
+      desserts: menuSelections.desserts || [],
+    }}
+    onBack={() => setStep("cateringContract")}
+    onComplete={() => {
+      try {
+        localStorage.setItem("ocotilloCateringBooked", "true");
+        localStorage.setItem(STORAGE.step, "ocotilloCateringThankYou");
+      } catch {}
+      setStep("ocotilloCateringThankYou");
+    }}
+    onClose={onClose}
+    isGenerating={false}
+  />
+)}
 
         {/* Catering Thank You */}
         {step === "ocotilloCateringThankYou" && (
