@@ -404,46 +404,60 @@ const OcotilloMenuBuilder: React.FC<Props> = ({
                   borderRadius: "12px",
                 }}
               />
-
-              {sel.map((item) => (
-                <div
-                  key={`${label}-${item}`}
-                  onClick={() => open(key)}
-                  style={{
-                    fontFamily: "'Nunito', sans-serif",
-                    fontSize: "1rem",
-                    color: "#2c62ba",
-                    cursor: "pointer",
-                    marginTop: "0.35rem",
-                  }}
-                >
-                  {item}
-                </div>
-              ))}
+{sel.map((item) => (
+  <div
+    key={`${label}-${item}`}
+    onClick={() => open(key)}
+    style={{
+      fontFamily: "'Jenna Sue', cursive",
+      fontSize: "1.80rem",         // was 1rem
+      lineHeight: 1.35,            // gives it that looser handwritten feel
+      color: "#2c62ba",
+      cursor: "pointer",
+      marginTop: "0.5rem",         // a tiny bit more breathing room
+      letterSpacing: "0.3px",      // helps cursive stay readable
+      textAlign: "center",         // optional: keeps long dishes centered under the banner
+      maxWidth: "320px",           // optional: narrows really long items so they wrap nicely
+      marginLeft: "auto",
+      marginRight: "auto",
+    }}
+  >
+    {item}
+  </div>
+))}
             </div>
           );
         })}
 
         {/* CTAs */}
-        <div style={{ marginTop: "1rem" }}>
-          <button
-            className="boutique-primary-btn"
-            onClick={() => {
-              localStorage.setItem("yumStep", "ocotilloCart");
-              onContinue();
-            }}
-          >
-            Continue
-          </button>
+<div
+  style={{
+    marginTop: "2rem",
+    display: "flex",
+    flexDirection: "column", // ✅ stack vertically
+    alignItems: "center",    // ✅ center them horizontally
+    gap: "1rem",             // ✅ even space between buttons
+  }}
+>
+  <button
+    className="boutique-primary-btn"
+    onClick={() => {
+      localStorage.setItem("yumStep", "ocotilloCart");
+      onContinue();
+    }}
+    style={{ width: "200px" }}
+  >
+    Continue
+  </button>
 
-          <button
-            className="boutique-back-btn"
-            onClick={onBack}
-            style={{ marginTop: "1rem" }}
-          >
-            Back
-          </button>
-        </div>
+  <button
+    className="boutique-back-btn"
+    onClick={onBack}
+    style={{ width: "200px" }}
+  >
+    Back
+  </button>
+</div>
       </div>
 
       {/* Modals */}

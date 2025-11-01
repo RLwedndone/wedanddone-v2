@@ -241,14 +241,13 @@ const [menuSelections, setMenuSelections] = useState<{
   }, [startAt]);
 
   // ---------------- Render ----------------
-  return (
+return (
     <div
-      id="ocotillo-overlay-root"
       className="pixie-overlay"
       style={{
         display: "flex",
         justifyContent: "center",
-        alignItems: "flex-start",
+        alignItems: "center",
         paddingTop: "max(12px, env(safe-area-inset-top))",
         paddingRight: "max(12px, env(safe-area-inset-right))",
         paddingBottom: "max(12px, env(safe-area-inset-bottom))",
@@ -256,321 +255,328 @@ const [menuSelections, setMenuSelections] = useState<{
         boxSizing: "border-box",
         overflowY: "auto",
         width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0,0,0,0.35)",
+        minHeight: "100dvh",
       }}
+      ref={cardRef} // keep the ref on the outer container so scroll helpers still work
     >
-      {/* children render their own pixie-card; this container just scrolls */}
-      <div ref={cardRef} style={{ width: "100%" }}>
-        {/* Intro */}
-        {step === "intro" && (
-          <OcotilloIntro
-            onContinue={() => setStep("tier")}
-            onClose={onClose}
-          />
-        )}
-
-        {/* Tier */}
-        {step === "tier" && (
-          <OcotilloTierSelector
-            defaultSelectedId={(menuSelections.tier as OcotilloTierId) || undefined}
-            onSelect={(sel) => {
-              setTierSel(sel);
-              setMenuSelections((prev) => ({
-                ...prev,
-                tier: sel.id as OcotilloTierId,
-              }));
-              try {
-                localStorage.setItem(STORAGE.tierLabel, sel.name);
-                localStorage.setItem(
-                  STORAGE.perGuest,
-                  String(sel.pricePerGuest)
-                );
-              } catch {}
-            }}
-            onContinue={() => setStep("menu")}
-            onBack={() => setStep("intro")}
-            onClose={onClose}
-          />
-        )}
-
-{step === "menu" && (
-  <OcotilloMenuBuilder
-    selectedTier={
-      (menuSelections.tier as OcotilloTierId) || "tier1"
-    }
-    menuSelections={{
-      ...menuSelections,
-      tier:
-        (menuSelections.tier as OcotilloTierId) || "tier1",
-    }}
-    setMenuSelections={(s) => {
-      setMenuSelections(s);
-      try {
-        localStorage.setItem(STORAGE.step, "menu");
-      } catch {}
-    }}
-    onContinue={() => setStep("cateringCart")}
-    onBack={() => setStep("tier")}
-    onClose={onClose}
-  />
-)}
-
-        {/* Catering Cart */}
-{step === "cateringCart" && (
-  <OcotilloCateringCart
-    selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
-    menuSelections={{
-      tier: (menuSelections.tier as OcotilloTierId) || "tier1",
-      appetizers: menuSelections.appetizers || [],
-      salads: menuSelections.salads || [],
-      entrees: menuSelections.entrees || [],
-      desserts: menuSelections.desserts || [],
-    }}
-    setTotal={setTotal}
-    setLineItems={setLineItems}
-    setPaymentSummaryText={setPaymentSummaryText}
-    onContinueToCheckout={() => setStep("cateringContract")}
-    onBackToMenu={() => setStep("menu")}
-    onClose={onClose}
-  />
-)}
-
-{/* Catering Contract */}
-{step === "cateringContract" && (
-  <OcotilloCateringContract
-    total={total}
-    guestCount={guestCount}
-    weddingDate={userWeddingDate}
-    dayOfWeek={userDayOfWeek}
-    lineItems={lineItems}
-    selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
-    menuSelections={{
-      tier: (menuSelections.tier as OcotilloTierId) || "tier1",
-      appetizers: menuSelections.appetizers || [],
-      salads: menuSelections.salads || [],
-      entrees: menuSelections.entrees || [],
-      desserts: menuSelections.desserts || [],
-    }}
-    signatureImage={signatureImage}
-    setSignatureImage={setSignatureImage}
-    signatureSubmitted={signatureSubmitted}
-    setSignatureSubmitted={setSignatureSubmitted}
-    setStep={(next) => setStep(next as OcotilloStep)}
-    onClose={onClose}
-    onComplete={() => setStep("cateringCheckout")}
-  />
-)}
-
-        {/* Catering Checkout */}
-{step === "cateringCheckout" && (
-  <OcotilloCateringCheckout
-    total={total}
-    guestCount={guestCount}
-    lineItems={lineItems}
-    tier={(() => {
-      try {
-        return (
-          (localStorage.getItem(STORAGE.tierLabel) as
-            | "Tier 1"
-            | "Tier 2"
-            | "Tier 3"
-            | null) || (tierSel?.name as "Tier 1" | "Tier 2" | "Tier 3") || "Tier 1"
-        );
-      } catch {
-        return (tierSel?.name as "Tier 1" | "Tier 2" | "Tier 3") || "Tier 1";
-      }
-    })()}
-    menuSelections={{
-      appetizers: menuSelections.appetizers || [],
-      salads: menuSelections.salads || [],
-      entrees: menuSelections.entrees || [],
-      desserts: menuSelections.desserts || [],
-    }}
-    onBack={() => setStep("cateringContract")}
-    onComplete={() => {
-      try {
-        localStorage.setItem("ocotilloCateringBooked", "true");
-        localStorage.setItem(STORAGE.step, "ocotilloCateringThankYou");
-      } catch {}
-      setStep("ocotilloCateringThankYou");
-    }}
-    onClose={onClose}
-    isGenerating={false}
-  />
-)}
-
-        {/* Catering Thank You */}
-        {step === "ocotilloCateringThankYou" && (
-          <OcotilloCateringThankYou
-            onContinueDesserts={() => {
-              try {
-                localStorage.setItem(STORAGE.step, "dessertStyle");
-              } catch {}
-              setStep("dessertStyle");
-            }}
-            onClose={() => {
-              try {
-                localStorage.setItem(STORAGE.step, "home");
-              } catch {}
-              onClose();
-            }}
-          />
-        )}
-
-        {/* Dessert Thank You */}
-        {step === "ocotilloDessertThankYou" && (
-          <OcotilloDessertThankYou
-            onClose={() => {
-              try {
-                localStorage.setItem("ocotilloDessertsBooked", "true");
-                localStorage.setItem(
-                  STORAGE.step,
-                  "ocotilloBothDoneThankYou"
-                );
-              } catch {}
-              onClose();
-            }}
-          />
-        )}
-
-        {/* Both Done Thank You */}
-        {step === "ocotilloBothDoneThankYou" && (
-          <OcotilloBothDoneThankYou
-            onClose={() => {
-              try {
-                localStorage.setItem(STORAGE.step, "home");
-              } catch {}
-              onClose();
-            }}
-          />
-        )}
-
-        {/* Dessert Style Selector */}
-        {step === "dessertStyle" && (
-          <OcotilloDessertSelector
-            onSelectType={(type) => {
-              setDessertType(type);
-              localStorage.setItem("yumDessertType", type);
-            }}
-            onContinue={() => {
-              localStorage.setItem("yumStep", "dessertMenu");
-              setStep("dessertMenu");
-            }}
-            onBack={() => {
-              localStorage.setItem("yumStep", "ocotilloCateringThankYou");
-              setStep("ocotilloCateringThankYou");
-            }}
-            onClose={onClose}
-          />
-        )}
-
-        {/* Dessert Menu Builder */}
-        {step === "dessertMenu" && (
-          <OcotilloDessertMenu
-            dessertType={dessertType}
-            flavorFilling={flavorFilling}
-            setFlavorFilling={setFlavorFilling}
-            onContinue={(sel) => {
-              setFlavorFilling(sel.flavorFilling || []);
-              setCakeStyle(
-                typeof sel.cakeStyle === "string" ? sel.cakeStyle : ""
-              );
-              setTreatType(
-                Array.isArray(sel.treatType)
-                  ? sel.treatType[0]
-                  : sel.treatType || ""
-              );
-              setGoodies(sel.goodies || []);
-              setCupcakes(sel.cupcakes || []);
+      {/* Intro */}
+      {step === "intro" && (
+        <OcotilloIntro
+          onContinue={() => setStep("tier")}
+          onClose={onClose}
+        />
+      )}
+  
+      {/* Tier */}
+      {step === "tier" && (
+        <OcotilloTierSelector
+          defaultSelectedId={
+            (menuSelections.tier as OcotilloTierId) || undefined
+          }
+          onSelect={(sel) => {
+            setTierSel(sel);
+            setMenuSelections((prev) => ({
+              ...prev,
+              tier: sel.id as OcotilloTierId,
+            }));
+            try {
+              localStorage.setItem(STORAGE.tierLabel, sel.name);
               localStorage.setItem(
-                "yumDessertSelections",
-                JSON.stringify(sel)
+                STORAGE.perGuest,
+                String(sel.pricePerGuest)
               );
-              localStorage.setItem("yumStep", "dessertCart");
-              setStep("dessertCart");
-            }}
-            onBack={() => setStep("dessertStyle")}
-          />
-        )}
-
-        {/* Dessert Cart */}
-        {step === "dessertCart" && (
-          <OcotilloDessertCart
-            guestCount={Number(
-              localStorage.getItem("magicGuestCount") || 0
-            )}
-            onGuestCountChange={(n) =>
-              localStorage.setItem("magicGuestCount", String(n))
+            } catch {}
+          }}
+          onContinue={() => setStep("menu")}
+          onBack={() => setStep("intro")}
+          onClose={onClose}
+        />
+      )}
+  
+      {/* Menu Builder */}
+      {step === "menu" && (
+        <OcotilloMenuBuilder
+          selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
+          menuSelections={{
+            ...menuSelections,
+            tier: (menuSelections.tier as OcotilloTierId) || "tier1",
+          }}
+          setMenuSelections={(s) => {
+            setMenuSelections(s);
+            try {
+              localStorage.setItem(STORAGE.step, "menu");
+            } catch {}
+          }}
+          onContinue={() => setStep("cateringCart")}
+          onBack={() => setStep("tier")}
+          onClose={onClose}
+        />
+      )}
+  
+      {/* Catering Cart */}
+      {step === "cateringCart" && (
+        <OcotilloCateringCart
+          selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
+          menuSelections={{
+            tier: (menuSelections.tier as OcotilloTierId) || "tier1",
+            appetizers: menuSelections.appetizers || [],
+            salads: menuSelections.salads || [],
+            entrees: menuSelections.entrees || [],
+            desserts: menuSelections.desserts || [],
+          }}
+          setTotal={setTotal}
+          setLineItems={setLineItems}
+          setPaymentSummaryText={setPaymentSummaryText}
+          onContinueToCheckout={() => setStep("cateringContract")}
+          onBackToMenu={() => setStep("menu")}
+          onClose={onClose}
+        />
+      )}
+  
+      {/* Catering Contract */}
+      {step === "cateringContract" && (
+        <OcotilloCateringContract
+          total={total}
+          guestCount={guestCount}
+          weddingDate={userWeddingDate}
+          dayOfWeek={userDayOfWeek}
+          lineItems={lineItems}
+          selectedTier={(menuSelections.tier as OcotilloTierId) || "tier1"}
+          menuSelections={{
+            tier: (menuSelections.tier as OcotilloTierId) || "tier1",
+            appetizers: menuSelections.appetizers || [],
+            salads: menuSelections.salads || [],
+            entrees: menuSelections.entrees || [],
+            desserts: menuSelections.desserts || [],
+          }}
+          signatureImage={signatureImage}
+          setSignatureImage={setSignatureImage}
+          signatureSubmitted={signatureSubmitted}
+          setSignatureSubmitted={setSignatureSubmitted}
+          setStep={(next) => setStep(next as OcotilloStep)}
+          onClose={onClose}
+          onComplete={() => setStep("cateringCheckout")}
+        />
+      )}
+  
+      {/* Catering Checkout */}
+      {step === "cateringCheckout" && (
+        <OcotilloCateringCheckout
+          total={total}
+          guestCount={guestCount}
+          lineItems={lineItems}
+          tier={(() => {
+            try {
+              return (
+                (localStorage.getItem(STORAGE.tierLabel) as
+                  | "Tier 1"
+                  | "Tier 2"
+                  | "Tier 3"
+                  | null) ||
+                (tierSel?.name as
+                  | "Tier 1"
+                  | "Tier 2"
+                  | "Tier 3") ||
+                "Tier 1"
+              );
+            } catch {
+              return (
+                (tierSel?.name as
+                  | "Tier 1"
+                  | "Tier 2"
+                  | "Tier 3") || "Tier 1"
+              );
             }
-            dessertStyle={dessertType}
-            flavorFilling={flavorFilling}
-            cakeStyle={cakeStyle}
-            treatType={treatType}
-            cupcakes={cupcakes}
-            goodies={goodies}
-            setTotal={setTotal}
-            setLineItems={setLineItems}
-            setPaymentSummaryText={setPaymentSummaryText}
-            onContinueToCheckout={() => {
-              localStorage.setItem("yumStep", "dessertContract");
-              setStep("dessertContract");
-            }}
-            onStartOver={() => {
-              localStorage.setItem("yumStep", "dessertStyle");
-              setStep("dessertStyle");
-            }}
-            onClose={onClose}
-            weddingDate={userWeddingDate}
-          />
-        )}
-
-        {/* Dessert Contract */}
-        {step === "dessertContract" && (
-          <OcotilloDessertContract
-            total={total}
-            guestCount={Number(
-              localStorage.getItem("magicGuestCount") || 0
-            )}
-            weddingDate={userWeddingDate}
-            dayOfWeek={userDayOfWeek}
-            lineItems={lineItems}
-            signatureImage={signatureImage}
-            setSignatureImage={setSignatureImage}
-            dessertStyle={dessertType || ""}
-            flavorCombo={flavorFilling.join(" + ")}
-            setStep={(next) => setStep(next as OcotilloStep)}
-            onClose={onClose}
-            onComplete={(sig) => {
-              setSignatureImage(sig);
-              localStorage.setItem("yumStep", "dessertCheckout");
-              setStep("dessertCheckout");
-            }}
-          />
-        )}
-
-        {/* Dessert Checkout */}
-        {step === "dessertCheckout" && (
-          <OcotilloDessertCheckout
-            total={total}
-            guestCount={Number(
-              localStorage.getItem("magicGuestCount") || 0
-            )}
-            selectedStyle={dessertType || ""}
-            selectedFlavorCombo={flavorFilling.join(" + ")}
-            paymentSummaryText={paymentSummaryText}
-            lineItems={lineItems}
-            signatureImage={signatureImage || ""}
-            setStep={(next) => setStep(next as OcotilloStep)}
-            onBack={() => {
-              setStep("dessertContract");
-              localStorage.setItem("yumStep", "dessertContract");
-            }}
-            onClose={onClose}
-            isGenerating={false}
-          />
-        )}
-      </div>
+          })()}
+          menuSelections={{
+            appetizers: menuSelections.appetizers || [],
+            salads: menuSelections.salads || [],
+            entrees: menuSelections.entrees || [],
+            desserts: menuSelections.desserts || [],
+          }}
+          onBack={() => setStep("cateringContract")}
+          onComplete={() => {
+            try {
+              localStorage.setItem("ocotilloCateringBooked", "true");
+              localStorage.setItem(STORAGE.step, "ocotilloCateringThankYou");
+            } catch {}
+            setStep("ocotilloCateringThankYou");
+          }}
+          onClose={onClose}
+          isGenerating={false}
+        />
+      )}
+  
+      {/* Catering Thank You */}
+      {step === "ocotilloCateringThankYou" && (
+        <OcotilloCateringThankYou
+          onContinueDesserts={() => {
+            try {
+              localStorage.setItem(STORAGE.step, "dessertStyle");
+            } catch {}
+            setStep("dessertStyle");
+          }}
+          onClose={() => {
+            try {
+              localStorage.setItem(STORAGE.step, "home");
+            } catch {}
+            onClose();
+          }}
+        />
+      )}
+  
+      {/* Dessert Thank You */}
+      {step === "ocotilloDessertThankYou" && (
+        <OcotilloDessertThankYou
+          onClose={() => {
+            try {
+              localStorage.setItem("ocotilloDessertsBooked", "true");
+              localStorage.setItem(
+                STORAGE.step,
+                "ocotilloBothDoneThankYou"
+              );
+            } catch {}
+            onClose();
+          }}
+        />
+      )}
+  
+      {/* Both Done Thank You */}
+      {step === "ocotilloBothDoneThankYou" && (
+        <OcotilloBothDoneThankYou
+          onClose={() => {
+            try {
+              localStorage.setItem(STORAGE.step, "home");
+            } catch {}
+            onClose();
+          }}
+        />
+      )}
+  
+      {/* Dessert Style Selector */}
+      {step === "dessertStyle" && (
+        <OcotilloDessertSelector
+          onSelectType={(type) => {
+            setDessertType(type);
+            localStorage.setItem("yumDessertType", type);
+          }}
+          onContinue={() => {
+            localStorage.setItem("yumStep", "dessertMenu");
+            setStep("dessertMenu");
+          }}
+          onBack={() => {
+            localStorage.setItem("yumStep", "ocotilloCateringThankYou");
+            setStep("ocotilloCateringThankYou");
+          }}
+          onClose={onClose}
+        />
+      )}
+  
+      {/* Dessert Menu */}
+      {step === "dessertMenu" && (
+        <OcotilloDessertMenu
+          dessertType={dessertType}
+          flavorFilling={flavorFilling}
+          setFlavorFilling={setFlavorFilling}
+          onContinue={(sel) => {
+            setFlavorFilling(sel.flavorFilling || []);
+            setCakeStyle(
+              typeof sel.cakeStyle === "string" ? sel.cakeStyle : ""
+            );
+            setTreatType(
+              Array.isArray(sel.treatType)
+                ? sel.treatType[0]
+                : sel.treatType || ""
+            );
+            setGoodies(sel.goodies || []);
+            setCupcakes(sel.cupcakes || []);
+            localStorage.setItem(
+              "yumDessertSelections",
+              JSON.stringify(sel)
+            );
+            localStorage.setItem("yumStep", "dessertCart");
+            setStep("dessertCart");
+          }}
+          onBack={() => setStep("dessertStyle")}
+        />
+      )}
+  
+      {/* Dessert Cart */}
+      {step === "dessertCart" && (
+        <OcotilloDessertCart
+          guestCount={Number(
+            localStorage.getItem("magicGuestCount") || 0
+          )}
+          onGuestCountChange={(n) =>
+            localStorage.setItem("magicGuestCount", String(n))
+          }
+          dessertStyle={dessertType}
+          flavorFilling={flavorFilling}
+          cakeStyle={cakeStyle}
+          treatType={treatType}
+          cupcakes={cupcakes}
+          goodies={goodies}
+          setTotal={setTotal}
+          setLineItems={setLineItems}
+          setPaymentSummaryText={setPaymentSummaryText}
+          onContinueToCheckout={() => {
+            localStorage.setItem("yumStep", "dessertContract");
+            setStep("dessertContract");
+          }}
+          onStartOver={() => {
+            localStorage.setItem("yumStep", "dessertStyle");
+            setStep("dessertStyle");
+          }}
+          onClose={onClose}
+          weddingDate={userWeddingDate}
+        />
+      )}
+  
+      {/* Dessert Contract */}
+      {step === "dessertContract" && (
+        <OcotilloDessertContract
+          total={total}
+          guestCount={Number(
+            localStorage.getItem("magicGuestCount") || 0
+          )}
+          weddingDate={userWeddingDate}
+          dayOfWeek={userDayOfWeek}
+          lineItems={lineItems}
+          signatureImage={signatureImage}
+          setSignatureImage={setSignatureImage}
+          dessertStyle={dessertType || ""}
+          flavorCombo={flavorFilling.join(" + ")}
+          setStep={(next) => setStep(next as OcotilloStep)}
+          onClose={onClose}
+          onComplete={(sig) => {
+            setSignatureImage(sig);
+            localStorage.setItem("yumStep", "dessertCheckout");
+            setStep("dessertCheckout");
+          }}
+        />
+      )}
+  
+      {/* Dessert Checkout */}
+      {step === "dessertCheckout" && (
+        <OcotilloDessertCheckout
+          total={total}
+          guestCount={Number(
+            localStorage.getItem("magicGuestCount") || 0
+          )}
+          selectedStyle={dessertType || ""}
+          selectedFlavorCombo={flavorFilling.join(" + ")}
+          paymentSummaryText={paymentSummaryText}
+          lineItems={lineItems}
+          signatureImage={signatureImage || ""}
+          setStep={(next) => setStep(next as OcotilloStep)}
+          onBack={() => {
+            setStep("dessertContract");
+            localStorage.setItem("yumStep", "dessertContract");
+          }}
+          onClose={onClose}
+          isGenerating={false}
+        />
+      )}
     </div>
   );
 };

@@ -70,22 +70,6 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
 const clamp = (n: number, lo = 1, hi = 250) =>
   Math.max(lo, Math.min(hi, n));
 
-function lockBanner(reasons: GuestLockReason[] | undefined) {
-  if (!reasons || reasons.length === 0)
-    return "Guest count is locked.";
-  const pretty: Record<GuestLockReason, string> = {
-    venue: "a venue booking",
-    planner: "a planner booking",
-    catering: "a catering booking",
-    dessert: "a dessert booking",
-    "yum:catering": "a Yum Yum catering booking",
-    "yum:dessert": "a Yum Yum dessert booking",
-    final_submission: "your final submission",
-  };
-  const parts = reasons.map((r) => pretty[r] ?? r);
-  return `Guest count is locked due to ${parts.join(" & ")}.`;
-}
-
 /** Normalize goodies keys: "Group::Label" → "Label". */
 const goodieLabel = (k: string) =>
   k.includes("::") ? k.split("::")[1] : k;
@@ -154,8 +138,6 @@ const OcotilloDessertCart: React.FC<Props> = ({
         []
       ) as GuestLockReason[];
 
-      setLockReasons(reasons);
-      setBanner(isLocked ? lockBanner(reasons) : null);
 
       if (!hydratedFromAccount && currentValue === 0) {
         hydratedFromAccount = true;

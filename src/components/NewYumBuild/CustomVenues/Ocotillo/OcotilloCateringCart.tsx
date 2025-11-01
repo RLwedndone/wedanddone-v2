@@ -1,4 +1,4 @@
-// src/components/NewYumBuild/CustomVenues/Ocotillo/OcotilloDessertCart.tsx
+// src/components/NewYumBuild/CustomVenues/Ocotillo/OcotilloCateringCart.tsx
 import React, { useEffect, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -36,8 +36,12 @@ interface Props {
 
 /* ─────────────────── Pricing constants ─────────────────── */
 
-const SALES_TAX_RATE = 0.086; // you can tweak
-const SERVICE_CHARGE_RATE = 0.25; // 25%
+const SALES_TAX_RATE = 0.086; // local sales tax
+const SERVICE_CHARGE_RATE = 0.25; // 25% service charge
+
+// credit card processing fees (Stripe-style)
+const CARD_FEE_RATE = 0.029; // 2.9%
+const CARD_FEE_FIXED = 0.3; // $0.30
 
 const TIER_PRICE: Record<OcotilloTier, number> = {
   tier1: 85,
@@ -169,7 +173,14 @@ const OcotilloCateringCart: React.FC<Props> = ({
   const taxableBase = foodSubtotal + serviceCharge;
   const salesTax = taxableBase * SALES_TAX_RATE;
 
+  // this is everything before card fees
   const grandTotal = foodSubtotal + serviceCharge + salesTax;
+
+  // card processing fee based on grandTotal
+  const cardFee = grandTotal * CARD_FEE_RATE + CARD_FEE_FIXED;
+
+  // final amount due today
+  const finalTotal = grandTotal + cardFee;
 
   /* ────────── Required-selections gate ────────── */
   const canContinue =
@@ -194,7 +205,8 @@ const OcotilloCateringCart: React.FC<Props> = ({
       foodSubtotal,
       serviceCharge,
       salesTax,
-      grandTotal,
+      cardFee,
+      finalTotal,
       selections: menuSelections,
       updatedAt: Date.now(),
     };
@@ -216,13 +228,14 @@ const OcotilloCateringCart: React.FC<Props> = ({
     }
 
     // expose totals / copy upward so checkout can show “you’re paying X today”
-    setTotal(grandTotal);
+    setTotal(finalTotal);
     setLineItems([
       `Ocotillo catering for ${gc} guests @ $${perGuest}/guest (${TIER_LABEL[selectedTier]})`,
-      "25% service charge + tax included",
+      `25% service charge: $${serviceCharge.toFixed(2)}`,
+      `Taxes & fees (tax + card): $${(salesTax + cardFee).toFixed(2)}`,
     ]);
     setPaymentSummaryText(
-      `You're paying $${grandTotal.toFixed(
+      `You're paying $${finalTotal.toFixed(
         2
       )} today for your ${TIER_LABEL[selectedTier]} buffet menu at Ocotillo.`
     );
@@ -233,7 +246,8 @@ const OcotilloCateringCart: React.FC<Props> = ({
     foodSubtotal,
     serviceCharge,
     salesTax,
-    grandTotal,
+    cardFee,
+    finalTotal,
     menuSelections,
     setTotal,
     setLineItems,
@@ -241,16 +255,9 @@ const OcotilloCateringCart: React.FC<Props> = ({
   ]);
 
   /* ────────── Handlers ────────── */
-  const handleGuestChange = async (raw: string) => {
-    if (locked) return;
-    const next = clampGuestCount(parseInt(raw, 10));
-    setGC(next);
-    await setGuestCount(next);
-  };
-
   const handleContinue = async () => {
     if (!canContinue) return;
-
+  
     // Lock guest count specifically as a catering booking under yum:catering
     const st = await getGuestState();
     const value = Number(
@@ -261,11 +268,15 @@ const OcotilloCateringCart: React.FC<Props> = ({
       (st as any).guestCountLockedBy ||
       (st as any).lockedBy ||
       [];
-
+  
+    // 🔁 instead of WAITING on this, just fire it
     if (!reasons.includes("yum:catering")) {
-      await setAndLockGuestCount(value, "yum:catering");
+      setAndLockGuestCount(value, "yum:catering").catch((err) => {
+        console.warn("guestCount lock failed (non-blocking)", err);
+      });
     }
-
+  
+    // 🚀 immediately continue to the contract screen
     onContinueToCheckout();
   };
 
@@ -300,168 +311,209 @@ const OcotilloCateringCart: React.FC<Props> = ({
 
   /* ────────── Render ────────── */
   return (
-    <div className="pixie-overlay">
-      <div
-        className="pixie-card"
-        style={{ maxWidth: 720, textAlign: "center", position: "relative" }}
+    <div
+      className="pixie-card"
+      style={{
+        maxWidth: 720,
+        textAlign: "center",
+        position: "relative",
+        padding: "3rem 2.5rem", // breathing room left/right
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Pink X close */}
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
       >
-        {/* Pink X close */}
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
-        </button>
-
-        <video
-          src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{
-            width: 180,
-            margin: "0 auto 1.5rem",
-            borderRadius: 12,
-            display: "block",
-          }}
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
         />
+      </button>
 
-        <h2
-          style={{
-            fontFamily: "'Jenna Sue', cursive",
-            fontSize: "2rem",
-            color: "#2c62ba",
-            marginBottom: 8,
-          }}
-        >
-          Your {TIER_LABEL[selectedTier]} Menu
-        </h2>
+      <video
+        src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          width: 180,
+          margin: "0 auto 1.5rem",
+          borderRadius: 12,
+          display: "block",
+        }}
+      />
 
+      <h2
+        style={{
+          fontFamily: "'Jenna Sue', cursive",
+          fontSize: "2rem",
+          color: "#2c62ba",
+          marginBottom: 8,
+        }}
+      >
+        Your {TIER_LABEL[selectedTier]} Menu
+      </h2>
+
+      <div
+        style={{
+          fontWeight: 700,
+          marginBottom: "1rem",
+          fontSize: "1rem",
+        }}
+      >
+        Catering price: ${perGuest} per guest
+        <br />
+        (plus 25% service charge &amp; tax)
+      </div>
+
+      {/* Selections overview */}
+      <ListBlock title="Appetizers" items={appetizers} />
+      <ListBlock title="Salads" items={salads} />
+      <ListBlock title="Entrées" items={entrees} />
+      <ListBlock title="Dessert" items={desserts} />
+
+      {/* Guest Count */}
+      <div style={{ marginBottom: "1rem" }}>
         <div
           style={{
             fontWeight: 700,
-            marginBottom: "1rem",
-            fontSize: "1rem",
+            marginBottom: ".5rem",
           }}
         >
-          Catering price: ${perGuest} per guest
-          <br />
-          (plus 25% service charge &amp; tax)
+          How many guests?
         </div>
-
-        {/* Selections overview */}
-        <ListBlock title="Appetizers" items={appetizers} />
-        <ListBlock title="Salads" items={salads} />
-        <ListBlock title="Entrées" items={entrees} />
-        <ListBlock title="Dessert" items={desserts} />
-
-        {/* Guest Count */}
-        <div style={{ marginBottom: "1rem" }}>
+        <input
+          type="number"
+          min={0}
+          max={250}
+          value={gc}
+          disabled={locked}
+          style={{
+            padding: "0.5rem",
+            fontSize: "1rem",
+            width: 110,
+            borderRadius: 8,
+            textAlign: "center",
+            background: locked ? "#f4f6fb" : "#fff",
+            color: locked ? "#666" : "#000",
+          }}
+        />
+        {locked && (
           <div
             style={{
-              fontWeight: 700,
-              marginBottom: ".5rem",
+              marginTop: ".5rem",
+              fontSize: ".9rem",
+              color: "#666",
             }}
           >
-            How many guests?
+            Locked after:{" "}
+            <strong>{lockedBy.join(", ") || "a booking"}</strong>.
+            <br />
+            You’ll confirm your final guest count 45 days before your
+            wedding.
           </div>
-          <input
-            type="number"
-            min={0}
-            max={250}
-            value={gc}
-            disabled={locked}
-            onChange={(e) => handleGuestChange(e.target.value)}
-            style={{
-              padding: "0.5rem",
-              fontSize: "1rem",
-              width: 110,
-              borderRadius: 8,
-              textAlign: "center",
-              background: locked ? "#f4f6fb" : "#fff",
-              color: locked ? "#666" : "#000",
-            }}
-          />
-          {locked && (
-            <div
-              style={{
-                marginTop: ".5rem",
-                fontSize: ".9rem",
-                color: "#666",
-              }}
-            >
-              Locked after:{" "}
-              <strong>{lockedBy.join(", ") || "a booking"}</strong>.
-              <br />
-              You’ll confirm your final guest count 45 days before your
-              wedding.
-            </div>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Totals */}
+      {/* Totals box */}
+      <div
+        style={{
+          background: "rgba(244,246,251,0.6)",
+          borderRadius: "12px",
+          padding: "1rem 1.25rem",
+          textAlign: "center",
+          maxWidth: 360,
+          margin: "0 auto 1.5rem",
+          boxShadow: "0 8px 16px rgba(0,0,0,0.08)",
+        }}
+      >
+        {/* Food subtotal */}
         <div
           style={{
+            fontSize: "0.95rem",
+            marginBottom: "0.5rem",
+            lineHeight: 1.4,
+          }}
+        >
+          <strong>Food Subtotal</strong>
+          <br />
+          ${foodSubtotal.toFixed(2)} ({gc} guests @ ${perGuest}/guest)
+        </div>
+
+        {/* Service charge */}
+        <div
+          style={{
+            fontSize: "0.95rem",
+            marginBottom: "0.5rem",
+            lineHeight: 1.4,
+          }}
+        >
+          <strong>25% Service Charge</strong>
+          <br />
+          ${serviceCharge.toFixed(2)}
+        </div>
+
+        {/* Taxes & Fees */}
+        <div
+          style={{
+            fontSize: "0.95rem",
+            marginBottom: "0.75rem",
+            lineHeight: 1.4,
+          }}
+        >
+          <strong>Taxes &amp; Fees</strong>
+          <br />
+          ${(salesTax + cardFee).toFixed(2)} sales tax + card processing
+        </div>
+
+        {/* Total Due */}
+        <div
+          style={{
+            fontSize: "1.1rem",
             fontWeight: 800,
-            marginBottom: 6,
-            fontSize: "1.05rem",
+            color: "#2c62ba",
+            lineHeight: 1.4,
           }}
         >
-          Total: ${grandTotal.toFixed(2)}
+          Total
+          <br />
+          ${finalTotal.toFixed(2)}
         </div>
-        <div
+      </div>
+
+      {/* CTAs */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.75rem",
+        }}
+      >
+        <button
+          className="boutique-primary-btn"
+          onClick={handleContinue}
           style={{
-            fontSize: ".95rem",
-            opacity: 0.8,
-            marginBottom: "1.25rem",
+            width: 260,
+            opacity: canContinue ? 1 : 0.6,
+            cursor: canContinue ? "pointer" : "not-allowed",
           }}
+          disabled={!canContinue}
         >
-          Includes 25% service charge and sales tax.
-        </div>
+          Confirm &amp; Book
+        </button>
 
-        {/* CTAs */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "0.75rem",
-          }}
+        <button
+          className="boutique-back-btn"
+          onClick={onBackToMenu}
+          style={{ width: 260 }}
         >
-          <button
-            className="boutique-primary-btn"
-            onClick={handleContinue}
-            style={{
-              width: 260,
-              opacity: canContinue ? 1 : 0.6,
-              cursor: canContinue ? "pointer" : "not-allowed",
-            }}
-            disabled={!canContinue}
-          >
-            Confirm &amp; Book
-          </button>
-
-          <button
-            className="boutique-back-btn"
-            onClick={onBackToMenu}
-            style={{ width: 260 }}
-          >
-            ⬅ Back to Menu
-          </button>
-
-          <button
-            className="boutique-back-btn"
-            onClick={onClose}
-            style={{ width: 260 }}
-          >
-            Close
-          </button>
-        </div>
+          ⬅ Back to Menu
+        </button>
       </div>
     </div>
   );

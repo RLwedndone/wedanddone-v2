@@ -9,18 +9,22 @@ interface OcotilloDessertMenuProps {
   dessertType: "tieredCake" | "smallCakeTreats" | "treatsOnly";
   flavorFilling: string[];
   setFlavorFilling: React.Dispatch<React.SetStateAction<string[]>>;
+
   onContinue: (selections: {
     flavorFilling: string[];
     cakeStyle?: string;
     treatType?: "" | "cupcakes" | "goodies";
-    cupcakes?: string[]; // cupcake flavor titles
-    goodies?: string[]; // "Group::Label" keys
+    cupcakes?: string[];
+    goodies?: string[];
   }) => void;
+
   onBack: () => void;
+  onClose?: () => void; // added so we can show the pink X like other cards
 }
 
-// helpers
-const png = (name: string) => `/assets/images/YumYum/${name}.png`;
+// helper for asset paths (respects vite base / GitHub Pages)
+const png = (name: string) =>
+  `${import.meta.env.BASE_URL}assets/images/YumYum/${name}.png`;
 
 const OcotilloDessertMenu: React.FC<OcotilloDessertMenuProps> = ({
   dessertType,
@@ -28,6 +32,7 @@ const OcotilloDessertMenu: React.FC<OcotilloDessertMenuProps> = ({
   setFlavorFilling,
   onContinue,
   onBack,
+  onClose,
 }) => {
   const [showModal, setShowModal] = useState<
     "flavor" | "style" | "treatType" | "goodies" | "cupcakes" | null
@@ -172,215 +177,262 @@ const OcotilloDessertMenu: React.FC<OcotilloDessertMenuProps> = ({
   };
 
   return (
-    <>
-      <h2
-        style={{
-          fontSize: "2.2rem",
-          marginBottom: "1.5rem",
-          textAlign: "center",
-        }}
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 680 }}
+    >
+      {/* 💖 Pink X Close */}
+      {onClose && (
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+      )}
+
+      {/* card body */}
+      <div
+        className="pixie-card__body"
+        style={{ textAlign: "center" }}
       >
-        Build Your{" "}
-        {dessertType === "tieredCake"
-          ? "Tiered Cake"
-          : dessertType === "smallCakeTreats"
-          ? "Cake & Treat Table"
-          : "Treats Table"}
-      </h2>
+        {/* Title */}
+        <h2
+          style={{
+            fontSize: "2.2rem",
+            marginBottom: "1.5rem",
+            textAlign: "center",
+            fontFamily: "'Jenna Sue', cursive",
+            color: "#2c62ba",
+          }}
+        >
+          Build Your{" "}
+          {dessertType === "tieredCake"
+            ? "Tiered Cake"
+            : dessertType === "smallCakeTreats"
+            ? "Cake & Treat Table"
+            : "Treats Table"}
+        </h2>
 
-      <img
-        src={png("dessert_piglet")}
-        alt="Dessert Piglet"
-        style={{
-          width: "160px",
-          margin: "0 auto 20px",
-          display: "block",
-        }}
-      />
+        {/* lil pig mascot */}
+        <img
+          src={png("dessert_piglet")}
+          alt="Dessert Piglet"
+          style={{
+            width: "160px",
+            margin: "0 auto 20px",
+            display: "block",
+          }}
+        />
 
-      {(dessertType === "tieredCake" ||
-        dessertType === "smallCakeTreats") && (
+        {/* Cake stuff (tieredCake / smallCakeTreats) */}
+        {(dessertType === "tieredCake" ||
+          dessertType === "smallCakeTreats") && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "2rem",
+              marginBottom: "2rem",
+            }}
+          >
+            {/* Flavor / Filling */}
+            <div onClick={() => setShowModal("flavor")}>
+              <img
+                src={png("cakeFlavorFilling")}
+                alt="Cake Flavor"
+                style={headerStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              />
+            </div>
+
+            {flavorFilling.map((title) => (
+              <div
+                key={title}
+                onClick={() => setShowModal("flavor")}
+                style={selectionStyle}
+              >
+                {title}
+              </div>
+            ))}
+
+            {/* Cake Style */}
+            <div onClick={() => setShowModal("style")}>
+              <img
+                src={png("cake_style")}
+                alt="Cake Style"
+                style={headerStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              />
+            </div>
+
+            {!!cakeStyle && (
+              <div
+                onClick={() => setShowModal("style")}
+                style={selectionStyle}
+              >
+                {cakeStyle}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Treat table branch (smallCakeTreats / treatsOnly) */}
+        {(dessertType === "smallCakeTreats" ||
+          dessertType === "treatsOnly") && (
+          <>
+            {/* Treat Type chooser */}
+            <img
+              src={png("treat_types")}
+              alt="Treat Table Type"
+              onClick={() => setShowModal("treatType")}
+              style={headerStyle}
+            />
+
+            {!!treatType && (
+              <div style={selectionStyle}>
+                {treatType === "cupcakes" ? "Cupcakes" : "Goodies"}
+              </div>
+            )}
+
+            {/* Cupcakes branch */}
+            {treatType === "cupcakes" && (
+              <>
+                <img
+                  src={png("cupcake_flavors")}
+                  alt="Cupcake Flavors"
+                  onClick={() => setShowModal("cupcakes")}
+                  style={headerStyle}
+                />
+                {cupcakes.map((title) => (
+                  <div
+                    key={title}
+                    onClick={() => setShowModal("cupcakes")}
+                    style={selectionStyle}
+                  >
+                    {title}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Goodies branch */}
+            {treatType === "goodies" && (
+              <>
+                <img
+                  src={png("goodies_selection")}
+                  alt="Goodies Selection"
+                  onClick={() => setShowModal("goodies")}
+                  style={headerStyle}
+                />
+
+                {/* group goodies by "Group::Label" */}
+                {(() => {
+                  const byGroup: Record<string, string[]> = {};
+                  for (const token of goodies) {
+                    const [groupRaw, labelRaw] = String(token).split("::");
+                    const group = (groupRaw || "Other treats").trim();
+                    const label = (labelRaw || token).trim();
+                    if (!byGroup[group]) byGroup[group] = [];
+                    if (!byGroup[group].includes(label)) {
+                      byGroup[group].push(label);
+                    }
+                  }
+                  return Object.entries(byGroup).map(
+                    ([group, labels]) => (
+                      <div
+                        key={group}
+                        style={{
+                          marginBottom: "1.25rem",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div
+                          onClick={() => setShowModal("goodies")}
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "1.6rem",
+                            color: "#2c62ba",
+                            marginBottom: "0.5rem",
+                            fontFamily: "'Jenna Sue', cursive",
+                          }}
+                        >
+                          {group}
+                        </div>
+
+                        {labels.map((label) => (
+                          <div
+                            key={`${group}::${label}`}
+                            onClick={() => setShowModal("goodies")}
+                            style={{
+                              ...selectionStyle,
+                              fontSize: "1.35rem",
+                              marginBottom: "0.25rem",
+                            }}
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  );
+                })()}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Actions */}
         <div
           style={{
+            marginTop: "1.5rem",
+            textAlign: "center",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "2rem",
-            marginBottom: "2rem",
+            gap: "0.75rem",
           }}
         >
-          {/* Flavor / Filling */}
-          <div onClick={() => setShowModal("flavor")}>
-            <img
-              src={png("cakeFlavorFilling")}
-              alt="Cake Flavor"
-              style={headerStyle}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-            />
-          </div>
-          {flavorFilling.map((title) => (
-            <div
-              key={title}
-              onClick={() => setShowModal("flavor")}
-              style={selectionStyle}
-            >
-              {title}
-            </div>
-          ))}
+          <button
+            className="boutique-primary-btn"
+            onClick={handleContinue}
+            disabled={!canContinue()}
+            style={{
+              width: 260,
+              opacity: canContinue() ? 1 : 0.5,
+              cursor: canContinue() ? "pointer" : "not-allowed",
+            }}
+          >
+            Continue
+          </button>
 
-          {/* Cake Style */}
-          <div onClick={() => setShowModal("style")}>
-            <img
-              src={png("cake_style")}
-              alt="Cake Style"
-              style={headerStyle}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-            />
-          </div>
-          {!!cakeStyle && (
-            <div
-              onClick={() => setShowModal("style")}
-              style={selectionStyle}
-            >
-              {cakeStyle}
-            </div>
-          )}
+          <button
+            className="boutique-back-btn"
+            onClick={onBack}
+            style={{ width: 260 }}
+          >
+            ⬅ Back
+          </button>
         </div>
-      )}
-
-      {(dessertType === "smallCakeTreats" ||
-        dessertType === "treatsOnly") && (
-        <>
-          {/* Treat Table Type */}
-          <img
-            src={png("treat_types")}
-            alt="Treat Table Type"
-            onClick={() => setShowModal("treatType")}
-            style={headerStyle}
-          />
-          {!!treatType && (
-            <div style={selectionStyle}>
-              {treatType === "cupcakes" ? "Cupcakes" : "Goodies"}
-            </div>
-          )}
-
-          {/* Cupcakes branch */}
-          {treatType === "cupcakes" && (
-            <>
-              <img
-                src={png("cupcake_flavors")}
-                alt="Cupcake Flavors"
-                onClick={() => setShowModal("cupcakes")}
-                style={headerStyle}
-              />
-              {cupcakes.map((title) => (
-                <div
-                  key={title}
-                  onClick={() => setShowModal("cupcakes")}
-                  style={selectionStyle}
-                >
-                  {title}
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* Goodies branch */}
-          {treatType === "goodies" && (
-            <>
-              <img
-                src={png("goodies_selection")}
-                alt="Goodies Selection"
-                onClick={() => setShowModal("goodies")}
-                style={headerStyle}
-              />
-
-              {/* Group selected goodies by their "Group::Label" keys */}
-              {(() => {
-                const byGroup: Record<string, string[]> = {};
-                for (const token of goodies) {
-                  const [groupRaw, labelRaw] = String(token).split("::");
-                  const group = (groupRaw || "Other treats").trim();
-                  const label = (labelRaw || token).trim();
-                  if (!byGroup[group]) byGroup[group] = [];
-                  if (!byGroup[group].includes(label)) {
-                    byGroup[group].push(label);
-                  }
-                }
-                return Object.entries(byGroup).map(
-                  ([group, labels]) => (
-                    <div
-                      key={group}
-                      style={{
-                        marginBottom: "1.25rem",
-                        textAlign: "center",
-                      }}
-                    >
-                      <div
-                        onClick={() => setShowModal("goodies")}
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "1.6rem",
-                          color: "#2c62ba",
-                          marginBottom: "0.5rem",
-                          fontFamily: "'Jenna Sue', cursive",
-                        }}
-                      >
-                        {group}
-                      </div>
-                      {labels.map((label) => (
-                        <div
-                          key={`${group}::${label}`}
-                          onClick={() => setShowModal("goodies")}
-                          style={{
-                            ...selectionStyle,
-                            fontSize: "1.35rem",
-                            marginBottom: "0.25rem",
-                          }}
-                        >
-                          {label}
-                        </div>
-                      ))}
-                    </div>
-                  )
-                );
-              })()}
-            </>
-          )}
-        </>
-      )}
-
-      {/* Actions */}
-      <div
-        style={{
-          marginTop: "1rem",
-          textAlign: "center",
-        }}
-      >
-        <button
-          className="boutique-primary-btn"
-          onClick={handleContinue}
-          disabled={!canContinue()}
-          style={{ marginBottom: "1rem" }}
-        >
-          Continue
-        </button>
-        <button className="boutique-back-btn" onClick={onBack}>
-          Back
-        </button>
       </div>
 
-      {/* Modals */}
+      {/* 🔽 MODALS (portals-on-top style overlays) ───────────────── */}
+
       {showModal === "flavor" && (
         <FlavorModal
           selected={flavorFilling}
@@ -601,7 +653,7 @@ const OcotilloDessertMenu: React.FC<OcotilloDessertMenuProps> = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
