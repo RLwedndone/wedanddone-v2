@@ -288,15 +288,6 @@ return (
             uid={getAuth().currentUser?.uid || ""}
             guestCount={guestCount}
           />
-          <div className="px-cta-col" style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              onClick={() => setStep("cateringContract")}
-              style={{ width: 260 }}
-            >
-              ⬅ Back to Contract
-            </button>
-          </div>
         </>
       )}
 

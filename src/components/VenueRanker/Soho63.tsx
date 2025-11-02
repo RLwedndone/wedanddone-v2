@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
 import { collectionColors } from "../../utils/venueCollections";
+import VenueVideo from "./VenueVideo";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -16,7 +17,9 @@ interface Soho63Props {
   screenList: string[];
   currentIndex: number;
   venueRankerSelections: VenueRankerSelections;
-  setVenueRankerSelections: React.Dispatch<React.SetStateAction<VenueRankerSelections>>;
+  setVenueRankerSelections: React.Dispatch<
+    React.SetStateAction<VenueRankerSelections>
+  >;
   goToExplore: () => void;  // Start over → Explore selector
 }
 
@@ -38,11 +41,12 @@ const Soho63: React.FC<Soho63Props> = ({
     vibeSelections: s?.vibeSelections ?? [],
     rankings: s?.rankings ?? {},
   });
+
   const selections = safe(venueRankerSelections);
   const selectedOption = Number(selections.rankings[venueId] ?? 0);
 
   const handleSelect = (value: number) => {
-    setVenueRankerSelections(prev => {
+    setVenueRankerSelections((prev) => {
       const p = safe(prev);
       return { ...p, rankings: { ...p.rankings, [venueId]: value } };
     });
@@ -65,7 +69,10 @@ const Soho63: React.FC<Soho63Props> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -73,7 +80,7 @@ const Soho63: React.FC<Soho63Props> = ({
         <div style={{ marginBottom: "0.75rem" }}>
           <button
             type="button"
-            onClick={() => setShowTooltip(v => !v)}
+            onClick={() => setShowTooltip((v) => !v)}
             style={{
               backgroundColor: chipColor,
               color: "#fff",
@@ -109,42 +116,25 @@ const Soho63: React.FC<Soho63Props> = ({
           Soho63
         </h2>
 
-        {/* 🎥 Responsive 16:9 Vimeo (large) */}
-<div
-  style={{
-    position: "relative",
-    width: "100%",
-    maxWidth: 720,
-    margin: "0 auto 1.25rem",
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "#000",
-    aspectRatio: "16 / 9",
-  }}
->
-  <iframe
-    src="https://player.vimeo.com/video/829956929?autoplay=0&muted=0&playsinline=1"
-    title="Soho63"
-    loading="lazy"
-    allow="autoplay; fullscreen; picture-in-picture"
-    allowFullScreen
-    style={{
-      position: "absolute",
-      inset: 0,
-      width: "100%",
-      height: "100%",
-      border: 0,
-      display: "block",
-    }}
-  />
-</div>
+        {/* 🎥 Venue video */}
+        <VenueVideo
+          vimeoId="829956929"
+          title="Soho63"
+        />
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
           How do you feel about this one?
         </p>
 
         {/* 🔘 Radio group (unique name) */}
-        <div style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
           <label>
             <input
               type="radio"
@@ -194,7 +184,12 @@ const Soho63: React.FC<Soho63Props> = ({
           <button className="boutique-back-btn" onClick={onBack}>
             ← Back
           </button>
-          <button type="button" onClick={goToExplore} className="linklike" style={{ marginTop: 6 }}>
+          <button
+            type="button"
+            onClick={goToExplore}
+            className="linklike"
+            style={{ marginTop: 6 }}
+          >
             ⟳ Start over
           </button>
         </div>

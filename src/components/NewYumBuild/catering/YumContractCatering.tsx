@@ -20,7 +20,11 @@ function addDays(d: Date, days: number) {
   return new Date(d.getTime() + days * MS_DAY);
 }
 function formatPretty(d: Date) {
-  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
@@ -49,6 +53,11 @@ interface YumContractCateringProps {
   setStep: (step: YumStep) => void;
   onClose: () => void;
   onComplete: () => void;
+
+  // ✅ NEW: tells us this couple already booked a venue that uses this flow
+  // (e.g. Desert Foothills running off the shared catering flow instead of its own)
+  isSharedFlowBookedVenue?: boolean;
+  bookedVenueName?: string;
 }
 
 const YumContractCatering: React.FC<YumContractCateringProps> = ({
@@ -67,6 +76,10 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   setStep,
   onClose,
   onComplete,
+
+  // ✅ NEW
+  isSharedFlowBookedVenue,
+  bookedVenueName,
 }) => {
   const auth = getAuth();
   const [userId, setUserId] = useState<string | null>(null);
@@ -89,13 +102,16 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
 
   const depositAmount = Math.round(total * 0.25 * 100) / 100;
   const today = new Date();
-  const planMonths = wedding && dueByDate ? monthsBetweenInclusive(today, dueByDate) : 1;
+  const planMonths =
+    wedding && dueByDate ? monthsBetweenInclusive(today, dueByDate) : 1;
 
   const totalCents = Math.round(total * 100);
   const depositCents = Math.round(depositAmount * 100);
   const balanceCents = Math.max(0, totalCents - depositCents);
-  const perMonthCents = planMonths > 0 ? Math.floor(balanceCents / planMonths) : balanceCents;
-  const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
+  const perMonthCents =
+    planMonths > 0 ? Math.floor(balanceCents / planMonths) : balanceCents;
+  const lastPaymentCents =
+    balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
     ? `You’re paying $${total.toFixed(2)} today.`
@@ -103,13 +119,20 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         2
       )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
         perMonthCents / 100
-      ).toFixed(2)}${planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""}`;
+      ).toFixed(2)}${
+        planMonths > 1
+          ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})`
+          : ""
+      }`;
 
   useEffect(() => {
     localStorage.setItem("yumStep", "contract");
-    if (menuSelections) localStorage.setItem("yumMenuSelections", JSON.stringify(menuSelections));
-    if (selectedCuisine) localStorage.setItem("yumSelectedCuisine", selectedCuisine);
-    if (lineItems) localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
+    if (menuSelections)
+      localStorage.setItem("yumMenuSelections", JSON.stringify(menuSelections));
+    if (selectedCuisine)
+      localStorage.setItem("yumSelectedCuisine", selectedCuisine);
+    if (lineItems)
+      localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
@@ -125,9 +148,21 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         }
 
         await updateDoc(userRef, { "progress.yumYum.step": "contract" });
-        await setDoc(doc(userRef, "yumYumData", "menuSelections"), { menuSelections }, { merge: true });
-        await setDoc(doc(userRef, "yumYumData", "cuisineSelection"), { selectedCuisine }, { merge: true });
-        await setDoc(doc(userRef, "yumYumData", "lineItems"), { lineItems }, { merge: true });
+        await setDoc(
+          doc(userRef, "yumYumData", "menuSelections"),
+          { menuSelections },
+          { merge: true }
+        );
+        await setDoc(
+          doc(userRef, "yumYumData", "cuisineSelection"),
+          { selectedCuisine },
+          { merge: true }
+        );
+        await setDoc(
+          doc(userRef, "yumYumData", "lineItems"),
+          { lineItems },
+          { merge: true }
+        );
       } catch (err) {
         console.error("🔥 Error fetching or saving user info:", err);
       }
@@ -142,7 +177,11 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   }, [payFull]);
 
   /* -------------------- storage helpers -------------------- */
-  const uploadPdfBlob = async (blob: Blob, uid: string, title: string): Promise<string> => {
+  const uploadPdfBlob = async (
+    blob: Blob,
+    uid: string,
+    title: string
+  ): Promise<string> => {
     const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
     const filename = `${title.replace(/\s+/g, "")}_${Date.now()}.pdf`;
     const filePath = `public_docs/${uid}/${filename}`;
@@ -150,7 +189,11 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     await uploadBytes(fileRef, blob);
     const publicUrl = await getDownloadURL(fileRef);
     await updateDoc(doc(db, "users", uid), {
-      documents: arrayUnion({ title, url: publicUrl, uploadedAt: new Date().toISOString() }),
+      documents: arrayUnion({
+        title,
+        url: publicUrl,
+        uploadedAt: new Date().toISOString(),
+      }),
     });
     return publicUrl;
   };
@@ -321,7 +364,9 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           user_full_name: `${firstName} ${lastName}`,
           wedding_date: prettyWedding || "Unknown",
           total: total.toFixed(2),
-          line_items: "Catering Booking - " + (menuSelections?.mains?.join(", ") || "N/A"),
+          line_items:
+            "Catering Booking - " +
+            (menuSelections?.mains?.join(", ") || "N/A"),
         },
         "5Lqtf5AMR9Uz5_5yF"
       );
@@ -338,10 +383,17 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     // ⛔️ no pixie-overlay here — parent overlay handles backdrop
     <div className="pixie-card" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
-  
+
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
@@ -349,87 +401,189 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           className="px-media"
           style={{ maxWidth: 120, marginBottom: 8 }}
         />
-  
+
         <h2 className="px-title-lg" style={{ marginBottom: 6 }}>
           Catering Agreement
         </h2>
-  
+
+        {/* intro blurb above the terms */}
         <p className="px-prose-narrow" style={{ marginBottom: 8 }}>
           You’re booking catering for <strong>{prettyWedding}</strong>
           {dayOfWeek ? ` (${dayOfWeek})` : ""}.
         </p>
-        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-          The total catering cost is <strong>${total.toFixed(2)}</strong>.
-        </p>
-  
+
+        {isSharedFlowBookedVenue ? (
+          <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+            Service will be provided at{" "}
+            <strong>{bookedVenueName || "your venue"}</strong>.
+          </p>
+        ) : (
+          <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+            The total catering cost is{" "}
+            <strong>${total.toFixed(2)}</strong>. If you haven’t booked a venue
+            (or your venue requires approval for outside catering), just make
+            sure they allow outside caterers before serving this menu onsite.
+          </p>
+        )}
+
         {/* Booking Terms — blue Jenna Sue */}
-        <div className="px-section" style={{ maxWidth: 620, margin: "0 auto 16px" }}>
-          <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: 8 }}>
+        <div
+          className="px-section"
+          style={{ maxWidth: 620, margin: "0 auto 16px" }}
+        >
+          <h3
+            className="px-title-lg"
+            style={{ fontSize: "1.8rem", marginBottom: 8 }}
+          >
             Booking Terms
           </h3>
           <ul
             className="px-prose-narrow"
-            style={{ textAlign: "left", margin: "0 auto", maxWidth: 560, lineHeight: 1.6, paddingLeft: "1.25rem" }}
+            style={{
+              textAlign: "left",
+              margin: "0 auto",
+              maxWidth: 560,
+              lineHeight: 1.6,
+              paddingLeft: "1.25rem",
+            }}
           >
-            <li>By signing, you confirm either (a) your venue allows outside caterers, or (b) you’ll book a venue that does.</li>
-            <li>You may pay in full today, or place a <strong>25% non-refundable deposit</strong>. Any remaining balance will be split into monthly installments and must be fully paid <strong>35 days before your wedding date</strong>.</li>
-            <li>Final guest count is due <strong>30 days before</strong> your wedding. You may increase your guest count starting 45 days before your wedding, but the count cannot be lowered after booking.</li>
-            <li><strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond the non-recoverable portion will be refunded less any non-recoverable costs already incurred. Within 35 days, all payments are non-refundable.</li>
-            <li><strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee applies; after 14 days, services may be suspended and this agreement may be in default.</li>
-            <li><strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and comply with venue rules, which may limit service or display options.</li>
-            <li><strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control. We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.</li>
-            <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
+            {/* 🔁 CONDITIONAL FIRST BULLET */}
+{!isSharedFlowBookedVenue && (
+  <li>
+    By signing, you confirm either (a) your venue allows outside caterers, or (b)
+    you’ll book a venue that does.
+  </li>
+)}
+
+            <li>
+              You may pay in full today, or place a{" "}
+              <strong>25% non-refundable deposit</strong>. Any remaining
+              balance will be split into monthly installments and must be fully
+              paid <strong>35 days before your wedding date</strong>.
+            </li>
+            <li>
+              Final guest count is due <strong>30 days before</strong> your
+              wedding. You may increase your guest count starting 45 days
+              before your wedding, but the count cannot be lowered after
+              booking.
+            </li>
+            <li>
+              <strong>Cancellation &amp; Refunds:</strong> If you cancel more
+              than 35 days prior, amounts paid beyond the non-recoverable
+              portion will be refunded less any non-recoverable costs already
+              incurred. Within 35 days, all payments are non-refundable.
+            </li>
+            <li>
+              <strong>Missed Payments:</strong> We’ll automatically retry your
+              card. After 7 days, a $25 late fee applies; after 14 days,
+              services may be suspended and this agreement may be in default.
+            </li>
+            <li>
+              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
+              standard food-safety guidelines and comply with venue rules,
+              which may limit service or display options.
+            </li>
+            <li>
+              <strong>Force Majeure:</strong> Neither party is liable for
+              delays beyond reasonable control. We’ll work in good faith to
+              reschedule; if not possible, we’ll refund amounts paid beyond
+              non-recoverable costs already incurred.
+            </li>
+            <li>
+              In the unlikely event of our cancellation or issue, liability is
+              limited to a refund of payments made.
+            </li>
           </ul>
         </div>
-  
+
         {/* Pay plan toggle — same as floral */}
-        <h4 className="px-title" style={{ fontSize: "1.8rem", marginBottom: 8 }}>
+        <h4
+          className="px-title"
+          style={{ fontSize: "1.8rem", marginBottom: 8 }}
+        >
           Choose how you’d like to pay:
         </h4>
         <div className="px-toggle" style={{ marginBottom: 12 }}>
           <button
             type="button"
-            className={`px-toggle__btn ${payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
-            style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
+            className={`px-toggle__btn ${
+              payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""
+            }`}
+            style={{
+              minWidth: 150,
+              padding: "0.6rem 1rem",
+              fontSize: ".9rem",
+            }}
             onClick={() => {
               setPayFull(true);
               setSignatureSubmitted(false);
-              try { localStorage.setItem("yumPayPlan", "full"); } catch {}
+              try {
+                localStorage.setItem("yumPayPlan", "full");
+              } catch {}
             }}
           >
             Pay Full Amount
           </button>
-  
+
           <button
             type="button"
-            className={`px-toggle__btn ${!payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
-            style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
+            className={`px-toggle__btn ${
+              !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+            }`}
+            style={{
+              minWidth: 150,
+              padding: "0.6rem 1rem",
+              fontSize: ".9rem",
+            }}
             onClick={() => {
               setPayFull(false);
               setSignatureSubmitted(false);
-              try { localStorage.setItem("yumPayPlan", "monthly"); } catch {}
+              try {
+                localStorage.setItem("yumPayPlan", "monthly");
+              } catch {}
             }}
           >
             25% Deposit + Monthly
           </button>
         </div>
-  
+
         {/* Summary */}
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
-            <>You’re paying <strong>${total.toFixed(2)}</strong> today.</>
+            <>
+              You’re paying <strong>${total.toFixed(2)}</strong> today.
+            </>
           ) : (
             <>
-              You’re paying <strong>${depositAmount.toFixed(2)}</strong> today, then about{" "}
-              <strong>${(perMonthCents / 100).toFixed(2)}</strong> monthly until <strong>{prettyDueBy}</strong>
-              {planMonths > 1 ? <> (last ≈ <strong>${(lastPaymentCents / 100).toFixed(2)}</strong>)</> : null}.
+              You’re paying <strong>${depositAmount.toFixed(2)}</strong> today,
+              then about{" "}
+              <strong>${(perMonthCents / 100).toFixed(2)}</strong> monthly
+              until <strong>{prettyDueBy}</strong>
+              {planMonths > 1 ? (
+                <>
+                  {" "}
+                  (last ≈{" "}
+                  <strong>
+                    ${(lastPaymentCents / 100).toFixed(2)}
+                  </strong>
+                  )
+                </>
+              ) : null}
+              .
             </>
           )}
         </p>
-  
+
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>
-          <label className="px-prose-narrow" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <label
+            className="px-prose-narrow"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <input
               type="checkbox"
               checked={agreeChecked}
@@ -438,7 +592,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             I agree to the terms above
           </label>
         </div>
-  
+
         {!signatureSubmitted ? (
           <button
             className="boutique-primary-btn"
@@ -461,35 +615,74 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
               style={{ width: 250 }}
               onClick={() => {
                 if (!signatureSubmitted) return;
+
                 const totalCents = Math.round(total * 100);
                 const amountDueToday = payFull ? total : depositAmount;
-                const amountDueTodayCents = Math.round(amountDueToday * 100);
+                const amountDueTodayCents = Math.round(
+                  amountDueToday * 100
+                );
+
                 try {
                   localStorage.setItem("yumTotal", String(total));
-                  localStorage.setItem("yumAmountDueToday", String(amountDueToday));
-                  localStorage.setItem("yumPaymentPlan", payFull ? "full" : "monthly");
-                  localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
-                  localStorage.setItem("yumCateringDepositAmount", String(depositCents));
-                  localStorage.setItem("yumCateringTotalCents", String(totalCents));
-                  localStorage.setItem("yumCateringAmountDueTodayCents", String(amountDueTodayCents));
-                  localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
-                  localStorage.setItem("yumCateringPlanMonths", String(planMonths));
-                  localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
-                  localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
+                  localStorage.setItem(
+                    "yumAmountDueToday",
+                    String(amountDueToday)
+                  );
+                  localStorage.setItem(
+                    "yumPaymentPlan",
+                    payFull ? "full" : "monthly"
+                  );
+                  localStorage.setItem(
+                    "yumCateringPayFull",
+                    JSON.stringify(payFull)
+                  );
+                  localStorage.setItem(
+                    "yumCateringDepositAmount",
+                    String(depositCents)
+                  );
+                  localStorage.setItem(
+                    "yumCateringTotalCents",
+                    String(totalCents)
+                  );
+                  localStorage.setItem(
+                    "yumCateringAmountDueTodayCents",
+                    String(amountDueTodayCents)
+                  );
+                  localStorage.setItem(
+                    "yumCateringDueBy",
+                    dueByDate ? dueByDate.toISOString() : ""
+                  );
+                  localStorage.setItem(
+                    "yumCateringPlanMonths",
+                    String(planMonths)
+                  );
+                  localStorage.setItem(
+                    "yumCateringPerMonthCents",
+                    String(perMonthCents)
+                  );
+                  localStorage.setItem(
+                    "yumCateringLastPaymentCents",
+                    String(lastPaymentCents)
+                  );
                 } catch {}
+
                 localStorage.setItem("yumStep", "cateringCheckout");
                 setStep("cateringCheckout");
               }}
             >
               Continue to Payment
             </button>
-            <button className="boutique-back-btn" onClick={() => setStep("cateringCart")} style={{ width: 250 }}>
+            <button
+              className="boutique-back-btn"
+              onClick={() => setStep("cateringCart")}
+              style={{ width: 250 }}
+            >
               ← Back to Cart
             </button>
           </div>
         )}
       </div>
-  
+
       {/* Signature Modal — single overlay */}
       {showSignatureModal && (
         <div
@@ -506,7 +699,11 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         >
           <div
             className="pixie-card pixie-card--modal"
-            style={{ maxWidth: 520, position: "relative", overflowY: "hidden" }}
+            style={{
+              maxWidth: 520,
+              position: "relative",
+              overflowY: "hidden",
+            }}
           >
             {/* Blue X */}
             <button
@@ -514,31 +711,55 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
               onClick={() => setShowSignatureModal(false)}
               aria-label="Close"
             >
-              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
+                alt="Close"
+              />
             </button>
-  
-            <div className="pixie-card__body" style={{ textAlign: "center" }}>
-              <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: 12 }}>
+
+            <div
+              className="pixie-card__body"
+              style={{ textAlign: "center" }}
+            >
+              <h3
+                className="px-title-lg"
+                style={{ fontSize: "1.8rem", marginBottom: 12 }}
+              >
                 Sign below or enter your text signature
               </h3>
-  
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 12 }}>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
                 <button
-                  className={`px-toggle__btn ${!useTextSignature ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    !useTextSignature
+                      ? "px-toggle__btn--blue px-toggle__btn--active"
+                      : ""
+                  }`}
                   style={{ minWidth: 110, padding: ".5rem 1rem" }}
                   onClick={() => setUseTextSignature(false)}
                 >
                   Draw
                 </button>
                 <button
-                  className={`px-toggle__btn ${useTextSignature ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    useTextSignature
+                      ? "px-toggle__btn--pink px-toggle__btn--active"
+                      : ""
+                  }`}
                   style={{ minWidth: 110, padding: ".5rem 1rem" }}
                   onClick={() => setUseTextSignature(true)}
                 >
                   Type
                 </button>
               </div>
-  
+
               {!useTextSignature ? (
                 <SignatureCanvas
                   penColor="#2c62ba"
@@ -564,23 +785,35 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
                   value={typedSignature}
                   onChange={(e) => setTypedSignature(e.target.value)}
                   className="px-input"
-                  style={{ maxWidth: 420, margin: "0 auto 16px" }}
+                  style={{
+                    maxWidth: 420,
+                    margin: "0 auto 16px",
+                  }}
                 />
               )}
-  
-  <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-  <button
-    className="boutique-primary-btn"
-    onClick={handleSignatureSubmit}
-    style={{ width: 260 }}
-  >
-    Save Signature
-  </button>
-</div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginTop: 4,
+                }}
+              >
+                <button
+                  className="boutique-primary-btn"
+                  onClick={handleSignatureSubmit}
+                  style={{ width: 260 }}
+                >
+                  Save Signature
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* You still have handleSuccess(), which generates PDFs + emails after Stripe.
+          That still fires later in the flow, so we didn't touch it. */}
     </div>
   );
 };

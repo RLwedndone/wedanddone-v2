@@ -249,26 +249,25 @@ const OcotilloDessertContract: React.FC<OcotilloDessertContractProps> = ({
       })
     : "your wedding date";
 
-  return (
-    <div className="pixie-overlay">
-      <div className="pixie-card" style={{ maxWidth: "700px", textAlign: "center" }}>
-        {/* Icon / header visual */}
-        <img
-          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
-          alt="Dessert Icon"
-          style={{ width: "100px", margin: "0 auto 1rem", display: "block" }}
-        />
-
-        <h2
-          style={{
-            fontSize: "2.5rem",
-            color: "#2c62ba",
-            textAlign: "center",
-            marginBottom: "1rem",
-          }}
-        >
-          Dessert Agreement
-        </h2>
+    return (
+        // ⛔️ No pixie-overlay — parent handles backdrop
+        <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
+          {/* 🩷 Pink X */}
+          <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+            <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+          </button>
+      
+          <div className="pixie-card__body" style={{ textAlign: "center" }}>
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
+              alt="Dessert Icon"
+              className="px-media"
+              style={{ width: 110, margin: "0 auto 12px" }}
+            />
+      
+            <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
+              Dessert Agreement
+            </h2>
 
         <p style={{ marginBottom: "1.25rem" }}>
           You’re booking desserts for <strong>{formattedDate}</strong> ({dayOfWeek || "TBD"}).
@@ -342,7 +341,7 @@ const OcotilloDessertContract: React.FC<OcotilloDessertContractProps> = ({
             fontWeight: "bold",
             marginBottom: "0.75rem",
             textAlign: "center",
-            fontSize: "1.25rem",
+            fontSize: "1.75rem",
           }}
         >
           Choose how you’d like to pay:
@@ -678,7 +677,7 @@ const OcotilloDessertContract: React.FC<OcotilloDessertContractProps> = ({
           </div>
         )}
       </div>
-    </div>
+      </div>
   );
 };
 

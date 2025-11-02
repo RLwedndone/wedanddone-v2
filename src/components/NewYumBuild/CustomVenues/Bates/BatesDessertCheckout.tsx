@@ -425,8 +425,22 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
   };
 
   // ===================== RENDER =====================
-  return (
-    <div className="pixie-card pixie-card--modal">
+return (
+  <div
+    style={{
+      minHeight: "100vh",
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2rem 1rem",
+      boxSizing: "border-box",
+    }}
+  >
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700, position: "relative" }}
+    >
       {/* 🩷 Pink X Close */}
       <button
         className="pixie-card__close"
@@ -439,7 +453,13 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         />
       </button>
 
-      <div className="pixie-card__body">
+      <div
+        className="pixie-card__body"
+        style={{
+          textAlign: "center",
+          padding: "2rem 2.5rem",
+        }}
+      >
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
@@ -526,6 +546,7 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         </div>
       </div>
     </div>
+  </div>
   );
 };
 

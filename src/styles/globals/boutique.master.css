@@ -573,13 +573,13 @@
    /* Venue iframe */
    .px-video-wrap { width: 100%; max-width: 900px; margin: 0 auto 1.25rem; }
    .px-video-iframe {
-     width: 100%;
-     height: clamp(240px, 56vw, 520px);
-     border: 0;
-     border-radius: 12px;
-     display: block;
-     background: #000;
-   }
+    width: 100%;
+    height: clamp(200px, 34vw, 320px); /* ↓ smaller: 25% lower across range */
+    border: 0;
+    border-radius: 12px;
+    display: block;
+    background: #000;
+  }
    
    /* =========================================================
       15) React Calendar (scoped to boutique overlays only)
@@ -664,4 +664,32 @@
 /* (optional) a touch taller on very small phones */
 @media (max-width: 380px) {
   .pixie-card--modal { --pixie-card-min-h: 680px; }
+}
+
+/* Castle Considerations CTA */
+.castle-considerations-btn {
+  font-family: 'Jenna Sue','JennaSue',cursive;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  font-weight: 400;
+  color: #fff;
+
+  background: #2c62ba;
+  border: 0;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  min-width: 280px;
+  max-width: 90%;
+  margin: 1rem auto 0;
+  text-align: center;
+  display: block;
+  cursor: pointer;
+
+  box-shadow: 0 8px 20px rgba(44, 98, 186, 0.35);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.castle-considerations-btn:hover {
+  box-shadow: 0 10px 24px rgba(44, 98, 186, 0.5);
+  transform: translateY(-1px);
 }

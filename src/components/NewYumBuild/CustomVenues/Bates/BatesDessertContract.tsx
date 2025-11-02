@@ -278,24 +278,51 @@ useEffect(() => {
   : "your wedding date";
 
   return (
-    // ⛔️ No pixie-overlay — parent handles backdrop
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
-      {/* 🩷 Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-      </button>
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* ⛔️ No pixie-overlay — parent handles backdrop */}
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 680, position: "relative" }}
+      >
+        {/* 🩷 Pink X */}
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
   
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
-        <img
-          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
-          alt="Dessert Icon"
-          className="px-media"
-          style={{ width: 110, margin: "0 auto 12px" }}
-        />
+        <div
+          className="pixie-card__body"
+          style={{
+            textAlign: "center",
+            padding: "2rem 2.5rem",
+          }}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
+            alt="Dessert Icon"
+            className="px-media"
+            style={{ width: 110, margin: "0 auto 12px" }}
+          />
   
-        <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
-          Dessert Agreement
-        </h2>
+          <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
+            Dessert Agreement
+          </h2>
   
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
           You’re booking desserts for <strong>{formattedDate}</strong> ({weekdayPretty || "TBD"}).
@@ -566,6 +593,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };

@@ -58,7 +58,6 @@ function monthsBetweenInclusive(from: Date, to: Date) {
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
-
 function firstMonthlyChargeAtUTC(from = new Date()): string {
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
@@ -70,12 +69,30 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
 const clamp = (n: number, lo = 1, hi = 250) =>
   Math.max(lo, Math.min(hi, n));
 
+function lockBanner(reasons: GuestLockReason[] | undefined) {
+  if (!reasons || reasons.length === 0)
+    return "Guest count is locked.";
+  const pretty: Record<GuestLockReason, string> = {
+    venue: "a venue booking",
+    planner: "a planner booking",
+    catering: "a catering booking",
+    dessert: "a dessert booking",
+    "yum:catering": "a Yum Yum catering booking",
+    "yum:dessert": "a Yum Yum dessert booking",
+    final_submission: "your final submission",
+  };
+  const parts = reasons.map((r) => pretty[r] ?? r);
+  return `Guest count is locked due to ${parts.join(
+    " & "
+  )}.`;
+}
+
 /** Normalize goodies keys: "Group::Label" → "Label". */
 const goodieLabel = (k: string) =>
   k.includes("::") ? k.split("::")[1] : k;
 
 interface Props {
-  guestCount: number; // kept for compatibility
+  guestCount: number; // compatibility only
   onGuestCountChange: (count: number) => void;
 
   dessertStyle: "tieredCake" | "smallCakeTreats" | "treatsOnly";
@@ -107,15 +124,15 @@ const OcotilloDessertCart: React.FC<Props> = ({
   setPaymentSummaryText,
   onContinueToCheckout,
   onStartOver,
+  onClose,
   weddingDate,
 }) => {
-  // ===== Guest Count store sync =====
+  // ===== Guest Count sync / lock =====
   const [gc, setGC] = useState<number>(0);
   const [locked, setLocked] = useState<boolean>(false);
   const [lockReasons, setLockReasons] = useState<
     GuestLockReason[] | undefined
   >([]);
-  const [banner, setBanner] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -185,56 +202,86 @@ const OcotilloDessertCart: React.FC<Props> = ({
     sync();
 
     const onUpdate = () => sync();
-    window.addEventListener("guestCountUpdated", onUpdate);
-    window.addEventListener("guestCountLocked", onUpdate);
-    window.addEventListener("guestCountUnlocked", onUpdate);
+    window.addEventListener(
+      "guestCountUpdated",
+      onUpdate
+    );
+    window.addEventListener(
+      "guestCountLocked",
+      onUpdate
+    );
+    window.addEventListener(
+      "guestCountUnlocked",
+      onUpdate
+    );
 
     return () => {
       mounted = false;
-      window.removeEventListener("guestCountUpdated", onUpdate);
-      window.removeEventListener("guestCountLocked", onUpdate);
-      window.removeEventListener("guestCountUnlocked", onUpdate);
+      window.removeEventListener(
+        "guestCountUpdated",
+        onUpdate
+      );
+      window.removeEventListener(
+        "guestCountLocked",
+        onUpdate
+      );
+      window.removeEventListener(
+        "guestCountUnlocked",
+        onUpdate
+      );
     };
   }, []);
 
   const handleGCInput = (val: string) => {
     if (locked) return;
-    const next = clamp(parseInt(val || "0", 10) || 0);
+    const next = clamp(
+      parseInt(val || "0", 10) || 0
+    );
     setGC(next);
     setGuestCount(next);
-    localStorage.setItem("yumGuestCount", String(next));
+    localStorage.setItem(
+      "yumGuestCount",
+      String(next)
+    );
   };
 
-  // ===== Quantities (auto-filled + editable) =====
-  const [cupcakeEachByFlavor, setCupcakeEachByFlavor] = useState<
-    Record<string, number>
-  >(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("ocotilloCupcakeEachByFlavor") || "{}"
-      );
-    } catch {
-      return {};
-    }
-  });
+  // ===== Quantities and per-flavor counts =====
+  // Ocotillo uses ocotillo* keys in localStorage
+  const [cupcakeEachByFlavor, setCupcakeEachByFlavor] =
+    useState<Record<string, number>>(() => {
+      try {
+        return JSON.parse(
+          localStorage.getItem(
+            "ocotilloCupcakeEachByFlavor"
+          ) || "{}"
+        );
+      } catch {
+        return {};
+      }
+    });
 
   const [goodieDozens, setGoodieDozens] = useState<
     Record<string, number>
   >(() => {
     try {
       return JSON.parse(
-        localStorage.getItem("ocotilloGoodieDozens") || "{}"
+        localStorage.getItem(
+          "ocotilloGoodieDozens"
+        ) || "{}"
       );
     } catch {
       return {};
     }
   });
 
-  // auto-fill cupcakes per flavor
+  // Auto-fill cupcakes per flavor
   useEffect(() => {
     if (treatType !== "cupcakes") return;
 
-    const n = Math.max(1, cupcakes.length || 1);
+    const n = Math.max(
+      1,
+      cupcakes.length || 1
+    );
     const suggestedPerFlavor = Math.max(
       CUPCAKE_MIN_EACH,
       Math.ceil((gc || 0) / n)
@@ -242,7 +289,8 @@ const OcotilloDessertCart: React.FC<Props> = ({
 
     const next: Record<string, number> = {};
     for (const title of cupcakes) {
-      const prev = cupcakeEachByFlavor[title] || 0;
+      const prev =
+        cupcakeEachByFlavor[title] || 0;
       next[title] = Math.max(
         prev,
         suggestedPerFlavor,
@@ -252,19 +300,25 @@ const OcotilloDessertCart: React.FC<Props> = ({
 
     const changed =
       cupcakes.length !==
-        Object.keys(cupcakeEachByFlavor).length ||
+        Object.keys(
+          cupcakeEachByFlavor
+        ).length ||
       cupcakes.some(
         (t) =>
-          (cupcakeEachByFlavor[t] || 0) !== next[t]
+          (cupcakeEachByFlavor[t] || 0) !==
+          next[t]
       );
 
     if (changed) setCupcakeEachByFlavor(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [treatType, cupcakes, gc]);
 
-  // auto-fill goodies by dozen
+  // Auto-fill goodies (dozens)
   useEffect(() => {
-    if (treatType !== "goodies" || goodies.length === 0)
+    if (
+      treatType !== "goodies" ||
+      goodies.length === 0
+    )
       return;
 
     const targetDz = Math.max(
@@ -277,16 +331,26 @@ const OcotilloDessertCart: React.FC<Props> = ({
     for (const key of goodies) {
       const label = goodieLabel(key);
       const minDz =
-        GOODIE_CATALOG[label]?.minDozens ?? 1;
+        GOODIE_CATALOG[label]?.minDozens ??
+        1;
       next[label] = minDz;
       baseline += minDz;
     }
 
-    let remaining = Math.max(0, targetDz - baseline);
+    let remaining = Math.max(
+      0,
+      targetDz - baseline
+    );
     let i = 0;
-    while (remaining > 0 && goodies.length > 0) {
-      const label = goodieLabel(goodies[i % goodies.length]);
-      next[label] = (next[label] || 0) + 1;
+    while (
+      remaining > 0 &&
+      goodies.length > 0
+    ) {
+      const label = goodieLabel(
+        goodies[i % goodies.length]
+      );
+      next[label] =
+        (next[label] || 0) + 1;
       remaining -= 1;
       i += 1;
     }
@@ -294,11 +358,14 @@ const OcotilloDessertCart: React.FC<Props> = ({
     const changed =
       goodies.some(
         (k) =>
-          (goodieDozens[goodieLabel(k)] || 0) !==
+          (goodieDozens[goodieLabel(k)] ||
+            0) !==
           (next[goodieLabel(k)] || 0)
       ) ||
-      Object.keys(goodieDozens).some(
-        (k) => !goodies.map(goodieLabel).includes(k)
+      Object.keys(goodieDozens).some((k) =>
+        !goodies
+          .map(goodieLabel)
+          .includes(k)
       );
 
     if (changed) setGoodieDozens(next);
@@ -309,14 +376,18 @@ const OcotilloDessertCart: React.FC<Props> = ({
   useEffect(() => {
     localStorage.setItem(
       "ocotilloCupcakeEachByFlavor",
-      JSON.stringify(cupcakeEachByFlavor || {})
+      JSON.stringify(
+        cupcakeEachByFlavor || {}
+      )
     );
   }, [cupcakeEachByFlavor]);
 
   useEffect(() => {
     localStorage.setItem(
       "ocotilloGoodieDozens",
-      JSON.stringify(goodieDozens || {})
+      JSON.stringify(
+        goodieDozens || {}
+      )
     );
   }, [goodieDozens]);
 
@@ -328,8 +399,10 @@ const OcotilloDessertCart: React.FC<Props> = ({
       subtotal += gc * PER_GUEST_TIERED;
     }
 
-    if (dessertStyle === "smallCakeTreats") {
-      // always includes the cutting cake
+    if (
+      dessertStyle === "smallCakeTreats"
+    ) {
+      // includes cutting cake
       subtotal += SMALL_CAKE_PRICE;
 
       if (treatType === "cupcakes") {
@@ -338,18 +411,26 @@ const OcotilloDessertCart: React.FC<Props> = ({
             CUPCAKE_MIN_EACH,
             cupcakeEachByFlavor[title] || 0
           );
-          subtotal += each * CUPCAKE_PRICE_EACH;
+          subtotal +=
+            each *
+            CUPCAKE_PRICE_EACH;
         }
-      } else if (treatType === "goodies") {
+      } else if (
+        treatType === "goodies"
+      ) {
         for (const key of goodies) {
-          const label = goodieLabel(key);
-          const meta = GOODIE_CATALOG[label];
+          const label =
+            goodieLabel(key);
+          const meta =
+            GOODIE_CATALOG[label];
           if (!meta) continue;
           const dz = Math.max(
             meta.minDozens ?? 0,
             goodieDozens[label] || 0
           );
-          subtotal += dz * (meta.retailPerDozen || 0);
+          subtotal +=
+            dz *
+            (meta.retailPerDozen || 0);
         }
       }
     }
@@ -361,17 +442,24 @@ const OcotilloDessertCart: React.FC<Props> = ({
             CUPCAKE_MIN_EACH,
             cupcakeEachByFlavor[title] || 0
           );
-          subtotal += each * CUPCAKE_PRICE_EACH;
+          subtotal +=
+            each *
+            CUPCAKE_PRICE_EACH;
         }
-      } else if (treatType === "goodies") {
+      } else if (
+        treatType === "goodies"
+      ) {
         for (const key of goodies) {
-          const label = goodieLabel(key);
+          const label =
+            goodieLabel(key);
           const dz = Math.max(
             0,
             goodieDozens[label] || 0
           );
-          subtotal += dz *
-            (GOODIE_CATALOG[label]?.retailPerDozen || 0);
+          subtotal +=
+            dz *
+            (GOODIE_CATALOG[label]
+              ?.retailPerDozen || 0);
         }
       }
     }
@@ -388,38 +476,47 @@ const OcotilloDessertCart: React.FC<Props> = ({
   ]);
 
   const taxesAndFees = useMemo(() => {
-    const taxes = baseSubtotal * SALES_TAX_RATE;
+    const taxes =
+      baseSubtotal * SALES_TAX_RATE;
     const stripe =
-      baseSubtotal * STRIPE_RATE + STRIPE_FLAT_FEE;
+      baseSubtotal * STRIPE_RATE +
+      STRIPE_FLAT_FEE;
     return round2(taxes + stripe);
   }, [baseSubtotal]);
 
   const grandTotal = useMemo(
-    () => round2(baseSubtotal + taxesAndFees),
+    () =>
+      round2(baseSubtotal + taxesAndFees),
     [baseSubtotal, taxesAndFees]
   );
 
-  // ===== Plan helper =====
-  const deposit25 = round2(grandTotal * DEPOSIT_PCT);
+  // ===== Plan helper (stored for checkout use) =====
+  const deposit25 = round2(
+    grandTotal * DEPOSIT_PCT
+  );
   const remainingAfterDeposit = round2(
     Math.max(0, grandTotal - deposit25)
   );
-
   const finalDueDate = (() => {
-    const d = parseLocalYMD(weddingDate || "");
+    const d = parseLocalYMD(
+      weddingDate || ""
+    );
     if (!d) return null;
     d.setTime(
-      d.getTime() - FINAL_DUE_DAYS * MS_DAY
+      d.getTime() -
+        FINAL_DUE_DAYS * MS_DAY
     );
     return d;
   })();
-
   const finalDuePretty = finalDueDate
-    ? finalDueDate.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
+    ? finalDueDate.toLocaleDateString(
+        "en-US",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }
+      )
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
   // ===== Reflect to parent + build line items =====
@@ -431,10 +528,12 @@ const OcotilloDessertCart: React.FC<Props> = ({
       (
         {
           tieredCake: "Tiered Cake",
-          smallCakeTreats: "Small Cake + Treats",
+          smallCakeTreats:
+            "Small Cake + Treats",
           treatsOnly: "Treats Only",
         } as const
-      )[dessertStyle] ?? dessertStyle;
+      )[dessertStyle] ??
+      dessertStyle;
 
     if (dessertStyle === "tieredCake") {
       items.push(
@@ -442,17 +541,25 @@ const OcotilloDessertCart: React.FC<Props> = ({
       );
       if (flavorFilling.length)
         items.push(
-          `Flavor combo: ${flavorFilling.join(" + ")}`
+          `Flavor combo: ${flavorFilling.join(
+            " + "
+          )}`
         );
       if (cakeStyle)
-        items.push(`Cake style: ${cakeStyle}`);
+        items.push(
+          `Cake style: ${cakeStyle}`
+        );
     }
 
     if (
-      dessertStyle === "smallCakeTreats" ||
+      dessertStyle ===
+        "smallCakeTreats" ||
       dessertStyle === "treatsOnly"
     ) {
-      if (dessertStyle === "smallCakeTreats") {
+      if (
+        dessertStyle ===
+        "smallCakeTreats"
+      ) {
         items.push(
           `Small Cutting Cake = $${SMALL_CAKE_PRICE.toFixed(
             2
@@ -460,13 +567,21 @@ const OcotilloDessertCart: React.FC<Props> = ({
         );
         if (flavorFilling.length)
           items.push(
-            `Flavor combo: ${flavorFilling.join(" + ")}`
+            `Flavor combo: ${flavorFilling.join(
+              " + "
+            )}`
           );
         if (cakeStyle)
-          items.push(`Cake style: ${cakeStyle}`);
+          items.push(
+            `Cake style: ${cakeStyle}`
+          );
       }
 
-      if (treatType === "cupcakes" && cupcakes.length > 0) {
+      if (
+        treatType ===
+          "cupcakes" &&
+        cupcakes.length > 0
+      ) {
         for (const title of cupcakes) {
           const qty = Math.max(
             CUPCAKE_MIN_EACH,
@@ -477,14 +592,18 @@ const OcotilloDessertCart: React.FC<Props> = ({
           );
         }
       } else if (
-        treatType === "goodies" &&
+        treatType ===
+          "goodies" &&
         goodies.length
       ) {
         for (const key of goodies) {
-          const label = goodieLabel(key);
-          const meta = GOODIE_CATALOG[label];
+          const label =
+            goodieLabel(key);
+          const meta =
+            GOODIE_CATALOG[label];
           if (!meta) continue;
-          const min = meta.minDozens ?? 1;
+          const min =
+            meta.minDozens ?? 1;
           const dz = Math.max(
             min,
             goodieDozens[label] || 0
@@ -496,7 +615,8 @@ const OcotilloDessertCart: React.FC<Props> = ({
       }
     }
 
-    if (items.length === 0) items.push(`${labelStyle}`);
+    if (items.length === 0)
+      items.push(`${labelStyle}`);
 
     setLineItems(items);
 
@@ -524,16 +644,28 @@ const OcotilloDessertCart: React.FC<Props> = ({
     setTotal,
   ]);
 
-  // ===== Persist mirrors =====
+  // ===== Persist mirrors (Ocotillo) =====
   useEffect(() => {
-    localStorage.setItem("yumGuestCount", String(gc));
-    localStorage.setItem("yumDessertStyle", dessertStyle);
+    localStorage.setItem(
+      "yumGuestCount",
+      String(gc)
+    );
+    localStorage.setItem(
+      "yumDessertStyle",
+      dessertStyle
+    );
     localStorage.setItem(
       "yumFlavorFilling",
       JSON.stringify(flavorFilling)
     );
-    localStorage.setItem("yumCakeStyle", cakeStyle || "");
-    localStorage.setItem("yumTreatType", treatType || "");
+    localStorage.setItem(
+      "yumCakeStyle",
+      cakeStyle || ""
+    );
+    localStorage.setItem(
+      "yumTreatType",
+      treatType || ""
+    );
     localStorage.setItem(
       "yumCupcakes",
       JSON.stringify(cupcakes)
@@ -544,11 +676,15 @@ const OcotilloDessertCart: React.FC<Props> = ({
     );
     localStorage.setItem(
       "ocotilloCupcakeEachByFlavor",
-      JSON.stringify(cupcakeEachByFlavor || {})
+      JSON.stringify(
+        cupcakeEachByFlavor || {}
+      )
     );
     localStorage.setItem(
       "ocotilloGoodieDozens",
-      JSON.stringify(goodieDozens || {})
+      JSON.stringify(
+        goodieDozens || {}
+      )
     );
 
     // Overlay resume hint for THIS venue flow
@@ -557,48 +693,60 @@ const OcotilloDessertCart: React.FC<Props> = ({
       "ocotilloDessertCart"
     );
 
-    // Also keep global yumStep pointing at cart for shared listeners
-    localStorage.setItem("yumStep", "cart");
+    // Also keep global yumStep pointing at cart
+    localStorage.setItem(
+      "yumStep",
+      "cart"
+    );
 
-    onAuthStateChanged(getAuth(), async (user) => {
-      if (!user) return;
-      try {
-        // Save dessert cart snapshot under this boutique
-        await setDoc(
-          doc(
-            db,
-            "users",
-            user.uid,
-            "yumYumData",
-            "ocotilloDessertCartData"
-          ),
-          {
-            guestCount: gc,
-            dessertStyle,
-            flavorFilling,
-            cakeStyle: cakeStyle || "",
-            treatType: treatType || "",
-            cupcakes,
-            goodies,
-            cupcakeEachByFlavor,
-            goodieDozens,
-          },
-          { merge: true }
-        );
+    onAuthStateChanged(
+      getAuth(),
+      async (user) => {
+        if (!user) return;
+        try {
+          // save Ocotillo dessert cart snapshot
+          await setDoc(
+            doc(
+              db,
+              "users",
+              user.uid,
+              "yumYumData",
+              "ocotilloDessertCartData"
+            ),
+            {
+              guestCount: gc,
+              dessertStyle,
+              flavorFilling,
+              cakeStyle:
+                cakeStyle || "",
+              treatType:
+                treatType || "",
+              cupcakes,
+              goodies,
+              cupcakeEachByFlavor,
+              goodieDozens,
+            },
+            { merge: true }
+          );
 
-        // Progress breadcrumb
-        await setDoc(
-          doc(db, "users", user.uid),
-          { progress: { yumYum: { step: "cart" } } },
-          { merge: true }
-        );
-      } catch (err) {
-        console.error(
-          "❌ Failed to save Ocotillo dessert cart data:",
-          err
-        );
+          // progress breadcrumb
+          await setDoc(
+            doc(db, "users", user.uid),
+            {
+              progress: {
+                yumYum: { step: "cart" },
+              },
+            },
+            { merge: true }
+          );
+        } catch (err) {
+          console.error(
+            "❌ Failed to save Ocotillo dessert cart data:",
+            err
+          );
+        }
       }
-    });
+    );
   }, [
     gc,
     dessertStyle,
@@ -611,11 +759,14 @@ const OcotilloDessertCart: React.FC<Props> = ({
     goodieDozens,
   ]);
 
-  // ===== Continue → lock GC & stash plan hints for checkout =====
+  // ===== Continue → lock guest count, stash payment plan for checkout =====
   const handleContinue = async () => {
     try {
       if (!locked)
-        await setAndLockGuestCount(gc || 0, "dessert");
+        await setAndLockGuestCount(
+          gc || 0,
+          "dessert"
+        );
     } catch (e) {
       console.error(
         "⚠️ Could not lock guest count for dessert:",
@@ -624,13 +775,18 @@ const OcotilloDessertCart: React.FC<Props> = ({
     }
 
     try {
-      // These keys are what checkout/contract screens expect
-      localStorage.setItem("yumTotal", String(grandTotal));
+      // keys checkout / contract expect
+      localStorage.setItem(
+        "yumTotal",
+        String(grandTotal)
+      );
 
-      const deposit25 = round2(grandTotal * DEPOSIT_PCT);
+      const deposit25Local = round2(
+        grandTotal * DEPOSIT_PCT
+      );
       localStorage.setItem(
         "yumDepositAmount",
-        String(deposit25)
+        String(deposit25Local)
       );
       localStorage.setItem(
         "yumRemainingBalance",
@@ -638,7 +794,8 @@ const OcotilloDessertCart: React.FC<Props> = ({
           round2(
             Math.max(
               0,
-              grandTotal - deposit25
+              grandTotal -
+                deposit25Local
             )
           )
         )
@@ -668,21 +825,29 @@ const OcotilloDessertCart: React.FC<Props> = ({
 
       if (
         finalDueDate &&
-        grandTotal - deposit25 > 0
+        grandTotal -
+          deposit25Local >
+          0
       ) {
-        const m = monthsBetweenInclusive(
-          new Date(),
-          finalDueDate
-        );
+        const m =
+          monthsBetweenInclusive(
+            new Date(),
+            finalDueDate
+          );
         const remCents = Math.round(
-          (grandTotal - deposit25) * 100
+          (grandTotal -
+            deposit25Local) * 100
         );
-        const base = Math.floor(remCents / m);
+        const base = Math.floor(
+          remCents / m
+        );
         const tail =
           remCents -
           base *
-            Math.max(0, m - 1);
-
+            Math.max(
+              0,
+              m - 1
+            );
         localStorage.setItem(
           "yumPlanMonths",
           String(m)
@@ -702,8 +867,14 @@ const OcotilloDessertCart: React.FC<Props> = ({
           )
         );
       } else {
-        localStorage.setItem("yumPlanMonths", "0");
-        localStorage.setItem("yumPerMonthCents", "0");
+        localStorage.setItem(
+          "yumPlanMonths",
+          "0"
+        );
+        localStorage.setItem(
+          "yumPerMonthCents",
+          "0"
+        );
         localStorage.setItem(
           "yumLastPaymentCents",
           "0"
@@ -724,20 +895,37 @@ const OcotilloDessertCart: React.FC<Props> = ({
     (
       {
         tieredCake: "Tiered Cake",
-        smallCakeTreats: "Small Cake + Treats",
+        smallCakeTreats:
+          "Small Cake + Treats",
         treatsOnly: "Treats Only",
       } as const
     )[dessertStyle] ?? dessertStyle;
 
-  // ===== RENDER =====
+  // ===================== RENDER =====================
   return (
-    <div className="pixie-overlay">
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700 }}
+    >
+      {/* Pink X Close in top corner */}
+      {typeof onClose === "function" && (
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${
+              import.meta.env.BASE_URL
+            }assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+      )}
+
       <div
-        className="pixie-card"
-        style={{
-          maxWidth: "700px",
-          textAlign: "center",
-        }}
+        className="pixie-card__body"
+        style={{ textAlign: "center" }}
       >
         <video
           src={`${
@@ -747,44 +935,28 @@ const OcotilloDessertCart: React.FC<Props> = ({
           loop
           muted
           playsInline
+          className="px-media"
           style={{
-            width: "180px",
-            margin: "0 auto 1.5rem",
-            borderRadius: "12px",
+            width: 180,
+            margin: "0 auto 16px",
+            borderRadius: 12,
           }}
         />
 
         <h2
-          style={{
-            fontFamily: "'Jenna Sue', cursive",
-            fontSize: "2.2rem",
-            color: "#2c62ba",
-          }}
+          className="px-title-lg"
+          style={{ marginBottom: 8 }}
         >
           Your Dessert Order
         </h2>
 
-        {banner && (
-          <div
-            style={{
-              background: "#fff7d1",
-              border: "1px solid #eed27a",
-              padding: "0.6rem 0.8rem",
-              borderRadius: 10,
-              margin: "0 0 1rem",
-              fontSize: ".95rem",
-            }}
-          >
-            {banner}
-          </div>
-        )}
 
         {/* 👥 Guest Count */}
-        <div style={{ marginBottom: "1.25rem" }}>
+        <div style={{ marginBottom: 16 }}>
           <div
             style={{
               fontWeight: 700,
-              marginBottom: ".35rem",
+              marginBottom: 6,
             }}
           >
             Guest Count
@@ -792,19 +964,22 @@ const OcotilloDessertCart: React.FC<Props> = ({
 
           {locked ? (
             <div
+              title="Guest count is locked by another booking"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: ".5rem",
-                background: "#f5f5f5",
-                border: "1px solid #bbb",
-                padding: ".5rem .75rem",
+                gap: 8,
+                background: "#f5f7fb",
+                border:
+                  "1px solid #d9deee",
+                padding:
+                  "8px 12px",
                 borderRadius: 10,
-                fontWeight: 600,
+                fontWeight: 700,
                 minWidth: 120,
-                justifyContent: "center",
+                justifyContent:
+                  "center",
               }}
-              title="Guest count is locked by another booking"
             >
               {gc || 0}
               <span
@@ -824,61 +999,57 @@ const OcotilloDessertCart: React.FC<Props> = ({
               max={250}
               value={gc}
               onChange={(e) =>
-                handleGCInput(e.target.value)
+                handleGCInput(
+                  e.target.value
+                )
               }
+              className="px-input"
               style={{
-                padding: "0.5rem",
-                fontSize: "1rem",
-                width: "110px",
-                borderRadius: "8px",
+                width: 120,
                 textAlign: "center",
-                border: "1px solid #ccc",
-                background: "#fff",
               }}
             />
           )}
 
-          {/* 💲 Per-serving cost line (tiered cake only) */}
-          {dessertStyle === "tieredCake" &&
+          {/* per-guest calc for tiered cake */}
+          {dessertStyle ===
+            "tieredCake" &&
             gc > 0 && (
               <div
+                className="px-prose-narrow"
                 style={{
-                  marginTop: ".4rem",
-                  fontSize: ".95rem",
-                  color: "#444",
+                  marginTop: 6,
                 }}
               >
-                ${PER_GUEST_TIERED}/guest × {gc}{" "}
-                guests = $
+                ${PER_GUEST_TIERED}
+                /guest × {gc} guests = $
                 {(
-                  gc * PER_GUEST_TIERED
+                  gc *
+                  PER_GUEST_TIERED
                 ).toFixed(2)}
               </div>
             )}
         </div>
 
         {/* Selections summary */}
-        <div style={{ marginBottom: "2rem" }}>
+        <div style={{ marginBottom: 24 }}>
           <h3
-            style={{
-              fontFamily: "'Jenna Sue', cursive",
-              fontSize: "1.6rem",
-              color: "#2c62ba",
-            }}
+            className="px-title"
+            style={{ marginBottom: 4 }}
           >
             Style:
           </h3>
-          <p>{formattedDessertStyle}</p>
+          <p className="px-prose-narrow">
+            {formattedDessertStyle}
+          </p>
 
-          {/* For tiered cake OR smallCakeTreats, show cake info */}
-          {dessertStyle !== "treatsOnly" && (
+          {dessertStyle !==
+            "treatsOnly" && (
             <>
               <h3
+                className="px-title"
                 style={{
-                  fontFamily: "'Jenna Sue', cursive",
-                  fontSize: "1.6rem",
-                  color: "#2c62ba",
-                  marginTop: "1rem",
+                  marginTop: 10,
                 }}
               >
                 {dessertStyle ===
@@ -886,21 +1057,21 @@ const OcotilloDessertCart: React.FC<Props> = ({
                   ? "Small Cake Flavor Combo:"
                   : "Flavor Combo:"}
               </h3>
-              <p>
-                {flavorFilling.length > 0
-                  ? flavorFilling.join(" + ")
+              <p className="px-prose-narrow">
+                {flavorFilling.length >
+                0
+                  ? flavorFilling.join(
+                      " + "
+                    )
                   : "Not selected"}
               </p>
 
               {cakeStyle && (
                 <>
                   <h3
+                    className="px-title"
                     style={{
-                      fontFamily:
-                        "'Jenna Sue', cursive",
-                      fontSize: "1.6rem",
-                      color: "#2c62ba",
-                      marginTop: "1rem",
+                      marginTop: 10,
                     }}
                   >
                     {dessertStyle ===
@@ -908,7 +1079,9 @@ const OcotilloDessertCart: React.FC<Props> = ({
                       ? "Small Cake Style:"
                       : "Cake Style:"}
                   </h3>
-                  <p>{cakeStyle}</p>
+                  <p className="px-prose-narrow">
+                    {cakeStyle}
+                  </p>
                 </>
               )}
 
@@ -916,18 +1089,16 @@ const OcotilloDessertCart: React.FC<Props> = ({
                 "smallCakeTreats" && (
                 <>
                   <h3
+                    className="px-title"
                     style={{
-                      fontFamily:
-                        "'Jenna Sue', cursive",
-                      fontSize: "1.6rem",
-                      color: "#2c62ba",
-                      marginTop: "1rem",
+                      marginTop: 10,
                     }}
                   >
                     Included:
                   </h3>
-                  <p>
-                    Small cutting cake —{" "}
+                  <p className="px-prose-narrow">
+                    Small cutting cake
+                    —{" "}
                     <strong>
                       $
                       {SMALL_CAKE_PRICE.toFixed(
@@ -946,17 +1117,14 @@ const OcotilloDessertCart: React.FC<Props> = ({
               "treatsOnly") && (
             <>
               <h3
+                className="px-title"
                 style={{
-                  fontFamily:
-                    "'Jenna Sue', cursive",
-                  fontSize: "1.6rem",
-                  color: "#2c62ba",
-                  marginTop: "1rem",
+                  marginTop: 10,
                 }}
               >
                 Treat Type:
               </h3>
-              <p>
+              <p className="px-prose-narrow">
                 {treatType
                   ? treatType ===
                     "cupcakes"
@@ -969,17 +1137,22 @@ const OcotilloDessertCart: React.FC<Props> = ({
                 "cupcakes" && (
                 <>
                   <h4
+                    className="px-prose-narrow"
                     style={{
-                      marginTop: ".5rem",
+                      marginTop: 6,
+                      fontWeight: 700,
                     }}
                   >
-                    Cupcake Flavors:
+                    Cupcake
+                    Flavors:
                   </h4>
-                  <p>
+                  <p className="px-prose-narrow">
                     {(cupcakes || [])
                       .map((t) =>
                         t
-                          .split("–")[0]
+                          .split(
+                            "–"
+                          )[0]
                           .trim()
                       )
                       .join(", ")}
@@ -993,15 +1166,19 @@ const OcotilloDessertCart: React.FC<Props> = ({
                   0) > 0 && (
                   <>
                     <h4
+                      className="px-prose-narrow"
                       style={{
-                        marginTop: ".5rem",
+                        marginTop: 6,
+                        fontWeight: 700,
                       }}
                     >
                       Goodies:
                     </h4>
-                    <p>
+                    <p className="px-prose-narrow">
                       {goodies
-                        .map(goodieLabel)
+                        .map(
+                          goodieLabel
+                        )
                         .join(", ")}
                     </p>
                   </>
@@ -1010,12 +1187,15 @@ const OcotilloDessertCart: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Quantities block */}
-        {treatType === "cupcakes" &&
-          cupcakes.length > 0 && (
+        {/* Quantities – Cupcakes */}
+        {treatType ===
+          "cupcakes" &&
+          cupcakes.length >
+            0 && (
             <div
               style={{
-                margin: "1rem auto 2rem",
+                margin:
+                  "1rem auto 2rem",
                 padding: "1rem",
                 border:
                   "1px solid #e5e5e5",
@@ -1035,40 +1215,66 @@ const OcotilloDessertCart: React.FC<Props> = ({
               </div>
               <div
                 style={{
-                  fontSize: ".95rem",
+                  fontSize:
+                    ".95rem",
                   marginBottom:
                     "0.75rem",
                   color: "#444",
                 }}
               >
-                ${CUPCAKE_PRICE_EACH}
-                /each • Minimum{" "}
-                {CUPCAKE_MIN_EACH} per
-                flavor
+                $
+                {
+                  CUPCAKE_PRICE_EACH
+                }
+                /each •
+                Minimum{" "}
+                {
+                  CUPCAKE_MIN_EACH
+                }{" "}
+                per flavor
               </div>
 
               {cupcakes.map(
                 (title) => {
-                  const value =
-                    Math.max(
-                      CUPCAKE_MIN_EACH,
-                      cupcakeEachByFlavor[
-                        title
-                      ] || 0
+                  const each = Math.max(
+                    CUPCAKE_MIN_EACH,
+                    cupcakeEachByFlavor[
+                      title
+                    ] || 0
+                  );
+                  const setEach = (
+                    val: number
+                  ) => {
+                    const next =
+                      Math.max(
+                        CUPCAKE_MIN_EACH,
+                        val
+                      );
+                    setCupcakeEachByFlavor(
+                      (prev) => ({
+                        ...prev,
+                        [title]:
+                          next,
+                      })
                     );
+                  };
+
                   return (
                     <div
-                      key={title}
+                      key={
+                        title
+                      }
                       style={{
                         display:
                           "grid",
                         gridTemplateColumns:
-                          "1fr auto",
+                          "minmax(0,1fr) 88px 180px",
                         alignItems:
                           "center",
-                        gap: "0.75rem",
+                        columnGap:
+                          "1rem",
                         padding:
-                          "0.5rem 0",
+                          ".6rem 0",
                         borderBottom:
                           "1px dashed #eee",
                       }}
@@ -1080,69 +1286,114 @@ const OcotilloDessertCart: React.FC<Props> = ({
                       >
                         {title}
                       </div>
-                      <div>
-                        <label
+
+                      <div
+                        style={{
+                          fontSize:
+                            ".95rem",
+                          textAlign:
+                            "right",
+                        }}
+                      >
+                        Each:
+                      </div>
+
+                      <div
+                        className="px-qty"
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          gap: "0.5rem",
+                          width: 180,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="px-qty-btn px-qty-btn--minus"
+                          onClick={() =>
+                            setEach(
+                              each -
+                                1
+                            )
+                          }
+                          aria-label={`Decrease ${title}`}
                           style={{
-                            display:
-                              "block",
-                            fontSize:
-                              ".9rem",
-                            color: "#444",
+                            width: 32,
+                            height: 32,
+                            flex: "0 0 32px",
                           }}
                         >
-                          Quantity
-                          (each):
-                          <input
-                            type="number"
-                            min={
-                              CUPCAKE_MIN_EACH
-                            }
-                            step={1}
-                            value={
-                              value
-                            }
-                            onChange={(
-                              e
-                            ) => {
-                              const nextVal =
-                                Math.max(
-                                  CUPCAKE_MIN_EACH,
-                                  parseInt(
-                                    e
-                                      .target
-                                      .value ||
-                                      "0",
-                                    10
-                                  ) ||
-                                    0
-                                );
-                              setCupcakeEachByFlavor(
-                                (
-                                  prev
-                                ) => ({
-                                  ...prev,
-                                  [title]:
-                                    nextVal,
-                                })
-                              );
-                            }}
-                            style={{
-                              display:
-                                "block",
-                              marginTop:
-                                ".25rem",
-                              width: 120,
-                              padding:
-                                ".45rem",
-                              border:
-                                "1px solid #ccc",
-                              borderRadius:
-                                8,
-                              textAlign:
-                                "center",
-                            }}
+                          <img
+                            src={`${
+                              import.meta
+                                .env
+                                .BASE_URL
+                            }assets/icons/qty_minus_pink_glossy.svg`}
+                            alt=""
+                            aria-hidden="true"
                           />
-                        </label>
+                        </button>
+
+                        <input
+                          type="number"
+                          min={
+                            CUPCAKE_MIN_EACH
+                          }
+                          value={
+                            each
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            setEach(
+                              parseInt(
+                                e
+                                  .target
+                                  .value ||
+                                  "0",
+                                10
+                              ) ||
+                                CUPCAKE_MIN_EACH
+                            )
+                          }
+                          className="px-input-number"
+                          style={{
+                            width: 70,
+                            textAlign:
+                              "center",
+                            boxSizing:
+                              "border-box",
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          className="px-qty-btn px-qty-btn--plus"
+                          onClick={() =>
+                            setEach(
+                              each +
+                                1
+                            )
+                          }
+                          aria-label={`Increase ${title}`}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            flex: "0 0 32px",
+                          }}
+                        >
+                          <img
+                            src={`${
+                              import.meta
+                                .env
+                                .BASE_URL
+                            }assets/icons/qty_plus_blue_glossy.svg`}
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        </button>
                       </div>
                     </div>
                   );
@@ -1151,11 +1402,15 @@ const OcotilloDessertCart: React.FC<Props> = ({
             </div>
           )}
 
-        {treatType === "goodies" &&
-          goodies.length > 0 && (
+        {/* Quantities – Goodies */}
+        {treatType ===
+          "goodies" &&
+          goodies.length >
+            0 && (
             <div
               style={{
-                margin: "1rem auto 2rem",
+                margin:
+                  "1rem auto 2rem",
                 padding: "1rem",
                 border:
                   "1px solid #e5e5e5",
@@ -1176,16 +1431,17 @@ const OcotilloDessertCart: React.FC<Props> = ({
               </div>
               <div
                 style={{
-                  fontSize: ".95rem",
+                  fontSize:
+                    ".95rem",
                   marginBottom:
                     "1rem",
                   color: "#444",
                 }}
               >
-                Auto-filled
-                for your
-                guest count
-                (≈ 1 piece per
+                Auto-filled for
+                your guest
+                count (≈ 1
+                piece per
                 guest). Edit
                 as you like.
                 Minimums per
@@ -1204,6 +1460,7 @@ const OcotilloDessertCart: React.FC<Props> = ({
                     ];
                   if (!meta)
                     return null;
+
                   const min =
                     meta.minDozens ??
                     1;
@@ -1213,12 +1470,32 @@ const OcotilloDessertCart: React.FC<Props> = ({
                       label
                     ] || 0
                   );
+                  const setDz = (
+                    val: number
+                  ) => {
+                    const next =
+                      Math.max(
+                        min,
+                        val
+                      );
+                    setGoodieDozens(
+                      (
+                        prev
+                      ) => ({
+                        ...prev,
+                        [label]:
+                          next,
+                      })
+                    );
+                  };
+
                   const extended =
                     round2(
                       dz *
                         (meta.retailPerDozen ||
                           0)
                     );
+
                   return (
                     <div
                       key={
@@ -1228,20 +1505,29 @@ const OcotilloDessertCart: React.FC<Props> = ({
                         display:
                           "grid",
                         gridTemplateColumns:
-                          "1fr auto auto",
+                          "minmax(0,1fr) 88px 180px auto",
                         alignItems:
                           "center",
-                        gap: "0.75rem",
+                        columnGap:
+                          "0.75rem",
                         padding:
-                          "0.5rem 0",
+                          ".75rem 0",
                         borderBottom:
                           "1px dashed #eee",
+                        maxWidth:
+                          "100%",
                       }}
                     >
-                      <div>
+                      <div
+                        style={{
+                          minWidth: 0,
+                        }}
+                      >
                         <div
                           style={{
                             fontWeight: 600,
+                            wordBreak:
+                              "break-word",
                           }}
                         >
                           {label}
@@ -1262,68 +1548,123 @@ const OcotilloDessertCart: React.FC<Props> = ({
                         </div>
                       </div>
 
-                      <div>
-                        <label
+                      <div
+                        style={{
+                          fontSize:
+                            ".95rem",
+                          textAlign:
+                            "right",
+                          whiteSpace:
+                            "nowrap",
+                        }}
+                      >
+                        Dozens:
+                      </div>
+
+                      <div
+                        className="px-qty"
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          gap: "0.5rem",
+                          width: 180,
+                          maxWidth: 180,
+                          justifyContent:
+                            "center",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="px-qty-btn px-qty-btn--minus"
+                          onClick={() =>
+                            setDz(
+                              dz -
+                                1
+                            )
+                          }
+                          aria-label={`Decrease dozens for ${label}`}
+                          disabled={
+                            dz <=
+                            min
+                          }
                           style={{
-                            display:
-                              "block",
-                            fontSize:
-                              ".9rem",
-                            color: "#444",
+                            width: 32,
+                            height: 32,
+                            flex: "0 0 32px",
                           }}
                         >
-                          Dozens:
-                          <input
-                            type="number"
-                            min={
-                              min
-                            }
-                            step={1}
-                            value={
-                              dz
-                            }
-                            onChange={(
-                              e
-                            ) => {
-                              const next =
-                                Math.max(
-                                  min,
-                                  parseInt(
-                                    e
-                                      .target
-                                      .value ||
-                                      "0",
-                                    10
-                                  ) ||
-                                    0
-                                );
-                              setGoodieDozens(
-                                (
-                                  prev
-                                ) => ({
-                                  ...prev,
-                                  [label]:
-                                    next,
-                                })
-                              );
-                            }}
-                            style={{
-                              display:
-                                "block",
-                              marginTop:
-                                ".25rem",
-                              width: 90,
-                              padding:
-                                ".4rem",
-                              border:
-                                "1px solid #ccc",
-                              borderRadius:
-                                8,
-                              textAlign:
-                                "center",
-                            }}
+                          <img
+                            src={`${
+                              import.meta
+                                .env
+                                .BASE_URL
+                            }assets/icons/qty_minus_pink_glossy.svg`}
+                            alt=""
+                            aria-hidden="true"
                           />
-                        </label>
+                        </button>
+
+                        <input
+                          id={`dz-${label}`}
+                          type="number"
+                          min={
+                            min
+                          }
+                          value={
+                            dz
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            setDz(
+                              parseInt(
+                                e
+                                  .target
+                                  .value ||
+                                  "0",
+                                10
+                              ) ||
+                                min
+                            )
+                          }
+                          className="px-input-number"
+                          style={{
+                            width: 70,
+                            textAlign:
+                              "center",
+                            boxSizing:
+                              "border-box",
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          className="px-qty-btn px-qty-btn--plus"
+                          onClick={() =>
+                            setDz(
+                              dz +
+                                1
+                            )
+                          }
+                          aria-label={`Increase dozens for ${label}`}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            flex: "0 0 32px",
+                          }}
+                        >
+                          <img
+                            src={`${
+                              import.meta
+                                .env
+                                .BASE_URL
+                            }assets/icons/qty_plus_blue_glossy.svg`}
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        </button>
                       </div>
 
                       <div
@@ -1331,6 +1672,8 @@ const OcotilloDessertCart: React.FC<Props> = ({
                           textAlign:
                             "right",
                           fontWeight: 600,
+                          whiteSpace:
+                            "nowrap",
                         }}
                       >
                         $
@@ -1347,15 +1690,13 @@ const OcotilloDessertCart: React.FC<Props> = ({
 
         {/* Price summary */}
         <div
-          style={{
-            marginTop: ".25rem",
-          }}
+          className="px-prose-narrow"
+          style={{ marginTop: 4 }}
         >
           <div
             style={{
               fontWeight: 700,
-              marginBottom:
-                ".25rem",
+              marginBottom: 4,
             }}
           >
             Subtotal: $
@@ -1365,8 +1706,7 @@ const OcotilloDessertCart: React.FC<Props> = ({
           </div>
           <div
             style={{
-              marginBottom:
-                ".25rem",
+              marginBottom: 4,
               color: "#444",
             }}
           >
@@ -1377,8 +1717,7 @@ const OcotilloDessertCart: React.FC<Props> = ({
           </div>
           <div
             style={{
-              marginBottom:
-                ".75rem",
+              marginBottom: 10,
               fontWeight: 800,
             }}
           >
@@ -1389,34 +1728,22 @@ const OcotilloDessertCart: React.FC<Props> = ({
           </div>
         </div>
 
+        {/* CTA buttons stacked */}
         <div
-          style={{
-            display: "flex",
-            flexDirection:
-              "column",
-            alignItems:
-              "center",
-            gap: "1rem",
-          }}
+          className="px-cta-col"
+          style={{ marginTop: 6 }}
         >
           <button
             className="boutique-primary-btn"
             onClick={handleContinue}
-            style={{
-              width: "250px",
-            }}
           >
-            Confirm & Book
+            Confirm &amp; Book
           </button>
-
           <button
             className="boutique-back-btn"
             onClick={onStartOver}
-            style={{
-              width: "250px",
-            }}
           >
-            ⬅ Back to Menu
+            ← Back to Menu
           </button>
         </div>
       </div>

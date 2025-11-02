@@ -1,4 +1,3 @@
-// src/components/NewYumBuild/CustomVenues/Bates/BatesDessertMenu.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import FlavorModal from "../../dessert/FlavorModal";
 import GoodiesModal from "../../dessert/GoodiesModal";
@@ -13,14 +12,13 @@ interface BatesDessertMenuProps {
     flavorFilling: string[];
     cakeStyle?: string;
     treatType?: "" | "cupcakes" | "goodies";
-    cupcakes?: string[]; // titles
-    goodies?: string[]; // "Group::Label" keys
+    cupcakes?: string[];
+    goodies?: string[];
   }) => void;
   onBack: () => void;
   onClose: () => void;
 }
 
-// helper to resolve venue art using the same BASE_URL convention everywhere
 const png = (name: string) =>
   `${import.meta.env.BASE_URL}assets/images/YumYum/${name}.png`;
 
@@ -41,10 +39,8 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
   const [goodies, setGoodies] = useState<string[]>([]);
   const [cupcakes, setCupcakes] = useState<string[]>([]);
 
-  // derive from catalog so venue stays in sync with master list
   const goodiesList = useMemo(() => Object.keys(GOODIE_CATALOG), []);
 
-  // When dessertType changes, wipe transient picks
   useEffect(() => {
     setTreatType("");
     setGoodies([]);
@@ -64,12 +60,9 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
           cupcakes: [],
         })
       );
-    } catch {
-      /* ignore */
-    }
+    } catch {/* ignore */}
   }, [dessertType, setFlavorFilling]);
 
-  // Restore last snapshot if present
   useEffect(() => {
     const raw = localStorage.getItem("yumDessertSelections");
     if (!raw) return;
@@ -80,18 +73,13 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
         setTreatType(s.treatType);
       if (Array.isArray(s?.goodies)) setGoodies(s.goodies);
       if (Array.isArray(s?.cupcakes)) setCupcakes(s.cupcakes);
-    } catch {
-      /* ignore */
-    }
+    } catch {/* ignore */}
   }, []);
 
-  // Pin current step only (no branch forcing)
   useEffect(() => {
     try {
       localStorage.setItem("yumStep", "dessertMenu");
-    } catch {
-      /* ignore */
-    }
+    } catch {/* ignore */}
   }, []);
 
   const headerStyle: React.CSSProperties = {
@@ -114,19 +102,6 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
     opacity: 0.9,
     textAlign: "center",
   };
-
-  // allow 1 cake flavor combo; cupcake flavors reuse cake combo titles
-  const cupcakeFlavorTitles = [
-    "The Golden Orchid",
-    "Arizona’s Sunshine Lemon Cake",
-    "Strawberries & Champagne",
-    "Aztec Chocolate",
-    "Almond Raspberry",
-    "Caramel Macchiato",
-    "Taste of the Tropics",
-  ];
-  // cupcakeFlavorTitles is defined but not currently used for rendering;
-  // leaving it in for future selection UIs.
 
   const canContinue = (): boolean => {
     if (dessertType === "tieredCake") {
@@ -167,9 +142,7 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
     };
     try {
       localStorage.setItem("yumDessertSelections", JSON.stringify(snap));
-    } catch {
-      /* ignore */
-    }
+    } catch {/* ignore */}
   };
 
   const handleContinue = () => {
@@ -180,439 +153,431 @@ const BatesDessertMenu: React.FC<BatesDessertMenuProps> = ({
       goodies,
       cupcakes,
     };
-    console.log("[BATES][DessertMenu] continue with →", selections);
     persistSnapshot(selections);
     onContinue(selections);
   };
 
   return (
     <div
-      className="pixie-card pixie-card--modal"
-      style={{ maxWidth: 680 }}
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        boxSizing: "border-box",
+      }}
     >
-      {onClose && (
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
-        </button>
-      )}
-
-      <div className="pixie-card__body">
-        <h2
-          className="px-title-lg"
-          style={{ marginBottom: "0.85rem", textAlign: "center" }}
-        >
-          Build Your{" "}
-          {dessertType === "tieredCake"
-            ? "Tiered Cake"
-            : dessertType === "smallCakeTreats"
-            ? "Cake & Treat Table"
-            : "Treats Table"}
-        </h2>
-
-        <img
-          src={png("dessert_piglet")}
-          alt="Dessert Piglet"
-          style={{
-            width: 160,
-            margin: "0 auto 20px",
-            display: "block",
-          }}
-        />
-
-        {(dessertType === "tieredCake" ||
-          dessertType === "smallCakeTreats") && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "2rem",
-              marginBottom: "2rem",
-            }}
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 680, position: "relative" }}
+      >
+        {onClose && (
+          <button
+            className="pixie-card__close"
+            onClick={onClose}
+            aria-label="Close"
           >
-            {/* Flavor/Filling */}
-            <div onClick={() => setShowModal("flavor")}>
-              <img
-                src={png("cakeFlavorFilling")}
-                alt="Cake Flavor"
-                style={headerStyle}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.transform = "scale(1.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.transform = "scale(1)")
-                }
-              />
-            </div>
-            {flavorFilling.map((item) => (
-              <div
-                key={item}
-                onClick={() => setShowModal("flavor")}
-                style={selectionStyle}
-              >
-                {item}
-              </div>
-            ))}
+            <img
+              src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+              alt="Close"
+            />
+          </button>
+        )}
 
-            {/* Cake Style */}
-            <div onClick={() => setShowModal("style")}>
-              <img
-                src={png("cake_style")}
-                alt="Cake Style"
-                style={headerStyle}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.transform = "scale(1.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.transform = "scale(1)")
-                }
-              />
-            </div>
-            {cakeStyle && (
-              <div
-                onClick={() => setShowModal("style")}
-                style={selectionStyle}
-              >
-                {cakeStyle}
+        <div
+          className="pixie-card__body"
+          style={{ padding: "2rem 2.5rem" }}
+        >
+          <h2
+            className="px-title-lg"
+            style={{ marginBottom: "0.85rem", textAlign: "center" }}
+          >
+            Build Your{" "}
+            {dessertType === "tieredCake"
+              ? "Tiered Cake"
+              : dessertType === "smallCakeTreats"
+              ? "Cake & Treat Table"
+              : "Treats Table"}
+          </h2>
+
+          <img
+            src={png("dessert_piglet")}
+            alt="Dessert Piglet"
+            style={{
+              width: 160,
+              margin: "0 auto 20px",
+              display: "block",
+            }}
+          />
+
+          {(dessertType === "tieredCake" ||
+            dessertType === "smallCakeTreats") && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "2rem",
+                marginBottom: "2rem",
+              }}
+            >
+              {/* Flavor/Filling */}
+              <div onClick={() => setShowModal("flavor")}>
+                <img
+                  src={png("cakeFlavorFilling")}
+                  alt="Cake Flavor"
+                  style={headerStyle}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "scale(1.08)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "scale(1)")
+                  }
+                />
               </div>
-            )}
+              {flavorFilling.map((item) => (
+                <div
+                  key={item}
+                  onClick={() => setShowModal("flavor")}
+                  style={selectionStyle}
+                >
+                  {item}
+                </div>
+              ))}
+
+              {/* Cake Style */}
+              <div onClick={() => setShowModal("style")}>
+                <img
+                  src={png("cake_style")}
+                  alt="Cake Style"
+                  style={headerStyle}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "scale(1.08)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "scale(1)")
+                  }
+                />
+              </div>
+              {cakeStyle && (
+                <div
+                  onClick={() => setShowModal("style")}
+                  style={selectionStyle}
+                >
+                  {cakeStyle}
+                </div>
+              )}
+            </div>
+          )}
+
+          {(dessertType === "smallCakeTreats" ||
+            dessertType === "treatsOnly") && (
+            <>
+              <img
+                src={png("treat_types")}
+                alt="Treat Table Type"
+                onClick={() => setShowModal("treatType")}
+                style={headerStyle}
+              />
+              {!!treatType && (
+                <div style={selectionStyle}>
+                  {treatType === "cupcakes" ? "Cupcakes" : "Goodies"}
+                </div>
+              )}
+
+              {treatType === "cupcakes" && (
+                <>
+                  <img
+                    src={png("cupcake_flavors")}
+                    alt="Cupcake Flavors"
+                    onClick={() => setShowModal("cupcakes")}
+                    style={headerStyle}
+                  />
+                  {cupcakes.map((title) => (
+                    <div
+                      key={title}
+                      onClick={() => setShowModal("cupcakes")}
+                      style={selectionStyle}
+                    >
+                      {title}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {treatType === "goodies" && (
+                <>
+                  <img
+                    src={png("goodies_selection")}
+                    alt="Goodies Selection"
+                    onClick={() => setShowModal("goodies")}
+                    style={headerStyle}
+                  />
+
+                  {(() => {
+                    const byGroup: Record<string, string[]> = {};
+                    for (const token of goodies) {
+                      const [groupRaw, labelRaw] = String(token).split("::");
+                      const group = groupRaw?.trim() || "Other treats";
+                      const label = labelRaw?.trim() || token;
+                      if (!byGroup[group]) byGroup[group] = [];
+                      if (!byGroup[group].includes(label)) {
+                        byGroup[group].push(label);
+                      }
+                    }
+
+                    return Object.entries(byGroup).map(
+                      ([group, labels]) => (
+                        <div
+                          key={group}
+                          style={{
+                            marginBottom: "1.25rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          <div
+                            onClick={() => setShowModal("goodies")}
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "1.6rem",
+                              color: "#2c62ba",
+                              marginBottom: "0.5rem",
+                              fontFamily: "'Jenna Sue', cursive",
+                            }}
+                          >
+                            {group}
+                          </div>
+
+                          {labels.map((label) => (
+                            <div
+                              key={`${group}::${label}`}
+                              onClick={() => setShowModal("goodies")}
+                              style={{
+                                ...selectionStyle,
+                                fontSize: "1.35rem",
+                                marginBottom: "0.25rem",
+                              }}
+                            >
+                              {label}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    );
+                  })()}
+                </>
+              )}
+            </>
+          )}
+
+          {/* CTAs */}
+          <div
+            className="px-cta-col"
+            style={{ marginTop: "1rem" }}
+          >
+            <button
+              className="boutique-primary-btn"
+              onClick={handleContinue}
+              disabled={!canContinue()}
+            >
+              Continue
+            </button>
+            <button
+              className="boutique-back-btn"
+              onClick={onBack}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+
+        {/* -------- Modals -------- */}
+
+        {showModal === "flavor" && (
+          <FlavorModal
+            selected={flavorFilling}
+            onChange={({ titles }) => {
+              setFlavorFilling(titles);
+              persistSnapshot({ flavorFilling: titles });
+              setShowModal(null);
+            }}
+            onClose={() => setShowModal(null)}
+            maxSelections={1}
+          />
+        )}
+
+        {showModal === "style" && (
+          <div
+            className="pixie-overlay"
+            style={{ zIndex: 1001 }}
+          >
+            <StyleModal
+              selected={cakeStyle ? [cakeStyle] : []}
+              onChange={(vals) => {
+                const next = vals[0] || "";
+                setCakeStyle(next);
+                persistSnapshot({ cakeStyle: next });
+              }}
+              onClose={() => setShowModal(null)}
+            />
           </div>
         )}
 
-        {(dessertType === "smallCakeTreats" ||
-          dessertType === "treatsOnly") && (
-          <>
-            <img
-              src={png("treat_types")}
-              alt="Treat Table Type"
-              onClick={() => setShowModal("treatType")}
-              style={headerStyle}
-            />
-            {!!treatType && (
-              <div style={selectionStyle}>
-                {treatType === "cupcakes"
-                  ? "Cupcakes"
-                  : "Goodies"}
-              </div>
-            )}
-
-            {treatType === "cupcakes" && (
-              <>
-                <img
-                  src={png("cupcake_flavors")}
-                  alt="Cupcake Flavors"
-                  onClick={() => setShowModal("cupcakes")}
-                  style={headerStyle}
-                />
-                {cupcakes.map((title) => (
-                  <div
-                    key={title}
-                    onClick={() => setShowModal("cupcakes")}
-                    style={selectionStyle}
-                  >
-                    {title}
-                  </div>
-                ))}
-              </>
-            )}
-
-            {treatType === "goodies" && (
-              <>
-                <img
-                  src={png("goodies_selection")}
-                  alt="Goodies Selection"
-                  onClick={() => setShowModal("goodies")}
-                  style={headerStyle}
-                />
-
-                {(() => {
-                  const byGroup: Record<string, string[]> = {};
-                  for (const token of goodies) {
-                    const [groupRaw, labelRaw] = String(token).split(
-                      "::"
-                    );
-                    const group =
-                      groupRaw?.trim() || "Other treats";
-                    const label =
-                      labelRaw?.trim() || token;
-                    if (!byGroup[group]) byGroup[group] = [];
-                    if (!byGroup[group].includes(label)) {
-                      byGroup[group].push(label);
-                    }
-                  }
-
-                  return Object.entries(byGroup).map(
-                    ([group, labels]) => (
-                      <div
-                        key={group}
-                        style={{
-                          marginBottom: "1.25rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div
-                          onClick={() =>
-                            setShowModal("goodies")
-                          }
-                          style={{
-                            fontWeight: 700,
-                            fontSize: "1.6rem",
-                            color: "#2c62ba",
-                            marginBottom: "0.5rem",
-                            fontFamily:
-                              "'Jenna Sue', cursive",
-                          }}
-                        >
-                          {group}
-                        </div>
-
-                        {labels.map((label) => (
-                          <div
-                            key={`${group}::${label}`}
-                            onClick={() =>
-                              setShowModal("goodies")
-                            }
-                            style={{
-                              ...selectionStyle,
-                              fontSize: "1.35rem",
-                              marginBottom: "0.25rem",
-                            }}
-                          >
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  );
-                })()}
-              </>
-            )}
-          </>
-        )}
-
-        {/* CTAs */}
-        <div
-          className="px-cta-col"
-          style={{ marginTop: "1rem" }}
-        >
-          <button
-            className="boutique-primary-btn"
-            onClick={handleContinue}
-            disabled={!canContinue()}
-          >
-            Continue
-          </button>
-          <button
-            className="boutique-back-btn"
-            onClick={onBack}
-          >
-            Back
-          </button>
-        </div>
-      </div>
-
-      {/* -------- Modals -------- */}
-
-      {showModal === "flavor" && (
-        <FlavorModal
-          selected={flavorFilling}
-          onChange={({ titles }) => {
-            setFlavorFilling(titles);
-            persistSnapshot({ flavorFilling: titles });
-            setShowModal(null);
-          }}
-          onClose={() => setShowModal(null)}
-          maxSelections={1}
-        />
-      )}
-
-      {showModal === "style" && (
-        <div
-          className="pixie-overlay"
-          style={{ zIndex: 1001 }}
-        >
-          <StyleModal
-            selected={cakeStyle ? [cakeStyle] : []}
-            onChange={(vals) => {
-              const next = vals[0] || "";
-              setCakeStyle(next);
-              persistSnapshot({ cakeStyle: next });
+        {showModal === "cupcakes" && (
+          <FlavorModal
+            title="Pick up to 2 cupcake flavors"
+            selected={cupcakes}
+            maxSelections={2}
+            onChange={({ titles }) => {
+              setCupcakes(titles);
+              persistSnapshot({ cupcakes: titles });
+              setShowModal(null);
             }}
             onClose={() => setShowModal(null)}
           />
-        </div>
-      )}
+        )}
 
-      {showModal === "cupcakes" && (
-        <FlavorModal
-          title="Pick up to 2 cupcake flavors"
-          selected={cupcakes}
-          maxSelections={2}
-          onChange={({ titles }) => {
-            setCupcakes(titles);
-            persistSnapshot({ cupcakes: titles });
-            setShowModal(null);
-          }}
-          onClose={() => setShowModal(null)}
-        />
-      )}
-
-      {showModal === "goodies" && (
-        <GoodiesModal
-          selected={goodies}
-          onChange={(labels) => {
-            setGoodies(labels);
-            try {
-              const snap = JSON.parse(
-                localStorage.getItem(
-                  "yumDessertSelections"
-                ) || "{}"
-              );
-              localStorage.setItem(
-                "yumDessertSelections",
-                JSON.stringify({
-                  ...snap,
-                  goodies: labels,
-                })
-              );
-            } catch {
-              /* ignore */
-            }
-          }}
-          onClose={() => setShowModal(null)}
-        />
-      )}
-
-      {showModal === "treatType" && (
-        <div
-          className="pixie-overlay"
-          style={{ zIndex: 1001 }}
-        >
-          <div
-            className="pixie-card pixie-card--modal"
-            style={{
-              maxWidth: 600,
-              position: "relative",
+        {showModal === "goodies" && (
+          <GoodiesModal
+            selected={goodies}
+            onChange={(labels) => {
+              setGoodies(labels);
+              try {
+                const snap = JSON.parse(
+                  localStorage.getItem("yumDessertSelections") || "{}"
+                );
+                localStorage.setItem(
+                  "yumDessertSelections",
+                  JSON.stringify({
+                    ...snap,
+                    goodies: labels,
+                  })
+                );
+              } catch {/* ignore */}
             }}
+            onClose={() => setShowModal(null)}
+          />
+        )}
+
+        {showModal === "treatType" && (
+          <div
+            className="pixie-overlay"
+            style={{ zIndex: 1001 }}
           >
-            <button
-              className="pixie-card__close"
-              onClick={() => setShowModal(null)}
-              aria-label="Close"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
-                alt="Close"
-              />
-            </button>
-
             <div
-              className="pixie-card__body"
-              style={{ textAlign: "center" }}
+              className="pixie-card pixie-card--modal"
+              style={{
+                maxWidth: 600,
+                position: "relative",
+              }}
             >
-              <h3
-                className="px-title-md"
-                style={{ marginBottom: "1.25rem" }}
-              >
-                Which type of treat table would you
-                like?
-              </h3>
-
-              {/* Cupcakes */}
-              <div
-                onClick={() => {
-                  setTreatType("cupcakes");
-                  setGoodies([]);
-                  setShowModal(null);
-                  setTimeout(
-                    () => setShowModal("cupcakes"),
-                    0
-                  );
-                  persistSnapshot({
-                    treatType: "cupcakes",
-                    goodies: [],
-                    cupcakes,
-                  });
-                }}
-                style={{
-                  marginBottom: "1.5rem",
-                  cursor: "pointer",
-                }}
+              <button
+                className="pixie-card__close"
+                onClick={() => setShowModal(null)}
+                aria-label="Close"
               >
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
-                  alt="Cupcakes"
-                  style={{
-                    width: "80%",
-                    maxWidth: 300,
-                    borderRadius: 12,
-                    border:
-                      treatType === "cupcakes"
-                        ? "3px solid #2c62ba"
-                        : "1px solid #ccc",
-                  }}
+                  src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
+                  alt="Close"
                 />
+              </button>
+
+              <div
+                className="pixie-card__body"
+                style={{ textAlign: "center" }}
+              >
+                <h3
+                  className="px-title-md"
+                  style={{ marginBottom: "1.25rem" }}
+                >
+                  Which type of treat table would you like?
+                </h3>
+
+                {/* Cupcakes */}
                 <div
+                  onClick={() => {
+                    setTreatType("cupcakes");
+                    setGoodies([]);
+                    setShowModal(null);
+                    setTimeout(() => setShowModal("cupcakes"), 0);
+                    persistSnapshot({
+                      treatType: "cupcakes",
+                      goodies: [],
+                      cupcakes,
+                    });
+                  }}
                   style={{
-                    fontWeight: "bold",
-                    marginTop: "0.5rem",
+                    marginBottom: "1.5rem",
+                    cursor: "pointer",
                   }}
                 >
-                  Cupcakes
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/images/YumYum/cupcake.png`}
+                    alt="Cupcakes"
+                    style={{
+                      width: "80%",
+                      maxWidth: 300,
+                      borderRadius: 12,
+                      border:
+                        treatType === "cupcakes"
+                          ? "3px solid #2c62ba"
+                          : "1px solid #ccc",
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      marginTop: "0.5rem",
+                    }}
+                  >
+                    Cupcakes
+                  </div>
                 </div>
-              </div>
 
-              {/* Goodies */}
-              <div
-                onClick={() => {
-                  setTreatType("goodies");
-                  setCupcakes([]);
-                  setShowModal(null);
-                  setTimeout(
-                    () => setShowModal("goodies"),
-                    0
-                  );
-                  persistSnapshot({
-                    treatType: "goodies",
-                    cupcakes: [],
-                    goodies,
-                  });
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                <img
-                  src={`${import.meta.env.BASE_URL}assets/images/YumYum/goodies.png`}
-                  alt="Goodies"
-                  style={{
-                    width: "80%",
-                    maxWidth: 300,
-                    borderRadius: 12,
-                    border:
-                      treatType === "goodies"
-                        ? "3px solid #2c62ba"
-                        : "1px solid #ccc",
-                  }}
-                />
+                {/* Goodies */}
                 <div
-                  style={{
-                    fontWeight: "bold",
-                    marginTop: "0.5rem",
+                  onClick={() => {
+                    setTreatType("goodies");
+                    setCupcakes([]);
+                    setShowModal(null);
+                    setTimeout(() => setShowModal("goodies"), 0);
+                    persistSnapshot({
+                      treatType: "goodies",
+                      cupcakes: [],
+                      goodies,
+                    });
                   }}
+                  style={{ cursor: "pointer" }}
                 >
-                  Goodies
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/images/YumYum/goodies.png`}
+                    alt="Goodies"
+                    style={{
+                      width: "80%",
+                      maxWidth: 300,
+                      borderRadius: 12,
+                      border:
+                        treatType === "goodies"
+                          ? "3px solid #2c62ba"
+                          : "1px solid #ccc",
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      marginTop: "0.5rem",
+                    }}
+                  >
+                    Goodies
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

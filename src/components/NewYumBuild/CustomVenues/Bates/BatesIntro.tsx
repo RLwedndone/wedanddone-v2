@@ -7,21 +7,53 @@ interface BatesIntroProps {
 }
 
 const BatesIntro: React.FC<BatesIntroProps> = ({ onContinue, onClose }) => {
-  return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
+  // ===================== RENDER =====================
+return (
+  <div
+    style={{
+      minHeight: "100vh",
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2rem 1rem", // gives breathing room on small screens
+      boxSizing: "border-box",
+    }}
+  >
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 680, position: "relative" }}
+    >
       {/* 🩷 Pink X Close */}
       {onClose && (
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
       )}
 
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        style={{
+          textAlign: "center",
+          padding: "2rem 2.5rem", // adds comfortable spacing inside card
+        }}
+      >
         <img
           src={`${import.meta.env.BASE_URL}assets/images/yumyumtitle.png`}
           alt="Yum Yum Title"
           className="px-media"
-          style={{ width: 225, maxWidth: "80%", margin: "0 auto 12px" }}
+          style={{
+            width: 225,
+            maxWidth: "80%",
+            margin: "0 auto 12px",
+          }}
         />
 
         <video
@@ -56,6 +88,7 @@ const BatesIntro: React.FC<BatesIntroProps> = ({ onContinue, onClose }) => {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };

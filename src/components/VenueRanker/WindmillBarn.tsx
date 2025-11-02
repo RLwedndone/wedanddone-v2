@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
 import { collectionColors } from "../../utils/venueCollections";
+import VenueVideo from "./VenueVideo";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -16,7 +17,9 @@ interface WindmillBarnProps {
   screenList: string[];
   currentIndex: number;
   venueRankerSelections: VenueRankerSelections;
-  setVenueRankerSelections: React.Dispatch<React.SetStateAction<VenueRankerSelections>>;
+  setVenueRankerSelections: React.Dispatch<
+    React.SetStateAction<VenueRankerSelections>
+  >;
   goToExplore: () => void;
 }
 
@@ -32,13 +35,24 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
   const [showError, setShowError] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const selectedOption = Number(venueRankerSelections?.rankings?.[venueId] ?? 0);
+  // guard against undefined coming in
+  const safe = (s?: VenueRankerSelections): VenueRankerSelections => ({
+    exploreMode: s?.exploreMode ?? "vibe",
+    vibeSelections: s?.vibeSelections ?? [],
+    rankings: s?.rankings ?? {},
+  });
+
+  const selections = safe(venueRankerSelections);
+  const selectedOption = Number(selections.rankings[venueId] ?? 0);
 
   const handleSelect = (value: number) => {
-    setVenueRankerSelections((prev) => ({
-      ...prev,
-      rankings: { ...(prev?.rankings ?? {}), [venueId]: value },
-    }));
+    setVenueRankerSelections((prev) => {
+      const p = safe(prev);
+      return {
+        ...p,
+        rankings: { ...p.rankings, [venueId]: value },
+      };
+    });
     setShowError(false);
   };
 
@@ -58,7 +72,10 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
     <div className="pixie-card">
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -79,6 +96,7 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
           >
             {collection}
           </button>
+
           {showTooltip && (
             <div
               style={{
@@ -102,42 +120,25 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
           Big Red Barn at Windmill Winery
         </h2>
 
-        {/* 🎥 Responsive 16:9 Vimeo (large) */}
-<div
-  style={{
-    position: "relative",
-    width: "100%",
-    maxWidth: 720,
-    margin: "0 auto 1.25rem",
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "#000",
-    aspectRatio: "16 / 9",
-  }}
->
-  <iframe
-    src="https://player.vimeo.com/video/849188155?autoplay=0&muted=0&playsinline=1"
-    title="Windmill Barn"
-    loading="lazy"
-    allow="autoplay; fullscreen; picture-in-picture"
-    allowFullScreen
-    style={{
-      position: "absolute",
-      inset: 0,
-      width: "100%",
-      height: "100%",
-      border: 0,
-      display: "block",
-    }}
-  />
-</div>
+        {/* 🎥 Venue video */}
+        <VenueVideo
+          vimeoId="849188155"
+          title="Windmill Barn"
+        />
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
           How do you feel about this one?
         </p>
 
         {/* 🔘 Radio group (unique name) */}
-        <div style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
           <label>
             <input
               type="radio"
@@ -149,6 +150,7 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
             />
             a favorite!
           </label>
+
           <label>
             <input
               type="radio"
@@ -160,6 +162,7 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
             />
             this could work
           </label>
+
           <label>
             <input
               type="radio"
@@ -174,7 +177,13 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
         </div>
 
         {showError && (
-          <p style={{ color: "#c62828", fontWeight: 600, marginBottom: 12 }}>
+          <p
+            style={{
+              color: "#c62828",
+              fontWeight: 600,
+              marginBottom: 12,
+            }}
+          >
             Please select an option to continue.
           </p>
         )}
@@ -184,10 +193,17 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
           <button className="boutique-primary-btn" onClick={handleContinue}>
             Continue →
           </button>
+
           <button className="boutique-back-btn" onClick={onBack}>
             ← Back
           </button>
-          <button type="button" onClick={goToExplore} className="linklike" style={{ marginTop: 6 }}>
+
+          <button
+            type="button"
+            onClick={goToExplore}
+            className="linklike"
+            style={{ marginTop: 6 }}
+          >
             ⟳ Start over
           </button>
         </div>

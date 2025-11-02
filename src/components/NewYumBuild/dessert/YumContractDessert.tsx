@@ -19,6 +19,11 @@ interface YumContractProps {
   onComplete: (signatureImage: string) => void;
   dessertStyle: string;
   flavorCombo: string;
+
+  // ✅ NEW: lets us change wording if they're already booked
+  // at a shared-flow partner venue like Windmill or Desert Foothills
+  isSharedFlowBookedVenue?: boolean;
+  bookedVenueName?: string;
 }
 
 const DEPOSIT_PCT = 0.25;
@@ -67,26 +72,33 @@ const YumContractDessert: React.FC<YumContractProps> = ({
   flavorCombo,
   onClose,
   onComplete,
+
+  // ✅ NEW
+  isSharedFlowBookedVenue,
+  bookedVenueName,
 }) => {
   const auth = getAuth();
   const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [agreeChecked, setAgreeChecked] = useState(false);
+
+  // read preferred pay plan from storage so it persists when they bounce back/forth
   const initialPlan =
-  (localStorage.getItem("yumPayPlan") || localStorage.getItem("yumPaymentPlan") || "full") as
-    | "full"
-    | "monthly";
-const [payFull, setPayFull] = useState(initialPlan === "full");
+    (localStorage.getItem("yumPayPlan") ||
+      localStorage.getItem("yumPaymentPlan") ||
+      "full") as "full" | "monthly";
+
+  const [payFull, setPayFull] = useState(initialPlan === "full");
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
   // Was a signature already saved this session? (prop or localStorage)
-const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-  Boolean(signatureImage || localStorage.getItem("yumSignature"))
-);
+  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
+    Boolean(signatureImage || localStorage.getItem("yumSignature"))
+  );
 
   // ─────────────────────────────────────────────────────────────
   // Boot / progress + stash UX prefs
@@ -109,9 +121,21 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
         setLastName((data as any)?.lastName || "");
 
         await updateDoc(userRef, { "progress.yumYum.step": "contract" });
-        await setDoc(doc(userRef, "yumYumData", "dessertStyle"), { dessertStyle }, { merge: true });
-        await setDoc(doc(userRef, "yumYumData", "dessertFlavor"), { flavorCombo }, { merge: true });
-        await setDoc(doc(userRef, "yumYumData", "lineItems"), { lineItems }, { merge: true });
+        await setDoc(
+          doc(userRef, "yumYumData", "dessertStyle"),
+          { dessertStyle },
+          { merge: true }
+        );
+        await setDoc(
+          doc(userRef, "yumYumData", "dessertFlavor"),
+          { flavorCombo },
+          { merge: true }
+        );
+        await setDoc(
+          doc(userRef, "yumYumData", "lineItems"),
+          { lineItems },
+          { merge: true }
+        );
       } catch (err) {
         console.error("🔥 Error fetching/saving user info:", err);
       }
@@ -153,7 +177,11 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
   }
 
   const finalDuePretty = finalDueDate
-    ? finalDueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    ? finalDueDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
   // For contract UI helper
@@ -182,7 +210,7 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
 
   const handleSignatureSubmit = () => {
     let finalSig = "";
-  
+
     if (useTextSignature && typedSignature.trim()) {
       finalSig = generateImageFromText(typedSignature.trim());
     } else if (!useTextSignature && sigCanvasRef.current) {
@@ -196,16 +224,22 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
       alert("⚠️ Please enter or draw a signature before saving.");
       return;
     }
-  
+
     // Persist signature + plan hints (but DON'T navigate yet)
     try {
       const plan = payFull ? "full" : "monthly";
       localStorage.setItem("yumSignature", finalSig);
       localStorage.setItem("yumPaymentPlan", plan); // keep for compatibility
-      localStorage.setItem("yumPayPlan", plan);     // preferred key going forward
+      localStorage.setItem("yumPayPlan", plan); // preferred key going forward
       localStorage.setItem("yumTotal", String(totalSafe));
-      localStorage.setItem("yumDepositAmount", String(payFull ? totalSafe : depositDollars));
-      localStorage.setItem("yumRemainingBalance", String(remainingBalance));
+      localStorage.setItem(
+        "yumDepositAmount",
+        String(payFull ? totalSafe : depositDollars)
+      );
+      localStorage.setItem(
+        "yumRemainingBalance",
+        String(remainingBalance)
+      );
       localStorage.setItem("yumFinalDueAt", finalDueISO);
       localStorage.setItem("yumFinalDuePretty", finalDuePretty);
       localStorage.setItem("yumPlanMonths", String(planMonths));
@@ -213,18 +247,19 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
       localStorage.setItem("yumLastPaymentCents", String(lastPaymentCents));
       localStorage.setItem("yumNextChargeAt", nextChargeAtISO);
       localStorage.setItem("yumGuestCount", String(guestCount || 0));
-      if (lineItems?.length) localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
+      if (lineItems?.length)
+        localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
     } catch {}
-  
+
     // Update UI state and close the modal; stay on the contract screen
     setSignatureImage(finalSig);
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
-  
+
     // DO NOT navigate here
-    // setStep("dessertCheckout");        ❌ remove
-    // localStorage.setItem("yumStep", "dessertCheckout"); ❌ remove
-    // onComplete(finalSig);              ❌ remove
+    // setStep("dessertCheckout");        ❌ removed
+    // localStorage.setItem("yumStep", "dessertCheckout"); ❌ removed
+    // onComplete(finalSig);              ❌ removed
   };
 
   const paymentSummaryText = payFull
@@ -243,138 +278,219 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
       })
     : "your wedding date";
 
-    return (
-      // ⛔️ No pixie-overlay here — parent handles backdrop
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
-        {/* 🩷 Pink X */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-        </button>
-    
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
-          <img
-            src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
-            alt="Dessert Icon"
-            className="px-media"
-            style={{ width: 110, margin: "0 auto 12px" }}
-          />
-    
-          <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
-            Dessert Agreement
-          </h2>
-    
-          <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
-            You’re booking desserts for <strong>{formattedDate}</strong> ({dayOfWeek || "TBD"}).
-          </p>
-          <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-            Total dessert cost: <strong>${totalSafe.toFixed(2)}</strong>
-          </p>
-    
-          {/* Booking Terms — blue Jenna Sue section */}
-          <div className="px-section" style={{ maxWidth: 620 }}>
-            <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: 8 }}>
-              Booking Terms
-            </h3>
-            <ul
-              className="px-prose-narrow"
-              style={{
-                textAlign: "left",
-                margin: "0 auto",
-                maxWidth: 560,
-                lineHeight: 1.6,
-                paddingLeft: "1.25rem",
-              }}
-            >
+  return (
+    // ⛔️ No pixie-overlay here — parent handles backdrop
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
+      {/* 🩷 Pink X */}
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
+          alt="Dessert Icon"
+          className="px-media"
+          style={{ width: 110, margin: "0 auto 12px" }}
+        />
+
+        <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
+          Dessert Agreement
+        </h2>
+
+        <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
+          You’re booking desserts for{" "}
+          <strong>{formattedDate}</strong> ({dayOfWeek || "TBD"}).
+        </p>
+        <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+          Total dessert cost:{" "}
+          <strong>${totalSafe.toFixed(2)}</strong>
+        </p>
+
+        {/* Booking Terms — blue Jenna Sue section */}
+        <div className="px-section" style={{ maxWidth: 620 }}>
+          <h3
+            className="px-title-lg"
+            style={{ fontSize: "1.8rem", marginBottom: 8 }}
+          >
+            Booking Terms
+          </h3>
+          <ul
+            className="px-prose-narrow"
+            style={{
+              textAlign: "left",
+              margin: "0 auto",
+              maxWidth: 560,
+              lineHeight: 1.6,
+              paddingLeft: "1.25rem",
+            }}
+          >
+            {/* 🔁 THIS IS THE ONLY BULLET WE'RE CHANGING */}
+            {isSharedFlowBookedVenue ? (
               <li>
-                By signing, you confirm either (a) your venue allows outside bakers, or (b) you’ll book a venue that does.
+                We’ll deliver and set up at{" "}
+                <strong>{bookedVenueName || "your venue"}</strong>, which already
+                partners with Wed&Done for desserts. No separate venue approval
+                is required.
               </li>
-              <li>
-                You may pay in full today, or place a <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>.
-                Any remaining balance will be split into monthly installments and must be fully paid{" "}
-                <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
-              </li>
-              <li>
-                Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days
-                before your wedding, but the count cannot be lowered after booking.
-              </li>
-              <li>
-                <strong>Cancellation &amp; Refunds:</strong> If you cancel more than {FINAL_DUE_DAYS} days prior,
-                amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already
-                incurred. Within {FINAL_DUE_DAYS} days, all payments are non-refundable.
-              </li>
-              <li>
-                <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee applies;
-                after 14 days, services may be suspended and this agreement may be in default.
-              </li>
-              <li>
-                <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and comply
-                with venue rules, which may limit display/location options.
-              </li>
-              <li>
-                <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control. We’ll work in
-                good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.
-              </li>
-              <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
-            </ul>
-          </div>
-    
-          {/* Pay plan toggle — branded */}
-          <h4 className="px-title" style={{ fontSize: "1.8rem", marginTop: 14, marginBottom: 8 }}>
-            Choose how you’d like to pay:
-          </h4>
-          <div className="px-toggle" style={{ marginBottom: 12 }}>
-            <button
-              type="button"
-              className={`px-toggle__btn ${payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
-              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
-              onClick={() => {
-                setPayFull(true);
-                setSignatureSubmitted(false);
-                try { localStorage.setItem("yumPayPlan", "full"); } catch {}
-              }}
-            >
-              Pay Full Amount
-            </button>
-            <button
-              type="button"
-              className={`px-toggle__btn ${!payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
-              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
-              onClick={() => {
-                setPayFull(false);
-                setSignatureSubmitted(false);
-                try { localStorage.setItem("yumPayPlan", "monthly"); } catch {}
-              }}
-            >
-              Deposit + Monthly
-            </button>
-          </div>
-    
-          {/* Summary + Agree */}
-          <p className="px-prose-narrow" style={{ marginTop: 4 }}>
-            {payFull ? (
-              <>You’ll pay <strong>${totalSafe.toFixed(2)}</strong> today.</>
             ) : (
-              <>
-                <strong>${depositDollars.toFixed(2)}</strong> deposit + {planMonths} monthly payments of about{" "}
-                <strong>${monthlyAmount.toFixed(2)}</strong>; final payment due <strong>{finalDuePretty}</strong>.
-              </>
+              <li>
+                By signing, you confirm either (a) your venue allows outside
+                bakers, or (b) you’ll book a venue that does.
+              </li>
             )}
-          </p>
-    
-          <div style={{ margin: "8px 0 6px" }}>
-            <label className="px-prose-narrow" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={agreeChecked}
-                onChange={(e) => setAgreeChecked(e.target.checked)}
-              />
-              I agree to the terms above
-            </label>
-          </div>
-    
-          {/* Sign / Continue */}
-          {!signatureSubmitted ? (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
+
+            <li>
+              You may pay in full today, or place a{" "}
+              <strong>
+                {Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit
+              </strong>
+              . Any remaining balance will be split into monthly installments and
+              must be fully paid{" "}
+              <strong>
+                {FINAL_DUE_DAYS} days before your wedding date
+              </strong>
+              .
+            </li>
+            <li>
+              Final guest count is due 30 days before your wedding. You may
+              increase your guest count starting 45 days before your wedding,
+              but the count cannot be lowered after booking.
+            </li>
+            <li>
+              <strong>Cancellation &amp; Refunds:</strong> If you cancel more
+              than {FINAL_DUE_DAYS} days prior, amounts paid beyond the
+              non-refundable portion will be refunded less any
+              non-recoverable costs already incurred. Within{" "}
+              {FINAL_DUE_DAYS} days, all payments are non-refundable.
+            </li>
+            <li>
+              <strong>Missed Payments:</strong> We’ll automatically retry your
+              card. After 7 days, a $25 late fee applies; after 14 days,
+              services may be suspended and this agreement may be in default.
+            </li>
+            <li>
+              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
+              standard food-safety guidelines and comply with venue rules,
+              which may limit display/location options.
+            </li>
+            <li>
+              <strong>Force Majeure:</strong> Neither party is liable for delays
+              beyond reasonable control. We’ll work in good faith to
+              reschedule; if not possible, we’ll refund amounts paid beyond
+              non-recoverable costs already incurred.
+            </li>
+            <li>
+              In the unlikely event of our cancellation or issue, liability is
+              limited to a refund of payments made.
+            </li>
+          </ul>
+        </div>
+
+        {/* Pay plan toggle — branded */}
+        <h4
+          className="px-title"
+          style={{
+            fontSize: "1.8rem",
+            marginTop: 14,
+            marginBottom: 8,
+          }}
+        >
+          Choose how you’d like to pay:
+        </h4>
+        <div className="px-toggle" style={{ marginBottom: 12 }}>
+          <button
+            type="button"
+            className={`px-toggle__btn ${
+              payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""
+            }`}
+            style={{
+              minWidth: 150,
+              padding: "0.6rem 1rem",
+              fontSize: ".9rem",
+            }}
+            onClick={() => {
+              setPayFull(true);
+              setSignatureSubmitted(false);
+              try {
+                localStorage.setItem("yumPayPlan", "full");
+              } catch {}
+            }}
+          >
+            Pay Full Amount
+          </button>
+          <button
+            type="button"
+            className={`px-toggle__btn ${
+              !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+            }`}
+            style={{
+              minWidth: 150,
+              padding: "0.6rem 1rem",
+              fontSize: ".9rem",
+            }}
+            onClick={() => {
+              setPayFull(false);
+              setSignatureSubmitted(false);
+              try {
+                localStorage.setItem("yumPayPlan", "monthly");
+              } catch {}
+            }}
+          >
+            Deposit + Monthly
+          </button>
+        </div>
+
+        {/* Summary + Agree */}
+        <p className="px-prose-narrow" style={{ marginTop: 4 }}>
+          {payFull ? (
+            <>
+              You’ll pay <strong>${totalSafe.toFixed(2)}</strong> today.
+            </>
+          ) : (
+            <>
+              <strong>${depositDollars.toFixed(2)}</strong> deposit + {planMonths}{" "}
+              monthly payments of about{" "}
+              <strong>${monthlyAmount.toFixed(2)}</strong>; final payment due{" "}
+              <strong>{finalDuePretty}</strong>.
+            </>
+          )}
+        </p>
+
+        <div style={{ margin: "8px 0 6px" }}>
+          <label
+            className="px-prose-narrow"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={agreeChecked}
+              onChange={(e) => setAgreeChecked(e.target.checked)}
+            />
+            I agree to the terms above
+          </label>
+        </div>
+
+        {/* Sign / Continue */}
+        {!signatureSubmitted ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: "1rem",
+            }}
+          >
             <button
               className="boutique-primary-btn"
               onClick={handleSignClick}
@@ -388,155 +504,215 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
               Sign Contract
             </button>
           </div>
-          ) : (
-            <div className="px-cta-col" style={{ marginTop: 8 }}>
-              <img
-                src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-                alt="Contract Signed"
-                className="px-media"
-                style={{ maxWidth: 140 }}
-              />
-              <button
-  className="boutique-primary-btn"
-  onClick={() => {
-    // ----- persist all contract selections -----
-    try {
-      const plan = payFull ? "full" : "monthly";
-      localStorage.setItem("yumPaymentPlan", plan);
-      localStorage.setItem("yumPayPlan", plan);
-      localStorage.setItem("yumTotal", String(totalSafe));
-      localStorage.setItem("yumDepositAmount", String(payFull ? totalSafe : depositDollars));
-      localStorage.setItem("yumRemainingBalance", String(remainingBalance));
-      localStorage.setItem("yumFinalDueAt", finalDueISO);
-      localStorage.setItem("yumFinalDuePretty", finalDuePretty);
-      localStorage.setItem("yumPlanMonths", String(planMonths));
-      localStorage.setItem("yumPerMonthCents", String(perMonthCents));
-      localStorage.setItem("yumLastPaymentCents", String(lastPaymentCents));
-      localStorage.setItem("yumNextChargeAt", nextChargeAtISO);
-    } catch {}
+        ) : (
+          <div className="px-cta-col" style={{ marginTop: 8 }}>
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
+              alt="Contract Signed"
+              className="px-media"
+              style={{ maxWidth: 140 }}
+            />
+            <button
+              className="boutique-primary-btn"
+              onClick={() => {
+                // ----- persist all contract selections -----
+                try {
+                  const plan = payFull ? "full" : "monthly";
+                  localStorage.setItem("yumPaymentPlan", plan);
+                  localStorage.setItem("yumPayPlan", plan);
+                  localStorage.setItem("yumTotal", String(totalSafe));
+                  localStorage.setItem(
+                    "yumDepositAmount",
+                    String(payFull ? totalSafe : depositDollars)
+                  );
+                  localStorage.setItem(
+                    "yumRemainingBalance",
+                    String(remainingBalance)
+                  );
+                  localStorage.setItem("yumFinalDueAt", finalDueISO);
+                  localStorage.setItem(
+                    "yumFinalDuePretty",
+                    finalDuePretty
+                  );
+                  localStorage.setItem("yumPlanMonths", String(planMonths));
+                  localStorage.setItem(
+                    "yumPerMonthCents",
+                    String(perMonthCents)
+                  );
+                  localStorage.setItem(
+                    "yumLastPaymentCents",
+                    String(lastPaymentCents)
+                  );
+                  localStorage.setItem(
+                    "yumNextChargeAt",
+                    nextChargeAtISO
+                  );
+                } catch {}
 
-    // signature to hand to parent
-    const sig = localStorage.getItem("yumSignature") || signatureImage || "";
+                // signature to hand to parent
+                const sig =
+                  localStorage.getItem("yumSignature") ||
+                  signatureImage ||
+                  "";
 
-    // ----- step change FIRST, then notify parent on next tick -----
-    localStorage.setItem("yumStep", "dessertCheckout");
-    setStep("dessertCheckout");
+                // ----- step change FIRST, then notify parent on next tick -----
+                localStorage.setItem("yumStep", "dessertCheckout");
+                setStep("dessertCheckout");
 
-    // give React a tick to mount the checkout before firing completion side-effects
-    setTimeout(() => onComplete(sig), 0);
-  }}
-  style={{ width: 250 }}
->
-  Continue to Payment
-</button>
-              <button
-                className="boutique-back-btn"
-                onClick={() => {
-                  localStorage.setItem("yumStep", "dessertCart");
-                  setStep("dessertCart");
-                }}
-                style={{ width: 250 }}
-              >
-                ⬅ Back to Cart
-              </button>
-            </div>
-          )}
-        </div>
-    
-        {/* Signature modal — single overlay with blue X; scrollbar hidden */}
-        {showSignatureModal && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,.5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1200,
-              padding: 16,
-            }}
-          >
-            <div
-              className="pixie-card pixie-card--modal"
-              style={{ maxWidth: 520, position: "relative", overflowY: "hidden" }}
+                // give React a tick to mount the checkout before firing completion side-effects
+                setTimeout(() => onComplete(sig), 0);
+              }}
+              style={{ width: 250 }}
             >
-              <button
-                className="pixie-card__close"
-                onClick={() => setShowSignatureModal(false)}
-                aria-label="Close"
-              >
-                <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
-              </button>
-    
-              <div className="pixie-card__body" style={{ textAlign: "center" }}>
-                <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: 12 }}>
-                  Sign below or enter your text signature
-                </h3>
-    
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 12 }}>
-                  <button
-                    type="button"
-                    onClick={() => setUseTextSignature(false)}
-                    className={`px-toggle__btn ${!useTextSignature ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
-                    style={{ minWidth: 110, padding: ".5rem 1rem" }}
-                    aria-pressed={!useTextSignature}
-                  >
-                    Draw
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseTextSignature(true)}
-                    className={`px-toggle__btn ${useTextSignature ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
-                    style={{ minWidth: 110, padding: ".5rem 1rem" }}
-                    aria-pressed={useTextSignature}
-                  >
-                    Type
-                  </button>
-                </div>
-    
-                {useTextSignature ? (
-                  <input
-                    type="text"
-                    value={typedSignature}
-                    onChange={(e) => setTypedSignature(e.target.value)}
-                    placeholder="Type your name"
-                    className="px-input"
-                    style={{ maxWidth: 420, margin: "0 auto 12px" }}
-                  />
-                ) : (
-                  <SignatureCanvas
-                    penColor="#2c62ba"
-                    ref={sigCanvasRef}
-                    backgroundColor="#ffffff"
-                    canvasProps={{
-                      width: 420,
-                      height: 160,
-                      style: {
-                        border: "1px solid #e5e7f0",
-                        borderRadius: 10,
-                        width: "100%",
-                        maxWidth: 420,
-                        margin: "0 auto 12px",
-                        display: "block",
-                      },
-                    }}
-                  />
-                )}
-    
-                <button
-                  className="boutique-primary-btn"
-                  onClick={handleSignatureSubmit}
-                  style={{ width: 260, margin: "0 auto" }}
-                >
-                  Save Signature
-                </button>
-              </div>
-            </div>
+              Continue to Payment
+            </button>
+            <button
+              className="boutique-back-btn"
+              onClick={() => {
+                localStorage.setItem("yumStep", "dessertCart");
+                setStep("dessertCart");
+              }}
+              style={{ width: 250 }}
+            >
+              ⬅ Back to Cart
+            </button>
           </div>
         )}
       </div>
-    );
+
+      {/* Signature modal — single overlay with blue X; scrollbar hidden */}
+      {showSignatureModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1200,
+            padding: 16,
+          }}
+        >
+          <div
+            className="pixie-card pixie-card--modal"
+            style={{
+              maxWidth: 520,
+              position: "relative",
+              overflowY: "hidden",
+            }}
+          >
+            <button
+              className="pixie-card__close"
+              onClick={() => setShowSignatureModal(false)}
+              aria-label="Close"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
+                alt="Close"
+              />
+            </button>
+
+            <div
+              className="pixie-card__body"
+              style={{ textAlign: "center" }}
+            >
+              <h3
+                className="px-title-lg"
+                style={{
+                  fontSize: "1.8rem",
+                  marginBottom: 12,
+                }}
+              >
+                Sign below or enter your text signature
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setUseTextSignature(false)}
+                  className={`px-toggle__btn ${
+                    !useTextSignature
+                      ? "px-toggle__btn--blue px-toggle__btn--active"
+                      : ""
+                  }`}
+                  style={{ minWidth: 110, padding: ".5rem 1rem" }}
+                  aria-pressed={!useTextSignature}
+                >
+                  Draw
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseTextSignature(true)}
+                  className={`px-toggle__btn ${
+                    useTextSignature
+                      ? "px-toggle__btn--pink px-toggle__btn--active"
+                      : ""
+                  }`}
+                  style={{ minWidth: 110, padding: ".5rem 1rem" }}
+                  aria-pressed={useTextSignature}
+                >
+                  Type
+                </button>
+              </div>
+
+              {useTextSignature ? (
+                <input
+                  type="text"
+                  value={typedSignature}
+                  onChange={(e) =>
+                    setTypedSignature(e.target.value)
+                  }
+                  placeholder="Type your name"
+                  className="px-input"
+                  style={{
+                    maxWidth: 420,
+                    margin: "0 auto 12px",
+                  }}
+                />
+              ) : (
+                <SignatureCanvas
+                  penColor="#2c62ba"
+                  ref={sigCanvasRef}
+                  backgroundColor="#ffffff"
+                  canvasProps={{
+                    width: 420,
+                    height: 160,
+                    style: {
+                      border: "1px solid #e5e7f0",
+                      borderRadius: 10,
+                      width: "100%",
+                      maxWidth: 420,
+                      margin: "0 auto 12px",
+                      display: "block",
+                    },
+                  }}
+                />
+              )}
+
+              <button
+                className="boutique-primary-btn"
+                onClick={handleSignatureSubmit}
+                style={{
+                  width: 260,
+                  margin: "0 auto",
+                }}
+              >
+                Save Signature
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default YumContractDessert;

@@ -33,10 +33,21 @@ import { useScrollToTopOnChange } from "../../../hooks/useScrollToTop";
 
 interface NoVenueOverlayProps {
   onClose: () => void;
-  startAt?: YumStep;
+  startAt?: YumStep; // optional
+
+  // optional props (passed in from MenuController if this user booked Desert Foothills / Windmill, etc.)
+  isSharedFlowBookedVenue?: boolean;
+  bookedVenueSlug?: string | null;
+  bookedVenueName?: string;
 }
 
-const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "intro" }) => {
+const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
+  onClose,
+  startAt = "intro",
+  isSharedFlowBookedVenue = false,
+  bookedVenueSlug = null,
+  bookedVenueName = "",
+}) => {
   const [activeBookingType, setActiveBookingType] = useState<"catering" | "dessert" | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<YumStep>(startAt);
@@ -62,19 +73,37 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
 
   // ── Menu + dessert state ───────────────────────────────────
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
-  const [menuSelections, setMenuSelections] = useState<{ appetizers: string[]; mains: string[]; sides: string[] }>({
+  const [menuSelections, setMenuSelections] = useState<{
+    appetizers: string[];
+    mains: string[];
+    sides: string[];
+  }>({
     appetizers: [],
     mains: [],
     sides: [],
   });
 
   const savedDessert = localStorage.getItem("yumDessertSelections");
-  const parsed = savedDessert ? (() => { try { return JSON.parse(savedDessert); } catch { return null; } })() : null;
+  const parsed = savedDessert
+    ? (() => {
+        try {
+          return JSON.parse(savedDessert);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
 
-  const [dessertType, setDessertType] = useState<"tieredCake" | "smallCakeTreats" | "treatsOnly">(parsed?.dessertType || "tieredCake");
+  const [dessertType, setDessertType] = useState<
+    "tieredCake" | "smallCakeTreats" | "treatsOnly"
+  >(parsed?.dessertType || "tieredCake");
   const [flavorFilling, setFlavorFilling] = useState<string[]>(parsed?.flavorFilling || []);
   const [cakeStyle, setCakeStyle] = useState<string>(parsed?.cakeStyle || "");
-  const [treatType, setTreatType] = useState<"" | "cupcakes" | "goodies">(parsed?.treatType === "cupcakes" || parsed?.treatType === "goodies" ? parsed.treatType : "");
+  const [treatType, setTreatType] = useState<"" | "cupcakes" | "goodies">(
+    parsed?.treatType === "cupcakes" || parsed?.treatType === "goodies"
+      ? parsed.treatType
+      : ""
+  );
   const [goodies, setGoodies] = useState<string[]>(parsed?.goodies || []);
   const [cupcakes, setCupcakes] = useState<string[]>(parsed?.cupcakes || []);
 
@@ -101,7 +130,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
     if (calendarNextStep) return calendarNextStep as YumStep;
     if (activeBookingType === "dessert") return "dessertContract";
     if (activeBookingType === "catering") return "cateringContract";
-    const lsType = localStorage.getItem("yumActiveBookingType") || localStorage.getItem("yumBookingType");
+    const lsType =
+      localStorage.getItem("yumActiveBookingType") ||
+      localStorage.getItem("yumBookingType");
     if (lsType === "dessert") return "dessertContract";
     if (lsType === "catering") return "cateringContract";
     return "cateringContract";
@@ -110,16 +141,26 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
   // derived flags
   const hasDate = Boolean(userWeddingDate);
   const hasAnyBooking =
-    !!bookings.venue || !!bookings.planner || !!bookings.catering || !!bookings.dessert ||
-    !!bookings.photography || !!bookings.jam || !!bookings.florals || !!bookings.officiant ||
-    localStorage.getItem("yumBookedCatering") === "true" || localStorage.getItem("yumBookedDessert") === "true" ||
+    !!bookings.venue ||
+    !!bookings.planner ||
+    !!bookings.catering ||
+    !!bookings.dessert ||
+    !!bookings.photography ||
+    !!bookings.jam ||
+    !!bookings.florals ||
+    !!bookings.officiant ||
+    localStorage.getItem("yumBookedCatering") === "true" ||
+    localStorage.getItem("yumBookedDessert") === "true" ||
     localStorage.getItem("jamBooked") === "true";
-  const weddingDateLocked = hasAnyBooking || localStorage.getItem("weddingDateLocked") === "true";
+
+  const weddingDateLocked =
+    hasAnyBooking || localStorage.getItem("weddingDateLocked") === "true";
 
   // seed type
   useEffect(() => {
     const storedType = localStorage.getItem("yumBookingType");
-    if (storedType === "catering" || storedType === "dessert") setActiveBookingType(storedType);
+    if (storedType === "catering" || storedType === "dessert")
+      setActiveBookingType(storedType);
   }, []);
 
   // preload cached date + watch auth
@@ -128,7 +169,13 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
     if (localDate) {
       setUserWeddingDate(localDate);
       const localStep = localStorage.getItem("yumStep");
-      const allowed = ["cart", "contract", "calendar", "editdate", "confirm"];
+      const allowed = [
+        "cart",
+        "contract",
+        "calendar",
+        "editdate",
+        "confirm",
+      ];
       if (allowed.includes(localStep || "")) setStep("calendar");
     }
 
@@ -137,7 +184,8 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const data = userDoc.data();
-        const firestoreDate = data?.weddingDate || data?.profileData?.weddingDate;
+        const firestoreDate =
+          data?.weddingDate || data?.profileData?.weddingDate;
         if (firestoreDate && !isEditingDate) {
           setUserWeddingDate(firestoreDate);
           localStorage.setItem("yumSelectedDate", firestoreDate);
@@ -159,16 +207,38 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
     const tryLocalStorage = () => {
       if (localCuisine) setSelectedCuisine(localCuisine);
       const validSteps: YumStep[] = [
-        "intro", "cateringCuisine", "cateringMenu", "cateringCart", "cateringContract", "cateringCheckout",
-        "dessertStyle", "dessertMenu", "dessertCart", "dessertContract", "dessertCheckout",
-        "calendar", "confirm", "thankyouCateringOnly", "thankyouDessertOnly", "thankyouBoth",
-        "returnNoCatering", "returnNoDessert", "returnBothBooked", "updateGuests",
+        "intro",
+        "cateringCuisine",
+        "cateringMenu",
+        "cateringCart",
+        "cateringContract",
+        "cateringCheckout",
+        "dessertStyle",
+        "dessertMenu",
+        "dessertCart",
+        "dessertContract",
+        "dessertCheckout",
+        "calendar",
+        "confirm",
+        "thankyouCateringOnly",
+        "thankyouDessertOnly",
+        "thankyouBoth",
+        "returnNoCatering",
+        "returnNoDessert",
+        "returnBothBooked",
+        "updateGuests",
       ];
-      setStep(localStep && validSteps.includes(localStep) ? localStep : "intro");
+      setStep(
+        localStep && validSteps.includes(localStep) ? localStep : "intro"
+      );
       setLoading(false);
     };
 
-    if (!["returnNoDessert", "returnNoCatering", "returnBothBooked"].includes(startAt)) {
+    if (
+      !["returnNoDessert", "returnNoCatering", "returnBothBooked"].includes(
+        startAt
+      )
+    ) {
       tryLocalStorage();
     }
 
@@ -178,7 +248,8 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
 
-        const firestoreDate = userData?.weddingDate || userData?.profileData?.weddingDate;
+        const firestoreDate =
+          userData?.weddingDate || userData?.profileData?.weddingDate;
         if (firestoreDate && !isEditingDate) {
           setUserWeddingDate(firestoreDate);
           localStorage.setItem("yumSelectedDate", firestoreDate);
@@ -186,7 +257,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
         setBookings((userData?.bookings || {}) as Bookings);
 
         const savedStep = userData?.progress?.yumYum?.step;
-        const cuisineDoc = await getDoc(doc(db, "users", user.uid, "yumYumData", "cuisineSelection"));
+        const cuisineDoc = await getDoc(
+          doc(db, "users", user.uid, "yumYumData", "cuisineSelection")
+        );
         const savedCuisine = cuisineDoc.data()?.selectedCuisine;
 
         let updated = false;
@@ -225,7 +298,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
           localStorage.setItem("yumSelectedDate", data.weddingDate);
         }
         if (data?.weddingDateLocked) {
-          try { localStorage.setItem("weddingDateLocked", "true"); } catch {}
+          try {
+            localStorage.setItem("weddingDateLocked", "true");
+          } catch {}
         }
       });
     });
@@ -238,14 +313,21 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
   // continue handlers (prefetch lock before calendar)
   const handleCartContinue = async () => {
     const user = getAuth().currentUser;
-    if (!user) { setShowAccountModal(true); return; }
+    if (!user) {
+      setShowAccountModal(true);
+      return;
+    }
 
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const data = userDoc.data();
-      const firestoreDate = data?.weddingDate || data?.profileData?.weddingDate;
+      const firestoreDate =
+        data?.weddingDate || data?.profileData?.weddingDate;
       const dayOfWeek = data?.dayOfWeek || null;
-      if (firestoreDate) { setUserWeddingDate(firestoreDate); setUserDayOfWeek(dayOfWeek); }
+      if (firestoreDate) {
+        setUserWeddingDate(firestoreDate);
+        setUserDayOfWeek(dayOfWeek);
+      }
       setBookings((data?.bookings || {}) as Bookings);
 
       setActiveBookingType("catering");
@@ -271,14 +353,21 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
 
   const handleDessertCartContinue = async () => {
     const user = getAuth().currentUser;
-    if (!user) { setShowAccountModal(true); return; }
+    if (!user) {
+      setShowAccountModal(true);
+      return;
+    }
 
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const data = userDoc.data();
-      const firestoreDate = data?.weddingDate || data?.profileData?.weddingDate;
+      const firestoreDate =
+        data?.weddingDate || data?.profileData?.weddingDate;
       const dayOfWeek = data?.dayOfWeek || null;
-      if (firestoreDate) { setUserWeddingDate(firestoreDate); setUserDayOfWeek(dayOfWeek); }
+      if (firestoreDate) {
+        setUserWeddingDate(firestoreDate);
+        setUserDayOfWeek(dayOfWeek);
+      }
       setBookings((data?.bookings || {}) as Bookings);
 
       setActiveBookingType("dessert");
@@ -324,7 +413,12 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
   useEffect(() => {
     const auth = getAuth();
     const localStep = localStorage.getItem("yumStep");
-    if (["returnNoDessert", "returnNoCatering", "returnBothBooked"].includes(startAt)) return;
+    if (
+      ["returnNoDessert", "returnNoCatering", "returnBothBooked"].includes(
+        startAt
+      )
+    )
+      return;
     if (localStep && localStep !== "intro") return;
 
     onAuthStateChanged(auth, async (user) => {
@@ -338,20 +432,25 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
         else if (!hasCatering && hasDessert) nextStep = "returnNoCatering";
         else if (hasCatering && hasDessert) nextStep = "returnBothBooked";
       } else {
-        const localC = localStorage.getItem("yumBookedCatering") === "true";
-        const localD = localStorage.getItem("yumBookedDessert") === "true";
+        const localC =
+          localStorage.getItem("yumBookedCatering") === "true";
+        const localD =
+          localStorage.getItem("yumBookedDessert") === "true";
         if (localC && !localD) nextStep = "returnNoDessert";
         else if (!localC && localD) nextStep = "returnNoCatering";
         else if (localC && localD) nextStep = "returnBothBooked";
       }
-      if (nextStep) { setStep(nextStep); localStorage.setItem("yumStep", nextStep); }
+      if (nextStep) {
+        setStep(nextStep);
+        localStorage.setItem("yumStep", nextStep);
+      }
     });
   }, [startAt]);
 
   const [cateringBooked, setCateringBooked] = useState(false);
   const [dessertBooked, setDessertBooked] = useState(false);
 
-  // ── RENDER — match Floral overlay (no double cards) ──────────────────────────
+  // ── RENDER ────────────────────────────────────────────────
   return (
     <>
       {/* main flow overlay — render ONLY when account modal is NOT open */}
@@ -373,10 +472,13 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                   localStorage.setItem("yumStep", "dessertStyle");
                   setStep("dessertStyle");
                 }}
-                onClose={onClose} // show the pink X
+                onClose={onClose}
+                // NEW: shared-venue awareness for wording
+                isSharedFlowBookedVenue={isSharedFlowBookedVenue}
+                bookedVenueName={bookedVenueName}
               />
             )}
-  
+
             {step === "cateringCuisine" && (
               <YumCuisineSelector
                 selectedCuisine={selectedCuisine}
@@ -428,7 +530,10 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                       const next = resolveCalendarNext();
                       setStep(next);
                       localStorage.setItem("yumStep", next);
-                      localStorage.setItem("yumSelectedDate", data.weddingDate);
+                      localStorage.setItem(
+                        "yumSelectedDate",
+                        data.weddingDate
+                      );
                     }}
                     onClose={onClose}
                   />
@@ -474,6 +579,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                   setStep("cateringCheckout");
                   localStorage.setItem("yumStep", "cateringCheckout");
                 }}
+                // NEW: pass venue context so contract copy can relax the “must allow outside catering” language
+                isSharedFlowBookedVenue={isSharedFlowBookedVenue}
+                bookedVenueName={bookedVenueName}
               />
             )}
 
@@ -493,8 +601,11 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                 onComplete={() => {
                   localStorage.setItem("yumBookedCatering", "true");
                   const dessertAlready =
-                    Boolean(bookings?.dessert) || localStorage.getItem("yumBookedDessert") === "true";
-                  const next = dessertAlready ? "thankyouBoth" : "thankyouCateringOnly";
+                    Boolean(bookings?.dessert) ||
+                    localStorage.getItem("yumBookedDessert") === "true";
+                  const next = dessertAlready
+                    ? "thankyouBoth"
+                    : "thankyouCateringOnly";
                   localStorage.setItem("yumStep", next);
                   setStep(next);
                 }}
@@ -530,11 +641,20 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                 setFlavorFilling={setFlavorFilling}
                 onContinue={(sel) => {
                   setFlavorFilling(sel.flavorFilling || []);
-                  setCakeStyle(typeof sel.cakeStyle === "string" ? sel.cakeStyle : "");
-                  setTreatType(Array.isArray(sel.treatType) ? sel.treatType[0] : sel.treatType || "");
+                  setCakeStyle(
+                    typeof sel.cakeStyle === "string" ? sel.cakeStyle : ""
+                  );
+                  setTreatType(
+                    Array.isArray(sel.treatType)
+                      ? sel.treatType[0]
+                      : sel.treatType || ""
+                  );
                   setGoodies(sel.goodies || []);
                   setCupcakes(sel.cupcakes || []);
-                  localStorage.setItem("yumDessertSelections", JSON.stringify(sel));
+                  localStorage.setItem(
+                    "yumDessertSelections",
+                    JSON.stringify(sel)
+                  );
                   setStep("dessertCart");
                 }}
                 onBack={() => setStep("dessertStyle")}
@@ -585,6 +705,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                   setActiveBookingType("dessert");
                   setStep("dessertCheckout");
                 }}
+                // NEW: pass venue context so dessert contract can say “We’re already approved at Desert Foothills…”
+                isSharedFlowBookedVenue={isSharedFlowBookedVenue}
+                bookedVenueName={bookedVenueName}
               />
             )}
 
@@ -605,7 +728,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
                   localStorage.setItem("yumStep", "dessertContract");
                 }}
                 onComplete={() => {
-                  const next = bookings.catering ? "thankyouBoth" : "thankyouDessertOnly";
+                  const next = bookings.catering
+                    ? "thankyouBoth"
+                    : "thankyouDessertOnly";
                   setStep(next);
                   localStorage.setItem("yumStep", next);
                 }}
@@ -614,9 +739,15 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
               />
             )}
 
-            {step === "thankyouCateringOnly" && <YumThankYouCateringOnly onClose={onClose} setStep={setStep} />}
-            {step === "thankyouDessertOnly" && <YumThankYouDessertOnly onClose={onClose} setStep={setStep} />}
-            {step === "thankyouBoth" && <YumThankYouBothBooked onClose={onClose} />}
+            {step === "thankyouCateringOnly" && (
+              <YumThankYouCateringOnly onClose={onClose} setStep={setStep} />
+            )}
+            {step === "thankyouDessertOnly" && (
+              <YumThankYouDessertOnly onClose={onClose} setStep={setStep} />
+            )}
+            {step === "thankyouBoth" && (
+              <YumThankYouBothBooked onClose={onClose} />
+            )}
 
             {step === "returnNoDessert" && (
               <YumReturnNoDessert
@@ -638,7 +769,9 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({ onClose, startAt = "int
               />
             )}
 
-            {step === "returnBothBooked" && <YumReturnBothBooked onClose={onClose} />}
+            {step === "returnBothBooked" && (
+              <YumReturnBothBooked onClose={onClose} />
+            )}
           </div>
         </div>
       )}

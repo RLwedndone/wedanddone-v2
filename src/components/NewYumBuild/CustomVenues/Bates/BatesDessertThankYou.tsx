@@ -49,27 +49,60 @@ const BatesDessertThankYou: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    // ⛔️ No pixie-overlay wrapper — parent supplies the backdrop
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680, position: "relative" }}>
-      {/* 🩷 Pink X Close */}
-      <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-      </button>
-
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
-        <video
-          src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="px-media"
-          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px" }}
-        />
-
-        <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
-          Desserts Locked &amp; Confirmed! 💙
-        </h2>
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* ⛔️ No pixie-overlay wrapper — parent supplies the backdrop */}
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 680, position: "relative" }}
+      >
+        {/* 🩷 Pink X Close */}
+        <button
+          className="pixie-card__close"
+          onClick={handleClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+  
+        <div
+          className="pixie-card__body"
+          style={{
+            textAlign: "center",
+            padding: "2rem 2.5rem",
+          }}
+        >
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="px-media"
+            style={{
+              width: 180,
+              maxWidth: "90%",
+              borderRadius: 12,
+              margin: "0 auto 12px",
+              display: "block",
+            }}
+          />
+  
+          <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
+            Desserts Locked &amp; Confirmed! 💙
+          </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
           Your selections and receipt are saved under <em>Documents</em>.
@@ -79,6 +112,7 @@ const BatesDessertThankYou: React.FC<Props> = ({ onClose }) => {
           wedding to-do list!
         </p>
       </div>
+    </div>
     </div>
   );
 };

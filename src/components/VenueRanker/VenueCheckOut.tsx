@@ -1,11 +1,9 @@
 // src/components/VenueRanker/VenueCheckOut.tsx
 import React, { useState, useEffect, useRef } from "react";
-// ⛔️ REMOVE THESE TWO because we don't wrap locally anymore
-// import { Elements } from "@stripe/react-stripe-js";
-// import { stripePromise } from "../../utils/stripePromise";
+// ⛔️ We no longer wrap Stripe Elements here.
 
 import { getAuth } from "firebase/auth";
-import { doc, getDoc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { useUser } from "../../contexts/UserContext";
 import CheckoutForm from "../../CheckoutForm";
@@ -14,8 +12,13 @@ import { uploadPdfBlob } from "../../helpers/firebaseUtils";
 import { sendAdminNotification } from "../../utils/sendAdminNotification";
 import emailjs from "@emailjs/browser";
 import { VENUE_MENU_MAP } from "../../utils/venueMenuMap";
-import { getGuestState, setAndLockGuestCount } from "../../utils/guestCountStore";
+import {
+  getGuestState,
+  setAndLockGuestCount,
+} from "../../utils/guestCountStore";
 import { format, parseISO, isValid as isValidDate } from "date-fns";
+
+import { markVenueDateUnavailable } from "../../utils/venueAvailability";
 
 function safeParseDate(input: any): Date | null {
   if (!input) return null;
@@ -37,7 +40,7 @@ function fmtPretty(d: Date | null): string {
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
 interface VenueCheckOutProps {
-  onClose?: () => void; // keeping optional so we don't break callers
+  onClose?: () => void;
   setStepSuccess?: () => void;
   setCurrentScreen: (screen: string) => void;
 }
@@ -46,7 +49,10 @@ const FINAL_DUE_DAYS = 45;
 
 const fmtMoney = (n: number) =>
   Number.isFinite(n)
-    ? n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
     : "0.00";
 
 const sanitizeForPdf = (s: string) =>
@@ -57,7 +63,10 @@ const sanitizeForPdf = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStepSuccess }) => {
+const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
+  setCurrentScreen,
+  setStepSuccess,
+}) => {
   const { userData } = useUser();
   const auth = getAuth();
   const user = auth.currentUser;
@@ -93,9 +102,9 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
         parsed.venueName || venueNameLS || fallbackFromSlug || "Selected Venue";
 
       const arr = (x: any) => (Array.isArray(x) ? x : []);
-      const venueSpecificDetails = arr(parsed.venueSpecificDetails || parsed.venueTerms).map(
-        sanitizeForPdf
-      );
+      const venueSpecificDetails = arr(
+        parsed.venueSpecificDetails || parsed.venueTerms
+      ).map(sanitizeForPdf);
       const bookingTerms = arr(parsed.bookingTerms).map(sanitizeForPdf);
 
       setContractData({
@@ -119,7 +128,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
 
   const {
     venueName,
-    weddingDate,
+    weddingDate, // may be missing sometimes, we'll guard later
     venuePrice,
     depositAmount,
     monthlyPayment,
@@ -136,6 +145,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
   const isPayingFull = Boolean(payFull);
   const amountDueToday = isPayingFull ? total : Number(depositAmount) || 0;
 
+  // Fallback for wedding date (source of truth for blocking / display)
   const weddingDateCandidate =
     weddingDate ||
     userData?.weddingDate ||
@@ -147,7 +157,9 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
     safeParseDate(`${weddingDateCandidate}T12:00:00`);
 
   const finalDueDate = weddingDateObj
-    ? new Date(weddingDateObj.getTime() - FINAL_DUE_DAYS * 24 * 60 * 60 * 1000)
+    ? new Date(
+        weddingDateObj.getTime() - FINAL_DUE_DAYS * 24 * 60 * 60 * 1000
+      )
     : null;
 
   const finalDueDateStr = finalDueDate
@@ -156,34 +168,47 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
 
   const handleSuccess = async () => {
     setIsGenerating(true);
+
     try {
       console.log("🧭 [VenueCheckout] Start finalize flow");
+
+      // Pull latest user doc so we can append docs, purchases, etc.
       const userSnap = await getDoc(userRef);
       const userDoc = userSnap.data() || {};
-      const existingDocs: any[] = Array.isArray(userDoc.documents) ? userDoc.documents : [];
+      const existingDocs: any[] = Array.isArray(userDoc.documents)
+        ? userDoc.documents
+        : [];
 
       const paymentSummary = isPayingFull
         ? `Paid in Full: $${fmtMoney(total)}`
-        : `Deposit: $${fmtMoney(amountDueToday)} + ${numMonthlyPayments} monthly payments of ${fmtMoney(
+        : `Deposit: $${fmtMoney(
+            amountDueToday
+          )} + ${numMonthlyPayments} monthly payments of ${fmtMoney(
             monthlyPayment
           )} (final due ${finalDueDateStr}).`;
 
       const venueSlug = (localStorage.getItem("venueSlug") || "").trim();
-      const venueNameFromLS = localStorage.getItem("venueName") || venueName;
+      const venueNameFromLS =
+        localStorage.getItem("venueName") || venueName;
+
       const metaFromMap =
         VENUE_MENU_MAP[venueSlug] || VENUE_MENU_MAP.santi_default;
+
       const cateringType =
         localStorage.getItem("cateringType") ||
         metaFromMap?.cateringType ||
         "custom";
+
       const setMenuId =
         localStorage.getItem("setMenuId") ||
         metaFromMap?.setMenuId ||
         null;
 
+      // persist catering info to localStorage for Yum handoff
       localStorage.setItem("cateringType", cateringType);
       if (setMenuId) localStorage.setItem("setMenuId", setMenuId);
 
+      // Venue terms / booking terms safety
       const safeVenueSpecificDetails: string[] = Array.isArray(
         contractData?.venueSpecificDetails
       )
@@ -218,6 +243,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
           ? contractData.bookingTerms
           : defaultBookingTerms;
 
+      // Generate the PDF
       const pdfBlob = await generateVenueAgreementPDF({
         firstName,
         lastName,
@@ -232,6 +258,18 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
         bookingTerms: safeBookingTerms,
       });
 
+      // bookingId for traceability (not strictly needed for availability now,
+      // but good to have in user doc & emails)
+      const bookingId = `venue-${uid}-${Date.now()}`;
+
+      // this is the date we will write into the venue's bookedDates array
+      const blockedDateForAvailability =
+        weddingDate ||
+        userData?.weddingDate ||
+        localStorage.getItem("venueWeddingDate") ||
+        "";
+
+      // Mark Venue Ranker complete on the user
       await setDoc(
         userRef,
         {
@@ -243,17 +281,29 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
         },
         { merge: true }
       );
+
+      // local flags for dashboard / restore
       localStorage.setItem("venueRankerCompleted", "true");
       localStorage.removeItem("venueRankerCheckpoint");
 
+      // Upload PDF and store URL in Firestore
       const fileName = `VenueAgreement_${Date.now()}.pdf`;
       const filePath = `public_docs/${uid}/${fileName}`;
       const pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
 
+      // Lock guest count globally
       const st = await getGuestState();
       const guestCount = Math.max(0, Number(st.value) || 0);
       await setAndLockGuestCount(guestCount, "venue");
 
+      // safer DOW calc
+      const safeDayOfWeek = blockedDateForAvailability
+        ? new Date(
+            blockedDateForAvailability + "T12:00:00"
+          ).toLocaleDateString("en-US", { weekday: "long" })
+        : "";
+
+      // Write booking info, purchases, docs, yum handoff, etc.
       await setDoc(
         userRef,
         {
@@ -263,12 +313,8 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
             venueName: venueNameFromLS,
             planner: true,
             createdAt: new Date().toISOString(),
-            dayOfWeek: new Date(weddingDate + "T12:00:00").toLocaleDateString(
-              "en-US",
-              {
-                weekday: "long",
-              }
-            ),
+            dayOfWeek: safeDayOfWeek,
+            bookingId,
           },
           dateLocked: true,
           weddingDateLocked: true,
@@ -292,7 +338,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
           venueRankerData: {
             booking: {
               status: isPayingFull ? "paid_in_full" : "deposit_paid",
-              weddingDateISO: weddingDate,
+              weddingDateISO: blockedDateForAvailability,
               venueSlug,
               venueName: venueNameFromLS,
               cateringType,
@@ -315,17 +361,44 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
         { merge: true }
       );
 
+      // ✅ NEW: Mark this date as booked in Firestore (adds to venues/{slug}.bookedDates)
+try {
+  if (venueSlug && blockedDateForAvailability) {
+    await markVenueDateUnavailable({
+      venueSlug,
+      weddingDate: blockedDateForAvailability,
+      bookingId,
+    });
+    console.log(
+      `[VenueCheckout] ✅ Marked ${blockedDateForAvailability} unavailable for ${venueSlug}`
+    );
+  } else {
+    console.warn(
+      "[VenueCheckout] ⚠️ Missing venueSlug or blockedDateForAvailability, skipping bookedDates write."
+    );
+  }
+} catch (blockErr) {
+  console.warn(
+    "[VenueCheckout] ❌ Could not block date (maybe already blocked):",
+    blockErr
+  );
+}
+
+      // Fire events so other parts of UI update
       window.dispatchEvent(new Event("guestCountUpdated"));
       window.dispatchEvent(new Event("guestCountLocked"));
 
+      // prep Yum handoff
       localStorage.setItem("yumSource", "venue");
       localStorage.setItem("yumVenueSlug", venueSlug);
       if (setMenuId) localStorage.setItem("yumSetMenuId", setMenuId);
       localStorage.setItem("yumStep", "contract");
 
+      // email buyer
       try {
         const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
+        const TEMPLATE_ID =
+          import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
         if (SERVICE_ID && TEMPLATE_ID) {
           await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
             user_email: userData.email,
@@ -337,10 +410,11 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
         console.warn("EmailJS failed:", mailErr);
       }
 
+      // email admin
       try {
         await sendAdminNotification(
           `🏰 Booking Alert: ${venueName}`,
-          `${firstName} ${lastName} just booked ${venueName} on ${weddingDate}.`
+          `${firstName} ${lastName} just booked ${venueName} on ${blockedDateForAvailability}.`
         );
       } catch (adminErr) {
         console.warn("Admin notify failed:", adminErr);
@@ -368,8 +442,14 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
             padding: 16,
           }}
         >
-          <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520 }}>
-            <div className="pixie-card__body" style={{ textAlign: "center" }}>
+          <div
+            className="pixie-card pixie-card--modal"
+            style={{ maxWidth: 520 }}
+          >
+            <div
+              className="pixie-card__body"
+              style={{ textAlign: "center" }}
+            >
               <video
                 src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
                 autoPlay
@@ -386,7 +466,11 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
               />
               <h3
                 className="px-title"
-                style={{ margin: 0, color: "#2c62ba", fontFamily: "'Jenna Sue', cursive" }}
+                style={{
+                  margin: 0,
+                  color: "#2c62ba",
+                  fontFamily: "'Jenna Sue', cursive",
+                }}
               >
                 Madge is working her magic… hold tight!
               </h3>
@@ -434,7 +518,13 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
             Checkout
           </h2>
 
-          <p style={{ marginBottom: "1.5rem", fontSize: "1rem", textAlign: "center" }}>
+          <p
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "1rem",
+              textAlign: "center",
+            }}
+          >
             {isPayingFull ? (
               <>
                 Today, you’re paying the full venue cost of{" "}
@@ -445,14 +535,16 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
                 Today, you’re paying a deposit of{" "}
                 <strong>${fmtMoney(amountDueToday)}</strong>
                 <br />
-                followed by <strong>{numMonthlyPayments}</strong> monthly payments of{" "}
-                <strong>${fmtMoney(monthlyPayment)}</strong>. The final payment is due by{" "}
+                followed by{" "}
+                <strong>{numMonthlyPayments}</strong> monthly payments of{" "}
+                <strong>${fmtMoney(monthlyPayment)}</strong>. The final
+                payment is due by{" "}
                 <strong>{finalDueDateStr}</strong>.
               </>
             )}
           </p>
 
-          {/* ✅ Stripe Elements no longer wrapped here because App already provides it */}
+          {/* Stripe checkout form (Elements provider is higher up in the tree now) */}
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
@@ -462,15 +554,16 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({ setCurrentScreen, setStep
             customerName={`${firstNameLocal || firstName || "Magic"} ${
               lastNameLocal || lastName || "User"
             }`}
-            customerId={
-              (() => {
-                try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
-                } catch {
-                  return undefined;
-                }
-              })()
-            }
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
+              }
+            })()}
             receiptLabel="Venue Booking"
           />
 

@@ -3,6 +3,7 @@ import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
 import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
+import VenueVideo from "./VenueVideo";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -113,38 +114,10 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
         {/* Title */}
         <h2 className="px-title" style={{ marginBottom: 10 }}>Bates Mansion</h2>
 {/* 🎥 Venue video */}
-<div
-  style={{
-    width: "100%",
-    maxWidth: 560,           // keeps it nice inside the card
-    margin: "0 auto 1.25rem",
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "#000",
-    // give it a stable viewing window:
-    position: "relative",
-    aspectRatio: "16 / 9",   // modern browsers
-    minHeight: 220,          // safety for older/smaller viewports
-    maxHeight: 320,          // don't let it get comically tall on huge screens
-  }}
->
-  <iframe
-    src="https://player.vimeo.com/video/829586701?autoplay=0&muted=0&playsinline=1"
-    title="Bates Mansion"
-    loading="lazy"
-    allow="autoplay; fullscreen; picture-in-picture"
-    allowFullScreen
-    style={{
-      position: "absolute",
-      inset: 0,
-      width: "100%",
-      height: "100%",
-      border: 0,
-      display: "block",
-      objectFit: "cover",
-    }}
-  />
-</div>
+<VenueVideo
+      vimeoId="829586701"
+      title="Bates Mansion"
+    />
 
         {/* Prompt */}
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>

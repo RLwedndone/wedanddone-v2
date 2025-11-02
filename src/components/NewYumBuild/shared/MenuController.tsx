@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../firebase/firebaseConfig";
+
 import SchnepfOverlay from "../CustomVenues/SchnepfFarms/SchnepfOverlay";
 
 // Overlays
@@ -22,20 +23,32 @@ import type { YumStep } from "../yumTypes";
 import type { BatesStep } from "../CustomVenues/Bates/BatesOverlay";
 import type { EncanterraStep } from "../CustomVenues/Encanterra/EncanterraOverlay";
 
+// Pricing data (for pretty printing venue names)
+import { venuePricing } from "../../../data/venuePricing";
+
 interface MenuControllerProps {
   onClose: () => void;
   startAt?: YumStep | BatesStep | EncanterraStep | RubiStep | OcotilloStep;
 }
 
-// defensively normalize values we might read from Firestore
+/* ───────────────────────── Helpers ───────────────────────── */
+
+/** normalizeSlug: turns anything into a lowercase, hyphenated slug */
 function normalizeSlug(input?: string | null): string {
-  return (input || "").toString().trim().toLowerCase().replace(/\s+/g, "-");
+  return (input || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-") // spaces -> hyphens
+    .replace(/[^a-z0-9-]/g, ""); // drop weird punctuation (&, ’, etc)
 }
+
+/** normalizeName: lowercase plain name for fuzzy matching */
 function normalizeName(input?: string | null): string {
   return (input || "").toString().trim().toLowerCase();
 }
 
-// true if the user's venue is The Vic or The Verrado
+/** isVicOrVerrado: true if user's venue is The Vic or Verrado */
 function isVicOrVerrado(data: any): boolean {
   const fields = [
     data?.venueSlug,
@@ -52,22 +65,42 @@ function isVicOrVerrado(data: any): boolean {
 
   // slug checks
   const slugHit = fields.some((s) =>
-    ["the-vic", "vic", "the-verrado", "verrado", "vic-verrado", "vicandverrado"].includes(s)
+    [
+      "the-vic",
+      "vic",
+      "the-verrado",
+      "verrado",
+      "vic-verrado",
+      "vicandverrado",
+    ].includes(s)
   );
 
   // name checks
   const nameHit = names.some((n) =>
-    ["the vic", "vic", "the verrado", "verrado", "vic & verrado", "vic and verrado"].includes(n)
+    [
+      "the vic",
+      "vic",
+      "the verrado",
+      "verrado",
+      "vic & verrado",
+      "vic and verrado",
+    ].includes(n)
   );
 
   return slugHit || nameHit;
 }
 
-// ✅ NEW: helpers for Rubi (Brother John’s) detection
+/* Rubi (Brother John's) detection */
 const RUBI_SLUGS = [
-  "rubi", "rubi-house", "rubi-catering", "brother-johns",
-  "brother-johns-bbq", "brother-johns-catering", "brotherjohns",
+  "rubi",
+  "rubi-house",
+  "rubi-catering",
+  "brother-johns",
+  "brother-johns-bbq",
+  "brother-johns-catering",
+  "brotherjohns",
 ];
+
 function isRubiBySlug(slug?: string | null) {
   const s = normalizeSlug(slug);
   return RUBI_SLUGS.includes(s);
@@ -77,12 +110,12 @@ function isRubiByName(name?: string | null) {
   return (
     n.includes("rubi") ||
     n.includes("brother john") ||
-    n.includes("brother john’s") || // curly apostrophe variant
+    n.includes("brother john’s") ||
     n.includes("brother johns")
   );
 }
 
-// ✅ NEW: helpers for Ocotillo detection
+/* Ocotillo detection */
 const OCOTILLO_SLUGS = [
   "ocotillo",
   "ocotillo-restaurant",
@@ -95,16 +128,95 @@ function isOcotilloBySlug(slug?: string | null) {
   const s = normalizeSlug(slug);
   return OCOTILLO_SLUGS.includes(s);
 }
-
 function isOcotilloByName(name?: string | null) {
   const n = normalizeName(name);
-  // let’s be forgiving because venues might come through like "Ocotillo Restaurant & Bar"
+  // be forgiving; "Ocotillo Restaurant & Bar", etc.
   return n.includes("ocotillo");
 }
 
+/**
+ * Venues that STILL use the shared NoVenueOverlay flow
+ * instead of having their own fully custom overlay, and should
+ * get the "you already booked your venue" wording and dessert delivery logic.
+ *
+ * IMPORTANT: all values here must be normalized via normalizeSlug().
+ */
+const SHARED_FLOW_VENUES = [
+  // Desert Foothills (include likely variations)
+  "desertfoothills",
+  "desert-foothills",
+  "desertfoothillsbarn",
+  "desert-foothills-barn",
+  "desertfoothills-wedding",
+  "desert-foothills-wedding",
+
+  // Windmill Winery Lake House
+  "lakehouse",
+  "lake-house",
+  "windmill-lake-house",
+  "windmilllakehouse",
+
+  // Windmill Winery Big Red Barn
+  "windmillbarn",
+  "windmill-barn",
+  "big-red-barn",
+  "bigredbarn",
+  "windmill-big-red-barn",
+];
+
+/**
+ * Pull the booked venue slug out of user data in a consistent way,
+ * then normalize it so we can match it against SHARED_FLOW_VENUES.
+ */
+function getBookedVenueSlug(data: any): string | null {
+  const slugGuess =
+    data?.venueSlug ||
+    data?.bookings?.venueSlug ||
+    data?.venueRankerData?.booking?.venueSlug ||
+    data?.selectedVenueSlug ||
+    null;
+
+  return slugGuess ? normalizeSlug(slugGuess) : null;
+}
+
+/**
+ * Turn a slug like "windmillbarn" into something human-facing.
+ * Priority:
+ * 1. venuePricing[slug].displayName
+ * 2. Whatever readable name we saw in Firestore (venueName / selectedVenueName / etc)
+ * 3. "your venue"
+ */
+function friendlyVenueName(slug: string | null, rawUserData: any): string {
+  if (slug) {
+    const displayName = venuePricing[slug]?.displayName;
+    if (displayName) return displayName;
+  }
+
+  const guessName =
+    rawUserData?.venueName ||
+    rawUserData?.bookings?.venueName ||
+    rawUserData?.venueRankerData?.booking?.venueName ||
+    rawUserData?.selectedVenueName ||
+    "";
+
+  if (guessName) return guessName.toString();
+
+  return "your venue";
+}
+
+/* ───────────────────────── Component ───────────────────────── */
+
 const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => {
   const [loading, setLoading] = useState(true);
+
+  // venueSlug is used to route to the right overlay branch
   const [venueSlug, setVenueSlug] = useState<string | null>(null);
+
+  // bookedVenueSlug is our normalized "this is what they actually booked" slug
+  // even if we still point them to NoVenueOverlay
+  const [bookedVenueSlug, setBookedVenueSlug] = useState<string | null>(null);
+
+  // rawUserData holds the full Firestore snapshot so we can run helper checks
   const [rawUserData, setRawUserData] = useState<any>(null);
 
   useEffect(() => {
@@ -113,36 +225,46 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
       try {
         if (!user) {
           setVenueSlug(null);
+          setBookedVenueSlug(null);
           setRawUserData(null);
+          setLoading(false);
           return;
         }
+
         const snap = await getDoc(doc(db, "users", user.uid));
         const data = snap.data() || {};
 
-        // Prefer explicit slug if present
-        const slug: string | null =
-          data?.venueSlug ||
-          data?.bookings?.venueSlug ||
-          (data?.venueRankerData?.booking?.venueSlug ?? null);
+        // normalize the booked venue slug once
+        const slugFromData = getBookedVenueSlug(data);
 
-        setVenueSlug(slug ? String(slug).toLowerCase() : null);
+        setVenueSlug(slugFromData);
+        setBookedVenueSlug(slugFromData);
         setRawUserData(data);
       } catch (e) {
         console.warn("[MenuController] Failed to load venueSlug:", e);
         setVenueSlug(null);
+        setBookedVenueSlug(null);
         setRawUserData(null);
       } finally {
         setLoading(false);
       }
     });
+
     return () => unsub();
   }, []);
 
   if (loading) return null;
 
-  // 🔀 Route by venue
+  /* ───────────────── Routing logic by venue ───────────────── */
+
+  // Bates Mansion branch
   if (venueSlug === "batesmansion") {
-    return <BatesOverlay onClose={onClose} startAt={(startAt as BatesStep) || "intro"} />;
+    return (
+      <BatesOverlay
+        onClose={onClose}
+        startAt={(startAt as BatesStep) || "intro"}
+      />
+    );
   }
 
   // Schnepf Farms branch
@@ -150,23 +272,29 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
     venueSlug &&
     [
       "themeadow",
-      "farmhouse",
-      "schnepfbarn",
-      "schnepf-farms",
-      "schnepffarms",
-      "schnepf",
       "the-meadow",
       "meadow",
+      "farmhouse",
       "the-farmhouse",
       "the-farm-house",
       "farm-house",
+      "schnepfbarn",
       "big-red-barn",
+      "bigredbarn",
+      "schnepf-farms",
+      "schnepffarms",
+      "schnepf",
     ].includes(venueSlug)
   ) {
-    return <SchnepfOverlay onClose={onClose} startAt={(startAt as any) || "schnepfIntro"} />;
+    return (
+      <SchnepfOverlay
+        onClose={onClose}
+        startAt={(startAt as any) || "schnepfIntro"}
+      />
+    );
   }
 
-  // NEW: Encanterra branch (Firestore venue id = "encanterra")
+  // Encanterra branch
   if (venueSlug === "encanterra") {
     return (
       <EncanterraOverlay
@@ -176,7 +304,7 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
     );
   }
 
-  // Vic/Verrado branch
+  // Vic / Verrado branch
   if (rawUserData && isVicOrVerrado(rawUserData)) {
     return <VicVerradoOverlay onClose={onClose} />;
   }
@@ -184,7 +312,9 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
   // Valley Ho by slug
   if (
     venueSlug &&
-    ["hotel-valley-ho", "valleyho", "valley-ho", "hotelvalleyho"].includes(venueSlug)
+    ["hotel-valley-ho", "valleyho", "valley-ho", "hotelvalleyho"].includes(
+      venueSlug
+    )
   ) {
     return (
       <ValleyHoOverlay
@@ -196,12 +326,16 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
 
   // Valley Ho by name (fallback)
   const vhName =
-    (rawUserData?.venueName ||
+    (
+      rawUserData?.venueName ||
       rawUserData?.bookings?.venueName ||
       rawUserData?.venueRankerData?.booking?.venueName ||
       rawUserData?.selectedVenueName ||
       ""
-    ).toString().trim().toLowerCase();
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
 
   if (vhName.includes("valley ho") || vhName.includes("hotel valley ho")) {
     return (
@@ -212,25 +346,35 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
     );
   }
 
-  // ✅ NEW: Rubi (Brother John’s) by slug first…
+  // Rubi / Brother John's branch (slug first)
   if (isRubiBySlug(venueSlug)) {
-    return <RubiOverlay onClose={onClose} startAt={(startAt as RubiStep) || "intro"} />;
+    return (
+      <RubiOverlay
+        onClose={onClose}
+        startAt={(startAt as RubiStep) || "intro"}
+      />
+    );
   }
 
-  // …then by name if slug is missing/unknown
-  const venueNameAll =
-    (rawUserData?.venueName ||
-      rawUserData?.bookings?.venueName ||
-      rawUserData?.venueRankerData?.booking?.venueName ||
-      rawUserData?.selectedVenueName ||
-      ""
-    ).toString();
+  // Rubi / Brother John's branch (fallback by name)
+  const venueNameAll = (
+    rawUserData?.venueName ||
+    rawUserData?.bookings?.venueName ||
+    rawUserData?.venueRankerData?.booking?.venueName ||
+    rawUserData?.selectedVenueName ||
+    ""
+  ).toString();
 
   if (isRubiByName(venueNameAll)) {
-    return <RubiOverlay onClose={onClose} startAt={(startAt as RubiStep) || "intro"} />;
+    return (
+      <RubiOverlay
+        onClose={onClose}
+        startAt={(startAt as RubiStep) || "intro"}
+      />
+    );
   }
 
-  // NEW: Tubac branch
+  // Tubac branch (slug)
   if (
     venueSlug &&
     [
@@ -241,52 +385,95 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
       "tubacgolf",
     ].includes(venueSlug)
   ) {
-    return <TubacOverlay onClose={onClose} startAt={(startAt as any) || "intro"} />;
+    return (
+      <TubacOverlay
+        onClose={onClose}
+        startAt={(startAt as any) || "intro"}
+      />
+    );
   }
 
-  // Fallback by name if slug is missing but name is present
-  const venueName =
-    (rawUserData?.venueName ||
+  // Tubac branch (fallback by name)
+  const venueNameLower =
+    (
+      rawUserData?.venueName ||
       rawUserData?.bookings?.venueName ||
       rawUserData?.venueRankerData?.booking?.venueName ||
       rawUserData?.selectedVenueName ||
       ""
-    ).toString().trim().toLowerCase();
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
 
-  if (venueName.includes("tubac")) {
-    return <TubacOverlay onClose={onClose} startAt={(startAt as any) || "intro"} />;
+  if (venueNameLower.includes("tubac")) {
+    return (
+      <TubacOverlay
+        onClose={onClose}
+        startAt={(startAt as any) || "intro"}
+      />
+    );
   }
 
-    // ✅ NEW: Ocotillo by slug first…
-    if (isOcotilloBySlug(venueSlug)) {
-      return (
-        <OcotilloOverlay
-          onClose={onClose}
-          startAt={(startAt as OcotilloStep) || "intro"}
-        />
-      );
-    }
-  
-    // …then by name if slug is missing/unknown
-    const ocotilloNameGuess =
-      (rawUserData?.venueName ||
-        rawUserData?.bookings?.venueName ||
-        rawUserData?.venueRankerData?.booking?.venueName ||
-        rawUserData?.selectedVenueName ||
-        ""
-      ).toString();
-  
-    if (isOcotilloByName(ocotilloNameGuess)) {
-      return (
-        <OcotilloOverlay
-          onClose={onClose}
-          startAt={(startAt as OcotilloStep) || "intro"}
-        />
-      );
-    }
+  // Ocotillo branch (slug)
+  if (isOcotilloBySlug(venueSlug)) {
+    return (
+      <OcotilloOverlay
+        onClose={onClose}
+        startAt={(startAt as OcotilloStep) || "intro"}
+      />
+    );
+  }
 
-  // Default / guests / unknown venue → generic flow
-  return <NoVenueOverlay onClose={onClose} startAt={(startAt as YumStep) || "intro"} />;
+  // Ocotillo branch (name fallback)
+  const ocotilloNameGuess = (
+    rawUserData?.venueName ||
+    rawUserData?.bookings?.venueName ||
+    rawUserData?.venueRankerData?.booking?.venueName ||
+    rawUserData?.selectedVenueName ||
+    ""
+  ).toString();
+
+  if (isOcotilloByName(ocotilloNameGuess)) {
+    return (
+      <OcotilloOverlay
+        onClose={onClose}
+        startAt={(startAt as OcotilloStep) || "intro"}
+      />
+    );
+  }
+
+  /* ───────────────── Shared / default path ─────────────────
+     If we get here, we're showing the generic NoVenueOverlay.
+     BUT we might actually already know their venue, and that venue
+     might be one of the "shared flow" venues (Desert Foothills,
+     Windmill Lake House, Windmill Barn, etc.) that reuse this overlay.
+
+     In that case we want:
+     - different intro text ("Get ready to experience deliciousness! ... for <VenueName>")
+     - contract wording that assumes we're serving/delivering there
+     - dessert delivery fee logic to know it's this venue
+  */
+
+  const isSharedFlowBookedVenue =
+    bookedVenueSlug != null &&
+    SHARED_FLOW_VENUES.includes(bookedVenueSlug);
+
+  const bookedVenuePrettyName = friendlyVenueName(
+    bookedVenueSlug,
+    rawUserData
+  );
+
+  // Default / guests / shared-flow venues → generic overlay with context
+  return (
+    <NoVenueOverlay
+      onClose={onClose}
+      startAt={(startAt as YumStep) || "intro"}
+      isSharedFlowBookedVenue={isSharedFlowBookedVenue}
+      bookedVenueSlug={bookedVenueSlug}
+      bookedVenueName={bookedVenuePrettyName}
+    />
+  );
 };
 
 export default MenuController;
