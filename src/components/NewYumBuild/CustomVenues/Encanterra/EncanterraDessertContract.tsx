@@ -279,7 +279,6 @@ const EncanterraDessertContract: React.FC<EncanterraDessertContractProps> = ({
     : "your wedding date";
 
   return (
-    // ⛔️ No full-screen overlay here — match Bates modal card
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">

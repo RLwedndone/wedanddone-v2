@@ -78,14 +78,15 @@ const FloralContract: React.FC<FloralContractProps> = ({
       : "";
 
   const finalDuePretty = formatLongDate(finalDue);
-  const formattedDate = hasDate
-    ? new Date(bookingData.weddingDate as string).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "your wedding date";
-  const dayOfWeek = bookingData.dayOfWeek || "";
+  const formattedDate = hasDate && weddingDateObj
+  ? weddingDateObj.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  : "your wedding date";
+
+const dayOfWeek = bookingData.dayOfWeek || "";
 
   // signature state
   const [agreeChecked, setAgreeChecked] = useState(false);

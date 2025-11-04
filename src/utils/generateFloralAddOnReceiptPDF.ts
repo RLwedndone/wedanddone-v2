@@ -24,15 +24,31 @@ const prettyDate = (d: string): string => {
   return d;
 };
 
+// Footer draws the grey small text
 const renderFooter = (doc: jsPDF) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   doc.setDrawColor(200);
-  doc.line(20, pageHeight - 25, doc.internal.pageSize.getWidth() - 20, pageHeight - 25);
+  doc.line(
+    20,
+    pageHeight - 25,
+    doc.internal.pageSize.getWidth() - 20,
+    pageHeight - 25
+  );
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", doc.internal.pageSize.getWidth() / 2, pageHeight - 17, {
-    align: "center",
-  });
+  doc.text(
+    "Magically booked by Wed&Done",
+    doc.internal.pageSize.getWidth() / 2,
+    pageHeight - 17,
+    { align: "center" }
+  );
+};
+
+// ✅ New: after a page break, go back to normal body style
+const resetBodyTextStyle = (doc: jsPDF) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0); // black
 };
 
 interface AddOnPDFOptions {
@@ -58,7 +74,7 @@ export const generateFloralAddOnReceiptPDF = async ({
     loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
 
-  // watermark + logo
+  // watermark + logo on first page
   doc.addImage(lock, "JPEG", 40, 60, 130, 130);
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
@@ -69,29 +85,41 @@ export const generateFloralAddOnReceiptPDF = async ({
   doc.text("Floral Add-On Receipt", pageWidth / 2, 75, { align: "center" });
 
   // basics
-  doc.setFontSize(12);
+  resetBodyTextStyle(doc); // make sure we're in normal text mode
   doc.text(`Name: ${fullName}`, 20, 90);
   doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, 20, 100);
 
   // line items with pagination
   let y = 115;
   const bottomMargin = 40; // leave room for footer
+
+  // 🔁 updated to restore text style on new pages
   const addPageIfNeeded = () => {
     if (y > pageHeight - bottomMargin) {
+      // finish current page with footer (this sets tiny grey text)
       renderFooter(doc);
+
+      // new page
       doc.addPage();
-      // redraw watermark on new page (optional)
+
+      // redraw watermark/lock on new page if you want the same look
       doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-      y = 30; // top margin for new page
+
+      // reset cursor for new page
+      y = 30;
+
+      // 🔥 IMPORTANT: go back to normal body style for the new page
+      resetBodyTextStyle(doc);
     }
   };
 
   if (lineItems.length > 0) {
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", 20, y);
     y += 10;
 
-    doc.setFontSize(12);
+    resetBodyTextStyle(doc); // body bullets
     for (const item of lineItems) {
       addPageIfNeeded();
       doc.text(`• ${item}`, 25, y);
@@ -102,8 +130,12 @@ export const generateFloralAddOnReceiptPDF = async ({
   // payment summary
   y += 10;
   addPageIfNeeded();
-  doc.setFontSize(12);
-  doc.text(`Total paid: $${total.toFixed(2)} on ${prettyDate(purchaseDate)}`, 20, y);
+  resetBodyTextStyle(doc);
+  doc.text(
+    `Total paid: $${total.toFixed(2)} on ${prettyDate(purchaseDate)}`,
+    20,
+    y
+  );
 
   // footer on final page
   renderFooter(doc);

@@ -49,6 +49,9 @@ export interface VenueCostStructure {
   /** $/guest beyond guestCap (some venues) */
   overagePerGuest?: number;
 
+  // 🔔 NEW: Does this venue require manual date confirmation instead of instant booking?
+  manualConfirm?: boolean;
+
   // Fees + taxes (optional)
   /** Flat dollar venue service/admin fee (kept for back-compat) */
   serviceFee?: number;
@@ -426,6 +429,10 @@ export const venuePricing: Record<string, VenueCostStructure> = {
       sunday: 7000,
     },
     guestCap: 150,
+
+    // 👇 NEW: this tells CastleModal that we can't instantly confirm availability
+    manualConfirm: true,
+
     marginTiers: [
       { min: 1200, max: 4999, margin: 2200 },
       { min: 5000, max: 8000, margin: 2800 },
@@ -452,6 +459,10 @@ export const venuePricing: Record<string, VenueCostStructure> = {
       sunday: 9000,
     },
     guestCap: 150,
+
+    // 👇 NEW
+    manualConfirm: true,
+
     marginTiers: [
       { min: 1200, max: 4999, margin: 2200 },
       { min: 5000, max: 8000, margin: 2800 },

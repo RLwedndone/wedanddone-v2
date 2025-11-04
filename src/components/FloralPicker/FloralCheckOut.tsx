@@ -190,67 +190,71 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
 
     // ---------- Add-on flow ----------
-    if (isAddon) {
-      console.log("💐 Add-on mode — generating floral add-on receipt…");
-      setIsGenerating(true);
+if (isAddon) {
+  console.log("💐 Add-on mode — generating floral add-on receipt…");
+  setIsGenerating(true);
 
-      try {
-        const blob = await generateFloralAddOnReceiptPDF({
-          fullName,
-          lineItems,
-          total,
-          purchaseDate,
-        });
+  try {
+    const blob = await generateFloralAddOnReceiptPDF({
+      fullName,
+      lineItems,
+      total,
+      purchaseDate,                 // you already computed this above
+    });
 
-        const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
-        const filePath = `public_docs/${user.uid}/${fileName}`;
-        const url = await uploadPdfBlob(blob, filePath);
-        console.log("✅ Add-on receipt uploaded:", url);
+    const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
+    const filePath = `public_docs/${user.uid}/${fileName}`;
+    const url = await uploadPdfBlob(blob, filePath);
+    console.log("✅ Add-on receipt uploaded:", url);
 
-        await updateDoc(userRef, {
-          documents: arrayUnion({
-            title: "Floral Add-On Receipt",
-            url,
-            uploadedAt: new Date().toISOString(),
-          }),
-          purchases: arrayUnion({
-            label: "floral_addon",
-            amount: Number(total.toFixed(2)),
-            date: new Date().toISOString(),
-          }),
-          spendTotal: increment(Number(total.toFixed(2))),
-          "bookings.floral": true,
-          "bookings.updatedAt": new Date().toISOString(),
-        });
+    await updateDoc(userRef, {
+      documents: arrayUnion({
+        title: "Floral Add-On Receipt",
+        url,
+        uploadedAt: new Date().toISOString(),
+      }),
+      purchases: arrayUnion({
+        label: "floral_addon",
+        amount: Number(total.toFixed(2)),
+        date: new Date().toISOString(),
+      }),
+      spendTotal: increment(Number(total.toFixed(2))),
+      "bookings.floral": true,
+      "bookings.updatedAt": new Date().toISOString(),
+    });
 
-        try {
-          await emailjs.send("service_xayel1i", "template_nvsea3z", {
-            user_name: fullName,
-            user_email: userDoc?.email || "unknown@wedndone.com",
-            wedding_date: weddingDate || "TBD",
-            total: total.toFixed(2),
-            line_items: (lineItems || []).join(", "),
-            pdf_url: url,
-            pdf_title: "Floral Add-On Receipt",
-          });
-          console.log("✅ Admin email (add-on) sent");
-        } catch (mailErr) {
-          console.error("❌ EmailJS add-on mail failed:", mailErr);
+    // ⬇️ REPLACE the old emailjs.send(...) with this block
+    try {
+      await emailjs.send(
+        "service_xayel1i",
+        "template_srlk4gh", // ✅ your Floral Add-on Admin template
+        {
+          user_name: fullName,
+          user_email: userDoc?.email || "unknown@wedanddone.com",
+          purchase_date: purchaseDate,                // e.g., "3/9/2026"
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+          pdf_url: url,
         }
-
-        window.dispatchEvent(new Event("purchaseMade"));
-        window.dispatchEvent(new Event("documentsUpdated"));
-        window.dispatchEvent(new Event("floralCompletedNow"));
-
-        setIsGenerating(false);
-        onSuccess();
-        return;
-      } catch (err) {
-        console.error("❌ Error during floral add-on receipt:", err);
-        setIsGenerating(false);
-        return;
-      }
+      );
+      console.log("✅ Admin email (floral add-on) sent");
+    } catch (mailErr) {
+      console.error("❌ EmailJS add-on mail failed:", mailErr);
     }
+
+    window.dispatchEvent(new Event("purchaseMade"));
+    window.dispatchEvent(new Event("documentsUpdated"));
+    window.dispatchEvent(new Event("floralCompletedNow"));
+
+    setIsGenerating(false);
+    onSuccess();
+    return;
+  } catch (err) {
+    console.error("❌ Error during floral add-on receipt:", err);
+    setIsGenerating(false);
+    return;
+  }
+}
 
     // ---------- Full contract flow ----------
     console.log("📝 Generating Floral Agreement PDF…");
@@ -431,7 +435,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 marginBottom: "8px",
               }}
             >
-              Checkout
+              Floral Checkout
             </h2>
 
             <p className="px-prose-narrow" style={{ marginBottom: "16px" }}>

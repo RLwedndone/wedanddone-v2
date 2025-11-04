@@ -13,7 +13,6 @@ type DessertKey = "tieredCake" | "smallCakeTreats" | "treatsOnly";
 
 const { PER_GUEST_TIERED, SMALL_CAKE_PRICE, CUPCAKE_PRICE_EACH } = DESSERT_PRICING;
 
-// When the user switches dessert type, we clear out previous dessert picks
 const CLEAR_KEYS = [
   "yumDessertSelections",
   "yumTreatType",
@@ -39,16 +38,12 @@ const RubiDessertSelector: React.FC<Props> = ({
 }) => {
   const [selected, setSelected] = useState<DessertKey | "">("");
 
-  // Build goodies price range dynamically from the catalog
   const { goodiesMin, goodiesMax } = useMemo(() => {
     const prices = Object.values(GOODIE_CATALOG)
       .map((g: any) => Number(g?.retailPerDozen ?? g?.pricePerDozen ?? 0))
       .filter((n) => Number.isFinite(n) && n > 0);
     if (!prices.length) return { goodiesMin: 0, goodiesMax: 0 };
-    return {
-      goodiesMin: Math.min(...prices),
-      goodiesMax: Math.max(...prices),
-    };
+    return { goodiesMin: Math.min(...prices), goodiesMax: Math.max(...prices) };
   }, []);
 
   const cupcakesDozenApprox = CUPCAKE_PRICE_EACH * 12;
@@ -78,40 +73,24 @@ const RubiDessertSelector: React.FC<Props> = ({
       key: "treatsOnly",
       label: "Treats Table Only",
       image: `${import.meta.env.BASE_URL}assets/images/YumYum/treats.png`,
-      blurb:
-        "Cupcakes or a table of little goodies like brownies, cookies, tarts, and shooters.",
+      blurb: "Cupcakes or a table of little goodies like brownies, cookies, tarts, and shooters.",
       priceLine: `Treats by the dozen $${goodiesMin}–$${goodiesMax}/dz • cupcakes $${CUPCAKE_PRICE_EACH}/ea (~$${cupcakesDozenApprox}/dz)`,
     },
   ];
 
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 560 }}>
-      {/* 🩷 Pink X */}
       {onClose && (
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
+        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
       )}
 
       <div className="pixie-card__body">
-        <h2
-          className="px-title-lg"
-          style={{
-            marginBottom: "0.75rem",
-            textAlign: "center",
-          }}
-        >
+        <h2 className="px-title-lg" style={{ marginBottom: "0.75rem", textAlign: "center" }}>
           Choose Your Dessert Style
         </h2>
 
-        {/* Dessert type tiles */}
         <div
           style={{
             display: "grid",
@@ -142,74 +121,33 @@ const RubiDessertSelector: React.FC<Props> = ({
                     : "0 1px 0 rgba(0,0,0,0.03)",
                 }}
               >
-                <img
-                  src={t.image}
-                  alt={t.label}
-                  style={{ width: "100%", display: "block" }}
-                />
-                <div
-                  style={{
-                    padding: "10px 12px 14px",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "1.2rem",
-                      fontWeight: 800,
-                      color: "#2c62ba",
-                      marginBottom: 4,
-                    }}
-                  >
+                <img src={t.image} alt={t.label} style={{ width: "100%", display: "block" }} />
+                <div style={{ padding: "10px 12px 14px", wordBreak: "break-word" }}>
+                  <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#2c62ba", marginBottom: 4 }}>
                     {t.label}
                   </div>
-                  <div
-                    style={{
-                      fontSize: ".95rem",
-                      color: "#444",
-                      marginBottom: 6,
-                    }}
-                  >
-                    {t.blurb}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: ".95rem",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {t.priceLine}
-                  </div>
+                  <div style={{ fontSize: ".95rem", color: "#444", marginBottom: 6 }}>{t.blurb}</div>
+                  <div style={{ fontSize: ".95rem", fontWeight: 700 }}>{t.priceLine}</div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* CTAs */}
         {selected && (
           <button
             className="boutique-primary-btn"
             onClick={() => {
               const prev = localStorage.getItem("yumDessertType");
               if (prev !== selected) wipeDessertSelections();
-
               try {
-                // persist dessert type and next step, same pattern as other venues
                 localStorage.setItem("yumDessertType", selected);
                 localStorage.setItem("yumStep", "dessertMenu");
-                // mark this venue so downstream dessertMenu knows it's Rubi
-                localStorage.setItem("yumVenue", "rubi");
               } catch {}
-
               onSelectType(selected as DessertKey);
               onContinue();
             }}
-            style={{
-              display: "block",
-              width: 250,
-              margin: "16px auto 0",
-            }}
+            style={{ display: "block", width: 250, margin: "16px auto 0" }}
           >
             Continue
           </button>
@@ -218,11 +156,7 @@ const RubiDessertSelector: React.FC<Props> = ({
         <button
           className="boutique-back-btn"
           onClick={onBack}
-          style={{
-              display: "block",
-              width: 250,
-              margin: "10px auto 0",
-          }}
+          style={{ display: "block", width: 250, margin: "10px auto 0" }}
         >
           Back
         </button>

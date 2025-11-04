@@ -53,14 +53,29 @@ export const generateFloralAgreementPDF = async ({
     return pageH - FOOTER_GAP - FOOTER_LINE_GAP - 10; // safe zone
   };
 
+    // Reset normal body text style after a page break
+    const resetBodyTextStyle = () => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(12);
+      doc.setTextColor(0); // black
+    };
+
   let y = TOP_Y;
 
   // Ensure there is room for N vertical space; otherwise close page & start a new one
   const ensureSpace = (needed: number) => {
     if (y + needed <= contentMaxY()) return;
+
+    // finish current page
     drawFooter();
+
+    // new page
     doc.addPage();
     y = TOP_Y;
+
+    // VERY IMPORTANT:
+    // go back to normal body text after the footer changed font/size/color
+    resetBodyTextStyle();
   };
 
   // Wrapped text helper

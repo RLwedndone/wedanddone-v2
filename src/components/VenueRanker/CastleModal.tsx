@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { venueDetails } from "../../utils/venueDetails";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc, getDoc, updateDoc, collection, addDoc, serverTimestamp,
+  query, where, onSnapshot, limit
+} from "firebase/firestore";
 import { auth, db } from "../../firebase/firebaseConfig";
 import "../../styles/layouts/CastleModal.css";
 import { venueIncludedItems } from "../../data/venueIncludedItems";
@@ -8,6 +11,10 @@ import VenueDateEditor from "./VenueDateEditor";
 import VenueGuestEditor from "./VenueGuestEditor";
 import { getGuestState } from "../../utils/guestCountStore";
 import { calculatePlan } from "../../utils/calculatePlan";
+import emailjs from "@emailjs/browser";
+try {
+  emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+} catch {}
 
 import {
   venuePricing,
@@ -45,6 +52,16 @@ const CastleModal: React.FC<CastleModalProps> = ({
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
 
+    // manual confirm logic
+    const [showManualConfirmModal, setShowManualConfirmModal] = useState(false);
+    const [requestSent, setRequestSent] = useState(false); // optional UI lock after they confirm
+  
+    // grab this venue's pricing/config info
+    const venueInfo = venuePricing[venueSlug];
+  
+    // does this venue require manual confirmation before contract/payment?
+    const isManualConfirm = !!venueInfo?.manualConfirm;
+
   // planner credit ($ already paid toward planner)
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
 
@@ -73,7 +90,6 @@ const CastleModal: React.FC<CastleModalProps> = ({
 
   // misc
   const maxCapacity = venuePricing[venueSlug]?.maxCapacity ?? null;
-  const venueInfo = venuePricing[venueSlug];
 
   // The user's just-clicked candidate in VenueDateEditor
   const [proposedDate, setProposedDate] = useState<string | null>(null);
@@ -83,6 +99,10 @@ const CastleModal: React.FC<CastleModalProps> = ({
 
   const details = venueDetails[venueSlug];
   const includedList = (venueIncludedItems[venueSlug] ?? []) as string[];
+
+  // manual confirm status for this user/venue/date
+const [approvalStatus, setApprovalStatus] =
+useState<"none" | "requested" | "approved" | "declined">("none");
 
   /* ───────────────────────── Helpers ───────────────────────── */
 
@@ -399,6 +419,51 @@ const CastleModal: React.FC<CastleModalProps> = ({
     setIsAvailable(!(isBooked || isClosed));
   }, [selectedDate, weddingDate, bookedDates, venueSlug, weekdayMap]);
 
+  // 6. Watch for manual-confirm status (requested/approved/declined) for this user+venue+date
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  // whichever date we're actually using
+  const activeDate =
+    selectedDate || weddingDate || localStorage.getItem("weddingDate") || null;
+  if (!activeDate) {
+    setApprovalStatus("none");
+    return;
+  }
+
+  // look for the request that matches this venue + date
+  const q = query(
+    collection(db, "venueRequests"),
+    where("userId", "==", user.uid),
+    where("venueSlug", "==", venueSlug),
+    where("requestedDate", "==", activeDate),
+    limit(1)
+  );
+
+  const unsub = onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      setApprovalStatus("none");
+      setRequestSent(false);
+      return;
+    }
+    const data = snap.docs[0].data() as any;
+    const s = String(data?.status || "requested").toLowerCase();
+    if (s === "approved") {
+      setApprovalStatus("approved");
+      setRequestSent(true); // shows your “request sent” confirmation until they click
+    } else if (s === "declined") {
+      setApprovalStatus("declined");
+      setRequestSent(false);
+    } else {
+      setApprovalStatus("requested");
+      setRequestSent(true);
+    }
+  });
+
+  return () => unsub();
+}, [venueSlug, selectedDate, weddingDate]);
+
   /* ───────────────────────── Handlers ───────────────────────── */
 
   // user manually changes date (not used directly in current JSX, but keeping)
@@ -418,68 +483,148 @@ const CastleModal: React.FC<CastleModalProps> = ({
     }
   };
 
-  // Gold seal → lock info and move to contract
-  const handleBookItClick = () => {
-    try {
-      const venueMeta = venueDetails[venueSlug];
-      const venueName = venueMeta?.title || "Your Venue";
-
-      const dateToUse =
-        selectedDate ||
-        weddingDate ||
-        localStorage.getItem("venueWeddingDate") ||
-        "";
-
-      if (!dateToUse) {
-        console.warn("🚫 No wedding date available, cannot start contract.");
-        return;
-      }
-
-      const count =
-        guestCount ||
-        parseInt(localStorage.getItem("venueGuestCount") || "0", 10);
-
-      if (!planPreview || planPreview.total == null) {
-        console.warn("🚫 No plan total available yet, cannot start contract.");
-        return;
-      }
-
-      const total = Number(planPreview.total);
-
-      // Save for downstream screens + checkout + PDF
-      localStorage.setItem("venueName", venueName);
-      localStorage.setItem("venueSlug", venueSlug || "");
-      localStorage.setItem("venueWeddingDate", dateToUse); // used in checkout to block date
-      localStorage.setItem("venueGuestCount", String(count));
-      localStorage.setItem("venuePrice", total.toFixed(2));
-
-      console.log("📝 BookIt stored:", {
-        venueName,
-        venueSlug,
-        dateToUse,
-        count,
-        total,
-      });
-
-      if (typeof handleStartContract === "function") {
-        handleStartContract({
-          venueSlug,
+    // Gold seal click
+const handleBookItClick = () => {
+  // If this venue needs manual confirmation, only block when not approved yet
+  if (isManualConfirm && approvalStatus !== "approved") {
+    setShowManualConfirmModal(true);
+    return;
+  }
+  
+      // STEP 2: normal instant-book flow (your existing logic)
+      try {
+        const venueMeta = venueDetails[venueSlug];
+        const venueName = venueMeta?.title || "Your Venue";
+  
+        const dateToUse =
+          selectedDate ||
+          weddingDate ||
+          localStorage.getItem("venueWeddingDate") ||
+          "";
+  
+        if (!dateToUse) {
+          console.warn("🚫 No wedding date available, cannot start contract.");
+          return;
+        }
+  
+        const count =
+          guestCount ||
+          parseInt(localStorage.getItem("venueGuestCount") || "0", 10);
+  
+        if (!planPreview || planPreview.total == null) {
+          console.warn("🚫 No plan total available yet, cannot start contract.");
+          return;
+        }
+  
+        const total = Number(planPreview.total);
+  
+        // Save for downstream screens + checkout + PDF
+        localStorage.setItem("venueName", venueName);
+        localStorage.setItem("venueSlug", venueSlug || "");
+        localStorage.setItem("venueWeddingDate", dateToUse); // used in checkout to block date
+        localStorage.setItem("venueGuestCount", String(count));
+        localStorage.setItem("venuePrice", total.toFixed(2));
+  
+        console.log("📝 BookIt stored:", {
           venueName,
-          guestCount: count,
-          weddingDate: dateToUse,
-          price: total,
+          venueSlug,
+          dateToUse,
+          count,
+          total,
         });
-        return;
+  
+        if (typeof handleStartContract === "function") {
+          handleStartContract({
+            venueSlug,
+            venueName,
+            guestCount: count,
+            weddingDate: dateToUse,
+            price: total,
+          });
+          return;
+        }
+  
+        // fallback legacy nav
+        setTimeout(() => {
+          setCurrentScreen("venuecontract");
+        }, 50);
+      } catch (err) {
+        console.error("💥 Error in handleBookItClick:", err);
       }
+    };
 
-      // fallback legacy nav
-      setTimeout(() => {
-        setCurrentScreen("venuecontract");
-      }, 50);
-    } catch (err) {
-      console.error("💥 Error in handleBookItClick:", err);
+// Format "YYYY-MM-DD" safely → "Month D, YYYY"
+const prettyYMD = (ymd: string) => {
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return ymd;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+};
+
+      // Save a manual confirmation request to Firestore AND email admin
+const saveVenueRequestToFirestore = async () => {
+  try {
+    const user = auth.currentUser;
+    const uid = user?.uid ?? "guest";
+
+    // grab the selected date and guest count
+    const dateToUse =
+      selectedDate ||
+      weddingDate ||
+      localStorage.getItem("venueWeddingDate") ||
+      "";
+
+    const count =
+      guestCount ||
+      parseInt(localStorage.getItem("venueGuestCount") || "0", 10);
+
+    const total =
+      planPreview && planPreview.total != null ? Number(planPreview.total) : null;
+
+    const payload = {
+      userId: uid,
+      venueSlug,
+      venueName: details.title || venueSlug,
+      requestedDate: dateToUse,
+      guestCount: count || 0,
+      quotedTotal: total,
+      status: "requested",
+      createdAt: serverTimestamp(),
+      source: "venueRanker",
+    };
+
+    const docRef = await addDoc(collection(db, "venueRequests"), payload);
+    console.log("✨ Venue request saved:", { id: docRef.id, ...payload });
+
+    // after: const docRef = await addDoc(collection(db, "venueRequests"), payload);
+//        console.log("✨ Venue request saved:", { id: docRef.id, ...payload });
+
+try {
+  await emailjs.send(
+    "service_xayel1i",
+    "template_vawsamm",
+    {
+      user_name: auth.currentUser?.displayName || "Unknown User",
+      user_email: auth.currentUser?.email || "unknown@wedanddone.com",
+      email: auth.currentUser?.email || "unknown@wedanddone.com", // for {{email}} Reply-To
+      venue_name: details.title || venueSlug,
+      venue_slug: venueSlug,
+      requested_date: (payload.requestedDate || "TBD"),
+      guest_count: String(payload.guestCount || 0),
+      quoted_total: payload.quotedTotal != null ? payload.quotedTotal.toFixed(2) : "N/A",
+      firestore_path: `venueRequests/${docRef.id}`,
     }
-  };
+    // you can omit the 4th arg if you've already called emailjs.init(...) at module load
+  );
+  console.log("📧 Manual venue request email sent");
+} catch (e) {
+  console.error("❌ EmailJS send failed", e);
+}
+
+  } catch (err) {
+    console.error("🔥 Error saving venue request:", err);
+  }
+};
 
   /* ───────────────────────── Render ───────────────────────── */
 
@@ -536,62 +681,58 @@ const CastleModal: React.FC<CastleModalProps> = ({
         </p>
 
         <div className="video-container">
-          <iframe
-            src={details.videoLink}
-            title={`${details.title} walkthrough`}
-            width="100%"
-            height="360"
-            frameBorder="0"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-          ></iframe>
-        </div>
+  <iframe
+    src={details.videoLink}
+    title={`${details.title} walkthrough`}
+    allow="autoplay; fullscreen; picture-in-picture"
+    allowFullScreen
+    // no width/height attributes—CSS will size it
+  />
+</div>
 
         <div className="considerations-block" style={{ marginTop: "1.25rem" }}>
-          <button
-            className="castle-considerations-btn"
-            onClick={() => setShowMadgeTip((prev) => !prev)}
-            style={{
-              animation: !showMadgeTip
-                ? "pulseGlow 1.6s ease-in-out infinite"
-                : "none",
-              fontFamily: "'Jenna Sue','JennaSue',cursive",
-              fontSize: "1.8rem",
-              lineHeight: 1.2,
-              fontWeight: 400,
-              color: "#fff",
-              backgroundColor: "#2c62ba",
-              border: "0",
-              borderRadius: "12px",
-              padding: "0.75rem 1rem",
-              minWidth: "280px",
-              maxWidth: "90%",
-              margin: "1rem auto 0",
-              textAlign: "center",
-              display: "block",
-              cursor: "pointer",
-              boxShadow: !showMadgeTip
-                ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
-                : "0 8px 20px rgba(44,98,186,0.35)",
-              transition: "box-shadow 0.2s ease, transform 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                "0 10px 24px rgba(44,98,186,0.5)";
-              (e.currentTarget as HTMLButtonElement).style.transform =
-                "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                !showMadgeTip
-                  ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
-                  : "0 8px 20px rgba(44,98,186,0.35)";
-              (e.currentTarget as HTMLButtonElement).style.transform =
-                "translateY(0)";
-            }}
-          >
-            Castle Considerations
-          </button>
+        <button
+  className="castle-considerations-btn"
+  onClick={() => setShowMadgeTip((prev) => !prev)}
+  style={{
+    animation: !showMadgeTip ? "pulseGlow 1.6s ease-in-out infinite" : "none",
+    fontFamily: "'Jenna Sue','JennaSue',cursive",
+    fontSize: "1.8rem",
+    lineHeight: 1.2,
+    fontWeight: 400,
+    color: "#fff",
+    backgroundColor: "#2c62ba",
+    border: "0",
+    borderRadius: "12px",
+    padding: "0.75rem 1rem",
+    width: "fit-content",
+    minWidth: "240px",
+    maxWidth: "90%",
+    margin: "1.25rem auto 0", // ✅ ensures perfect centering
+    textAlign: "center",
+    display: "block",
+    cursor: "pointer",
+    boxShadow: !showMadgeTip
+      ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
+      : "0 8px 20px rgba(44,98,186,0.35)",
+    transition: "box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease",
+    alignSelf: "center", // ✅ keeps it centered in flex/column layouts
+  }}
+  onMouseEnter={(e) => {
+    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+      "0 10px 24px rgba(44,98,186,0.5)";
+    (e.currentTarget as HTMLButtonElement).style.transform =
+      "translateY(-1px)";
+  }}
+  onMouseLeave={(e) => {
+    (e.currentTarget as HTMLButtonElement).style.boxShadow = !showMadgeTip
+      ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
+      : "0 8px 20px rgba(44,98,186,0.35)";
+    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+  }}
+>
+  Castle Considerations
+</button>
 
           {showMadgeTip && (
             <>
@@ -782,39 +923,263 @@ const CastleModal: React.FC<CastleModalProps> = ({
           />
         )}
 
+{showManualConfirmModal && (
+  <>
+    {/* backdrop */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.45)",
+        zIndex: 9998,
+      }}
+      onClick={() => setShowManualConfirmModal(false)}
+    />
+
+    {/* card */}
+    <div
+      style={{
+        position: "fixed",
+        zIndex: 9999,
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "min(560px, 92vw)",
+        maxHeight: "80vh",
+        overflowY: "auto",
+        background: "#fff",
+        borderRadius: "16px",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+        padding: "20px 20px 16px",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{ textAlign: "center", padding: "6px 10px 14px" }}>
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/lightbulb.png`}
+          alt="Heads up"
+          style={{
+            width: 130,
+            height: 90,
+            display: "block",
+            margin: "0 auto 8px",
+          }}
+        />
+
+        <h3 style={{ margin: "6px 0 10px", fontSize: "1.8rem" }}>
+          Booking Heads-up
+        </h3>
+
+        <p
+          style={{
+            lineHeight: 1.5,
+            color: "#444",
+            margin: "0 12px 8px",
+            fontSize: "1rem",
+          }}
+        >
+          Most Wed&Done venues are instant-book.{" "}
+          <b>{details.title}</b> is a special partner whose team
+          double-checks availability manually.
+          <br />
+          <br />
+          If you continue, we’ll <b>request your exact date</b> and let
+          you know when it’s confirmed.
+        </p>
+
+        <div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center",
+    marginTop: 18,
+  }}
+>
+  {/* cancel / pick different venue */}
+  <button
+    onClick={() => setShowManualConfirmModal(false)}
+    style={{
+      padding: "10px 18px",
+      borderRadius: 10,
+      border: "none",
+      background: "#e86b95", // 💕 soft pink
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 600,
+      fontSize: "0.95rem",
+      boxShadow:
+        "0 4px 12px rgba(232,107,149,0.35), 0 0 10px rgba(232,107,149,0.4)",
+      transition: "all 0.2s ease",
+    }}
+  >
+    Nevermind, I’ll pick a different venue
+  </button>
+
+  {/* yes, please check my date */}
+  <button
+    onClick={async () => {
+      try {
+        setRequestSent(true);
+        await saveVenueRequestToFirestore();
+        setTimeout(() => {
+          setShowManualConfirmModal(false);
+        }, 1500);
+        console.log("✅ Manual venue request submitted and email sent");
+      } catch (err) {
+        console.error("❌ Error submitting manual venue request:", err);
+        setRequestSent(false);
+        alert(
+          "Something went wrong while sending your request — please try again!"
+        );
+      }
+    }}
+    disabled={requestSent}
+    style={{
+      padding: "10px 18px",
+      borderRadius: 10,
+      background: requestSent ? "#999" : "#2c62ba", // 💙 dark blue
+      color: "#fff",
+      cursor: requestSent ? "default" : "pointer",
+      fontWeight: 600,
+      fontSize: "0.95rem",
+      boxShadow: requestSent
+        ? "none"
+        : "0 4px 12px rgba(44,98,186,0.35), 0 0 10px rgba(44,98,186,0.4)",
+      transition: "all 0.2s ease",
+    }}
+  >
+    {requestSent
+      ? "Request Sent ✨"
+      : "I understand — please check my date"}
+  </button>
+</div>
+
+        {/* confirmation text */}
+        {requestSent && (
+          <p
+            style={{
+              marginTop: "1rem",
+              fontSize: "0.9rem",
+              color: "#2c62ba",
+              fontWeight: 500,
+            }}
+          >
+            We’re on it ✨ You’ll get an email soon.
+          </p>
+        )}
+      </div>
+    </div>
+  </>
+)}
+
         {/* Gold seal button only if no conflicts and we have a price */}
-        {isAvailable === true &&
-          !isOverCapacity &&
-          planPreview?.total != null && (
-            <div style={{ textAlign: "center", marginTop: "2rem" }}>
-              <img
-                src={`${
-                  import.meta.env.BASE_URL
-                }assets/images/book_gold_seal.png`}
-                alt="Book It Now"
-                onClick={handleBookItClick}
-                style={{
-                  width: "120px",
-                  height: "auto",
-                  cursor: "pointer",
-                  transition: "transform 0.3s ease, filter 0.3s ease",
-                  filter: "drop-shadow(0 0 4px gold)",
-                  display: "block",
-                  margin: "0 auto",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.1)";
-                  e.currentTarget.style.filter =
-                    "drop-shadow(0 0 14px gold)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.filter =
-                    "drop-shadow(0 0 4px gold)";
-                }}
-              />
-            </div>
-          )}
+{isAvailable === true &&
+  !isOverCapacity &&
+  planPreview?.total != null && (
+    <div style={{ textAlign: "center", marginTop: "2rem" }}>
+      {isManualConfirm ? (
+        approvalStatus === "requested" ? (
+          <>
+            <p
+              style={{
+                fontSize: "1rem",
+                fontWeight: 600,
+                color: "#2c62ba",
+                lineHeight: 1.4,
+                marginBottom: "0.75rem",
+              }}
+            >
+              Request Sent ✨
+            </p>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#444",
+                maxWidth: 360,
+                margin: "0 auto",
+                lineHeight: 1.4,
+              }}
+            >
+              We’re double-checking your date with {details.title}. We’ll email
+              you as soon as we confirm!
+            </p>
+          </>
+        ) : approvalStatus === "declined" ? (
+          <p
+            style={{
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "#b30000",
+              lineHeight: 1.4,
+            }}
+          >
+            Sorry — that date isn’t available. Please pick another.
+          </p>
+        ) : (
+          // approved → show an optional banner + enable booking
+          <>
+            <p
+              style={{
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "#1a7f37",
+                marginBottom: "0.5rem",
+              }}
+            >
+              ✅ Approved by {details.title}! You can book now.
+            </p>
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
+              alt="Book It Now"
+              onClick={handleBookItClick}
+              style={{
+                width: "120px",
+                height: "auto",
+                cursor: "pointer",
+                transition: "transform 0.3s ease, filter 0.3s ease",
+                filter: "drop-shadow(0 0 4px gold)",
+                display: "block",
+                margin: "0 auto",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.1)";
+                e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+                e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+              }}
+            />
+          </>
+        )
+      ) : (
+        // instant-book venues (no manual confirm)
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
+          alt="Book It Now"
+          onClick={handleBookItClick}
+          style={{
+            width: "120px",
+            height: "auto",
+            cursor: "pointer",
+            transition: "transform 0.3s ease, filter 0.3s ease",
+            filter: "drop-shadow(0 0 4px gold)",
+            display: "block",
+            margin: "0 auto",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.1)";
+            e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+          }}
+        />
+      )}
+    </div>
+  )}
       </div>
     </div>
   );
