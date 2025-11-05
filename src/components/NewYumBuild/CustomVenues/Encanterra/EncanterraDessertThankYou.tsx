@@ -11,30 +11,35 @@ interface Props {
 
 const EncanterraDessertThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // Chime (non-blocking)
+    // 🔔 Chime (non-blocking)
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // Local progress flags
+    // 🗂 Local progress flags (guest-safe) + breadcrumb for HUD
     try {
-      localStorage.setItem("encDessertsBooked", "true");
+      localStorage.setItem("encDessertsBooked", "true");     // venue-specific
       localStorage.setItem("encJustBookedDessert", "true");
+      localStorage.setItem("yumDessertBooked", "true");      // ✅ generic (new)
+      localStorage.setItem("yumBookedDessert", "true");      // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "dessert");   // ✅ drives HUD image
       localStorage.setItem("yumStep", "encanterraDessertThankYou");
     } catch {}
 
-    // Firestore progress
+    // 🔥 Firestore progress + booking flag (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "encanterraDessertThankYou",
+        "bookings.dessert": true, // ✅ mark dessert booked
       }).catch(() => {});
     }
 
-    // Fan-out
+    // 📣 Fan-out events for instant UI updates
     window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("dessertCompletedNow"));
+    window.dispatchEvent(new Event("dessertCompletedNow")); // ✅ explicit dessert event
+    window.dispatchEvent(new Event("yum:lastCompleted"));   // optional breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { dessert: true } }));
   }, []);
 
@@ -64,7 +69,7 @@ const EncanterraDessertThankYou: React.FC<Props> = ({ onClose }) => {
           muted
           playsInline
           className="px-media"
-          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px" }}
+          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px", display: "block" }}
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>

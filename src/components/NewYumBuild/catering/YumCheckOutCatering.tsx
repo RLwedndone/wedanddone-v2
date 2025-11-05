@@ -635,231 +635,145 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
     }
   };
 
-  // 🔮 MAGIC-IN-PROGRESS OVERLAY STATE
-  if (isGenerating) {
-    return (
-      <div className="pixie-overlay">
+  const summaryText =
+  paymentPlan === "monthly"
+    ? `Deposit due today: $${amountDueToday.toFixed(2)} (25%). Remaining $${remainingBalance.toFixed(
+        2
+      )} due ${finalDueDateStr}.`
+    : `Total due today: $${amountDueToday.toFixed(2)}.`;
+
+  // 🔮 MAGIC-IN-PROGRESS / CHECKOUT CARD
+return (
+  <div
+    className="pixie-card pixie-card--modal"
+    style={{
+      ["--pixie-card-w" as any]: isGenerating ? "520px" : "680px",
+      ["--pixie-card-min-h" as any]: isGenerating ? "360px" : "520px",
+    }}
+  >
+    {/* 🩷 Pink X Close */}
+    <button
+      className="pixie-card__close"
+      onClick={onClose}
+      aria-label="Close"
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+        alt="Close"
+      />
+    </button>
+
+    {/* Body */}
+    <div className="pixie-card__body">
+      {isGenerating ? (
         <div
-          className="pixie-card"
+          className="px-center"
           style={{
-            paddingTop: 24, // push video down
+            marginTop: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
           <video
-            src={`${
-              import.meta.env.BASE_URL
-            }assets/videos/magic_clock.mp4`}
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
             loop
             muted
             playsInline
             style={{
               width: "100%",
-              maxWidth: "350px",
-              display: "block",
+              maxWidth: 300,
               borderRadius: 12,
-              margin: "0 auto 1.5rem",
+              margin: "0 auto 14px",
+              display: "block",
               objectFit: "contain",
             }}
           />
-          <p
+          <h3
+            className="px-title"
             style={{
-              fontSize: "1.1rem",
+              fontFamily: "'Jenna Sue', cursive",
               color: "#2c62ba",
+              fontSize: "1.6rem",
               textAlign: "center",
-              fontStyle: "italic",
               margin: 0,
             }}
           >
-            Madge is working her magic... hold
-            tight!
-          </p>
+            Madge is working her magic… hold tight!
+          </h3>
         </div>
-      </div>
-    );
-  }
+      ) : (
+        <>
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: 160,
+              maxWidth: "90%",
+              borderRadius: 12,
+              margin: "0 auto 16px",
+              display: "block",
+            }}
+          />
 
-  const summaryText =
-    paymentPlan === "monthly"
-      ? `Deposit due today: $${amountDueToday.toFixed(
-          2
-        )} (25%). Remaining $${remainingBalance.toFixed(
-          2
-        )} due ${finalDueDateStr}.`
-      : `Total due today: $${amountDueToday.toFixed(
-          2
-        )}.`;
-
-  return (
-    <div className="pixie-card pixie-card--modal">
-      {/* 🩷 Pink X Close */}
-      <button
-        className="pixie-card__close"
-        onClick={onClose}
-        aria-label="Close"
-      >
-        <img
-          src={`${
-            import.meta.env.BASE_URL
-          }assets/icons/pink_ex.png`}
-          alt="Close"
-        />
-      </button>
-
-      {/* Body */}
-      <div className="pixie-card__body">
-        {isGenerating ? (
-          <div
-            className="px-center"
-            style={{ marginTop: "10px" }}
+          <h2
+            className="px-title"
+            style={{
+              fontFamily: "'Jenna Sue', cursive",
+              fontSize: "1.9rem",
+              marginBottom: 8,
+            }}
           >
-            <video
-              src={`${
-                import.meta.env.BASE_URL
-              }assets/videos/magic_clock.mp4`}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={{
-                width: "100%",
-                maxWidth: 340,
-                borderRadius: 12,
-                margin:
-                  "0 auto 14px",
-                display: "block",
-                objectFit:
-                  "contain",
-              }}
+            Checkout
+          </h2>
+
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: 16,
+              textAlign: "center",
+            }}
+          >
+            {summaryText}
+          </p>
+
+          <div className="px-elements">
+            <CheckoutForm
+              total={amountDueToday}
+              onSuccess={handleSuccess}
+              setStepSuccess={onComplete}
+              isAddon={false}
+              customerEmail={getAuth().currentUser?.email || undefined}
+              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+              customerId={(() => {
+                try {
+                  return localStorage.getItem("stripeCustomerId") || undefined;
+                } catch {
+                  return undefined;
+                }
+              })()}
             />
-            {/* Big blue Jenna Sue, centered */}
-            <h3
-              className="px-title"
-              style={{
-                fontFamily:
-                  "'Jenna Sue', cursive",
-                color: "#2c62ba",
-                fontSize:
-                  "1.8rem",
-                textAlign:
-                  "center",
-                margin: 0,
-              }}
-            >
-              Madge is working her
-              magic… hold tight!
-            </h3>
           </div>
-        ) : (
-          <>
-            <video
-              src={`${
-                import.meta.env.BASE_URL
-              }assets/videos/lock.mp4`}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={{
-                width: 160,
-                maxWidth:
-                  "90%",
-                borderRadius: 12,
-                margin:
-                  "0 auto 16px",
-                display:
-                  "block",
-              }}
-            />
 
-            <h2
-              className="px-title"
-              style={{
-                fontFamily:
-                  "'Jenna Sue', cursive",
-                fontSize:
-                  "1.9rem",
-                marginBottom: 8,
-              }}
+          {/* Back button (standard width) */}
+          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+            <button
+              className="boutique-back-btn"
+              style={{ width: 250 }}
+              onClick={onBack}
             >
-              Checkout
-            </h2>
-
-            <p
-              className="px-prose-narrow"
-              style={{
-                marginBottom: 16,
-                textAlign: "center",
-              }}
-            >
-              {summaryText}
-            </p>
-
-            <div className="px-elements">
-              <CheckoutForm
-                total={
-                  amountDueToday
-                }
-                onSuccess={
-                  handleSuccess
-                }
-                setStepSuccess={
-                  onComplete
-                }
-                isAddon={
-                  false
-                }
-                customerEmail={
-                  getAuth()
-                    .currentUser
-                    ?.email ||
-                  undefined
-                }
-                customerName={`${firstName || "Magic"} ${
-                  lastName ||
-                  "User"
-                }`}
-                customerId={(() => {
-                  try {
-                    return (
-                      localStorage.getItem(
-                        "stripeCustomerId"
-                      ) ||
-                      undefined
-                    );
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-              />
-            </div>
-
-            {/* Back button (standard width) */}
-            <div
-              style={{
-                marginTop:
-                  "1rem",
-                textAlign:
-                  "center",
-              }}
-            >
-              <button
-                className="boutique-back-btn"
-                style={{
-                  width: 250,
-                }}
-                onClick={
-                  onBack
-                }
-              >
-                ← Back
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+              ← Back
+            </button>
+          </div>
+        </>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default YumCheckOutCatering;

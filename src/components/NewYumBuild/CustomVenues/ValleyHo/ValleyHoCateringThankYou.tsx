@@ -1,3 +1,4 @@
+// src/components/NewYumBuild/CustomVenues/ValleyHo/ValleyHoCateringThankYou.tsx
 import React, { useEffect } from "react";
 import { getAuth } from "firebase/auth";
 import { doc, updateDoc } from "firebase/firestore";
@@ -10,36 +11,54 @@ interface Props {
 
 const ValleyHoCateringThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // 1) Chime
+    // 1) ✨ chime (non-blocking)
     try {
       const res = playMagicSound() as void | Promise<void>;
-      Promise.resolve(res).catch(() => {/* ignore */});
-    } catch {/* ignore */}
+      Promise.resolve(res).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags + generic cues + breadcrumb for HUD
     try {
+      // venue-specific
       localStorage.setItem("valleyHoCateringBooked", "true");
       localStorage.setItem("valleyHoJustBookedCatering", "true");
-      localStorage.setItem("yumStep", "valleyHoCateringThankYou");
-    } catch {}
 
+      // generic + legacy + HUD breadcrumb
+      localStorage.setItem("yumCateringBooked", "true");    // ✅ generic
+      localStorage.setItem("yumBookedCatering", "true");    // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "catering"); // ✅ drives HUD image
+
+      localStorage.setItem("yumStep", "valleyHoCateringThankYou");
+    } catch { /* ignore */ }
+
+    // 3) Firestore progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "valleyHoCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out so dashboard/booking path update instantly
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { catering: true } }));
   }, []);
 
+  const handleClose = () => {
+    try {
+      localStorage.setItem("yumStep", "home");
+      window.dispatchEvent(new Event("yumStepChanged"));
+    } catch { /* ignore */ }
+    onClose();
+  };
+
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700, position: "relative" }}>
       {/* 🩷 Pink X Close */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
@@ -51,7 +70,7 @@ const ValleyHoCateringThankYou: React.FC<Props> = ({ onClose }) => {
           muted
           playsInline
           className="px-media"
-          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12 }}
+          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12, display: "block" }}
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>

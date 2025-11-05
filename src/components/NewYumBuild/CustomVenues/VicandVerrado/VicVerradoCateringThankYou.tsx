@@ -11,43 +11,56 @@ type Props = {
 };
 
 const VicVerradoCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClose }) => {
-  // Match Bates behavior: play chime, pin progress, fire events
   useEffect(() => {
-    // 1) Chime
+    // 1) ✨ chime
     try {
       const r = playMagicSound() as void | Promise<void>;
       Promise.resolve(r).catch(() => {/* ignore */});
-    } catch {/* ignore */}
+    } catch {/* ignore */ }
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags + generic cues + breadcrumb
     try {
+      // venue-specific flags
       localStorage.setItem("vvCateringBooked", "true");
       localStorage.setItem("vvJustBookedCatering", "true");
-      localStorage.setItem("yumStep", "vicVerradoCateringThankYou");
-    } catch {}
 
+      // generic + legacy (for other listeners)
+      localStorage.setItem("yumCateringBooked", "true");   // generic
+      localStorage.setItem("yumBookedCatering", "true");   // legacy support
+
+      // HUD decides which image by this breadcrumb
+      localStorage.setItem("yumLastCompleted", "catering");
+
+      // overlay breadcrumb
+      localStorage.setItem("yumStep", "vicVerradoCateringThankYou");
+    } catch { /* ignore */ }
+
+    // 3) Firestore: progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "vicVerradoCateringThankYou",
+        "bookings.catering": true,
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // let HUD swap image
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { catering: true } }));
   }, []);
 
   const handleBookDesserts = () => {
-    // Keep VV linear flow: start at dessertStyle
     try { localStorage.setItem("yumStep", "dessertStyle"); } catch {}
     Promise.resolve(onContinueDesserts?.()).catch(() => {});
   };
 
   const handleClose = () => {
-    // Neutralize so we don’t reopen TY on overlay launch
-    try { localStorage.setItem("yumStep", "home"); } catch {}
+    try {
+      localStorage.setItem("yumStep", "home");
+      window.dispatchEvent(new Event("yumStepChanged"));
+    } catch { /* ignore */ }
     onClose();
   };
 
@@ -67,8 +80,10 @@ const VicVerradoCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClo
           />
         </div>
 
-        <h2 style={h2Style}>Catering Locked & Confirmed!</h2>
-        <p style={pStyle}>You'll find your receipt and selection confirmation in your <em>Documents</em> folder.</p>
+        <h2 style={h2Style}>Catering Locked &amp; Confirmed!</h2>
+        <p style={pStyle}>
+          You'll find your receipt and selection confirmation in your <em>Documents</em> folder.
+        </p>
         <p style={pStyle}>Ready to add a sweet finish? Click the little button below to book desserts!</p>
 
         <button onClick={handleBookDesserts} style={dessertCtaStyle}>
@@ -85,7 +100,7 @@ const VicVerradoCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClo
   );
 };
 
-// ---- Styles (mirroring Bates) ----
+// ---- Styles ----
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -131,12 +146,14 @@ const h2Style: React.CSSProperties = {
   fontSize: "2rem",
   margin: 0,
   textAlign: "center",
+  fontFamily: "'Jenna Sue', cursive",
 };
 
 const pStyle: React.CSSProperties = {
   fontSize: "1.05rem",
   margin: "0 0 0.85rem",
   textAlign: "center",
+  lineHeight: 1.4,
 };
 
 const dessertCtaStyle: React.CSSProperties = {

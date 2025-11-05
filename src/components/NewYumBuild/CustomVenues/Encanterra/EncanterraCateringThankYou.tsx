@@ -12,38 +12,60 @@ type Props = {
 
 const EncanterraCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClose }) => {
   useEffect(() => {
-    // 1) Chime
+    // 1) Chime (non-blocking)
     try {
       const r = playMagicSound() as void | Promise<void>;
       Promise.resolve(r).catch(() => {});
     } catch {}
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags (guest-safe) + breadcrumb
     try {
-      localStorage.setItem("encCateringBooked", "true");
+      localStorage.setItem("encCateringBooked", "true");     // venue-specific
       localStorage.setItem("encJustBookedCatering", "true");
+      localStorage.setItem("yumCateringBooked", "true");     // ✅ generic (new)
+      localStorage.setItem("yumBookedCatering", "true");     // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "catering");  // ✅ drives HUD image
       localStorage.setItem("yumStep", "encanterraCateringThankYou");
     } catch {}
 
+    // 3) Firestore progress + booking flag (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "encanterraCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out events for instant UI updates
     window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("cateringCompletedNow")); // ✅ explicit event
+    window.dispatchEvent(new Event("yum:lastCompleted"));    // optional breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { catering: true } }));
   }, []);
 
-  const handleBookDesserts = () => {
-    // Keep linear flow: start desserts at dessertStyle (parity with your Encanterra flow)
+  const handleBookDesserts = async () => {
+    // move user into the dessert flow at the right step
     try {
       localStorage.setItem("yumStep", "dessertStyle");
     } catch {}
-    Promise.resolve(onContinueDesserts?.()).catch(() => {});
+
+    const user = getAuth().currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          "progress.yumYum.step": "dessertStyle",
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      await Promise.resolve(onContinueDesserts?.());
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -61,7 +83,7 @@ const EncanterraCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClo
           muted
           playsInline
           className="px-media"
-          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12 }}
+          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12, display: "block" }}
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>

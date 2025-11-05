@@ -12,38 +12,60 @@ type Props = {
 
 const RubiCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClose }) => {
   useEffect(() => {
-    // 1) Chime
+    // 1) ✨ Chime (non-blocking)
     try {
       const r = playMagicSound() as void | Promise<void>;
       Promise.resolve(r).catch(() => {});
     } catch {}
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags + breadcrumb for HUD + progress step
     try {
-      localStorage.setItem("rubiCateringBooked", "true");
+      localStorage.setItem("rubiCateringBooked", "true");     // venue-specific
       localStorage.setItem("rubiJustBookedCatering", "true");
+
+      localStorage.setItem("yumCateringBooked", "true");      // ✅ generic
+      localStorage.setItem("yumBookedCatering", "true");      // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "catering");   // ✅ drives HUD image
+
       localStorage.setItem("yumStep", "rubiCateringThankYou");
     } catch {}
 
+    // 3) Firestore progress + booking flag (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "rubiCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out events so UI updates immediately
     window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("cateringCompletedNow")); // explicit catering event
+    window.dispatchEvent(new Event("yum:lastCompleted"));    // breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { catering: true } }));
   }, []);
 
-  const handleBookDesserts = () => {
-    // Keep linear flow: start Rubi desserts at your selector screen
+  const handleBookDesserts = async () => {
+    // Move into Rubi dessert selector
     try {
       localStorage.setItem("yumStep", "rubiDessertSelector");
     } catch {}
-    Promise.resolve(onContinueDesserts?.()).catch(() => {});
+
+    const user = getAuth().currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          "progress.yumYum.step": "rubiDessertSelector",
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    try {
+      await Promise.resolve(onContinueDesserts?.());
+    } catch { /* ignore */ }
   };
 
   return (
@@ -61,7 +83,7 @@ const RubiCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClose }) 
           muted
           playsInline
           className="px-media"
-          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12 }}
+          style={{ maxWidth: 180, margin: "0 auto 12px", borderRadius: 12, display: "block" }}
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>

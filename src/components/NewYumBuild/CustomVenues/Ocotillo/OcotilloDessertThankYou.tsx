@@ -10,33 +10,39 @@ interface Props {
 
 const OcotilloDessertThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // ✨ Play the sparkle sound (non-blocking, don't crash if it can't play)
+    // ✨ Play the sparkle sound (non-blocking)
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // 📝 Local progress flags for Ocotillo dessert flow
+    // 🗂 Local progress flags (venue + generic + legacy) + breadcrumb for HUD
     try {
       localStorage.setItem("ocotilloDessertBooked", "true");
       localStorage.setItem("ocotilloJustBookedDessert", "true");
 
-      // let the menu controller & dashboard know we're on the dessert thank you screen
+      localStorage.setItem("yumDessertBooked", "true");     // ✅ generic
+      localStorage.setItem("yumBookedDessert", "true");     // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "dessert");  // ✅ drives HUD Yum image
+
+      // progress markers for re-entry
       localStorage.setItem("yumStep", "ocotilloDessertThankYou");
       localStorage.setItem("ocotilloStep", "ocotilloDessertThankYou");
     } catch {}
 
-    // ☁ Firestore breadcrumbs so logged-in users resume in the right place
+    // ☁ Firestore: progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "ocotilloDessertThankYou",
+        "bookings.dessert": true, // ✅ mark dessert booked
       }).catch(() => {});
     }
 
-    // 🔔 Broadcast so listeners (dashboard, budget wand, etc.) can react
+    // 🔔 Broadcast so listeners (dashboard, bookings path, wand) update instantly
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("dessertCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // breadcrumb event
     window.dispatchEvent(
       new CustomEvent("bookingsChanged", {
         detail: { dessert: true },
@@ -44,9 +50,7 @@ const OcotilloDessertThankYou: React.FC<Props> = ({ onClose }) => {
     );
   }, []);
 
-  // When user closes the thank you card (X or button):
-  // - send them "home"
-  // - clear ocotilloStep's hold so we don't keep popping this screen
+  // When user closes the thank-you card, reset step so we don't remount this screen
   const handleClose = () => {
     try {
       localStorage.setItem("yumStep", "home");
@@ -57,13 +61,12 @@ const OcotilloDessertThankYou: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    // Parent overlay should already be providing the dark backdrop.
-    // We ONLY render the card here (same pattern as Bates).
+    // Parent overlay provides backdrop; we render the card.
     <div
       className="pixie-card pixie-card--modal"
       style={{ maxWidth: 680, position: "relative" }}
     >
-      {/* 🩷 Pink X Close in the corner */}
+      {/* 🩷 Pink X Close */}
       <button
         className="pixie-card__close"
         onClick={handleClose}
@@ -75,10 +78,7 @@ const OcotilloDessertThankYou: React.FC<Props> = ({ onClose }) => {
         />
       </button>
 
-      <div
-        className="pixie-card__body"
-        style={{ textAlign: "center" }}
-      >
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* looping sparkle / yum thank you video */}
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
@@ -92,39 +92,25 @@ const OcotilloDessertThankYou: React.FC<Props> = ({ onClose }) => {
             maxWidth: "90%",
             borderRadius: 12,
             margin: "0 auto 12px",
+            display: "block",
           }}
         />
 
-        <h2
-          className="px-title-lg"
-          style={{ marginBottom: 8 }}
-        >
+        <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
           Desserts Locked &amp; Confirmed! 💙
         </h2>
 
-        <p
-          className="px-prose-narrow"
-          style={{ marginBottom: 6 }}
-        >
-          Your selections and receipt are saved
-          under <em>Documents</em>.
+        <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
+          Your selections and receipt are saved under <em>Documents</em>.
         </p>
 
-        <p
-          className="px-prose-narrow"
-          style={{ marginBottom: 20 }}
-        >
-          Now that desserts are handled, check out
-          our other boutiques to keep crossing off
+        <p className="px-prose-narrow" style={{ marginBottom: 20 }}>
+          Now that desserts are handled, check out our other boutiques to keep crossing off
           the wedding to-do list!
         </p>
 
-        {/* CTA row — centered, same layout style we use everywhere else */}
         <div className="px-cta-col" style={{ marginTop: 6 }}>
-          <button
-            className="boutique-primary-btn"
-            onClick={handleClose}
-          >
+          <button className="boutique-primary-btn" onClick={handleClose}>
             Return to Dashboard
           </button>
         </div>

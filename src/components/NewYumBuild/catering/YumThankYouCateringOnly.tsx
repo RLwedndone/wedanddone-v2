@@ -17,22 +17,35 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
     sparkle.play().catch((err) => console.warn("✨ Sparkle sound blocked:", err));
   }, []);
 
-  // Safely record booking without nuking other booking flags
+  // Safely record booking + local cues for the dashboard button
   const recordBooking = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    // 1) Local flags (run for guests AND logged-in users)
+    try {
+      // generic + legacy keys so all UIs pick it up
+      localStorage.setItem("yumCateringBooked", "true");
+      localStorage.setItem("yumBookedCatering", "true"); // legacy support
+      // breadcrumb so the Yum button shows the *last* completed step
+      localStorage.setItem("yumLastCompleted", "catering");
+    } catch {}
 
-    const userRef = doc(db, "users", user.uid);
+    // 2) Fire events so listeners can update immediately
+    window.dispatchEvent(new Event("purchaseMade"));
+    window.dispatchEvent(new Event("cateringCompletedNow"));
+    // optional breadcrumb event (dashboard listens if present)
+    window.dispatchEvent(new Event("yum:lastCompleted"));
+
+    // 3) Firestore flag (if logged in) – keep after local cues so UI flips instantly
+    const user = auth.currentUser;
+    if (!user) {
+      console.log("ℹ️ Catering booked (guest mode) — local flags/events fired.");
+      return;
+    }
 
     try {
-      await updateDoc(userRef, {
+      await updateDoc(doc(db, "users", user.uid), {
         "bookings.catering": true, // ✅ update nested field only
       });
-
-      // toast/events for other parts of the app
-      window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(new Event("cateringCompletedNow"));
-      console.log("✅ Catering booking recorded!");
+      console.log("✅ Catering booking recorded in Firestore!");
     } catch (err) {
       console.error("❌ Error updating catering booking:", err);
     }
@@ -41,6 +54,7 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
   // ⏱️ Record booking on mount
   useEffect(() => {
     recordBooking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBookDessert = async () => {
@@ -80,7 +94,7 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
-  
+
       <div
         className="pixie-card__body"
         style={{
@@ -101,7 +115,7 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
           className="px-media"
           style={{ maxWidth: 220, borderRadius: 14, margin: "0 auto 6px" }}
         />
-  
+
         <p className="px-prose-narrow" style={{ maxWidth: 560, margin: "0 auto 10px" }}>
           ✨ Your catering order is locked in and deliciousness is on the way! Your receipt and contract are
           saved in the <strong>Docs</strong> folder in the gold bar menu (top right).<br /><br />
@@ -109,7 +123,7 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
           numbers shift.<br /><br />
           Want to sweeten the celebration? 🎂🍩 You can hop back in anytime to book desserts and complete your menu!
         </p>
-  
+
         {/* CTAs — standard width, stacked */}
         <div className="px-cta-col" style={{ marginTop: 8 }}>
           <button

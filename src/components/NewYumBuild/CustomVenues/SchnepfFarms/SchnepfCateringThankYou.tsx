@@ -12,38 +12,63 @@ interface Props {
 
 const SchnepfCateringThankYou: React.FC<Props> = ({ onBookDessertNow, onClose }) => {
   useEffect(() => {
-    // 1) Chime (fire & forget)
+    // 1) ✨ Chime (fire & forget)
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags + breadcrumb + progress step
     try {
+      // venue-specific
       localStorage.setItem("schnepfCateringBooked", "true");
       localStorage.setItem("schnepfJustBookedCatering", "true");
+
+      // generic + legacy + HUD breadcrumb
+      localStorage.setItem("yumCateringBooked", "true");     // ✅ generic
+      localStorage.setItem("yumBookedCatering", "true");     // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "catering");  // ✅ drives HUD image
+
+      // progress step (for re-entry)
       localStorage.setItem("yumStep", "schnepfCateringThankYou");
     } catch {}
 
+    // 3) Firestore progress + booking (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "schnepfCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out events
     window.dispatchEvent(new Event("purchaseMade"));                  // Budget Wand, etc.
-    window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("cateringCompletedNow"));          // explicit catering cue
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { catering: true } }));
+    window.dispatchEvent(new Event("yum:lastCompleted"));             // breadcrumb event for listeners
   }, []);
 
-  const handleBookDesserts = () => {
+  const handleBookDesserts = async () => {
+    // Prefer your callback, but also advance Firestore progress to dessert start
+    try { localStorage.setItem("yumStep", "dessertStyle"); } catch {}
+
+    const user = getAuth().currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          "progress.yumYum.step": "dessertStyle",
+        });
+      } catch {}
+    }
+
     if (onBookDessertNow) {
-      try { localStorage.setItem("yumStep", "dessertStyle"); } catch {}
-      Promise.resolve(onBookDessertNow()).catch(() => {});
+      try {
+        await Promise.resolve(onBookDessertNow());
+      } catch {}
       return;
     }
+
     // fallback: close & broadcast an intent
     onClose?.();
     setTimeout(() => {
@@ -69,7 +94,7 @@ const SchnepfCateringThankYou: React.FC<Props> = ({ onBookDessertNow, onClose })
       <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
-  
+
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
@@ -78,20 +103,20 @@ const SchnepfCateringThankYou: React.FC<Props> = ({ onBookDessertNow, onClose })
           muted
           playsInline
           className="px-media"
-          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px" }}
+          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px", display: "block" }}
         />
-  
+
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
           Catering Locked &amp; Confirmed! 💙
         </h2>
-  
+
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
           You'll find your receipt and selection confirmation in your <em>Documents</em> folder.
         </p>
         <p className="px-prose-narrow" style={{ marginBottom: 14 }}>
           Ready to add a sweet finish? Click the little button below to book desserts!
         </p>
-  
+
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <button
             onClick={handleBookDesserts}
@@ -100,7 +125,7 @@ const SchnepfCateringThankYou: React.FC<Props> = ({ onBookDessertNow, onClose })
           >
             🍰 Book Desserts
           </button>
-  
+
           <button onClick={handleClose} className="boutique-primary-btn" style={{ width: 240 }}>
             🏠 Return to Dashboard
           </button>

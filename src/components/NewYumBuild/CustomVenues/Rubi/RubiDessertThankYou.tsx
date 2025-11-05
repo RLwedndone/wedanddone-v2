@@ -11,30 +11,37 @@ interface Props {
 
 const RubiDessertThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // ✨ Magic chime
+    // ✨ Magic chime (non-blocking)
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // Local progress
+    // 🗂 Local progress flags (venue + generic + legacy) + breadcrumb for HUD
     try {
-      localStorage.setItem("rubiDessertsBooked", "true");
+      localStorage.setItem("rubiDessertsBooked", "true");   // venue-specific
       localStorage.setItem("rubiJustBookedDessert", "true");
+
+      localStorage.setItem("yumDessertBooked", "true");     // ✅ generic
+      localStorage.setItem("yumBookedDessert", "true");     // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "dessert");  // ✅ drives HUD Yum image
+
       localStorage.setItem("yumStep", "rubiDessertThankYou");
     } catch {}
 
-    // Firestore progress
+    // ☁ Firestore progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "rubiDessertThankYou",
+        "bookings.dessert": true, // ✅ mark dessert booked
       }).catch(() => {});
     }
 
-    // Fan-out
+    // 📣 Fan-out so dashboard/booking path update instantly
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("dessertCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { dessert: true } }));
   }, []);
 
@@ -67,6 +74,7 @@ const RubiDessertThankYou: React.FC<Props> = ({ onClose }) => {
             maxWidth: "90%",
             borderRadius: 12,
             margin: "0 auto 12px",
+            display: "block",
           }}
         />
 

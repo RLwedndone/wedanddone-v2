@@ -49,7 +49,7 @@ interface DashboardButtonsProps {
   wandNudgeYPctMobile?: number;
 }
 
-// --- venue-agnostic yum completion check ---
+// --- venue-agnostic yum completion check (catering) ---
 const readYumCompletedLS = () => {
   try {
     // explicit known flags
@@ -70,6 +70,38 @@ const readYumCompletedLS = () => {
     }
   } catch {}
   return false;
+};
+
+// --- dessert-only completion check (venue-agnostic) ---
+const readDessertCompletedLS = () => {
+  try {
+    // explicit known flags
+    const explicit =
+      localStorage.getItem("schnepfDessertBooked") === "true" ||
+      localStorage.getItem("vvDessertBooked") === "true" ||
+      localStorage.getItem("batesDessertBooked") === "true" ||
+      localStorage.getItem("yumDessertBooked") === "true";
+
+    if (explicit) return true;
+
+    // generic catch-all: any key like "*DessertBooked"
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || "";
+      if (/dessertBooked/i.test(k) && localStorage.getItem(k) === "true") {
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+};
+
+// --- which Yum step was completed last? ("catering" | "dessert") ---
+const readYumLastCompleted = (): "catering" | "dessert" | null => {
+  try {
+    const v = localStorage.getItem("yumLastCompleted");
+    return v === "catering" || v === "dessert" ? v : null;
+  } catch {}
+  return null;
 };
 
 const DashboardButtons: React.FC<DashboardButtonsProps> = ({
@@ -105,8 +137,8 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   const loggedIn = !!auth.currentUser;
 
   const bg = isMobile
-  ? `${import.meta.env.BASE_URL}assets/images/dashboard_bg_mobile.jpg`
-  : `${import.meta.env.BASE_URL}assets/images/dashboard_bg_desktop.jpg`;
+    ? `${import.meta.env.BASE_URL}assets/images/dashboard_bg_mobile.jpg`
+    : `${import.meta.env.BASE_URL}assets/images/dashboard_bg_desktop.jpg`;
   const aspect = isMobile ? MOBILE_ASPECT : DESKTOP_ASPECT;
   const POS = isMobile ? MOBILE_POS : DESKTOP_POS;
 
@@ -118,19 +150,62 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   const [lsOutsideSpent, setLsOutsideSpent] = useState(0);
 
   const [yumCompletedLocal, setYumCompletedLocal] = useState(readYumCompletedLS);
+  const [dessertCompletedLocal, setDessertCompletedLocal] = useState(readDessertCompletedLS);
+  const [yumLastCompleted, setYumLastCompleted] = useState<"catering" | "dessert" | null>(readYumLastCompleted);
 
+  // keep catering "done" in sync with LS + events (legacy + generic)
   useEffect(() => {
     const update = () => setYumCompletedLocal(readYumCompletedLS());
     window.addEventListener("purchaseMade", update);
     window.addEventListener("cateringCompletedNow", update);
     window.addEventListener("yum:booked", update);
-
     return () => {
       window.removeEventListener("purchaseMade", update);
       window.removeEventListener("cateringCompletedNow", update);
       window.removeEventListener("yum:booked", update);
     };
   }, []);
+
+  // listen for dessert completion + last-completed breadcrumbs
+useEffect(() => {
+  const updateDessertFromLS = () => setDessertCompletedLocal(readDessertCompletedLS());
+  const updateLastFromLS = () => setYumLastCompleted(readYumLastCompleted());
+
+  // 🔔 When dessert completes, flip state immediately (no race with LS)
+  const onDessertNow = () => {
+    setDessertCompletedLocal(true);
+    setYumLastCompleted("dessert");
+    // keep LS in sync just in case
+    try {
+      localStorage.setItem("yumDessertBooked", "true");
+      localStorage.setItem("yumLastCompleted", "dessert");
+    } catch {}
+  };
+
+  // 🔔 When catering completes, also update "last"
+  const onCateringNow = () => {
+    setYumLastCompleted("catering");
+    try {
+      localStorage.setItem("yumLastCompleted", "catering");
+    } catch {}
+  };
+
+  window.addEventListener("purchaseMade", updateDessertFromLS);
+  window.addEventListener("dessertCompletedNow", onDessertNow);
+  window.addEventListener("yum:dessertBooked", updateDessertFromLS);
+
+  window.addEventListener("cateringCompletedNow", onCateringNow);
+  window.addEventListener("yum:lastCompleted", updateLastFromLS);
+
+  return () => {
+    window.removeEventListener("purchaseMade", updateDessertFromLS);
+    window.removeEventListener("dessertCompletedNow", onDessertNow);
+    window.removeEventListener("yum:dessertBooked", updateDessertFromLS);
+
+    window.removeEventListener("cateringCompletedNow", onCateringNow);
+    window.removeEventListener("yum:lastCompleted", updateLastFromLS);
+  };
+}, []);
 
   useEffect(() => {
     const pull = () => {
@@ -176,30 +251,42 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
     goldKey: `${import.meta.env.BASE_URL}assets/images/gold_key.png`,
     budgetWand: `${import.meta.env.BASE_URL}assets/images/budget_wand.png`,
     magicBook: `${import.meta.env.BASE_URL}assets/images/magic_book.png`,
-  
+
     // ✅ BASE_URL so it works under /wedanddone-v2/
     logoCloud: `${import.meta.env.BASE_URL}assets/images/logo_cloud.png`,
-  
+
     venue: venueRankerCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_venue_button.png`
       : `${import.meta.env.BASE_URL}assets/images/venue_ranker_button_start_here.png`,
-  
+
     photo: photoCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_photo_button.png`
       : `${import.meta.env.BASE_URL}assets/images/photo_style_button.png`,
-  
+
     floral: floralCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_floral_button.png`
       : `${import.meta.env.BASE_URL}assets/images/floral_picker_button.png`,
-  
-    yum: (cateringCompleted || yumCompletedLocal)
-      ? `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`
-      : `${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`,
-  
+
+    // 🆕 Yum button shows the LAST completed step between catering/dessert.
+    // If neither is done → default Yum.
+    yum:
+      (dessertCompletedLocal || cateringCompleted || yumCompletedLocal)
+        ? (
+            yumLastCompleted === "dessert"
+              ? `${import.meta.env.BASE_URL}assets/images/completed_dessert_button.png`
+              : yumLastCompleted === "catering"
+                  ? `${import.meta.env.BASE_URL}assets/images/completed_catering_button.png`
+                  // Fallbacks if last isn't known yet (but at least one is done)
+                  : (dessertCompletedLocal
+                        ? `${import.meta.env.BASE_URL}assets/images/completed_dessert_button.png`
+                        : `${import.meta.env.BASE_URL}assets/images/completed_catering_button.png`)
+          )
+        : `${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`,
+
     jam: jamGrooveCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_jam_button.png`
       : `${import.meta.env.BASE_URL}assets/images/jam_groove_button.png`,
-  
+
     planner: plannerCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_planner_button.png`
       : `${import.meta.env.BASE_URL}assets/images/planner_button.png`,

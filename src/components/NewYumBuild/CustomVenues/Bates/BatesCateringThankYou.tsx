@@ -17,38 +17,59 @@ const BatesCateringThankYou: React.FC<Props> = ({ onBookDessertNow, onClose }) =
       Promise.resolve(res).catch(() => {/* ignore */});
     } catch {/* ignore */}
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags (guest-safe) + breadcrumb
     try {
-      localStorage.setItem("batesCateringBooked", "true");
+      localStorage.setItem("batesCateringBooked", "true");      // venue-specific
       localStorage.setItem("batesJustBookedCatering", "true");
+      localStorage.setItem("yumCateringBooked", "true");        // ✅ generic (new)
+      localStorage.setItem("yumBookedCatering", "true");        // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "catering");     // ✅ drives HUD image
       localStorage.setItem("yumStep", "batesCateringThankYou");
     } catch {}
 
+    // 3) Firestore progress + booking flag (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "batesCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) Fan-out events
+    // 4) Fan-out events for instant UI updates
     window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("cateringCompletedNow")); // ✅ new explicit event
+    window.dispatchEvent(new Event("yum:lastCompleted"));    // optional breadcrumb event
     window.dispatchEvent(
       new CustomEvent("bookingsChanged", { detail: { catering: true } })
     );
   }, []);
 
-  const handleBookDesserts = () => {
+  const handleBookDesserts = async () => {
+    // move user into the dessert flow
+    try {
+      localStorage.setItem("yumStep", "dessertCart");
+    } catch {}
+
+    const user = getAuth().currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          "progress.yumYum.step": "dessertCart",
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (onBookDessertNow) {
       try {
-        localStorage.setItem("yumStep", "dessertCart");
-      } catch {}
-      Promise.resolve(onBookDessertNow()).catch(() => {});
+        await Promise.resolve(onBookDessertNow());
+      } catch { /* ignore */ }
       return;
     }
 
-    // fallback
+    // fallback launcher
     onClose?.();
     setTimeout(() => {
       try {

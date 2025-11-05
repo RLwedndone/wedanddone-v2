@@ -19,59 +19,65 @@ const OcotilloCateringThankYou: React.FC<Props> = ({
     // 1) ✨ sound
     try {
       const r = playMagicSound() as void | Promise<void>;
-      Promise.resolve(r).catch(() => {
-        /* ignore */
-      });
-    } catch {
-      /* ignore */
-    }
+      Promise.resolve(r).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
 
     // 2) state flags for re-entry + dashboard + overlay routing
     try {
+      // venue-specific
       localStorage.setItem("ocotilloCateringBooked", "true");
       localStorage.setItem("ocotilloJustBookedCatering", "true");
+      // generic + legacy + breadcrumb for HUD
+      localStorage.setItem("yumCateringBooked", "true");   // ✅ generic
+      localStorage.setItem("yumBookedCatering", "true");   // ✅ legacy
+      localStorage.setItem("yumLastCompleted", "catering");// ✅ HUD image cue
+      // progress step (for manager re-entry)
       localStorage.setItem("yumStep", "ocotilloCateringThankYou");
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
 
+    // 3) Firestore progress + booking flag (if logged in)
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "ocotilloCateringThankYou",
+        "bookings.catering": true, // ✅ mark catering booked
       }).catch(() => {});
     }
 
-    // 3) global events so:
-    // - Budget Wand updates
-    // - Dashboard badges flip to "done"
-    // - anything listening for fresh catering booking fires
+    // 4) global events so UI updates immediately
     window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("cateringCompletedNow"));
+    window.dispatchEvent(new Event("cateringCompletedNow")); // explicit catering event
+    window.dispatchEvent(new Event("yum:lastCompleted"));    // optional breadcrumb event
     window.dispatchEvent(
-      new CustomEvent("bookingsChanged", {
-        detail: { catering: true },
-      })
+      new CustomEvent("bookingsChanged", { detail: { catering: true } })
     );
   }, []);
 
-  const handleBookDesserts = () => {
+  const handleBookDesserts = async () => {
     // jump straight into dessert flow
     try {
       localStorage.setItem("yumStep", "dessertStyle");
-    } catch {
-      /* ignore */
+    } catch { /* ignore */ }
+
+    const user = getAuth().currentUser;
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          "progress.yumYum.step": "dessertStyle",
+        });
+      } catch { /* ignore */ }
     }
-    Promise.resolve(onContinueDesserts?.()).catch(() => {});
+
+    try {
+      await Promise.resolve(onContinueDesserts?.());
+    } catch { /* ignore */ }
   };
 
   const handleClose = () => {
     // prevent reopening this TY screen on overlay mount
     try {
       localStorage.setItem("yumStep", "home");
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
     onClose();
   };
 
@@ -119,16 +125,12 @@ const OcotilloCateringThankYou: React.FC<Props> = ({
         </p>
 
         <button onClick={handleBookDesserts} style={dessertCtaStyle}>
-          <span role="img" aria-label="cake">
-            🍰
-          </span>{" "}
+          <span role="img" aria-label="cake">🍰</span>{" "}
           Book Desserts
         </button>
 
         <button onClick={handleClose} style={homeBtnStyle}>
-          <span role="img" aria-label="home">
-            🏠
-          </span>{" "}
+          <span role="img" aria-label="home">🏠</span>{" "}
           Return to Dashboard
         </button>
 

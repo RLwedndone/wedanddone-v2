@@ -11,29 +11,42 @@ interface Props {
 
 const VicVerradoDessertThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // 1) Chime
+    // 1) ✨ chime
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // 2) Local flags + Firestore progress
+    // 2) Local flags + generic cues + breadcrumb
     try {
+      // venue-specific
       localStorage.setItem("vvDessertsBooked", "true");
       localStorage.setItem("vvJustBookedDessert", "true");
+
+      // generic + legacy (listeners elsewhere)
+      localStorage.setItem("yumDessertBooked", "true");   // generic
+      localStorage.setItem("yumBookedDessert", "true");   // legacy support
+
+      // HUD decides which Yum image to show by this breadcrumb
+      localStorage.setItem("yumLastCompleted", "dessert");
+
+      // overlay breadcrumb
       localStorage.setItem("yumStep", "vicVerradoDessertThankYou");
     } catch {}
 
+    // 3) Firestore: progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "vicVerradoDessertThankYou",
+        "bookings.dessert": true,
       }).catch(() => {});
     }
 
-    // 3) Fan-out events (Budget Wand + any listeners)
+    // 4) Fan-out for UI listeners (Dashboard, Bookings, HUD)
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("dessertCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // let HUD swap to dessert image
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { dessert: true } }));
   }, []);
 
@@ -63,7 +76,7 @@ const VicVerradoDessertThankYou: React.FC<Props> = ({ onClose }) => {
           />
         </div>
 
-        <h2 style={h2Style}>Desserts Locked & Confirmed! 💙</h2>
+        <h2 style={h2Style}>Desserts Locked &amp; Confirmed! 💙</h2>
         <p style={pStyle}>Your selections and receipt are saved under <em>Documents</em>.</p>
         <p style={pStyle}>
           Now that you’ve got all your feasting handled, check out our other boutiques to check off more
@@ -118,7 +131,7 @@ const closeBtnStyle: React.CSSProperties = {
   cursor: "pointer",
   lineHeight: 1,
 };
-const h2Style: React.CSSProperties = { color: "#2c62ba", fontSize: "2rem", margin: 0, textAlign: "center" };
+const h2Style: React.CSSProperties = { color: "#2c62ba", fontSize: "2rem", margin: 0, textAlign: "center", fontFamily: "'Jenna Sue', cursive" };
 const pStyle: React.CSSProperties = { fontSize: "1.05rem", margin: "0 0 .85rem", textAlign: "center" };
 const homeBtnStyle: React.CSSProperties = {
   backgroundColor: "#2c62ba",

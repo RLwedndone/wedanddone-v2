@@ -336,12 +336,14 @@ function deriveCompletionFlags(data: any) {
   const catering =
     b.catering === true ||
     data?.yumCateringCompleted === true ||
-    localStorage.getItem("yumBookedCatering") === "true";
+    localStorage.getItem("yumBookedCatering") === "true" ||
+    localStorage.getItem("yumCateringBooked") === "true";
 
   const dessert =
     b.dessert === true ||
     data?.yumDessertCompleted === true ||
-    localStorage.getItem("yumBookedDessert") === "true";
+    localStorage.getItem("yumBookedDessert") === "true" ||
+    localStorage.getItem("yumDessertBooked") === "true";
 
   const venue =
     b.venue === true ||
@@ -798,6 +800,8 @@ const Dashboard: React.FC = () => {
     };
 
     window.addEventListener("purchaseMade", handleRefresh);
+    window.addEventListener("cateringCompletedNow", handleRefresh);
+    window.addEventListener("dessertCompletedNow", handleRefresh);
     window.addEventListener("jamCompletedNow", handleRefresh);
     window.addEventListener("budgetUpdated", handleRefresh);
     window.addEventListener("outsidePurchaseMade", handleRefresh);
@@ -806,6 +810,8 @@ const Dashboard: React.FC = () => {
 
     return () => {
       window.removeEventListener("purchaseMade", handleRefresh);
+      window.removeEventListener("cateringCompletedNow", handleRefresh);
+      window.removeEventListener("dessertCompletedNow", handleRefresh);
       window.removeEventListener("jamCompletedNow", handleRefresh);
       window.removeEventListener("budgetUpdated", handleRefresh);
       window.removeEventListener("outsidePurchaseMade", handleRefresh);
@@ -1043,11 +1049,11 @@ const Dashboard: React.FC = () => {
             }
           } else {
             const localCatering =
-              localStorage.getItem("yumBookedCatering") ===
-              "true";
-            const localDessert =
-              localStorage.getItem("yumBookedDessert") ===
-              "true";
+         localStorage.getItem("yumBookedCatering") === "true" ||
+         localStorage.getItem("yumCateringBooked") === "true";
+         const localDessert =
+         localStorage.getItem("yumBookedDessert") === "true" ||
+        localStorage.getItem("yumDessertBooked") === "true";
 
             if (localCatering && !localDessert)
               startStep = "returnNoDessert";

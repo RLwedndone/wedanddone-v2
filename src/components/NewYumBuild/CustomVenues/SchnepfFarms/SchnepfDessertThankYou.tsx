@@ -11,30 +11,37 @@ interface Props {
 
 const SchnepfDessertThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // Chime (non-blocking)
+    // ✨ Chime (non-blocking)
     try {
       const res = playMagicSound() as void | Promise<void>;
       Promise.resolve(res).catch(() => {});
     } catch {}
 
-    // Local progress flags
+    // 🗂 Local progress flags (venue + generic + legacy) + breadcrumb for HUD
     try {
       localStorage.setItem("schnepfDessertsBooked", "true");
       localStorage.setItem("schnepfJustBookedDessert", "true");
+
+      localStorage.setItem("yumDessertBooked", "true");     // ✅ generic
+      localStorage.setItem("yumBookedDessert", "true");     // ✅ legacy support
+      localStorage.setItem("yumLastCompleted", "dessert");  // ✅ drives HUD Yum image
+
       localStorage.setItem("yumStep", "schnepfDessertThankYou");
     } catch {}
 
-    // Firestore progress
+    // ☁ Firestore progress + booking flag
     const user = getAuth().currentUser;
     if (user) {
       updateDoc(doc(db, "users", user.uid), {
         "progress.yumYum.step": "schnepfDessertThankYou",
+        "bookings.dessert": true, // ✅ mark dessert booked
       }).catch(() => {});
     }
 
-    // Fan-out
+    // 📣 Fan-out so dashboard/booking path update instantly
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("dessertCompletedNow"));
+    window.dispatchEvent(new Event("yum:lastCompleted")); // breadcrumb event
     window.dispatchEvent(new CustomEvent("bookingsChanged", { detail: { dessert: true } }));
   }, []);
 
@@ -42,14 +49,14 @@ const SchnepfDessertThankYou: React.FC<Props> = ({ onClose }) => {
   const handleClose = () => {
     try {
       localStorage.setItem("yumStep", "home");
-      localStorage.removeItem("schnepfYumStep"); // just in case we ever namespace Schnepf steps
+      localStorage.removeItem("schnepfYumStep"); // namespace safety
       window.dispatchEvent(new Event("yumStepChanged"));
     } catch {}
     onClose();
   };
 
   return (
-    // ⛔️ No pixie-overlay wrapper — parent supplies the backdrop
+    // Parent overlay supplies backdrop; we render the card
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 680, position: "relative" }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={handleClose} aria-label="Close">
@@ -64,7 +71,7 @@ const SchnepfDessertThankYou: React.FC<Props> = ({ onClose }) => {
           muted
           playsInline
           className="px-media"
-          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px" }}
+          style={{ width: 180, maxWidth: "90%", borderRadius: 12, margin: "0 auto 12px", display: "block" }}
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>

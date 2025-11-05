@@ -47,10 +47,10 @@ const useDebugBoxes = () => {
 const COMPLETED_BUTTON: Record<BoutiqueKey, string> = {
   floral: `${import.meta.env.BASE_URL}assets/images/completed_floral_button.png`,
   photography: `${import.meta.env.BASE_URL}assets/images/completed_photo_button.png`,
-  catering: `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`,
+  catering: `${import.meta.env.BASE_URL}assets/images/completed_catering_button.png`, // ⬅️ specific
   venue: `${import.meta.env.BASE_URL}assets/images/completed_venue_button.png`,
   planner: `${import.meta.env.BASE_URL}assets/images/completed_planner_button.png`,
-  desserts: `${import.meta.env.BASE_URL}assets/images/completed_yum_button.png`,
+  desserts: `${import.meta.env.BASE_URL}assets/images/completed_dessert_button.png`,  // ⬅️ specific
   jam: `${import.meta.env.BASE_URL}assets/images/completed_jam_button.png`,
 };
 
@@ -161,7 +161,7 @@ const Bookings: React.FC<BookingsScreenProps> = ({
       "floralCompletedNow",
       "photoCompletedNow",
       "jamCompletedNow",
-      "yumCompletedNow",
+      "cateringCompletedNow", // ✅ replaces yumCompletedNow
       "dessertCompletedNow",
       "venueCompletedNow",
       "plannerCompletedNow",
@@ -173,21 +173,55 @@ const Bookings: React.FC<BookingsScreenProps> = ({
     };
   }, []);
 
-  // Normalize “desserts” UI key to Firestore “dessert”
-  const isBooked = (key: BoutiqueKey) => {
-    const fromFS =
-      key === "desserts"
-        ? Boolean(bookings?.dessert)
-        : Boolean((bookings as any)?.[key]);
+  // Normalize “desserts” UI key to Firestore “dessert” and only
+// use LS fallbacks for Catering/Desserts (not other stones).
+const isBooked = (key: BoutiqueKey) => {
+  // Firestore truth
+  const fsKey = key === "desserts" ? "dessert" : key; // FS uses singular "dessert"
+  const fromFS = Boolean((bookings as any)?.[fsKey]);
 
+  // LocalStorage fallbacks ONLY for catering/desserts
+  if (key === "catering") {
     const fromLS =
-      (key === "desserts" &&
-        localStorage.getItem("yumBookedDessert") === "true") ||
-      (key === "catering" &&
-        localStorage.getItem("yumBookedCatering") === "true");
+      localStorage.getItem("yumCateringBooked") === "true" ||
+      localStorage.getItem("yumBookedCatering") === "true" ||
+      localStorage.getItem("schnepfCateringBooked") === "true" ||
+      localStorage.getItem("vvCateringBooked") === "true" ||
+      localStorage.getItem("batesCateringBooked") === "true" ||
+      // generic catch-all like "*CateringBooked"
+      (() => {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i) || "";
+          if (/cateringBooked$/i.test(k) && localStorage.getItem(k) === "true") return true;
+        }
+        return false;
+      })();
 
     return fromFS || fromLS;
-  };
+  }
+
+  if (key === "desserts") {
+    const fromLS =
+      localStorage.getItem("yumDessertBooked") === "true" ||
+      localStorage.getItem("yumBookedDessert") === "true" ||
+      localStorage.getItem("schnepfDessertBooked") === "true" ||
+      localStorage.getItem("vvDessertBooked") === "true" ||
+      localStorage.getItem("batesDessertBooked") === "true" ||
+      // generic catch-all like "*DessertBooked"
+      (() => {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i) || "";
+          if (/dessertBooked$/i.test(k) && localStorage.getItem(k) === "true") return true;
+        }
+        return false;
+      })();
+
+    return fromFS || fromLS;
+  }
+
+  // All other stones: rely on Firestore only (unchanged behavior)
+  return fromFS;
+};
 
   const openModal = (key: BoutiqueKey) => setModalKey(key);
   const closeModal = () => setModalKey(null);
