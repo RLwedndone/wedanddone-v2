@@ -14,9 +14,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../../../../firebase/firebaseConfig";
-import emailjs from "@emailjs/browser";
-
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+import { notifyBooking } from "../../../../utils/email/email";
 
 // Helpers (parity with Floral)
 const asStartOfDayUTC = (d: Date) =>
@@ -130,6 +128,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     const userRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userRef);
     const userDoc = userSnap.data() || {};
+
+    const safeFirst = (userDoc as any)?.firstName || firstName || "Magic";
+    const safeLast  = (userDoc as any)?.lastName  || lastName  || "User";
+    const fullName  = `${safeFirst} ${safeLast}`;
 
     // Save/refresh Stripe customer id
     try {
@@ -363,23 +365,38 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       console.error("❌ Firestore update failed:", err);
     }
 
-    // ── Admin email (optional) ──────────────────────────────────────────────
-    try {
-      await emailjs.send("service_xayel1i", "template_nvsea3z", {
-        user_name: `${userDoc?.firstName || firstName} ${userDoc?.lastName || lastName}`,
-        user_email: userDoc?.email || "unknown@wedndone.com",
-        wedding_date: weddingDate || "TBD",
-        total: total.toFixed(2),
-        line_items: (lineItems || []).join(", "),
-        pdf_url: agreementUrl || "(no pdf url)",
-        pdf_title: "Bates Catering Agreement",
-        payment_now: amountDueToday.toFixed(2),
-        remaining_balance: remainingBalance.toFixed(2),
-        final_due: finalDueDateStr,
-      });
-    } catch (mailErr) {
-      console.error("❌ EmailJS admin mail failed:", mailErr);
-    }
+    // ✅ Centralized user+admin email (same system used by Floral/Yum core)
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_catering", {
+    // who + basics
+    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: safeFirst,
+
+    // details
+    wedding_date: weddingDate || "TBD",
+    total: total.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: agreementUrl || "",
+    pdf_title: "Bates Catering Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+
+    // label used inside the template
+    product_name: "Bates Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking failed:", mailErr);
+}
 
     // UI nudges + done
     window.dispatchEvent(new Event("purchaseMade"));

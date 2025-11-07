@@ -20,6 +20,8 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
+import { notifyBooking } from "../../../../utils/email/email";
+
 
 // helpers
 const round2 = (n: number) =>
@@ -460,6 +462,34 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
         "progress.yumYum.step":
           "valleyHoCateringThankYou",
       });
+
+      // 📧 Centralized booking email — Yum Catering @ Valley Ho
+      try {
+        await notifyBooking("yum_catering", {
+          // who
+          user_email: user.email || "unknown@wedndone.com",
+          user_full_name: firstName,
+
+          // money
+          total: total.toFixed(2),
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
+
+          // agreement
+          pdf_url: publicUrl || "",
+          pdf_title: "Hotel Valley Ho Catering Agreement",
+
+          // cart details
+          line_items: (lineItems || []).join(", "),
+
+          // UX
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Yum Catering — Hotel Valley Ho",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+      }
 
       try {
         localStorage.setItem(

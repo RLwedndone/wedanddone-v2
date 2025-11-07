@@ -16,7 +16,8 @@ import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 import type { BatesStep } from "./BatesOverlay";
-import emailjs from "emailjs-com";
+// add with the other imports
+import { notifyBooking } from "../../../../utils/email/email";
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -169,6 +170,8 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
       const fullName = `${userDoc?.firstName || "Magic"} ${
         userDoc?.lastName || "User"
       }`;
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+const safeLast  = userDoc?.lastName  || lastName  || "User";
       const weddingYMD: string | null = userDoc?.weddingDate || null;
 
       // Final due date = wedding - 35 days
@@ -357,28 +360,38 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         }),
       });
 
-      // ── Optional email (non-blocking; never blocks checkout) ──
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email:
-              user.email || "Unknown",
-            user_full_name: fullName,
-            wedding_date:
-              weddingYMD || "TBD",
-            total: totalEffective.toFixed(2),
-            line_items: lineItems.join(", "),
-          },
-          "5Lqtf5AMR9Uz5_5yF"
-        );
-      } catch (e) {
-        console.warn(
-          "EmailJS failed (continuing):",
-          e
-        );
-      }
+      // ✅ Centralized user+admin booking email for Bates Desserts
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_dessert", {
+    // who + basics
+    user_email: current?.email || userDoc?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: safeFirst,
+
+    // details
+    wedding_date: weddingYMD || "TBD",
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+
+    // label used inside the template
+    product_name: "Bates Desserts",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking failed:", mailErr);
+}
 
       // UI fan-out so dashboards/overlays refresh immediately
       window.dispatchEvent(new Event("purchaseMade"));

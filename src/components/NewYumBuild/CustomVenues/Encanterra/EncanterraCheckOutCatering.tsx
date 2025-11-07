@@ -17,6 +17,7 @@ import { getGuestState } from "../../../../utils/guestCountStore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateEncanterraAgreementPDF from "../../../../utils/generateEncanterraAgreementPDF";
+import { notifyBooking } from "../../../../utils/email/email";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
@@ -397,6 +398,37 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
 
         "progress.yumYum.step": "encanterraCateringThankYou",
       });
+
+      // 📧 Centralized user+admin booking email (Yum Catering @ Encanterra)
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_catering", {
+    // who + basics
+    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+    user_full_name: `${safeFirst} ${safeLast}`,
+    firstName: safeFirst,
+
+    // details
+    wedding_date: wedding,
+    total: total.toFixed(2),
+    line_items: (lineItems?.length ? lineItems : encLineItems).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Encanterra Catering Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Encanterra Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+}
 
       window.dispatchEvent(new Event("documentsUpdated"));
     } catch (err) {

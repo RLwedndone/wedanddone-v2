@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import emailjs from "emailjs-com";
+import { notifyBooking } from "../../../../utils/email/email";
 
 import type { CuisineId } from "./SchnepfCuisineSelector";
 import type { SchnepfMenuSelections } from "./SchnepfMenuBuilderCatering";
@@ -723,6 +723,41 @@ const SchnepfCheckOutCatering: React.FC<Props> = ({
         console.log(
           "[SCH][Checkout] Firestore snapshots saved."
         );
+
+        // 📧 Centralized booking email — Yum Catering @ Schnepf
+try {
+  const current = getAuth().currentUser;
+
+  const user_full_name = `${userDoc?.firstName || firstName || "Magic"} ${userDoc?.lastName || lastName || "User"}`;
+  const payment_now = amountDueToday.toFixed(2);
+  const remaining_balance = (Math.max(0, finalTotal - amountDueToday)).toFixed(2);
+
+  await notifyBooking("yum_catering", {
+    // who
+    user_email: current?.email || "unknown@wedndone.com",
+    user_full_name,
+
+    // details
+    wedding_date: (weddingDate || (userDoc as any)?.weddingDate || "TBD"),
+    total: finalTotal.toFixed(2),
+    line_items: (effectiveLineItems || []).join(", "),
+
+    // pdf info (may be "")
+    pdf_url: publicUrl || "",
+    pdf_title: "Schnepf Catering Agreement",
+
+    // payment breakdown
+    payment_now,
+    remaining_balance,
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Schnepf Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+}
       } catch (fsErr) {
         console.error(
           "[SCH][Checkout] Firestore snapshot/update failed:",

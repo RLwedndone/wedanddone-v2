@@ -62,34 +62,71 @@ const YumCartCatering: React.FC<YumCartProps> = ({
   const [locked, setLocked] = useState(false);
   const [lockedBy, setLockedBy] = useState<string[]>([]);
 
-  // Hydrate guest count from store + subscribe to changes
-  useEffect(() => {
-    let alive = true;
+  // Hydrate guest count from store + subscribe to changes (with seeding)
+useEffect(() => {
+  let alive = true;
+  let hydratedFromAccount = false;
 
-    const hydrate = async () => {
-      const st = await getGuestState();
-      if (!alive) return;
-      const v = Number(st.value || 0);
-      setGC(v);
-      setLocked(!!st.locked);
-      setLockedBy(st.lockedBy || []);
-      onGuestCountChange?.(v); // keep parent in sync
-    };
+  const hydrate = async () => {
+    const st = await getGuestState();
+    if (!alive) return;
 
-    hydrate();
+    const v = Number((st as any).value ?? 0);
+    setGC(v);
+    setLocked(Boolean((st as any).locked));
+    setLockedBy(((st as any).lockedBy ?? (st as any).lockedReasons ?? []) as string[]);
+    onGuestCountChange?.(v);
 
-    const sync = () => hydrate();
-    window.addEventListener("guestCountUpdated", sync);
-    window.addEventListener("guestCountLocked", sync);
-    window.addEventListener("guestCountUnlocked", sync);
+    // If store is empty, seed from localStorage, then Firestore
+    if (!hydratedFromAccount && v === 0) {
+      hydratedFromAccount = true;
 
-    return () => {
-      alive = false;
-      window.removeEventListener("guestCountUpdated", sync);
-      window.removeEventListener("guestCountLocked", sync);
-      window.removeEventListener("guestCountUnlocked", sync);
-    };
-  }, [onGuestCountChange]);
+      // 1) localStorage seed
+      const lsSeed = Number(
+        localStorage.getItem("guestCount") ||
+        localStorage.getItem("yumGuestCount") ||
+        "0"
+      );
+      if (lsSeed > 0) {
+        setGC(lsSeed);
+        await setGuestCount(lsSeed);
+        onGuestCountChange?.(lsSeed);
+        return;
+      }
+
+      // 2) Firestore seed
+      const user = getAuth().currentUser;
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          const data = snap.exists() ? (snap.data() as any) : null;
+          const fsSeed = Number(data?.guestCount || 0);
+          if (fsSeed > 0) {
+            setGC(fsSeed);
+            await setGuestCount(fsSeed);
+            onGuestCountChange?.(fsSeed);
+          }
+        } catch (e) {
+          console.warn("⚠️ Could not hydrate guest count from Firestore:", e);
+        }
+      }
+    }
+  };
+
+  hydrate();
+
+  const onUpdate = () => hydrate();
+  window.addEventListener("guestCountUpdated", onUpdate);
+  window.addEventListener("guestCountLocked", onUpdate);
+  window.addEventListener("guestCountUnlocked", onUpdate);
+
+  return () => {
+    alive = false;
+    window.removeEventListener("guestCountUpdated", onUpdate);
+    window.removeEventListener("guestCountLocked", onUpdate);
+    window.removeEventListener("guestCountUnlocked", onUpdate);
+  };
+}, [onGuestCountChange]);
 
   // If any guest-dependent booking exists, lock (venue/planner/catering/desserts)
   useEffect(() => {

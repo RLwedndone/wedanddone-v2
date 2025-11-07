@@ -18,6 +18,8 @@ import {
 import type { RubiTierSelectionBBQ } from "./RubiBBQTierSelector";
 import type { RubiTierSelection as RubiTierSelectionMex } from "./RubiMexTierSelector";
 
+import { notifyBooking } from "../../../../utils/email/email";
+
 // ---------- helpers ----------
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
@@ -452,6 +454,42 @@ const RubiCateringCheckOut: React.FC<Props> = ({
             uploadedAt: new Date().toISOString(),
           }),
         });
+        // 📧 Centralized booking email — Yum Catering @ Rubi
+try {
+  const current = getAuth().currentUser;
+
+  // Build a friendly name + totals from what we already computed above
+  const user_full_name = `${firstName || "Magic"} ${lastName || "User"}`;
+  const payment_now = (amountDueTodayCents / 100).toFixed(2);
+  const remaining_balance = (payFull ? 0 : Math.max(0, total - Number(payment_now))).toFixed(2);
+
+  await notifyBooking("yum_catering", {
+    // who
+    user_email: current?.email || "unknown@wedndone.com",
+    user_full_name,
+    firstName,
+
+    // details
+    wedding_date: pdfData.weddingDate || "TBD",
+    total: total.toFixed(2),
+    line_items: (pdfData.lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Rubi House Catering Agreement",
+
+    // payment breakdown
+    payment_now,
+    remaining_balance,
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Rubi Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+}
       } catch (pdfErr) {
         console.warn(
           "[RubiCateringCheckout] PDF upload failed (continuing):",

@@ -16,7 +16,7 @@ import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 import type { TubacStep } from "./TubacOverlay";
-import emailjs from "emailjs-com";
+import { notifyBooking } from "../../../../utils/email/email";
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -333,28 +333,34 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         }),
       });
 
-      // Optional email
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email: user.email || "Unknown",
-            user_full_name: fullName,
-            wedding_date: weddingYMD || "TBD",
-            total: totalEffective.toFixed(2),
-            line_items: lineItems.join(", "),
-            pdf_url: publicUrl,
-            pdf_title: "Yum Yum Dessert Agreement",
-            payment_now: amountDueToday.toFixed(2),
-            remaining_balance: remainingBalance.toFixed(2),
-            final_due: finalDueDateStr,
-          },
-          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-        );
-      } catch (e) {
-        console.warn("EmailJS failed (continuing):", e);
-      }
+      // 📧 Centralized booking email — Yum Dessert @ Tubac
+try {
+  await notifyBooking("yum_dessert", {
+    // who
+    user_email: user.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+
+    // details
+    wedding_date: weddingYMD || "TBD",
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Yum Yum Desserts",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+}
 
       // UI fan-out
       window.dispatchEvent(new Event("purchaseMade"));

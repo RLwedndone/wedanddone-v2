@@ -72,10 +72,8 @@ const BatesDessertContract: React.FC<BatesDessertContractProps> = ({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
-  const initialPlan = (localStorage.getItem("yumPaymentPlan") || localStorage.getItem("yumPayPlan") || "full") as
-    | "full"
-    | "monthly";
-  const [payFull, setPayFull] = useState(initialPlan === "full");
+  // Always default to Pay Full on first render
+const [payFull, setPayFull] = useState(true);
 
   const [agreeChecked, setAgreeChecked] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -87,10 +85,8 @@ const BatesDessertContract: React.FC<BatesDessertContractProps> = ({
 const [weddingYMD, setWeddingYMD] = useState<string | null>(weddingDate || null);
 const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
 
-  // Was a signature already saved?
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("yumSignature"))
-  );
+  // Only consider a signature passed in via prop as "already signed"
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() => Boolean(signatureImage));
 
   // ─────────────────────────────────────────────────────────────
   // Boot: subscribe once, capture minimal user fields, pin progress step
@@ -101,6 +97,12 @@ useEffect(() => {
     if (flavorCombo) localStorage.setItem("yumFlavorFilling", JSON.stringify(flavorCombo.split(" + ")));
     if (lineItems) localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
   } catch {}
+  // Clear any stale signature for dessert flow unless one was provided in props
+try {
+  if (!signatureImage) {
+    localStorage.removeItem("yumSignature");
+  }
+} catch {}
 
   const unsub = onAuthStateChanged(auth, async (user) => {
     if (!user) return;

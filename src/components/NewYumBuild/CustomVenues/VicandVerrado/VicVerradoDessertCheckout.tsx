@@ -2,6 +2,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
+import { notifyBooking } from "../../../../utils/email/email";
+
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -340,6 +342,43 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
       const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
+
+      // 📧 Send booking email — Yum Desserts @ Vic/Verrado
+try {
+  const current = getAuth().currentUser;
+  const safeFirst = userDoc?.firstName || firstName || "Magic";
+
+  await notifyBooking("yum_dessert", {
+    // who
+    user_email: current?.email || "unknown@wedndone.com",
+    user_first_name: safeFirst,
+
+    // what / context
+    venue_name: localStorage.getItem("vvVenueName") || "The Vic",
+    wedding_date: weddingYMD || "TBD",
+
+    // money
+    total: totalEffective.toFixed(2),
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+    plan_type: usingFull ? "full" : "deposit",
+
+    // agreement
+    pdf_url: publicUrl,
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    // dessert specifics
+    dessert_style: selectedStyle,
+    dessert_flavors: selectedFlavorCombo,
+    guest_count: String(guestCount),
+
+    // optional display
+    line_items: (lineItems || []).join(", "),
+  });
+} catch (e) {
+  console.warn("⚠️ Email notification failed (continuing):", e);
+}
 
       await updateDoc(userRef, {
         documents: arrayUnion({

@@ -15,6 +15,7 @@ import {
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
+import { notifyBooking } from "../../../../utils/email/email";
 
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -344,6 +345,41 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 
         "progress.yumYum.step": "tubacCateringThankYou",
       });
+
+      // 📧 Centralized booking email — Yum Catering @ Tubac
+try {
+  const authUser = getAuth().currentUser;
+
+  const user_full_name = `${(userDoc as any)?.firstName || firstName || "Magic"} ${(userDoc as any)?.lastName || lastName || "User"}`;
+  const payment_now = amountDueToday.toFixed(2);
+  const remaining_balance = Math.max(0, total - amountDueToday).toFixed(2);
+
+  await notifyBooking("yum_catering", {
+    // who
+    user_email: authUser?.email || "unknown@wedndone.com",
+    user_full_name,
+
+    // details
+    wedding_date: (userDoc as any)?.weddingDate || "TBD",
+    total: total.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Tubac Catering Agreement",
+
+    // payment breakdown
+    payment_now,
+    remaining_balance,
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Tubac Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+}
 
       try {
         localStorage.setItem(

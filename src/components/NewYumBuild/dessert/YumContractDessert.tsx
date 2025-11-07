@@ -84,21 +84,24 @@ const YumContractDessert: React.FC<YumContractProps> = ({
   const [agreeChecked, setAgreeChecked] = useState(false);
 
   // read preferred pay plan from storage so it persists when they bounce back/forth
-  const initialPlan =
-    (localStorage.getItem("yumPayPlan") ||
-      localStorage.getItem("yumPaymentPlan") ||
-      "full") as "full" | "monthly";
+  // default to full every time we open the dessert contract
+const [payFull, setPayFull] = useState(true);
 
-  const [payFull, setPayFull] = useState(initialPlan === "full");
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
-  // Was a signature already saved this session? (prop or localStorage)
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("yumSignature"))
-  );
+  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(false);
+
+  // start this contract fresh each time (prevents sticky "monthly" & old signatures)
+useEffect(() => {
+  try {
+    localStorage.removeItem("yumSignature");
+    localStorage.setItem("yumPaymentPlan", "full");
+    localStorage.setItem("yumPayPlan", "full");
+  } catch {}
+}, []);
 
   // ─────────────────────────────────────────────────────────────
   // Boot / progress + stash UX prefs

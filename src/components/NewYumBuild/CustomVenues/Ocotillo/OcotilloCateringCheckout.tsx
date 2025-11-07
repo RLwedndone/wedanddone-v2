@@ -17,6 +17,8 @@ import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateOcotilloAgreementPDF from "../../../../utils/generateOcotilloAgreementPDF";
 
+import { notifyBooking } from "../../../../utils/email/email";
+
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
@@ -394,6 +396,37 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
 
         "progress.yumYum.step": "ocotilloCateringThankYou",
       });
+
+      // 📧 Centralized booking email for Yum Catering @ Ocotillo
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_catering", {
+    // who + basics
+    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: safeFirst,
+
+    // details
+    wedding_date: wedding || "TBD",
+    total: total.toFixed(2),
+    line_items: (lineItems && lineItems.length ? lineItems : ocLineItems).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Ocotillo Catering Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Ocotillo Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+}
 
       // Nudge any doc viewers to refresh
       window.dispatchEvent(new Event("documentsUpdated"));

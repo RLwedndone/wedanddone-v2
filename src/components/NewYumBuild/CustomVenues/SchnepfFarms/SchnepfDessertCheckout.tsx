@@ -14,6 +14,7 @@ import {
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
+import { notifyBooking } from "../../../../utils/email/email";
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -315,6 +316,41 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
           uploadedAt: new Date().toISOString(),
         }),
       });
+
+      // 📧 Centralized booking email — Yum Dessert @ Schnepf
+try {
+  const current = getAuth().currentUser;
+
+  const user_full_name = `${userDoc?.firstName || firstName || "Magic"} ${userDoc?.lastName || lastName || "User"}`;
+  const payment_now = amountDueToday.toFixed(2);
+  const remaining_balance = (Math.max(0, totalEffective - amountDueToday)).toFixed(2);
+
+  await notifyBooking("yum_dessert", {
+    // who
+    user_email: current?.email || "unknown@wedndone.com",
+    user_full_name,
+
+    // details
+    wedding_date: (userDoc?.weddingDate || "TBD"),
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    // payment breakdown
+    payment_now,
+    remaining_balance,
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Schnepf Desserts",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+}
 
       setLocalGenerating(false);
 

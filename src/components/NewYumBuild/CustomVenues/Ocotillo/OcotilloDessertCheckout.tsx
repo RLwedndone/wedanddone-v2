@@ -20,6 +20,7 @@ import {
 } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 import type { OcotilloStep } from "./OcotilloOverlay";
+import { notifyBooking } from "../../../../utils/email/email";
 
 // Helpers (same as template)
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -345,6 +346,38 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
           uploadedAt: new Date().toISOString(),
         }),
       });
+
+      // 📧 Centralized booking email for Yum Dessert @ Ocotillo
+try {
+  const current = getAuth().currentUser;
+
+  await notifyBooking("yum_dessert", {
+    // who + basics
+    user_email: current?.email || (userDoc?.email as string) || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: userDoc?.firstName || firstName,
+
+    // details
+    wedding_date: weddingYMD || "TBD",
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems && lineItems.length ? lineItems : []).join(", "),
+
+    // pdf info
+    pdf_url: publicUrl || "",
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    // payment breakdown
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: (usingFull ? 0 : remainingBalance).toFixed(2),
+    final_due: finalDueDateStr,
+
+    // UX link + label
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Ocotillo Dessert",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+}
 
       // push overlay forward into TY + mirror LS
       const nextStep: OcotilloStep = "ocotilloDessertThankYou";

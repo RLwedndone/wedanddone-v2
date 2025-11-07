@@ -22,6 +22,8 @@ import {
 } from "firebase/storage";
 import generateVicVerradoAgreementPDF from "../../../../utils/generateVicVerradoAgreementPDF";
 
+import { notifyBooking } from "../../../../utils/email/email";
+
 // small helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -300,6 +302,36 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
+
+      // 📧 Send booking email — Yum Catering @ Vic/Verrado
+try {
+  const current = getAuth().currentUser;
+  const safeFirst = userDoc?.firstName || firstName || "Magic";
+
+  await notifyBooking("yum_catering", {
+    // who
+    user_email: current?.email || "unknown@wedndone.com",
+    user_first_name: safeFirst,
+
+    // what
+    venue_name: venueName || "The Vic",
+    wedding_date: wedding || "TBD",
+    total: total.toFixed(2),
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+    plan_type: payFull ? "full" : "deposit",
+
+    // attachments / display
+    pdf_url: publicUrl,
+    pdf_title: "Vic/Verrado Catering Agreement",
+
+    // extras
+    line_items: (lineItems?.length ? lineItems : vvLineItems).join(", "),
+  });
+} catch (e) {
+  console.warn("⚠️ Email notification failed (continuing):", e);
+}
 
       // ---------- Pricing snapshot ----------
       await setDoc(

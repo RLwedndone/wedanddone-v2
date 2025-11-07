@@ -20,6 +20,7 @@ import {
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
 import { notifyBooking } from "../../../utils/email/email";
+import { setAndLockGuestCount } from "../../../utils/guestCountStore";
 
 
 // ⏱️ helpers
@@ -571,6 +572,8 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               },
       });
 
+
+
       // ✅ guest fallback + live UI refresh
       try {
         localStorage.setItem(
@@ -584,6 +587,13 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
       window.dispatchEvent(
         new Event("purchaseMade")
       );
+
+      // 🔒 Lock guest count for Yum Catering (NoVenue support)
+try {
+  await setAndLockGuestCount(guestCount || 0, "yum:catering");
+} catch (e) {
+  console.warn("⚠️ Could not lock guest count for catering:", e);
+}
 
       // 📧 Email receipt / alert (centralized)
 try {

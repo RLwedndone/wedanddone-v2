@@ -68,67 +68,92 @@ const YumThankYouDessertOnly: React.FC<YumThankYouProps> = ({ onClose, setStep }
   };
 
   return (
-    <div className="pixie-overlay">
-      <div
-        className="pixie-overlay-card"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center",
-          padding: "2rem",
-        }}
+    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      {/* 🩷 Pink X Close */}
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
       >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+  
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/yum_thanks.mp4`}
           autoPlay
           loop
           muted
           playsInline
-          style={{ maxWidth: "220px", width: "100%", marginBottom: "1.5rem", borderRadius: "12px" }}
+          className="px-media"
+          style={{
+            maxWidth: 240,
+            width: "100%",
+            margin: "0 auto 1.5rem",
+            borderRadius: 12,
+            display: "block",
+          }}
         />
-
-        <p style={{ fontSize: "1.2rem", marginBottom: "2rem" }}>
-          Your dessert order is locked in and deliciousness is on the way!<br /><br />
-          Your receipt and contract are saved under <strong>Documents</strong> on your dashboard.<br /><br />
-          <strong>Your guest count is now locked.</strong> But don't worry! If you need to add more guests, we'll handle that when you confirm your final count. <br /><br />
-          Our handy-dandy Guest Count Scroll will pop up for you <strong>45 days</strong> before your big day.
+  
+        <h2
+          className="px-title-lg"
+          style={{
+            marginBottom: 16,
+            color: "#2c62ba",
+            fontFamily: "'Jenna Sue', cursive",
+          }}
+        >
+          Dessert Booked & Beautiful!
+        </h2>
+  
+        <p
+          className="px-prose-narrow"
+          style={{
+            fontSize: "1.1rem",
+            marginBottom: "2rem",
+            maxWidth: 560,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          Your dessert order is locked in and deliciousness is on the way! <br />
+          <br />
+          Your receipt and contract are saved under{" "}
+          <strong>Documents</strong> on your dashboard. <br />
+          <br />
+          <strong>Your guest count is now locked.</strong> But don’t worry —
+          if you need to add more guests, we’ll handle that when you confirm your
+          final count about <strong>45 days</strong> before your big day.
         </p>
-
-        <div style={{ marginTop: "1.5rem", textAlign: "center", width: "100%" }}>
+  
+        {/* ✅ Stacked Buttons */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.75rem",
+            width: "100%",
+          }}
+        >
           <button
             onClick={handleBookCatering}
+            className="boutique-primary-btn"
             style={{
-              backgroundColor: "#2c62ba",
-              color: "#fff",
-              padding: "0.75rem 1.2rem",
-              fontSize: "1rem",
-              borderRadius: "12px",
-              border: "none",
-              cursor: "pointer",
-              display: "block",
-              width: "100%",
-              maxWidth: "300px",
-              margin: "0 auto 1rem",
+              width: 280,
             }}
           >
             🍽️ Book Catering
           </button>
-
+  
           <button
             onClick={onClose}
+            className="boutique-back-btn"
             style={{
-              backgroundColor: "#e98fba",
-              color: "#fff",
-              padding: "0.75rem 1.2rem",
-              fontSize: "1rem",
-              borderRadius: "12px",
-              border: "none",
-              cursor: "pointer",
-              display: "block",
-              width: "100%",
-              maxWidth: "300px",
-              margin: "0 auto",
+              width: 280,
             }}
           >
             🏠 Return to Dashboard
