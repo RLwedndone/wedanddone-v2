@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import CheckoutForm from "../../CheckoutForm";
 import { generateFloralAgreementPDF } from "../../utils/generateFloralAgreementPDF";
@@ -14,12 +13,12 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
-import emailjs from "@emailjs/browser";
+
+// ✅ centralized email helper (sends user + admin from template map)
+import { notifyBooking } from "../../utils/email/email";
 
 // helper – round to cents (kept for parity if needed later)
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
 interface FloralCheckOutProps {
   onClose: () => void;
@@ -148,26 +147,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     const fullName  = `${safeFirst} ${safeLast}`;
     const purchaseDate = new Date().toLocaleDateString("en-US");
 
-    const sendAdminPDFAlert = async (url: string, title: string) => {
-      try {
-        await emailjs.send("service_xayel1i", "template_nvsea3z", {
-          user_name: fullName,
-          user_email: userDoc?.email || "unknown@wedndone.com",
-          wedding_date: weddingDate || "TBD",
-          total: total.toFixed(2),
-          line_items: (lineItems || []).join(", "),
-          pdf_url: url,
-          pdf_title: title,
-          payment_now: amountDueToday.toFixed(2),
-          remaining_balance: remainingBalance.toFixed(2),
-          final_due: finalDueDateStr,
-        });
-        console.log("✅ Admin email sent successfully!");
-      } catch (err) {
-        console.error("❌ Failed to send admin email:", err);
-      }
-    };
-
     const asStartOfDayUTC = (d: Date) =>
       new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
 
@@ -190,71 +169,69 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
 
     // ---------- Add-on flow ----------
-if (isAddon) {
-  console.log("💐 Add-on mode — generating floral add-on receipt…");
-  setIsGenerating(true);
+    if (isAddon) {
+      console.log("💐 Add-on mode — generating floral add-on receipt…");
+      setIsGenerating(true);
 
-  try {
-    const blob = await generateFloralAddOnReceiptPDF({
-      fullName,
-      lineItems,
-      total,
-      purchaseDate,                 // you already computed this above
-    });
+      try {
+        const blob = await generateFloralAddOnReceiptPDF({
+          fullName,
+          lineItems,
+          total,
+          purchaseDate,
+        });
 
-    const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
-    const filePath = `public_docs/${user.uid}/${fileName}`;
-    const url = await uploadPdfBlob(blob, filePath);
-    console.log("✅ Add-on receipt uploaded:", url);
+        const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
+        const filePath = `public_docs/${user.uid}/${fileName}`;
+        const url = await uploadPdfBlob(blob, filePath);
+        console.log("✅ Add-on receipt uploaded:", url);
 
-    await updateDoc(userRef, {
-      documents: arrayUnion({
-        title: "Floral Add-On Receipt",
-        url,
-        uploadedAt: new Date().toISOString(),
-      }),
-      purchases: arrayUnion({
-        label: "floral_addon",
-        amount: Number(total.toFixed(2)),
-        date: new Date().toISOString(),
-      }),
-      spendTotal: increment(Number(total.toFixed(2))),
-      "bookings.floral": true,
-      "bookings.updatedAt": new Date().toISOString(),
-    });
+        await updateDoc(userRef, {
+          documents: arrayUnion({
+            title: "Floral Add-On Receipt",
+            url,
+            uploadedAt: new Date().toISOString(),
+          }),
+          purchases: arrayUnion({
+            label: "floral_addon",
+            amount: Number(total.toFixed(2)),
+            date: new Date().toISOString(),
+          }),
+          spendTotal: increment(Number(total.toFixed(2))),
+          "bookings.floral": true,
+          "bookings.updatedAt": new Date().toISOString(),
+        });
 
-    // ⬇️ REPLACE the old emailjs.send(...) with this block
-    try {
-      await emailjs.send(
-        "service_xayel1i",
-        "template_srlk4gh", // ✅ your Floral Add-on Admin template
+        // ✅ Send both user + admin from the centralized helper
         {
-          user_name: fullName,
-          user_email: userDoc?.email || "unknown@wedanddone.com",
-          purchase_date: purchaseDate,                // e.g., "3/9/2026"
-          total: total.toFixed(2),
-          line_items: (lineItems || []).join(", "),
-          pdf_url: url,
+          const current = getAuth().currentUser;
+          await notifyBooking("floral_addon", {
+            user_email: current?.email || userDoc?.email || "unknown@wedndone.com",
+            user_full_name: fullName,
+            firstName: safeFirst,
+            wedding_date: weddingDate || "TBD",
+            pdf_url: url,
+            pdf_title: "Floral Add-On Receipt",
+            total: total.toFixed(2),
+            line_items: (lineItems || []).join(", "),
+            dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+            product_name: "Floral Add-On", // 👈
+          });
         }
-      );
-      console.log("✅ Admin email (floral add-on) sent");
-    } catch (mailErr) {
-      console.error("❌ EmailJS add-on mail failed:", mailErr);
+
+        window.dispatchEvent(new Event("purchaseMade"));
+        window.dispatchEvent(new Event("documentsUpdated"));
+        window.dispatchEvent(new Event("floralCompletedNow"));
+
+        setIsGenerating(false);
+        onSuccess();
+        return;
+      } catch (err) {
+        console.error("❌ Error during floral add-on receipt:", err);
+        setIsGenerating(false);
+        return;
+      }
     }
-
-    window.dispatchEvent(new Event("purchaseMade"));
-    window.dispatchEvent(new Event("documentsUpdated"));
-    window.dispatchEvent(new Event("floralCompletedNow"));
-
-    setIsGenerating(false);
-    onSuccess();
-    return;
-  } catch (err) {
-    console.error("❌ Error during floral add-on receipt:", err);
-    setIsGenerating(false);
-    return;
-  }
-}
 
     // ---------- Full contract flow ----------
     console.log("📝 Generating Floral Agreement PDF…");
@@ -371,7 +348,25 @@ if (isAddon) {
             })(),
       });
 
-      await sendAdminPDFAlert(url, "Floral Agreement");
+      // ✅ Send both user + admin
+      {
+        const current = getAuth().currentUser;
+        await notifyBooking("floral", {
+          user_email: current?.email || userDoc?.email || "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: safeFirst,
+          wedding_date: weddingDate || "TBD",
+          pdf_url: url,
+          pdf_title: "Floral Agreement",
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Floral", // 👈 ensure it renders in the template title/body
+        });
+      }
 
       window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(new Event("floralCompletedNow"));
@@ -451,22 +446,22 @@ if (isAddon) {
             </p>
 
             <div className="px-elements">
-  <CheckoutForm
-    total={amountDueToday}
-    onSuccess={handleSuccess}
-    setStepSuccess={onSuccess}
-    isAddon={false}
-    customerEmail={getAuth().currentUser?.email || undefined}
-    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-    customerId={(() => {
-      try {
-        return localStorage.getItem("stripeCustomerId") || undefined;
-      } catch {
-        return undefined;
-      }
-    })()}
-  />
-</div>
+              <CheckoutForm
+                total={amountDueToday}
+                onSuccess={handleSuccess}
+                setStepSuccess={onSuccess}
+                isAddon={false}
+                customerEmail={getAuth().currentUser?.email || undefined}
+                customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                customerId={(() => {
+                  try {
+                    return localStorage.getItem("stripeCustomerId") || undefined;
+                  } catch {
+                    return undefined;
+                  }
+                })()}
+              />
+            </div>
           </>
         )}
       </div>

@@ -19,8 +19,8 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
-import emailjs from "@emailjs/browser";
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+import { notifyBooking } from "../../../utils/email/email";
+
 
 // ⏱️ helpers
 const round2 = (n: number) =>
@@ -585,45 +585,36 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
         new Event("purchaseMade")
       );
 
-      // 📧 Email receipt / alert
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email:
-              getAuth().currentUser?.email ||
-              "unknown@wedndone.com",
-            user_full_name: fullName,
-            wedding_date: wedding,
-            total: total.toFixed(2),
-            line_items:
-              (lineItems || []).join(
-                ", "
-              ),
-            pdf_url: publicUrl,
-            pdf_title:
-              "Yum Yum Catering Agreement",
-            payment_now:
-              amountDueToday.toFixed(
-                2
-              ),
-            remaining_balance:
-              remainingBalance.toFixed(
-                2
-              ),
-            final_due:
-              finalDueDateStr,
-          },
-          import.meta.env
-            .VITE_EMAILJS_PUBLIC_KEY
-        );
-      } catch (mailErr) {
-        console.error(
-          "❌ EmailJS failed:",
-          mailErr
-        );
-      }
+      // 📧 Email receipt / alert (centralized)
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_catering", {
+    // who + basics
+    user_email: current?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: safeFirst,
+    wedding_date: wedding,
+
+    // PDF
+    pdf_url: publicUrl,
+    pdf_title: "Yum Yum Catering Agreement",
+
+    // order summary
+    total: total.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDueDateStr,
+
+    // nice-to-have for the user template button
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+
+    // makes sure the admin subject/body shows the right product name
+    product_name: "Yum Yum Catering",
+  });
+} catch (mailErr) {
+  console.error("❌ notifyBooking failed:", mailErr);
+}
 
       onComplete();
     } catch (err) {

@@ -15,8 +15,8 @@ import {
 import { db, app } from "../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../utils/generateDessertAgreementPDF";
-import emailjs from "emailjs-com";
 import { YumStep } from "../yumTypes";
+import { notifyBooking } from "../../../utils/email/email";
 
 // ─────────────────────────────────────────────
 // Helpers (dates & math)
@@ -350,36 +350,30 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         }),
       });
 
-      // ── Optional confirmation email (non-blocking) ──
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email: user.email || "Unknown",
-            user_full_name: fullName,
-            wedding_date: weddingYMD || "TBD",
-            total: totalEffective.toFixed(2),
-            line_items: lineItems.join(", "),
-          },
-          "5Lqtf5AMR9Uz5_5yF"
-        );
-      } catch (e) {
-        console.warn("EmailJS failed (continuing):", e);
-      }
+      // 📧 User + Admin emails (centralized; non-blocking)
+try {
+  const current = getAuth().currentUser;
+  await notifyBooking("yum_dessert", {
+    user_email: current?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: (fullName.split(" ")[0] || "Friend"), // safe first
+    wedding_date: weddingYMD || "TBD",
 
-      // ── Kick dashboard / Budget Wand listeners ──
-      try {
-        window.dispatchEvent(new Event("purchaseMade"));
-        window.dispatchEvent(new Event("dessertCompletedNow"));
-        window.dispatchEvent(
-          new CustomEvent("bookingsChanged", {
-            detail: { dessert: true },
-          })
-        );
-      } catch (e) {
-        /* ignore */
-      }
+    pdf_url: publicUrl,
+    pdf_title: "Yum Yum Dessert Agreement",
+
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: remainingBalance.toFixed(2),
+    final_due: finalDuePretty,
+
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+    product_name: "Yum Yum Desserts",
+  });
+} catch (e) {
+  console.warn("notifyBooking (dessert) failed (continuing):", e);
+}
 
       // ── Wizard advance & persist yumStep ──
       const nextStep = (bookings.catering

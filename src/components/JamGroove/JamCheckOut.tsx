@@ -20,8 +20,10 @@ import { db } from "../../firebase/firebaseConfig";
 import type { GrooveGuideData } from "../../utils/generateGrooveGuidePDF";
 import { generateGrooveGuidePDF } from "../../utils/generateGrooveGuidePDF";
 import { JamSelectionsType } from "./JamOverlay";
-import emailjs from "@emailjs/browser";
+import { notifyBooking } from "../../utils/email/email";
 
+// For Groove Guide PDF emails only
+import emailjs from "@emailjs/browser";
 emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
 // helpers
@@ -228,6 +230,47 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
         lastPurchaseAt: serverTimestamp(),
       });
       await addDoc(collection(db, "users", uid, "documents"), docItem);
+
+      // ✅ Send both user + admin emails for Jam
+{
+  const auth = getAuth();
+  const current = auth.currentUser;
+
+  // Prefer Firestore names if present, then props, then friendly defaults
+  const safeFirst =
+    (userDoc as any)?.firstName || firstName || "Magic";
+  const safeLast =
+    (userDoc as any)?.lastName || lastName || "User";
+  const fullName = `${safeFirst} ${safeLast}`;
+
+  await notifyBooking("jam", {
+    // EmailJS "To:" (user email); admin templates ignore this field
+    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+    user_full_name: fullName,
+    firstName: safeFirst,
+
+    wedding_date: weddingDate || "TBD",
+
+    // Link to the PDF we just uploaded
+    pdf_url: pdfUrl,
+    pdf_title: isAddon ? "Jam & Groove Add-On Receipt" : "Jam & Groove Agreement",
+
+    // Common details
+    total: totalEffective.toFixed(2),
+    line_items: (lineItems || []).join(", "),
+
+    // Optional finance details if you want them to appear in user templates
+    payment_now: amountDueToday.toFixed(2),
+    remaining_balance: (remaining ?? 0).toFixed(2),
+    final_due: prettyDate(weddingDate),
+
+    // Dashboard CTA
+    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+
+    // Ensure the admin headline/body shows the right product name
+    product_name: "Jam & Groove (DJ)",
+  });
+}
 
       // Groove Guide if applicable
       const boughtDJ = lineItems.some((i) => i.startsWith("DJ Wed&Done Package"));
