@@ -86,10 +86,10 @@ const TubacDessertContract: React.FC<TubacDessertContractProps> = ({
   const [weddingYMD, setWeddingYMD] = useState<string | null>(weddingDate || null);
   const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
 
-  // Was a signature already saved?
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("yumSignature"))
-  );
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   // ─────────────────────────────────────────────────────────────
   // Boot: subscribe once, capture minimal user fields, pin progress step

@@ -84,10 +84,10 @@ const VicVerradoDessertContract: React.FC<VicVerradoDessertContractProps> = ({
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
-  // Was a signature already saved?
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("vvDessertSignature"))
-  );
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   // ─────────────────────────────────────────────────────────────
   // Boot / progress + vv-namespaced mirrors

@@ -91,10 +91,10 @@ const SchnepfDessertContract: React.FC<SchnepfDessertContractProps> = ({
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
-  // Was a signature already saved?
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("schnepfDessertSignature"))
-  );
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   // ─────────────────────────────────────────────────────────────
   // Boot / progress + Schnepf-namespaced mirrors

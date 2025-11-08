@@ -82,9 +82,10 @@ const RubiDessertContract: React.FC<RubiDessertContractProps> = ({
 
   const [weddingYMD, setWeddingYMD] = useState<string | null>(weddingDate || null);
   const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("yumSignature"))
-  );
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   useEffect(() => {
     try {

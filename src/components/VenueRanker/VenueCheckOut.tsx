@@ -142,8 +142,30 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
   } = contractData;
 
   const total = Number(venuePrice) || 0;
-  const isPayingFull = Boolean(payFull);
-  const amountDueToday = isPayingFull ? total : Number(depositAmount) || 0;
+
+  // robust pay-full detection (handles boolean or string)
+  const isPayingFull = (() => {
+    const v = payFull;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      const s = v.toLowerCase();
+      if (s === "full" || s === "true" || s === "payfull") return true;
+      if (s === "monthly" || s === "deposit" || s === "false") return false;
+    }
+    // default to full (matches other contracts)
+    return true;
+  })();
+
+  // never let Stripe see 0 — if no deposit provided, fall back to 25%
+  const DEPOSIT_PCT = 0.25;
+  const fallbackDeposit = Math.round(total * DEPOSIT_PCT * 100) / 100;
+
+  const amountDueToday = isPayingFull
+    ? total
+    : Math.max(
+        0.01,
+        Math.round(((Number(depositAmount) || fallbackDeposit) + Number.EPSILON) * 100) / 100
+      );
 
   // Fallback for wedding date (source of truth for blocking / display)
   const weddingDateCandidate =
@@ -545,27 +567,37 @@ try {
           </p>
 
           {/* Stripe checkout form (Elements provider is higher up in the tree now) */}
-          <CheckoutForm
-            total={amountDueToday}
-            onSuccess={handleSuccess}
-            setStepSuccess={setStepSuccess}
-            isAddon={false}
-            customerEmail={userData.email || undefined}
-            customerName={`${firstNameLocal || firstName || "Magic"} ${
-              lastNameLocal || lastName || "User"
-            }`}
-            customerId={(() => {
-              try {
-                return (
-                  localStorage.getItem("stripeCustomerId") ||
-                  undefined
-                );
-              } catch {
-                return undefined;
-              }
-            })()}
-            receiptLabel="Venue Booking"
-          />
+          <div
+  className="px-elements"
+  aria-busy={false}
+  style={{
+    pointerEvents: "auto",
+    position: "relative",
+    zIndex: 5,
+  }}
+>
+  <CheckoutForm
+    total={amountDueToday}
+    onSuccess={handleSuccess}
+    setStepSuccess={setStepSuccess}
+    isAddon={false}
+    customerEmail={userData.email || undefined}
+    customerName={`${firstNameLocal || firstName || "Magic"} ${
+      lastNameLocal || lastName || "User"
+    }`}
+    customerId={(() => {
+      try {
+        return (
+          localStorage.getItem("stripeCustomerId") ||
+          undefined
+        );
+      } catch {
+        return undefined;
+      }
+    })()}
+    receiptLabel="Venue Booking"
+  />
+</div>
 
           <div style={{ textAlign: "center", marginTop: "1rem" }}>
             <button

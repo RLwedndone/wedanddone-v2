@@ -86,10 +86,10 @@ const OcotilloDessertContract: React.FC<OcotilloDessertContractProps> = ({
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
-  // Did they already sign this session / this venue flow?
-  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() =>
-    Boolean(signatureImage || localStorage.getItem("ocotilloDessertSignature"))
-  );
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   // ─────────────────────────────────────────────
   // Boot / progress mirrors for Ocotillo flow

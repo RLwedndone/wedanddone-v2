@@ -85,8 +85,10 @@ const [payFull, setPayFull] = useState(true);
 const [weddingYMD, setWeddingYMD] = useState<string | null>(weddingDate || null);
 const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
 
-  // Only consider a signature passed in via prop as "already signed"
-const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(() => Boolean(signatureImage));
+  // Consider "already signed" only if parent passes a valid data-URL image
+const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
+  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
+);
 
   // ─────────────────────────────────────────────────────────────
   // Boot: subscribe once, capture minimal user fields, pin progress step
