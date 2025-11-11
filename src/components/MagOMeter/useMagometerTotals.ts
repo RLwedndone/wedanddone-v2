@@ -30,20 +30,42 @@ type WnDPurchase = {
 
 type OutsidePurchase = { label: string; amount: number };
 
+const num = (v: any) => (typeof v === "number" && isFinite(v) ? v : 0);
+
 const getFullContractAmount = (p: WnDPurchase): number => {
-  if (p?.type === "manual") return 0; // outside items handled separately
-  if (typeof p.fullContractAmount === "number") return p.fullContractAmount;
-  if (typeof p.contractTotal === "number") return p.contractTotal;
-  if (typeof p.total === "number") return p.total;
+  // Outside/manual purchases are handled in the separate outside list
+  if (!p || p.type === "manual") return 0;
 
-  const payFull = !!p?.payFull;
-  const amount = Number(p?.amount ?? 0);
-  const deposit = Number(p?.deposit ?? 0);
-  const monthlyAmount = Number(p?.monthlyAmount ?? 0);
-  const months = Number(p?.months ?? p?.installments ?? p?.numMonths ?? 0);
+  // 1) Strong signals for "total contract price"
+  const strongTotals = [
+    p.fullContractAmount,
+    p.contractTotal,
+    (p as any).amountTotal,   // sometimes used by older checkouts
+    (p as any).grandTotal,    // sometimes used by venue flow
+    p.total,
+  ].map(num).filter(Boolean);
 
-  if (payFull) return amount || deposit + monthlyAmount * months || 0;
-  return Math.max(deposit + monthlyAmount * months, amount);
+  if (strongTotals.length) return Math.max(...strongTotals);
+
+  // 2) Infer total when we have payments metadata
+  const payFull = !!p.payFull;
+  const amountToday = num(p.amountChargedToday ?? p.amount); // today’s charge (often deposit)
+  const deposit = num(p.deposit ?? amountToday);
+  const monthly = num(p.monthlyAmount);
+  const months =
+    num((p as any).months) || num((p as any).installments) || num((p as any).numMonths);
+
+  // If they paid in full, prefer amountToday if it’s clearly the full amount
+  if (payFull) {
+    // If a monthly plan exists, compute total from it; otherwise assume amountToday was the full
+    const inferred = deposit + monthly * months;
+    return inferred > 0 ? inferred : amountToday;
+  }
+
+  // Not pay-in-full:
+  // Prefer an inferred plan total; otherwise fall back to the largest known number
+  const inferredPlanTotal = deposit + monthly * months;
+  return Math.max(inferredPlanTotal, amountToday, deposit);
 };
 
 export function useMagometerTotals() {
@@ -102,9 +124,21 @@ export function useMagometerTotals() {
     [outsidePurchases]
   );
 
+  const totalSpentCombined = totalWd + totalOutside;
+
+  // 👇 NEW: remember locally that the user has spent something
+  useEffect(() => {
+    try {
+      if (totalSpentCombined > 0) {
+        localStorage.setItem("wandHasSpend", "true");
+      }
+    } catch {}
+  }, [totalSpentCombined]);
+
   return {
     totalBudget: Number(budget) || 0,
-    totalSpent: totalWd + totalOutside,
+    totalSpent: totalSpentCombined,
+    hasAnySpend: totalSpentCombined > 0, // 👈 NEW (optional if you want to use it upstream)
     refresh,
   };
 }

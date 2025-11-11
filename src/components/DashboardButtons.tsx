@@ -145,9 +145,6 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   // 1) Live totals (Firestore)
   const { totalBudget: liveBudget, totalSpent: liveSpent } = useMagometerTotals();
 
-  // 2) LocalStorage fallback (for guests)
-  const [lsBudget, setLsBudget] = useState(0);
-  const [lsOutsideSpent, setLsOutsideSpent] = useState(0);
 
   const [yumCompletedLocal, setYumCompletedLocal] = useState(readYumCompletedLS);
   const [dessertCompletedLocal, setDessertCompletedLocal] = useState(readDessertCompletedLS);
@@ -207,34 +204,51 @@ useEffect(() => {
   };
 }, []);
 
-  useEffect(() => {
-    const pull = () => {
-      const b = parseInt(localStorage.getItem("magicBudget") || "0", 10);
-      const outside = JSON.parse(localStorage.getItem("outsidePurchases") || "[]");
-      const outsideSum = outside.reduce(
-        (sum: number, p: any) => sum + Number(p.amount || 0),
-        0
-      );
-      setLsBudget(b);
-      setLsOutsideSpent(outsideSum);
-    };
-    pull();
+  // 2) LocalStorage fallback (for guests) — init synchronously to avoid PNG flash
+const [lsBudget, setLsBudget] = useState<number>(() => {
+  try { return parseInt(localStorage.getItem("magicBudget") || "0", 10); } catch { return 0; }
+});
+const [lsOutsideSpent, setLsOutsideSpent] = useState<number>(() => {
+  try {
+    const arr = JSON.parse(localStorage.getItem("outsidePurchases") || "[]");
+    return Array.isArray(arr) ? arr.reduce((s: number, p: any) => s + Number(p.amount || 0), 0) : 0;
+  } catch { return 0; }
+});
 
-    window.addEventListener("purchaseMade", pull);
-    window.addEventListener("outsidePurchaseMade", pull);
-    window.addEventListener("budgetUpdated", pull);
-    return () => {
-      window.removeEventListener("purchaseMade", pull);
-      window.removeEventListener("outsidePurchaseMade", pull);
-      window.removeEventListener("budgetUpdated", pull);
-    };
-  }, []);
+// keep LS values in sync when things change
+useEffect(() => {
+  const pull = () => {
+    try {
+      setLsBudget(parseInt(localStorage.getItem("magicBudget") || "0", 10));
+      const arr = JSON.parse(localStorage.getItem("outsidePurchases") || "[]");
+      setLsOutsideSpent(Array.isArray(arr) ? arr.reduce((s: number, p: any) => s + Number(p.amount || 0), 0) : 0);
+    } catch {}
+  };
+  pull();
+  window.addEventListener("purchaseMade", pull);
+  window.addEventListener("outsidePurchaseMade", pull);
+  window.addEventListener("budgetUpdated", pull);
+  return () => {
+    window.removeEventListener("purchaseMade", pull);
+    window.removeEventListener("outsidePurchaseMade", pull);
+    window.removeEventListener("budgetUpdated", pull);
+  };
+}, []);
 
   // 3) Choose ONE source of truth to avoid double counting
-  const hasLive = (liveBudget ?? 0) > 0 || (liveSpent ?? 0) > 0;
-  const totalBudgetForWand = hasLive ? (liveBudget ?? 0) : lsBudget;
-  const totalSpentForWand  = hasLive ? (liveSpent  ?? 0) : lsOutsideSpent;
-  const videoOn = totalBudgetForWand > 0 && totalSpentForWand > 0;
+const hasLive = (liveBudget ?? 0) > 0 || (liveSpent ?? 0) > 0;
+const totalBudgetForWand = hasLive ? (liveBudget ?? 0) : lsBudget;
+const totalSpentForWand  = hasLive ? (liveSpent  ?? 0) : lsOutsideSpent;
+
+// compute gate via memo, and hydrate to avoid one-frame PNG flash
+const videoOn = useMemo(
+  () => totalBudgetForWand > 0 && totalSpentForWand > 0,
+  [totalBudgetForWand, totalSpentForWand]
+);
+
+// prevent a one-frame PNG flash on first paint
+const [hydrated, setHydrated] = useState(false);
+useEffect(() => { setHydrated(true); }, []);
 
   // (optional) debug
   useEffect(() => {
@@ -309,18 +323,18 @@ useEffect(() => {
               zIndex: 3,
             },
           ] as Hotspot[])),
-      // PNG wand only if video not ready
-      ...(!videoOn
-        ? ([
-            {
-              id: "hud-wand",
-              ...POS.hud.budgetWand,
-              iconSrc: ICONS.budgetWand,
-              onClick: onOpenBudget,
-              zIndex: 3,
-            },
-          ] as Hotspot[])
-        : []),
+      // PNG wand only if video not ready (and after initial hydration)
+...(!videoOn && hydrated
+  ? ([
+      {
+        id: "hud-wand",
+        ...POS.hud.budgetWand,
+        iconSrc: ICONS.budgetWand,
+        onClick: onOpenBudget,
+        zIndex: 3,
+      },
+    ] as Hotspot[])
+  : []),
       { id: "hud-book", ...POS.hud.magicBook, iconSrc: ICONS.magicBook, onClick: onOpenMagicBook, zIndex: 3 },
       { id: "hud-logo", ...POS.hud.logoCloud, iconSrc: ICONS.logoCloud, onClick: () => window.dispatchEvent(new CustomEvent("openOverlay", { detail: "wedanddoneinfo" })), zIndex: 5 }
     );

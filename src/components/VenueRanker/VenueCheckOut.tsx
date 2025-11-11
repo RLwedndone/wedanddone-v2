@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 // ⛔️ We no longer wrap Stripe Elements here.
 
 import { getAuth } from "firebase/auth";
-import { doc, getDoc, setDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, setDoc, arrayUnion, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { useUser } from "../../contexts/UserContext";
 import CheckoutForm from "../../CheckoutForm";
@@ -325,38 +325,62 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
           ).toLocaleDateString("en-US", { weekday: "long" })
         : "";
 
-      // Write booking info, purchases, docs, yum handoff, etc.
-      await setDoc(
-        userRef,
-        {
-          bookings: {
-            venue: true,
-            venueSlug,
-            venueName: venueNameFromLS,
-            planner: true,
-            createdAt: new Date().toISOString(),
-            dayOfWeek: safeDayOfWeek,
-            bookingId,
-          },
+// ---- Build purchase record for Mag-O-Meter (TOTAL contract, not just deposit) ----
+const purchase = {
+  type: "wdd",
+  category: "venue",
+  label: venueNameFromLS || "venue",
+  date: new Date().toISOString(),
+
+  // what was charged now vs the whole contract
+  amountChargedToday: isPayingFull ? Number(total || 0) : Number(amountDueToday || 0),
+
+  // plan metadata so totals can be derived if needed
+  payFull: !!isPayingFull,
+  deposit: isPayingFull ? 0 : Number(amountDueToday || 0),
+  monthlyAmount: isPayingFull ? 0 : Number(monthlyPayment || 0),
+  months: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+  installments: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+  numMonths: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+
+  // make TOTAL explicit for the hook
+  fullContractAmount: Number(total || 0),
+  contractTotal:     Number(total || 0),
+  total:             Number(total || 0),
+
+  items: ["venue"],
+};
+
+        await updateDoc(userRef, {
+          // append new doc + purchase safely
+          documents: arrayUnion({
+            title: "Venue Agreement",
+            url: pdfUrl,
+            uploadedAt: new Date().toISOString(),
+          }),
+          purchases: arrayUnion(purchase),
+        
+          // nested booking flags (won’t overwrite other bookings)
+          "bookings.venue": true,
+          "bookings.venueSlug": venueSlug,
+          "bookings.venueName": venueNameFromLS,
+          "bookings.planner": true,
+          "bookings.dayOfWeek": safeDayOfWeek,
+          "bookings.bookingId": bookingId,
+          "bookings.createdAt": new Date().toISOString(),
+        
+          // top-level flags
           dateLocked: true,
           weddingDateLocked: true,
           guestCount,
           guestCountLocked: true,
           venueSigned: true,
           venuePdfUrl: pdfUrl,
-          documents: [
-            ...existingDocs,
-            {
-              title: "Venue Agreement",
-              url: pdfUrl,
-              uploadedAt: new Date().toISOString(),
-            },
-          ],
-          purchases: arrayUnion({
-            label: "venue",
-            amount: Number((Number(amountDueToday) || 0).toFixed(2)),
-            date: new Date().toISOString(),
-          }),
+        
+          // progress (keep venueRanker intact)
+          "progress.yumYum": { source: "venue", step: "contract" },
+        
+          // detailed booking data for handoffs
           venueRankerData: {
             booking: {
               status: isPayingFull ? "paid_in_full" : "deposit_paid",
@@ -376,12 +400,12 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
               },
             },
           },
-          progress: {
-            yumYum: { source: "venue", step: "contract" },
-          },
-        },
-        { merge: true }
-      );
+        });
+        
+        // fire UI events for dashboard + booking sync
+        window.dispatchEvent(new Event("documentsUpdated"));
+        window.dispatchEvent(new Event("purchaseMade"));
+        window.dispatchEvent(new Event("venueCompletedNow"));
 
       // ✅ NEW: Mark this date as booked in Firestore (adds to venues/{slug}.bookedDates)
 try {

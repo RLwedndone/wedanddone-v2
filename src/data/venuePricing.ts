@@ -229,14 +229,21 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     usesSantis: false,
     customCaterer: "Encanterra In-House Catering",
     maxCapacity: 250,
+  
+    // keep if you still charge a partner add-on
     cateringAddOn: 1000,
-    pricing: {
-      50: 2500,
-      100: 4000,
-      150: 4000,
-      200: 4000,
-      250: 4000,
+  
+    // ✅ Flat site fee by day of week (no tiers)
+    weekdayPricing: {
+      monday:    4000,
+      tuesday:   4000,
+      wednesday: 4000,
+      thursday:  4000,
+      friday:    5000,
+      saturday:  5000,
+      sunday:    4000,
     },
+  
     marginTiers: [
       { min: 1200, max: 4999, margin: 2200 },
       { min: 5000, max: 8000, margin: 2800 },
@@ -393,25 +400,28 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     allowsWhiskAndPaddle: false,
   },
 
-  // FLAT site fee (was tier map, but values were identical)
-  valleyho: {
-    venueId: "valleyho",
-    displayName: "Hotel Valley Ho",
-    usesSantis: false,
-    customCaterer: "Hotel Valley Ho In-House Catering",
-    cateringAddOn: 1000,
-    maxCapacity: 200,
-    siteFeeFlat: 3495,
-    marginTiers: [
-      { min: 1200, max: 4999, margin: 2200 },
-      { min: 5000, max: 8000, margin: 2800 },
-      { min: 8001, max: 999999, margin: 3300 },
-    ],
-    deposit: 5000,
-    allowsSundayBooking: true,
-    allowsWhiskAndPaddle: false,
-    rentalTaxRate: 0.0225,
-  },
+  // FLAT site fee (Fri–Sun only)
+valleyho: {
+  venueId: "valleyho",
+  displayName: "Hotel Valley Ho",
+  usesSantis: false,
+  customCaterer: "Hotel Valley Ho In-House Catering",
+  cateringAddOn: 1000,
+  maxCapacity: 200,
+  siteFeeFlat: 3495,
+  marginTiers: [
+    { min: 1200, max: 4999, margin: 2200 },
+    { min: 5000, max: 8000, margin: 2800 },
+    { min: 8001, max: 999999, margin: 3300 },
+  ],
+  deposit: 5000,
+  allowsSundayBooking: true,           // keep Sunday allowed
+  allowsWhiskAndPaddle: false,
+  rentalTaxRate: 0.0225,
+
+  // ⬇️ Block Mon–Thu
+  closedWeekdays: ["monday", "tuesday", "wednesday", "thursday"],
+},
 
   lakehouse: {
     venueId: "lakehouse",
@@ -679,35 +689,58 @@ verrado: {
   allowsWhiskAndPaddle: true,
 },
 
-  tubac: {
-    venueId: "tubac",
-    displayName: "Tubac Golf Resort and Spa",
-    usesSantis: false,
-    cateringAddOn: 1000,
-    maxCapacity: 250,
-    pricing: {
-      50: 4200,
-      100: 5300,
-      150: 5300,
-      200: 5300,
-      250: 10000,
-    },
-    guestCap: 250,
-    marginTiers: [
-      { min: 1200, max: 4999, margin: 2200 },
-      { min: 5000, max: 8000, margin: 2800 },
-      { min: 8001, max: 999999, margin: 3300 },
-    ],
-    deposit: 0, // using depositCalculation below
-    depositCalculation: {
-      baseSiteFee: 10000,
-      fridayFoodAndBevMin: 14000,
-      perGuestFoodAndBev: 88,
-      depositPercent: 0.25,
-    },
-    allowsSundayBooking: true,
-    allowsWhiskAndPaddle: true,
+tubac: {
+  venueId: "tubac",
+  displayName: "Tubac Golf Resort and Spa",
+  usesSantis: false,
+  cateringAddOn: 1000,
+  maxCapacity: 250,
+
+  // ✅ Tiered pricing (auto-picks smallest tier ≥ guestCount)
+  //  • Up to 70 guests → Small Wedding ........ $4,200
+  //  • 71–200 guests  → Celebratory Wedding ... $5,300
+  //  • 201–250 guests → Otero Lawn South ...... $10,000
+  pricing: {
+    70: 4200,
+    200: 5300,
+    250: 10000,
   },
+
+  // ✅ Same structure as Vic & Verrado
+  spaceByTier: {
+    ceremony: "Mission-style Chapel (patio)",
+    reception: [
+      { maxGuests: 70,  name: "Apache Patio & Apache Private" },
+      { maxGuests: 200, name: "Geronimo Ballroom & Geronimo Deck" },
+      { maxGuests: 250, name: "Otero Lawn South" },
+    ],
+  },
+
+  includedStripPatterns: [
+    "Apache Patio",
+    "Geronimo Ballroom",
+    "Geronimo Deck",
+    "Otero Lawn South",
+    "Mission-style Chapel",
+  ],
+
+  // Existing deposit & margin logic
+  guestCap: 250,
+  marginTiers: [
+    { min: 1200, max: 4999, margin: 2200 },
+    { min: 5000, max: 8000, margin: 2800 },
+    { min: 8001, max: 999999, margin: 3300 },
+  ],
+  deposit: 0,
+  depositCalculation: {
+    baseSiteFee: 10000,
+    fridayFoodAndBevMin: 14000,
+    perGuestFoodAndBev: 88,
+    depositPercent: 0.25,
+  },
+  allowsSundayBooking: true,
+  allowsWhiskAndPaddle: true,
+},
 };
 
 // ─────────────────────────────────────────────────────────────

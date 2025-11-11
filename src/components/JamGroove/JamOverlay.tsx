@@ -84,7 +84,7 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
   const [userWeddingDate, setUserWeddingDate] = useState<string | null>(null);
   const [userDayOfWeek, setUserDayOfWeek] = useState<string | null>(null);
   const [dateLocked, setDateLocked] = useState<boolean>(false);
-  const userHasLockedDate = !!userWeddingDate && !!userDayOfWeek;
+  const userHasLockedDate = dateLocked || (!!userWeddingDate && !!userDayOfWeek);
   const [jamAddOnQuantities, setJamAddOnQuantities] = useState<Record<string, number>>({});
   const [hasDJBase, setHasDJBase] = useState(false);
 
@@ -97,25 +97,49 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
   }, []);
 
   // Load user data
-  useEffect(() => {
-    (async () => {
-      const user = getAuth().currentUser;
-      if (!user) return;
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          setUserWeddingDate(data.weddingDate || null);
-          setUserDayOfWeek(data.dayOfWeek || null);
-          setDateLocked(data.dateLocked || false);
-          setHasDJBase(data.bookings?.jam || false);
-          if (data?.jamGrooveSavedStep) setStepRaw(data.jamGrooveSavedStep as JamStep);
-        }
-      } catch (e) {
-        console.error("❌ Error fetching jam data:", e);
+useEffect(() => {
+  (async () => {
+    const user = getAuth().currentUser;
+    if (!user) return;
+    try {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (!snap.exists()) return;
+
+      const data: any = snap.data();
+
+      // Wedding date from FS (with fallbacks to nested + LS)
+      const fsWeddingDate =
+        data.weddingDate ||
+        data.wedding?.date ||
+        localStorage.getItem("weddingDate") ||
+        null;
+
+      // Day of week can be under bookings.dayOfWeek, or top-level dayOfWeek; else compute from date
+      const fsDayOfWeek =
+        data.bookings?.dayOfWeek ||
+        data.dayOfWeek ||
+        (fsWeddingDate
+          ? new Date(`${fsWeddingDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" })
+          : null);
+
+      // Lock flag from FS or LS
+      const fsLocked =
+        Boolean(data.weddingDateLocked || data.dateLocked) ||
+        localStorage.getItem("weddingDateLocked") === "true";
+
+      setUserWeddingDate(fsWeddingDate);
+      setUserDayOfWeek(fsDayOfWeek);
+      setDateLocked(fsLocked);
+      setHasDJBase(Boolean(data.bookings?.jam));
+
+      if (data?.jamGrooveSavedStep) {
+        setStepRaw(data.jamGrooveSavedStep as JamStep);
       }
-    })();
-  }, []);
+    } catch (e) {
+      console.error("❌ Error fetching jam data:", e);
+    }
+  })();
+}, []);
 
   // 🪩 Check if the user already booked Jam & Groove
 const [alreadyBooked, setAlreadyBooked] = useState(false);
@@ -150,6 +174,24 @@ useEffect(() => {
         .catch((err) => console.error("❌ Error saving step:", err));
     }
   }, [step]);
+
+  // React to dateLockedNow (set by other flows) and LS cache
+useEffect(() => {
+  const handler = () => {
+    const d = localStorage.getItem("weddingDate");
+    const locked = localStorage.getItem("weddingDateLocked") === "true";
+    const dow = d
+      ? new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" })
+      : null;
+
+    setUserWeddingDate(d);
+    setUserDayOfWeek(dow);
+    setDateLocked(locked);
+  };
+
+  window.addEventListener("dateLockedNow", handler);
+  return () => window.removeEventListener("dateLockedNow", handler);
+}, []);
 
   const handleSuccess = () => {
     window.dispatchEvent(new Event("jamCompletedNow"));
@@ -193,8 +235,8 @@ useEffect(() => {
     }
 
     if (includesDJ) {
-      if (!userWeddingDate || !userDayOfWeek) setStep("calendar");
-      else setStep("editdate");
+      // Always go to the calendar step; it will show Confirm or Edit as appropriate
+      setStep("calendar");
     } else {
       setStep("contract");
     }
@@ -361,17 +403,25 @@ useEffect(() => {
               />
             )}
   
-            {step === "calendar" && userHasLockedDate && (
-              <WeddingDateConfirmScreen
-                formattedDate={userWeddingDate}
-                dayOfWeek={userDayOfWeek}
-                userHasDate={!!userWeddingDate}
-                weddingDateLocked={dateLocked}
-                onConfirm={() => setStep("contract")}
-                onEditDate={() => setStep("editdate")}
-                onClose={onClose}
-              />
-            )}
+  {step === "calendar" && userHasLockedDate && (
+  <WeddingDateConfirmScreen
+    formattedDate={
+      userWeddingDate
+        ? new Date(`${userWeddingDate}T12:00:00`).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : ""
+    }
+    dayOfWeek={userDayOfWeek || ""}
+    userHasDate={!!userWeddingDate}
+    weddingDateLocked={!!dateLocked}
+    onConfirm={() => setStep("contract")}
+    onEditDate={() => setStep("editdate")}
+    onClose={onClose}
+  />
+)}
   
             {step === "calendar" && !userHasLockedDate && (
               <WeddingDateScreen

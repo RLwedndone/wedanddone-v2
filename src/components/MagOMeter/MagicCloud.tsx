@@ -278,20 +278,12 @@ const handleSave = async () => {
               }}
             />
             <button
-              onClick={handleSave}
-              style={{
-                background: "#ff89d6",
-                color: "#fff",
-                padding: "0.6rem 1.25rem",
-                border: "none",
-                borderRadius: "25px",
-                fontSize: "1rem",
-                width: "40%",
-                cursor: "pointer",
-              }}
-            >
-              Save My Budget
-            </button>
+  className="boutique-primary-btn"
+  onClick={handleSave}
+  style={{ minWidth: 220 }}
+>
+  Save My Budget
+</button>
           </>
         ) : (
           <>

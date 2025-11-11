@@ -1079,105 +1079,106 @@ try {
   planPreview?.total != null && (
     <div style={{ textAlign: "center", marginTop: "2rem" }}>
       {isManualConfirm ? (
-        approvalStatus === "requested" ? (
-          <>
-            <p
-              style={{
-                fontSize: "1rem",
-                fontWeight: 600,
-                color: "#2c62ba",
-                lineHeight: 1.4,
-                marginBottom: "0.75rem",
-              }}
-            >
-              Request Sent ✨
-            </p>
-            <p
-              style={{
-                fontSize: "0.9rem",
-                color: "#444",
-                maxWidth: 360,
-                margin: "0 auto",
-                lineHeight: 1.4,
-              }}
-            >
-              We’re double-checking your date with {details.title}. We’ll email
-              you as soon as we confirm!
-            </p>
-          </>
-        ) : approvalStatus === "declined" ? (
-          <p
-            style={{
-              fontSize: "1rem",
-              fontWeight: 600,
-              color: "#b30000",
-              lineHeight: 1.4,
-            }}
-          >
-            Sorry — that date isn’t available. Please pick another.
-          </p>
-        ) : (
-          // approved → show an optional banner + enable booking
-          <>
-            <p
-              style={{
-                fontSize: "1rem",
-                fontWeight: 700,
-                color: "#1a7f37",
-                marginBottom: "0.5rem",
-              }}
-            >
-              ✅ Approved by {details.title}! You can book now.
-            </p>
-            <img
-              src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
-              alt="Book It Now"
-              onClick={handleBookItClick}
-              style={{
-                width: "120px",
-                height: "auto",
-                cursor: "pointer",
-                transition: "transform 0.3s ease, filter 0.3s ease",
-                filter: "drop-shadow(0 0 4px gold)",
-                display: "block",
-                margin: "0 auto",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.1)";
-                e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
-                e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
-              }}
-            />
-          </>
-        )
-      ) : (
-        // instant-book venues (no manual confirm)
-        <img
-          src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
-          alt="Book It Now"
-          onClick={handleBookItClick}
-          style={{
-            width: "120px",
-            height: "auto",
-            cursor: "pointer",
-            transition: "transform 0.3s ease, filter 0.3s ease",
-            filter: "drop-shadow(0 0 4px gold)",
-            display: "block",
-            margin: "0 auto",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "scale(1.1)";
-            e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "scale(1)";
-            e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
-          }}
-        />
-      )}
+  approvalStatus === "approved" ? (
+    <>
+      <p
+        style={{
+          fontSize: "1rem",
+          fontWeight: 700,
+          color: "#1a7f37",
+          marginBottom: "0.5rem",
+        }}
+      >
+        ✅ Approved by {details.title}! You can book now.
+      </p>
+      <img
+        src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
+        alt="Book It Now"
+        onClick={handleBookItClick}
+        style={{
+          width: "120px",
+          height: "auto",
+          cursor: "pointer",
+          transition: "transform 0.3s ease, filter 0.3s ease",
+          filter: "drop-shadow(0 0 4px gold)",
+          display: "block",
+          margin: "0 auto",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.1)";
+          e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+        }}
+      />
+    </>
+  ) : approvalStatus === "requested" ? (
+    <>
+      <p style={{ fontSize: "1rem", fontWeight: 600, color: "#2c62ba", lineHeight: 1.4, marginBottom: "0.75rem" }}>
+        Request Sent ✨
+      </p>
+      <p style={{ fontSize: "0.9rem", color: "#444", maxWidth: 360, margin: "0 auto", lineHeight: 1.4 }}>
+        We’re double-checking your date with {details.title}. We’ll email you as soon as we confirm!
+      </p>
+    </>
+  ) : approvalStatus === "declined" ? (
+    <p style={{ fontSize: "1rem", fontWeight: 600, color: "#b30000", lineHeight: 1.4 }}>
+      Sorry — that date isn’t available. Please pick another.
+    </p>
+  ) : (
+    // approvalStatus === "none" (default) → prompt to check availability
+    <>
+      <img
+        src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
+        alt="Check Availability"
+        onClick={() => setShowManualConfirmModal(true)}  // or handleBookItClick (it opens the modal when not approved)
+        style={{
+          width: "120px",
+          height: "auto",
+          cursor: "pointer",
+          transition: "transform 0.3s ease, filter 0.3s ease",
+          filter: "drop-shadow(0 0 4px gold)",
+          display: "block",
+          margin: "0 auto",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.1)";
+          e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+        }}
+      />
+    </>
+  )
+) : (
+  // Not a manual venue → normal immediate booking UI
+  <img
+    src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
+    alt="Book It Now"
+    onClick={handleBookItClick}
+    style={{
+      width: "120px",
+      height: "auto",
+      cursor: "pointer",
+      transition: "transform 0.3s ease, filter 0.3s ease",
+      filter: "drop-shadow(0 0 4px gold)",
+      display: "block",
+      margin: "0 auto",
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "scale(1.1)";
+      e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "scale(1)";
+      e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+    }}
+  />
+)}
     </div>
   )}
       </div>

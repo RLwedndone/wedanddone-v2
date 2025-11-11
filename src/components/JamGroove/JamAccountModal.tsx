@@ -7,7 +7,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { saveUserProfile } from "../../utils/saveUserProfile";
 
@@ -53,25 +53,57 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({ onSuccess, onClose, c
     }
   };
 
-  const handleSignup = async () => {
-    try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
+  // Checks Firestore for an existing (and/or locked) wedding date and
+// stores lightweight flags for the Jam flow to react to.
+const cacheExistingWeddingDateFlags = async (uid: string) => {
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? snap.data() : {};
+  const locked = Boolean((data as any)?.weddingDateLocked);
+  const ymd =
+    (data as any)?.weddingDate ||
+    (data as any)?.wedding?.date ||
+    null;
 
-      await saveUserProfile({ firstName, lastName, email, uid: userCred.user.uid });
-
-      await setDoc(
-        doc(db, "users", userCred.user.uid),
-        { jamGrooveSavedStep: currentStep || "intro" },
-        { merge: true }
-      );
-
-      await migrateGuestJamGrooveData(userCred.user.uid);
-      onSuccess();
-    } catch (err: any) {
-      setError(err.message);
+  try {
+    if (ymd) {
+      localStorage.setItem("weddingDate", ymd);
+      // Use this to skip date entry and show confirm immediately
+      localStorage.setItem("jamSkipDateCapture", "true");
     }
-  };
+    if (locked && ymd) {
+      // Optional: a stronger flag if you need to treat "locked" differently
+      localStorage.setItem("jamHasLockedWeddingDate", "true");
+    }
+  } catch {}
+};
+
+  // make sure cacheExistingWeddingDateFlags(uid: string) is defined above this
+
+const handleSignup = async () => {
+  try {
+    const userCred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
+
+    await saveUserProfile({ firstName, lastName, email, uid: userCred.user.uid });
+
+    await setDoc(
+      doc(db, "users", userCred.user.uid),
+      { jamGrooveSavedStep: currentStep || "intro" },
+      { merge: true }
+    );
+
+    // carry over any guest Jam data after signup
+    await migrateGuestJamGrooveData(userCred.user.uid);
+
+    // ⬇️ new: cache Firestore wedding date flags for Jam flow
+    await cacheExistingWeddingDateFlags(userCred.user.uid);
+
+    onSuccess();
+  } catch (err: any) {
+    setError(err.message);
+  }
+};
 
   const handleGoogleSignup = async () => {
     try {
@@ -92,6 +124,13 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({ onSuccess, onClose, c
       );
 
       await migrateGuestJamGrooveData(result.user.uid);
+
+      await migrateGuestJamGrooveData(result.user.uid);
+
+// ⬇️ add this
+await cacheExistingWeddingDateFlags(result.user.uid);
+
+onSuccess();
       onSuccess();
     } catch (err: any) {
       setError(err.message);

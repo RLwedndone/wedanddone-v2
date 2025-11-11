@@ -724,3 +724,36 @@
   border: 0;
   display: block;
 }
+/* Consistent “slot” for the wand so PNG and video match exactly */
+.wand-slot {
+  position: relative;
+  /* width scales by screen; height follows aspect */
+  --wand-w: 120px;              /* mobile default */
+  width: var(--wand-w);
+  aspect-ratio: 0.42;           /* tall + skinny (WAND_ASPECT) */
+  z-index: 1;
+  cursor: pointer;
+}
+
+/* Desktop/tablet upsize so it visually matches the book */
+@media (min-width: 768px) {
+  .wand-slot { --wand-w: 150px; }
+}
+@media (min-width: 1024px) {
+  .wand-slot { --wand-w: 180px; } /* tweak until it lines up with the book */
+}
+
+/* Make media perfectly fill the slot without distortion */
+.wand-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;  /* preserves transparent edges in the video */
+  display: block;
+  /* Subtle hover pop (optional) */
+  transition: transform 0.25s ease;
+}
+.wand-slot:hover .wand-media {
+  transform: scale(1.06);
+}

@@ -1,11 +1,11 @@
-// src/components/venue-ranker/ScrollOfPossibilities.tsx
+// src/components/venue-ranker/ScrollofPossibilities.tsx
 import { useEffect, useState } from "react";
 import { auth, db } from "../../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { venueToCastleImage } from "../../utils/venueToCastleImage";
 import CastleModal from "./CastleModal";
 
-interface ScrollOfPossibilitiesProps {
+interface ScrollofPossibilitiesProps {
   onClose: () => void;
   setCurrentScreen: (screen: string) => void;
   setCurrentIndex: (index: number) => void;
@@ -18,7 +18,20 @@ interface VenueRankerSelections {
   rankings: Record<string, number>;
 }
 
-const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
+// Cache keys
+const LS_SELECTED_KEY = "venueRankerSelectedVenues"; // JSON stringified array of slugs
+const LS_DATE_KEY = "venueWeddingDate";
+const LS_GUESTS_KEY = "venueGuestCount";
+
+// Coerce rankings object into a selected list (scores >= 2)
+function computeSelectedFromRankings(rankings: Record<string, any> | undefined | null): string[] {
+  if (!rankings || typeof rankings !== "object") return [];
+  return Object.entries(rankings)
+    .filter(([, v]) => Number(v) >= 2) // 3=favorite, 2=could work
+    .map(([slug]) => slug);
+}
+
+const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
   onClose,
   setCurrentScreen,
   setCurrentIndex,
@@ -32,42 +45,114 @@ const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
 
   useEffect(() => {
     localStorage.setItem("venueRankerCheckpoint", "scroll-of-possibilities");
-
-    // Pull persisted date + guests
-    const storedDate = localStorage.getItem("venueWeddingDate");
-    const storedGuests = localStorage.getItem("venueGuestCount");
+  
+    // Pull persisted date + guests (kept as-is)
+    const storedDate = localStorage.getItem(LS_DATE_KEY);
+    const storedGuests = localStorage.getItem(LS_GUESTS_KEY);
     if (storedDate) setWeddingDate(storedDate);
     if (storedGuests) setGuestCount(parseInt(storedGuests));
-
+  
     const fetchVenueSelections = async () => {
-      let selections: VenueRankerSelections | null = null;
+      // 0) Fast path: cached selected slugs from a previous visit
+      try {
+        const cached = localStorage.getItem(LS_SELECTED_KEY);
+        if (cached) {
+          const arr = JSON.parse(cached);
+          if (Array.isArray(arr) && arr.length) {
+            setAvailableVenues(arr);
+            // also hydrate venueDetails in background
+            const info: Record<string, any> = {};
+            await Promise.all(
+              arr.map(async (venueSlug: string) => {
+                try {
+                  const venueRef = doc(db, "venues", venueSlug);
+                  const vsnap = await getDoc(venueRef);
+                  if (vsnap.exists()) info[venueSlug] = vsnap.data();
+                } catch {}
+              })
+            );
+            setVenueDetails(info);
+            return; // done
+          }
+        }
+      } catch {}
+  
+      // 1) Try Firestore on the user doc
       const user = auth.currentUser;
-
+      let selected: string[] = [];
+  
       if (user) {
         try {
-          const docRef = doc(db, "users", user.uid);
-          const snap = await getDoc(docRef);
-          if (snap.exists()) selections = snap.data().venueRankerSelections;
+          const userRef = doc(db, "users", user.uid);
+          const snap = await getDoc(userRef);
+          const data: any = snap.exists() ? snap.data() : null;
+  
+          // Primary (current) shape
+          if (!selected.length && data?.venueRankerSelections?.rankings) {
+            selected = computeSelectedFromRankings(data.venueRankerSelections.rankings);
+          }
+  
+          // Older shape: venueRanker.rankings
+          if (!selected.length && data?.venueRanker?.rankings) {
+            selected = computeSelectedFromRankings(data.venueRanker.rankings);
+          }
+  
+          // Older shape: separate arrays favorites/couldWork
+          if (!selected.length && (data?.venueRanker?.favorites || data?.venueRanker?.couldWork)) {
+            const favs = Array.isArray(data?.venueRanker?.favorites) ? data.venueRanker.favorites : [];
+            const could = Array.isArray(data?.venueRanker?.couldWork) ? data.venueRanker.couldWork : [];
+            selected = [...new Set([...favs, ...could])];
+          }
         } catch (error) {
-          console.error("Error fetching Firestore venueRankerSelections:", error);
+          console.error("Error fetching Firestore user doc for venue selections:", error);
+        }
+  
+        // 2) Fallback: subcollection doc `users/{uid}/venueRankerData/prefs`
+        if (!selected.length) {
+          try {
+            const prefsRef = doc(db, "users", user.uid, "venueRankerData", "prefs");
+            const psnap = await getDoc(prefsRef);
+            if (psnap.exists()) {
+              const pdata: any = psnap.data();
+              if (pdata?.rankings) {
+                selected = computeSelectedFromRankings(pdata.rankings);
+              } else if (Array.isArray(pdata?.favorites) || Array.isArray(pdata?.couldWork)) {
+                const favs = Array.isArray(pdata?.favorites) ? pdata.favorites : [];
+                const could = Array.isArray(pdata?.couldWork) ? pdata.couldWork : [];
+                selected = [...new Set([...favs, ...could])];
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching venueRankerData/prefs:", e);
+          }
         }
       }
-
-      if (!selections) {
-        const stored = localStorage.getItem("venueRankerSelections");
-        if (stored) selections = JSON.parse(stored);
+  
+      // 3) Final fallback: localStorage blob we used earlier in the flow
+      if (!selected.length) {
+        try {
+          const stored = localStorage.getItem("venueRankerSelections");
+          if (stored) {
+            const selections = JSON.parse(stored);
+            selected = computeSelectedFromRankings(selections?.rankings);
+            if (!selected.length && Array.isArray(selections?.vibeSelections)) {
+              // old guest-mode fallback (just show vibe picks if rankings missing)
+              selected = selections.vibeSelections;
+            }
+          }
+        } catch {}
       }
-
-      if (selections) {
-        const selectedVenues: string[] = [];
-        for (const [venue, score] of Object.entries(selections.rankings || {})) {
-          if (score === 3 || score === 2) selectedVenues.push(venue);
-        }
-        setAvailableVenues(selectedVenues);
-
-        // Load venue docs for pricing/availability (kept for future use)
-        const venueInfo: Record<string, any> = {};
-        for (const venueSlug of selectedVenues) {
+  
+      // Save + render
+      setAvailableVenues(selected);
+      try {
+        localStorage.setItem(LS_SELECTED_KEY, JSON.stringify(selected));
+      } catch {}
+  
+      // hydrate venueDetails (non-blocking)
+      const venueInfo: Record<string, any> = {};
+      await Promise.all(
+        selected.map(async (venueSlug) => {
           try {
             const venueRef = doc(db, "venues", venueSlug);
             const vsnap = await getDoc(venueRef);
@@ -75,11 +160,11 @@ const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
           } catch (err) {
             console.error(`Error fetching venue data for ${venueSlug}:`, err);
           }
-        }
-        setVenueDetails(venueInfo);
-      }
+        })
+      );
+      setVenueDetails(venueInfo);
     };
-
+  
     fetchVenueSelections();
   }, []);
 
@@ -271,4 +356,4 @@ const ScrollOfPossibilities: React.FC<ScrollOfPossibilitiesProps> = ({
   );
 };
 
-export default ScrollOfPossibilities;
+export default ScrollofPossibilities;

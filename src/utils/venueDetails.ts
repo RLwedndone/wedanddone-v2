@@ -123,7 +123,7 @@ export const venueDetails: Record<string, VenueDetails> = {
     title: "The Ocotillo",
     castleConsiderations: [
       "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
-      "💵 Food & bev minimum: <strong>$8K-$10K</strong> (before service charge and tax)",
+      "💵 Food & bev minimum: <strong>$8K</strong> (before service charge and tax)",
       "All-outdoor venue with optional tenting or indoor move available at added cost",
       "Amplified sound must end by 9PM due to City of Phoenix noise ordinance",
       "Event may be rescheduled with 60 days' notice"
@@ -202,9 +202,12 @@ export const venueDetails: Record<string, VenueDetails> = {
 
   rubihouse: {
     title: "The Rubi House",
-    castleConsiderations: [
-      "Unique venue details coming soon"
-    ],
+      castleConsiderations: [
+        "📍 Located in Tucson — about 110 miles and nearly 2 hours from Phoenix Sky Harbor Airport",
+        "🍽️ Catering <strong>is included</strong> in the venue price",
+        "🏙️ City setting — Expect classic Tucson streetscapes around this historic gem, including nearby sidewalks, utility lines, and local flavor.",
+        "🏛️ Historic building quirks — rented 'as-is', so expect charm with some character",
+      ],
     videoLink: "https://player.vimeo.com/video/829596336",
     collection: "fable"
   }

@@ -1,5 +1,5 @@
 // src/components/jam/JamCheckOut.tsx
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import CheckoutForm from "../../CheckoutForm";
 import { useUser } from "../../contexts/UserContext";
 import { getAuth } from "firebase/auth";
@@ -144,6 +144,34 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // On mount, read weddingDate/weddingDateLocked so cart/confirm step behaves correctly
+useEffect(() => {
+  const u = getAuth().currentUser;
+  if (!u) return;
+
+  (async () => {
+    try {
+      const snap = await getDoc(doc(db, "users", u.uid));
+      const data = snap.data() || {};
+      const ymd: string | null =
+        (data as any)?.weddingDate ||
+        (data as any)?.wedding?.date ||
+        localStorage.getItem("weddingDate") ||
+        null;
+
+      const locked =
+        (data as any)?.weddingDateLocked === true || Boolean(ymd);
+
+      try {
+        if (ymd) localStorage.setItem("weddingDate", ymd);
+        localStorage.setItem("weddingDateLocked", String(locked));
+      } catch {}
+    } catch (e) {
+      console.warn("[JamCheckOut] failed to read wedding date:", e);
+    }
+  })();
+}, []);
+
   if (!userData) return <p style={{ textAlign: "center" }}>Loading your info...</p>;
 
   // Payment math (prefer provided flat deposit, else LS, else 25%)
@@ -225,11 +253,19 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
         documents: arrayUnion(docItem),
         purchases: arrayUnion(purchase),
         spendTotal: increment(amountDueToday),
-        bookings: { ...(userDoc as any)?.bookings, jam: true },
+        "bookings.jam": true,                 // ✅ write nested key
+        "bookings.updatedAt": serverTimestamp(),
         weddingDateLocked: true,
         lastPurchaseAt: serverTimestamp(),
       });
       await addDoc(collection(db, "users", uid, "documents"), docItem);
+
+      // Cache wedding date lock locally and notify the UI
+try {
+  if (weddingDate) localStorage.setItem("weddingDate", weddingDate);
+  localStorage.setItem("weddingDateLocked", "true");
+} catch {}
+window.dispatchEvent(new Event("dateLockedNow"));
 
       // ✅ Send both user + admin emails for Jam
 {

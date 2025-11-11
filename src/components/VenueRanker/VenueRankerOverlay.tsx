@@ -15,7 +15,7 @@ import VenueAccountModal from "./VenueAccountModal";
 import VenueGuestCountScreen from "./VenueGuestCountScreen";
 import VenueRankerContract from "./VenueRankerContract";
 import VenueThankYou from "./VenueThankYou";
-import ScrollOfPossibilities from "./ScrollofPossibilities";
+import ScrollofPossibilities from "./ScrollofPossibilities";
 import VenueCheckOut from "./VenueCheckOut";
 
 
@@ -43,6 +43,19 @@ import RankerCompleteScreen from "./RankerCompleteScreen";
 import "../../styles/globals/boutique.master.css";
 import "../../styles/layouts/ScrollOfPossibilities.css";
 
+const LS_KEY = "venueRankerSelections";
+
+function computeBuckets(rankings: Record<string, number>) {
+  const favorites: string[] = [];
+  const couldWork: string[] = [];
+  for (const [slug, score] of Object.entries(rankings || {})) {
+    const n = Number(score);
+    if (n >= 3) favorites.push(slug);
+    else if (n >= 2) couldWork.push(slug);
+  }
+  return { favorites, couldWork };
+}
+
 interface VenueRankerOverlayProps {
   onClose: () => void;
   startAt?: string;
@@ -66,6 +79,45 @@ const VenueRankerOverlay: React.FC<VenueRankerOverlayProps> = ({ onClose, startA
     vibeSelections: [],
     rankings: {},
   });
+
+  const flushVenueSelections = async () => {
+    // 1) Local cache
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(venueRankerSelections));
+      const { favorites, couldWork } = computeBuckets(venueRankerSelections.rankings);
+      localStorage.setItem("venueRankerFavorites", JSON.stringify(favorites));
+      localStorage.setItem("venueRankerCouldWork", JSON.stringify(couldWork));
+    } catch {}
+  
+    // 2) Firestore mirror (if logged in)
+    const user = auth.currentUser;
+    if (!user) return;
+  
+    try {
+      const { favorites, couldWork } = computeBuckets(venueRankerSelections.rankings);
+  
+      await updateDoc(doc(db, "users", user.uid), {
+        venueRankerSelections: venueRankerSelections,
+        venueRanker: { rankings: venueRankerSelections.rankings, favorites, couldWork },
+        "progress.ranker.updatedAt": serverTimestamp(),
+      });
+  
+      // optional: also keep a tiny subdoc where some readers expect it
+      await updateDoc(
+        doc(db, "users", user.uid, "venueRankerData", "prefs"),
+        {
+          rankings: venueRankerSelections.rankings,
+          favorites,
+          couldWork,
+          exploreMode: venueRankerSelections.exploreMode,
+          vibeSelections: venueRankerSelections.vibeSelections,
+        }
+      ).catch(() => {}); // ignore if subcollection doesn’t exist
+    } catch (e) {
+      // non-fatal; UI still has local copy
+      console.warn("Could not flush venue selections:", e);
+    }
+  };
 
   // --- hydrate saved selections (local) ---
 useEffect(() => {
@@ -286,7 +338,10 @@ const rebuildListFromSaved = () => {
     }
   };
 
-  const handleShowMagicalOptions = () => {
+  const handleShowMagicalOptions = async () => {
+    // Make sure selections are persisted before we leave this screen
+    await flushVenueSelections();
+  
     const user = auth.currentUser;
     if (!user) {
       setShowAccountModal(true);
@@ -431,7 +486,7 @@ const rebuildListFromSaved = () => {
 
         {/* Scroll of Possibilities */}
         {currentScreen === "scroll-of-possibilities" && (
-          <ScrollOfPossibilities
+          <ScrollofPossibilities
             onClose={onClose}
             setCurrentScreen={setCurrentScreen}
             setCurrentIndex={setCurrentIndex}
