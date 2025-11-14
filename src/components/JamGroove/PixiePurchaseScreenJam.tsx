@@ -70,6 +70,8 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
 
   const [quantities, setLocalQuantities] = useState<Record<string, number>>(defaultQuantities);
 
+  const [showDJDetails, setShowDJDetails] = useState(false);
+
   const updateQty = (key: string, newQty: number) => {
     const item = grooveItems.find((i) => i.key === key);
     const maxQty = item?.max ?? Infinity;
@@ -171,7 +173,7 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
   ];
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card pixie-card--modal">{/* 👈 added pixie-card--modal */}
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
@@ -181,14 +183,19 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
       <div className="pixie-card__body">
         {/* Character video */}
         <video
-          src={`${import.meta.env.BASE_URL}assets/videos/frog_cart.mp4`}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="px-media--sm"
-          style={{ marginBottom: "1rem" }}
-        />
+  src={`${import.meta.env.BASE_URL}assets/videos/frog_cart.mp4`}
+  autoPlay
+  muted
+  loop
+  playsInline
+  className="px-media--sm"
+  style={{
+    marginBottom: "1rem",
+    display: "block",
+    marginLeft: "auto",
+    marginRight: "auto",
+  }}
+/>
   
         {/* Title */}
         <h2 className="px-title" style={{ marginBottom: "1rem" }}>
@@ -196,7 +203,14 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
         </h2>
   
         {/* Items (DJ base + Groove Guide always visible; others only if DJ is selected) */}
-        <div style={{ textAlign: "left", margin: "0 auto 2rem", maxWidth: 600 }}>
+        <div
+          style={{
+            textAlign: "left",
+            margin: "0 auto 2rem",
+            maxWidth: 420,       // 👈 was 600
+            width: "100%",       // 👈 ensure it shrinks with card
+          }}
+        >
           {grooveItems.map((item) => {
             const isVisible =
               item.key === "djBase" ||
@@ -205,7 +219,16 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
             if (!isVisible) return null;
   
             return (
-              <div key={item.key} className="px-item">
+              <div
+                key={item.key}
+                className="px-item"
+                style={{
+                  // optional: make sure label + controls wrap nicely on tiny screens
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
                 <div className="px-item__label">
                   {item.name}{" "}
                   <span style={{ opacity: 0.7 }}>(${item.price.toFixed(2)})</span>
@@ -216,10 +239,16 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
                   <button
                     type="button"
                     className="px-qty-btn px-qty-btn--minus"
-                    onClick={() => updateQty(item.key, (quantities[item.key] || 0) - 1)}
+                    onClick={() =>
+                      updateQty(item.key, (quantities[item.key] || 0) - 1)
+                    }
                     aria-label={`Decrease ${item.name}`}
                   >
-                    <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
+                    <img
+                      src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`}
+                      alt=""
+                      aria-hidden="true"
+                    />
                   </button>
   
                   <input
@@ -227,7 +256,9 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
                     min={0}
                     max={item.key === "djBase" ? 1 : item.max}
                     value={quantities[item.key] || 0}
-                    onChange={(e) => updateQty(item.key, parseInt(e.target.value || "0", 10))}
+                    onChange={(e) =>
+                      updateQty(item.key, parseInt(e.target.value || "0", 10))
+                    }
                     className="px-input-number"
                     inputMode="numeric"
                   />
@@ -235,82 +266,93 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
                   <button
                     type="button"
                     className="px-qty-btn px-qty-btn--plus"
-                    onClick={() => updateQty(item.key, (quantities[item.key] || 0) + 1)}
+                    onClick={() =>
+                      updateQty(item.key, (quantities[item.key] || 0) + 1)
+                    }
                     aria-label={`Increase ${item.name}`}
                   >
-                    <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
+                    <img
+                      src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`}
+                      alt=""
+                      aria-hidden="true"
+                    />
                   </button>
                 </div>
   
-                {/* DJ package details (collapsed by default) */}
                 {item.key === "djBase" && (
-                  <details
-                    style={{
-                      marginTop: 10,
-                      textAlign: "left",
-                      maxWidth: 600,
-                      marginLeft: "auto",
-                      marginRight: "auto",
-                    }}
-                  >
-                    <summary
-                      style={{
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontWeight: 600,
-                        color: "#2c62ba",
-                        listStyle: "none",
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          width: 18,
-                          height: 18,
-                          borderRadius: "50%",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "#f4c1da",
-                          color: "#2c62ba",
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      >
-                        i
-                      </span>
-                      Package details
-                    </summary>
+  <div
+    style={{
+      marginTop: 10,
+      textAlign: "left",
+      maxWidth: 600,
+      marginLeft: "auto",
+      marginRight: "auto",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => setShowDJDetails((v) => !v)}
+      style={{
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        fontWeight: 600,
+        color: "#2c62ba",
+        background: "none",
+        border: "none",
+        padding: 0,
+      }}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f4c1da",
+          color: "#2c62ba",
+          fontSize: 12,
+          fontWeight: 700,
+        }}
+      >
+        i
+      </span>
+      <span>{showDJDetails ? "▲ Details" : "▼ Details"}</span>
+    </button>
+
+    {showDJDetails && (
+      <div
+        style={{
+          marginTop: 10,
+          paddingLeft: 10,
+          borderLeft: "3px solid #f0f2f7",
+        }}
+      >
+        {DJ_FEATURES.map((line) => (
+          <div
+            key={line}
+            style={{
+              fontSize: "0.92rem",
+              color: "#555",
+              lineHeight: 1.55,
+              marginBottom: 6,
+            }}
+          >
+            {line}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
   
-                    <div
-                      style={{
-                        marginTop: 10,
-                        paddingLeft: 10,
-                        borderLeft: "3px solid #f0f2f7",
-                      }}
-                    >
-                      {DJ_FEATURES.map((line) => (
-                        <div
-                          key={line}
-                          style={{
-                            fontSize: "0.92rem",
-                            color: "#555",
-                            lineHeight: 1.55,
-                            marginBottom: 6,
-                          }}
-                        >
-                          {line}
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-  
-                {/* Groove Guide explainer */}
                 {item.key === "grooveGuide" && (
                   <div className="px-prose-narrow" style={{ marginTop: 8 }}>
-                    A shareable PDF of your ceremony/reception picks, dances, and announcements.
+                    A shareable PDF of your ceremony/reception picks, dances, and
+                    announcements.
                   </div>
                 )}
               </div>

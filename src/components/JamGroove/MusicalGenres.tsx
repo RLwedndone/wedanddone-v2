@@ -145,15 +145,15 @@ const MusicalGenres: React.FC<MusicalGenresProps> = ({
               }}
             >
               <img
-                src={`/assets/images/${g.img}`}
-                alt={g.label}
-                className="px-media"
-                style={{
-                  width: "100%",
-                  borderRadius: 16,
-                  display: "block",
-                }}
-              />
+  src={`${import.meta.env.BASE_URL}assets/images/${g.img}`}
+  alt={g.label}
+  className="px-media"
+  style={{
+    width: "100%",
+    borderRadius: 16,
+    display: "block",
+  }}
+/>
             </button>
           ))}
         </div>
