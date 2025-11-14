@@ -1,44 +1,45 @@
-import { useEffect, useRef, type RefObject } from "react";
+// src/hooks/useOverlayOpen.ts
+import { useEffect, RefObject } from "react";
 
 /**
- * Locks body scroll and snaps the window (and optional container) to top on mount.
- * Returns { restored } just in case you want to know when the first paint reset ran.
+ * Locks background scroll while an overlay is open
+ * and (optionally) lets Escape close it via a click
+ * on the overlay's close button.
+ *
+ * IMPORTANT: This hook must NOT call blur() on inputs
+ * or preventDefault() for normal key presses, or it
+ * will break typing inside form fields.
  */
-function useOverlayOpen<T extends HTMLElement = HTMLDivElement>(
-  scrollContainerRef?: RefObject<T>
+export function useOverlayOpen(
+  cardRef: RefObject<HTMLElement>,
+  options?: { enableEscapeClose?: boolean }
 ) {
-  const restored = useRef(false);
-
   useEffect(() => {
-    // lock background scroll
-    const prevOverflow = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // avoid browser restoring old scroll
-    try { (window.history as any).scrollRestoration = "manual"; } catch {}
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only react to Escape – do NOT touch other keys
+      if (e.key === "Escape" && options?.enableEscapeClose) {
+        // Try to click a close button inside the overlay
+        const root = cardRef.current || document.body;
+        const closeBtn =
+          root.querySelector<HTMLElement>(".pixie-card__close") ||
+          root.querySelector<HTMLElement>('[aria-label="Close"]');
 
-    // snap to top
-    window.scrollTo(0, 0);
-
-    const id = requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
-      if (scrollContainerRef?.current) {
-        scrollContainerRef.current.scrollTop = 0;
-        scrollContainerRef.current.focus?.();
+        if (closeBtn) {
+          e.stopPropagation();
+          e.preventDefault();
+          closeBtn.click();
+        }
       }
-      restored.current = true;
-    });
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      cancelAnimationFrame(id);
-      // restore
-      document.body.style.overflow = prevOverflow;
-      try { (window.history as any).scrollRestoration = "auto"; } catch {}
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [scrollContainerRef]);
-
-  return { restored };
+  }, [cardRef, options?.enableEscapeClose]);
 }
-
-// Export both ways so imports with/without braces work
-export { useOverlayOpen as default, useOverlayOpen };

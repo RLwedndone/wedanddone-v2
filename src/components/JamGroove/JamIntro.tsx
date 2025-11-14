@@ -4,9 +4,10 @@ import React from "react";
 interface JamIntroProps {
   onContinue: () => void;
   onClose: () => void; // 👈 added for the pink X
+  includedMode?: boolean;
 }
 
-const JamIntro: React.FC<JamIntroProps> = ({ onContinue, onClose }) => {
+const JamIntro: React.FC<JamIntroProps> = ({ onContinue, onClose, includedMode }) => {
   return (
     <div className="pixie-card">
       {/* 🩷 Pink X inside the card */}
@@ -42,13 +43,23 @@ const JamIntro: React.FC<JamIntroProps> = ({ onContinue, onClose }) => {
         />
 
         {/* 📝 Description */}
-        <h2 className="px-intro-title" style={{ marginBottom: 6 }}>
-          Get ready to boogie on down!
-        </h2>
-        <p className="px-prose-narrow" style={{ marginBottom: 20 }}>
-          From your aisle walk to the last dance, we’ll help you build the perfect soundtrack. 
-          Pick songs and styles you love, and we’ll handle the magic. 🎶✨
-        </p>
+<h2 className="px-intro-title" style={{ marginBottom: 6 }}>
+  Get ready to boogie on down!
+</h2>
+
+{includedMode ? (
+  <p className="px-prose-narrow" style={{ marginBottom: 20 }}>
+    From your aisle walk to the last dance, we’ll help you build the perfect soundtrack.
+    <br />
+    <strong>Your Rubi House package already includes your DJ!</strong><br></br>   
+    So just use this section to pick songs and styles you love, and we’ll handle the magic. 🎶✨
+  </p>
+) : (
+  <p className="px-prose-narrow" style={{ marginBottom: 20 }}>
+    From your aisle walk to the last dance, we’ll help you build the perfect soundtrack.
+    Pick songs and styles you love, and we’ll handle the magic. 🎶✨
+  </p>
+)}
 
         {/* 👉 Continue */}
         <button className="boutique-primary-btn" onClick={onContinue}>

@@ -1,3 +1,4 @@
+// src/utils/uploadDocToFirestore.ts
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { storage, db } from "../firebase/firebaseConfig";
@@ -8,7 +9,14 @@ export const uploadDocToFirestore = async (
   title: string
 ) => {
   const timestamp = Date.now();
-  const filename = `${title.replace(/\s+/g, "_")}_${timestamp}.pdf`;
+
+  // ✅ SAFER: replace ANY non-filename-friendly chars
+  const safeTitle = title
+    .replace(/[^\w\-\.]+/g, "_") // keep letters, numbers, _, -, .
+    .replace(/_+/g, "_")          // collapse multiple underscores
+    .replace(/^_+|_+$/g, "");     // trim underscores
+
+  const filename = `${safeTitle || "document"}_${timestamp}.pdf`;
 
   // Upload to Firebase Storage
   const storageRef = ref(storage, `user_docs/${userId}/${filename}`);
@@ -16,14 +24,17 @@ export const uploadDocToFirestore = async (
 
   const downloadURL = await getDownloadURL(storageRef);
 
-  // Add to user's 'docs' array in Firestore
+  // Add reference to Firestore
   await updateDoc(doc(db, "users", userId), {
     docs: arrayUnion({
-      title,
+      title,                      // <-- user-friendly display name stays the same
       url: downloadURL,
       createdAt: new Date().toISOString(),
     }),
   });
 
   console.log(`📄 PDF uploaded and linked to user's docs: ${title}`);
+
+  // Let flows send admin emails, etc.
+  return downloadURL;
 };

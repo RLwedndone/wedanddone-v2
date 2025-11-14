@@ -7,6 +7,7 @@ import {
   Weekday,
   VenueCostStructure,
   calcSiteServiceCharge,
+  applyAlcoholDiscountIfNeeded,  
 } from "../data/venuePricing";
 
 const AZ_SALES_TAX = 0.086;  // 8.6%
@@ -80,6 +81,10 @@ export function computeVenueTotal(
   if (v.guestCap && v.overagePerGuest && guestCount > v.guestCap) {
     siteFee += (guestCount - v.guestCap) * v.overagePerGuest;
   }
+
+  // 3b) Rubi Icon (no alcohol): subtract $X/guest from site fee
+  //     (uses venuePricing.rubihouse.alcoholDiscountPerGuest = 20)
+  siteFee = applyAlcoholDiscountIfNeeded(v, guestCount, siteFee, { excludeAlcohol: true });
 
   // 4) Service charge ON SITE FEE ONLY (flat + %)
   const siteService = calcSiteServiceCharge(v, siteFee);

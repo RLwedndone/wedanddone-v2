@@ -11,8 +11,13 @@ import { useScrollToTopOnChange } from "../../../../hooks/useScrollToTop";
 // Catering Screens
 import RubiIntro from "./RubiIntro";
 import RubiCateringMenuChoice from "./RubiCateringMenuChoice";
-import RubiIncludedCart from "./RubiIncludedCart";
 
+import RubiBBQTierSelector, {
+  type RubiTierSelectionBBQ,
+} from "./RubiBBQTierSelector";
+import RubiMexTierSelector, {
+  type RubiTierSelection as RubiTierSelectionMex,
+} from "./RubiMexTierSelector";
 
 import RubiBBQMenuBuilder, {
   type RubiBBQSelections,
@@ -21,7 +26,9 @@ import RubiMexMenuBuilder, {
   type RubiMexSelections,
 } from "./RubiMexMenuBuilder";
 
+import RubiCateringCart from "./RubiCateringCart";
 import RubiCateringContract from "./RubiCateringContract";
+import RubiCateringCheckOut from "./RubiCateringCheckOut";
 import RubiCateringThankYou from "./RubiCateringThankYou";
 
 // Dessert Screens (NEW)
@@ -37,22 +44,26 @@ import RubiDessertThankYou from "./RubiDessertThankYou";
 
 // 1. ✅ Extend RubiStep with all dessert screens + final TY
 export type RubiStep =
-| "intro"
-| "rubiMenuChoice"
-| "bbqMenu"
-| "mexMenu"
-| "rubiCart"
-| "rubiContract"
-| "rubiCateringThankYou"
-| "rubiDessertSelector"
-| "rubiDessertMenu"
-| "rubiDessertCart"
-| "rubiDessertContract"
-| "rubiDessertCheckout"
-| "rubiDessertThankYou"
-| "rubiBothDoneThankYou";
+  | "intro"
+  | "rubiMenuChoice"
+  | "bbqTier"
+  | "mexTier"
+  | "bbqMenu"
+  | "mexMenu"
+  | "rubiCart"
+  | "rubiContract"
+  | "rubiCheckout"
+  | "rubiCateringThankYou"
+  | "rubiDessertSelector"
+  | "rubiDessertMenu"
+  | "rubiDessertCart"
+  | "rubiDessertContract"
+  | "rubiDessertCheckout"
+  | "rubiDessertThankYou"  
+  | "rubiBothDoneThankYou";
 
 type RubiMenuChoice = "bbq" | "mexican";
+type AnyTierSelection = RubiTierSelectionBBQ | RubiTierSelectionMex;
 
 // Dessert local state types (mirrors Bates flow)
 type DessertType = "tieredCake" | "smallCakeTreats" | "treatsOnly";
@@ -79,12 +90,12 @@ const STORAGE = {
   guestCount: "rubiGuestCount",
 };
 
-/// Blank catering selections (BBQ)
+// Blank catering selections
 const EMPTY_BBQ: RubiBBQSelections = {
-  passedApps: [],
-  bbqStartersOrSalads: [],
+  bbqStarters: [],
   bbqMeats: [],
   bbqSides: [],
+  bbqDesserts: [],
   notes: "",
 };
 
@@ -136,6 +147,7 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
     }
   });
 
+  const [tierSel, setTierSel] = useState<AnyTierSelection | null>(null);
 
   // split catering picks
   const [bbqSelections, setBBQSelections] =
@@ -371,68 +383,261 @@ const RubiOverlay: React.FC<Props> = ({ onClose, startAt = "intro" }) => {
               } catch {}
             }}
             onContinue={() =>
-              setStep(menuChoice === "bbq" ? "bbqMenu" : "mexMenu")
+              setStep(
+                menuChoice === "bbq"
+                  ? "bbqTier"
+                  : "mexTier"
+              )
             }
             onBack={() => setStep("intro")}
             onClose={onClose}
           />
         )}
 
-        {/* -------- Catering Menu builders -------- */}
-        {step === "bbqMenu" && (
-  <RubiBBQMenuBuilder
-    selections={bbqSelections}
-    setSelections={setBBQSelections}
-    onContinue={() => setStep("rubiCart")}
-    onBack={() => setStep("rubiMenuChoice")}
-    onClose={onClose}
-  />
-)}
+        {/* -------- Tier selectors -------- */}
+        {step === "bbqTier" && (
+          <RubiBBQTierSelector
+            onSelect={(sel) => {
+              setTierSel(sel);
+              setBBQSelections(
+                EMPTY_BBQ
+              );
+              try {
+                localStorage.setItem(
+                  STORAGE.tierLabel,
+                  sel.prettyName
+                );
+                localStorage.setItem(
+                  STORAGE.perGuest,
+                  String(sel.pricePerGuest)
+                );
+                localStorage.setItem(
+                  "rubiTierId",
+                  sel.id
+                );
+                localStorage.setItem(
+                  "rubiMenuCtx",
+                  `bbq|${sel.id}`
+                );
+                localStorage.removeItem(
+                  "rubiBBQSelections"
+                );
+                localStorage.removeItem(
+                  "rubiMexSelections"
+                );
+                localStorage.removeItem(
+                  "rubiPerGuestExtrasCents"
+                );
+                localStorage.removeItem(
+                  "rubiCartData"
+                );
+                localStorage.removeItem(
+                  "rubiCartSnapshot"
+                );
+                window.dispatchEvent(
+                  new CustomEvent(
+                    "rubi:resetMenu"
+                  )
+                );
+              } catch {}
+            }}
+            onContinue={() =>
+              setStep("bbqMenu")
+            }
+            onBack={() =>
+              setStep("rubiMenuChoice")
+            }
+            onClose={onClose}
+          />
+        )}
 
-{step === "mexMenu" && (
-  <RubiMexMenuBuilder
-    selections={mexSelections}
-    setSelections={setMexSelections}
-    onContinue={() => setStep("rubiCart")}
-    onBack={() => setStep("rubiMenuChoice")}
-    onClose={onClose}
-  />
-)}
+        {step === "mexTier" && (
+          <RubiMexTierSelector
+            onSelect={(sel) => {
+              setTierSel(sel);
+              setMexSelections(
+                EMPTY_MEX
+              );
+              try {
+                localStorage.setItem(
+                  STORAGE.tierLabel,
+                  sel.prettyName
+                );
+                localStorage.setItem(
+                  STORAGE.perGuest,
+                  String(sel.pricePerGuest)
+                );
+                localStorage.setItem(
+                  "rubiTierId",
+                  sel.id
+                );
+                localStorage.setItem(
+                  "rubiMenuCtx",
+                  `mexican|${sel.id}`
+                );
+                localStorage.removeItem(
+                  "rubiMexSelections"
+                );
+                localStorage.removeItem(
+                  "rubiBBQSelections"
+                );
+                localStorage.removeItem(
+                  "rubiPerGuestExtrasCents"
+                );
+                localStorage.removeItem(
+                  "rubiCartData"
+                );
+                localStorage.removeItem(
+                  "rubiCartSnapshot"
+                );
+                window.dispatchEvent(
+                  new CustomEvent(
+                    "rubi:resetMenu"
+                  )
+                );
+              } catch {}
+            }}
+            onContinue={() =>
+              setStep("mexMenu")
+            }
+            onBack={() =>
+              setStep("rubiMenuChoice")
+            }
+            onClose={onClose}
+          />
+        )}
+
+        {/* -------- Catering Menu builders -------- */}
+        {step === "bbqMenu" && tierSel && (
+          <RubiBBQMenuBuilder
+            tierSelection={
+              tierSel as RubiTierSelectionBBQ
+            }
+            selections={bbqSelections}
+            setSelections={setBBQSelections}
+            onContinue={() =>
+              setStep("rubiCart")
+            }
+            onBack={() =>
+              setStep("bbqTier")
+            }
+            onClose={onClose}
+          />
+        )}
+
+        {step === "mexMenu" && tierSel && (
+          <RubiMexMenuBuilder
+            tierSelection={
+              tierSel as RubiTierSelectionMex
+            }
+            selections={mexSelections}
+            setSelections={setMexSelections}
+            onContinue={() =>
+              setStep("rubiCart")
+            }
+            onBack={() =>
+              setStep("mexTier")
+            }
+            onClose={onClose}
+          />
+        )}
 
         {/* -------- Catering Cart -------- */}
-        {step === "rubiCart" && (
-  <RubiIncludedCart
-    menuChoice={menuChoice} // "bbq" | "mexican"
+        {step === "rubiCart" && tierSel && (
+  <RubiCateringCart
+    menuChoice={menuChoice}
+    tierSelection={tierSel}
     selections={menuChoice === "bbq" ? bbqSelections : mexSelections}
     guestCount={guestCount}
-    onBackToMenu={() => setStep(menuChoice === "bbq" ? "bbqMenu" : "mexMenu")}
-    onContinueToContract={() => setStep("rubiContract")}
+    setTotal={setTotal}
+    setLineItems={setLineItems}
+    setPaymentSummaryText={setPaymentSummaryText}
+    onContinueToCheckout={(summaryFromCart) => {
+      // save everything the cart knows (guest count, menu picks, totals, etc.)
+      setCateringSummary(summaryFromCart);
+      // move forward in the flow
+      setStep("rubiContract");
+    }}
+    onBackToMenu={() =>
+      setStep(menuChoice === "bbq" ? "bbqMenu" : "mexMenu")
+    }
     onClose={onClose}
   />
 )}
 
         {/* -------- Catering Contract -------- */}
-        {step === "rubiContract" && (
+        {step === "rubiContract" && tierSel && menuChoice === "bbq" && (
   <RubiCateringContract
-    menuChoice={menuChoice}
-    selections={menuChoice === "bbq" ? bbqSelections : mexSelections}
-    total={0} // included
+    menuChoice="bbq"
+    tierSelection={tierSel as RubiTierSelectionBBQ}
+    selections={bbqSelections}
+    total={total}
     guestCount={guestCount}
     weddingDate={userWeddingDate}
     dayOfWeek={userDayOfWeek}
-    lineItems={[]}
+    lineItems={lineItems}
+    cateringSummary={cateringSummary}            // 👈 NEW
     signatureImage={signatureImage}
     setSignatureImage={setSignatureImage}
     signatureSubmitted={signatureSubmitted}
     setSignatureSubmitted={setSignatureSubmitted}
     onBack={() => setStep("rubiCart")}
-    onContinueToCheckout={() =>
-      setStep(hasDessertBooking ? "rubiBothDoneThankYou" : "rubiCateringThankYou")
+    onContinueToCheckout={() => setStep("rubiCheckout")}
+    onClose={onClose}
+    onComplete={() => setStep("rubiCheckout")}
+  />
+)}
+
+{step === "rubiContract" && tierSel && menuChoice === "mexican" && (
+  <RubiCateringContract
+    menuChoice="mexican"
+    tierSelection={tierSel as RubiTierSelectionMex}
+    selections={mexSelections}
+    total={total}
+    guestCount={guestCount}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    cateringSummary={cateringSummary}            // 👈 NEW
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    onBack={() => setStep("rubiCart")}
+    onContinueToCheckout={() => setStep("rubiCheckout")}
+    onClose={onClose}
+    onComplete={() => setStep("rubiCheckout")}
+  />
+)}
+        {/* -------- Catering Checkout -------- */}
+        {step === "rubiCheckout" && tierSel && (
+  <RubiCateringCheckOut
+    total={total}
+    guestCount={guestCount}
+    lineItems={lineItems}
+    menuChoice={menuChoice}
+    tierSelection={tierSel}
+    cateringSummary={cateringSummary}      // 👈 NEW
+    signatureImage={
+      signatureImage ||
+      localStorage.getItem("yumSignature") ||
+      ""
+    }
+    weddingDate={
+      userWeddingDate ||
+      localStorage.getItem("yumSelectedDate") ||
+      null
+    }
+    onBack={() => setStep("rubiContract")}
+    onComplete={() =>
+      setStep(
+        hasDessertBooking
+          ? "rubiBothDoneThankYou"
+          : "rubiCateringThankYou"
+      )
     }
     onClose={onClose}
-    onComplete={() =>
-      setStep(hasDessertBooking ? "rubiBothDoneThankYou" : "rubiCateringThankYou")
-    }
+    isGenerating={false}
   />
 )}
 

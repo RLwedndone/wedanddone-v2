@@ -5,54 +5,28 @@ import { getAuth } from "firebase/auth";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../../../firebase/firebaseConfig";
 
-// ✅ Correct type imports for both branches
-import type { RubiTierSelectionBBQ } from "./RubiBBQTierSelector";
-import type { RubiTierSelection as RubiTierSelectionMex } from "./RubiMexTierSelector";
 import type { RubiBBQSelections } from "./RubiBBQMenuBuilder";
 import type { RubiMexSelections } from "./RubiMexMenuBuilder";
 
-/* -------------------- date + money helpers -------------------- */
-const MS_DAY = 24 * 60 * 60 * 1000;
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-
+/* -------------------- helpers -------------------- */
 const parseLocalYMD = (ymd?: string | null): Date | null =>
   !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? null : new Date(`${ymd}T12:00:00`);
 
-const addDays = (d: Date, days: number) => new Date(d.getTime() + days * MS_DAY);
-
 const formatPretty = (d: Date) =>
-  d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
-function monthsBetweenInclusive(from: Date, to: Date) {
-  const a = new Date(from.getFullYear(), from.getMonth(), 1);
-  const b = new Date(to.getFullYear(), to.getMonth(), 1);
-  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-  if (to.getDate() >= from.getDate()) months += 1;
-  return Math.max(1, months);
-}
+  d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
 /* -------------------- types -------------------- */
 export type RubiMenuChoice = "bbq" | "mexican";
 
-/**
- * Discriminated union for the two branches.
- * TS will narrow `tierSelection` and `selections` automatically based on menuChoice.
- */
-type ContractInput =
-  | {
-      menuChoice: "bbq";
-      tierSelection: RubiTierSelectionBBQ;
-      selections: RubiBBQSelections;
-    }
-  | {
-      menuChoice: "mexican";
-      tierSelection: RubiTierSelectionMex;
-      selections: RubiMexSelections;
-    };
+type Props = {
+  menuChoice: RubiMenuChoice;
+  selections: RubiBBQSelections | RubiMexSelections;
 
-/** Props that are common to both branches + the discriminated input */
-type Props = ContractInput & {
-  total: number;
+  total: number; // will be 0 (included)
   guestCount: number;
   weddingDate: string | null;
   dayOfWeek: string | null;
@@ -65,22 +39,19 @@ type Props = ContractInput & {
   setSignatureSubmitted: (v: boolean) => void;
 
   onBack: () => void; // back to cart
-  onContinueToCheckout: () => void; // proceed to payment
+  onContinueToCheckout: () => void; // in this flow, goes straight to TY
   onClose: () => void;
   onComplete?: () => void;
 };
 
 const RubiCateringContract: React.FC<Props> = ({
+  menuChoice,
+  selections,
   total,
   guestCount,
   weddingDate,
   dayOfWeek,
   lineItems,
-  menuChoice,
-  tierSelection,
-  cateringSummary, 
-  selections,
-  // use signatureImage to avoid "unused" errors and show it if present
   signatureImage,
   setSignatureImage,
   signatureSubmitted,
@@ -88,24 +59,22 @@ const RubiCateringContract: React.FC<Props> = ({
   onBack,
   onContinueToCheckout,
   onClose,
-  onComplete,
 }) => {
   const auth = getAuth();
 
   // ui
   const [agreeChecked, setAgreeChecked] = useState(false);
-  const [payFull, setPayFull] = useState(true);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating] = useState(false); // kept for button disable pattern
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
-  // locked guest count
-  const [lockedGuestCount, setLockedGuestCount] = useState<number>(guestCount || 0);
-
+  // locked guest count (fallback to LS)
+  const [lockedGuestCount, setLockedGuestCount] = useState<number>(
+    guestCount || 0
+  );
   useEffect(() => {
-    // hydrate locked guest count
     if (guestCount > 0) {
       setLockedGuestCount(guestCount);
       return;
@@ -117,32 +86,19 @@ const RubiCateringContract: React.FC<Props> = ({
     setLockedGuestCount(v);
   }, [guestCount]);
 
-  // derive amounts/dates
+  // date pretty-print
   const wedding = parseLocalYMD(weddingDate || "");
   const prettyWedding = wedding ? formatPretty(wedding) : "your wedding date";
-  const dueByDate = wedding ? addDays(wedding, -35) : null;
-  const prettyDueBy = dueByDate ? formatPretty(dueByDate) : "";
 
-  const depositAmount = round2(total * 0.25);
-  const totalCents = Math.round(total * 100);
-  const depositCents = Math.round(depositAmount * 100);
-  const balanceCents = Math.max(0, totalCents - depositCents);
-  const planMonths = wedding && dueByDate ? monthsBetweenInclusive(new Date(), dueByDate) : 1;
-  const perMonthCents = planMonths > 0 ? Math.floor(balanceCents / planMonths) : balanceCents;
-  const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
+  // Short explainer text for this included menu
+  const paymentSummaryText =
+    "Your Rubi House catering menu is fully included in your venue package. No payment is due through Wed&Done for this booking — you’re just confirming your menu selections.";
 
-  const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
-    : `You’re paying $${depositAmount.toFixed(
-        2
-      )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
-        perMonthCents / 100
-      ).toFixed(2)}${planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""}`;
-
-  // boot/persist progress
+  // boot/persist progress (save menu choice + selections)
   useEffect(() => {
     try {
       localStorage.setItem("yumStep", "rubiContract");
+      localStorage.setItem("rubiMenuChoice", menuChoice);
     } catch {}
     const u = auth.currentUser;
     if (!u) return;
@@ -152,19 +108,9 @@ const RubiCateringContract: React.FC<Props> = ({
         await updateDoc(doc(db, "users", u.uid), {
           "progress.yumYum.step": "rubiContract",
         });
-        // union is JSON-safe
         await setDoc(
           doc(db, "users", u.uid, "yumYumData", "rubiSelections"),
-          { menuChoice, tierSelection, selections },
-          { merge: true }
-        );
-        await setDoc(
-          doc(db, "users", u.uid, "yumYumData", "rubiCart"),
-          {
-            guestCount: lockedGuestCount,
-            tier: (tierSelection as any)?.id || "",
-            pricePerGuest: (tierSelection as any)?.pricePerGuest || 0,
-          },
+          { menuChoice, selections },
           { merge: true }
         );
         await setDoc(
@@ -176,14 +122,15 @@ const RubiCateringContract: React.FC<Props> = ({
         console.error("🔥 Error initializing Rubi contract state:", e);
       }
     })();
-  }, [auth, lineItems, menuChoice, tierSelection, selections, lockedGuestCount]);
+  }, [auth, lineItems, menuChoice, selections]);
 
   /* -------------------- signature helpers -------------------- */
   const drawToDataUrl = () => {
     try {
       const c =
         sigCanvasRef.current?.getCanvas?.() ||
-        (sigCanvasRef.current as unknown as { _canvas?: HTMLCanvasElement })?._canvas;
+        (sigCanvasRef.current as unknown as { _canvas?: HTMLCanvasElement })
+          ?._canvas;
       // @ts-ignore
       return c?.toDataURL("image/png") || "";
     } catch {
@@ -203,10 +150,6 @@ const RubiCateringContract: React.FC<Props> = ({
     ctx.textBaseline = "middle";
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
     return canvas.toDataURL("image/png");
-  };
-
-  const handleSignClick = () => {
-    if (agreeChecked) setShowSignatureModal(true);
   };
 
   const handleSignatureSubmit = async () => {
@@ -241,7 +184,10 @@ const RubiCateringContract: React.FC<Props> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -253,135 +199,127 @@ const RubiCateringContract: React.FC<Props> = ({
         />
 
         <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
-          Rubi House Catering Agreement — Brother John’s {menuChoice === "bbq" ? "BBQ" : "Mexican"} ({tierSelection.prettyName})
+          Rubi House Catering Agreement — Brother John’s{" "}
+          {menuChoice === "bbq" ? "BBQ" : "Mexican"} (Included Menu)
         </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
-          You’re booking catering for <strong>{prettyWedding}</strong> ({dayOfWeek || "TBD"}).
+          You’re booking catering for <strong>{prettyWedding}</strong>{" "}
+          ({dayOfWeek || "TBD"}).
+        </p>
+
+        <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
+          Total catering cost today:{" "}
+          <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest
+          {lockedGuestCount === 1 ? "" : "s"}.
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          Total catering cost: <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest(s).
+          {paymentSummaryText}
         </p>
 
         {/* Booking Terms */}
-        <div className="px-section" style={{ maxWidth: 640, margin: "0 auto 12px", textAlign: "left" }}>
-          <h3 className="px-title" style={{ textAlign: "center", marginBottom: 6 }}>
+        <div
+          className="px-section"
+          style={{ maxWidth: 640, margin: "0 auto 12px", textAlign: "left" }}
+        >
+          <h3
+            className="px-title"
+            style={{ textAlign: "center", marginBottom: 6 }}
+          >
             Booking Terms
           </h3>
-          <ul className="px-prose-narrow" style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}>
-            <li>The amount listed above will count toward any Food &amp; Beverage minimum you may have with the venue. Any remaining amount to reach that minimum can be applied to bar packages or additional menu items.</li>
+          <ul
+            className="px-prose-narrow"
+            style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}
+          >
             <li>
-              You may pay in full today, or place a <strong>25% non-refundable deposit</strong>.
-              Any remaining balance will be split into monthly installments and must be fully paid{" "}
-              <strong>35 days before your wedding date</strong>.
+              Your selected menu is{" "}
+              <strong>included with your Rubi House venue package</strong>.
+              Any additional food &amp; beverage minimums, bar packages, or
+              upgrades are handled directly with The Rubi House.
             </li>
             <li>
-              Final guest count is due <strong>30 days</strong> before your wedding. You may increase your
-              count starting 45 days out, but it cannot be lowered after booking.
+              Final guest count is due <strong>30 days</strong> before your
+              wedding. You may increase your count starting 45 days out, but it
+              cannot be lowered after booking.
             </li>
             <li>
-              <strong>Bar Packages:</strong> Alcohol is booked directly with the venue in accordance with Arizona liquor laws.
-              Wed&amp;Done does not provide bar service or alcohol.
+              <strong>Bar Packages:</strong> Alcohol is booked directly with the
+              venue in accordance with Arizona liquor laws. Wed&amp;Done does
+              not provide bar service or alcohol.
             </li>
             <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid
-              beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred.
-              Within 35 days, all payments are non-refundable.
+              <strong>Cancellation &amp; Refunds:</strong> Any changes to your
+              catering package or minimums are governed by The Rubi House’s
+              policies. Wed&amp;Done will assist with documentation but does not
+              control venue refunds.
             </li>
-            <li>
-              <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee
-              applies; after 14 days, services may be suspended and this agreement may be in default.
-            </li>
-            <li>
-              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and
-              comply with venue rules, which may limit service/display options.
-            </li>
-            <li>
-              <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control.
-              We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond
-              non-recoverable costs incurred.
-            </li>
-            <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
           </ul>
         </div>
 
-        {/* Plan toggle */}
-        <h4 className="px-title" style={{ marginTop: 6, marginBottom: 6 }}>
-          Choose how you’d like to pay:
-        </h4>
-        <div className="px-toggle" style={{ marginBottom: 8 }}>
-          <button
-            type="button"
-            className={`px-toggle__btn ${payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
-            onClick={() => { setPayFull(true); setSignatureSubmitted(false); }}
-            aria-pressed={payFull}
-          >
-            Pay in Full
-          </button>
-          <button
-            type="button"
-            className={`px-toggle__btn ${!payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
-            onClick={() => { setPayFull(false); setSignatureSubmitted(false); }}
-            aria-pressed={!payFull}
-          >
-            Deposit + Monthly
-          </button>
-        </div>
-
-        <p className="px-prose-narrow" style={{ marginBottom: 10 }}>{paymentSummaryText}</p>
-
         {/* Agree */}
-        <div style={{ margin: "6px 0 8px" }}>
-          <label className="px-prose-narrow" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={agreeChecked} onChange={(e) => setAgreeChecked(e.target.checked)} />
-            I have read and agree to the terms above.
-          </label>
-        </div>
-
-        {/* Sign / Continue */}
-{!signatureSubmitted ? (
-  <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-    <button
-      className="boutique-primary-btn"
-      onClick={handleSignClick}
-      disabled={!agreeChecked}
-      style={{
-        width: 260,
-        opacity: agreeChecked ? 1 : 0.5,
-        cursor: agreeChecked ? "pointer" : "not-allowed",
-      }}
-    >
-      Sign Agreement
-    </button>
-  </div>
-) : (
-  <div
+<div
+  style={{
+    margin: "6px 0 8px",
+    width: "100%",
+    display: "flex",
+    justifyContent: "center",
+  }}
+>
+  <label
+    className="px-prose-narrow"
     style={{
-      display: "flex",
-      flexDirection: "column",
+      display: "inline-flex",
       alignItems: "center",
-      marginTop: 8,
+      gap: 8,
+      whiteSpace: "nowrap",
     }}
   >
-    <img
-      src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-      alt="Agreement Signed"
-      className="px-media"
-      style={{ maxWidth: 100, marginBottom: 6 }}
+    <input
+      type="checkbox"
+      checked={agreeChecked}
+      onChange={(e) => setAgreeChecked(e.target.checked)}
     />
-    <div
-      className="px-prose-narrow"
-      style={{
-        fontSize: ".9rem",
-        color: "#2c62ba",
-        textAlign: "center",
-      }}
-    >
-      Agreement signed ✔
-    </div>
-  </div>
-)}
+    I have reviewed my menu selections and agree to the terms above.
+  </label>
+</div>
+        {/* Sign / Signed state */}
+        {!signatureSubmitted ? (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+            <button
+              className="boutique-primary-btn"
+              onClick={
+                agreeChecked ? () => setShowSignatureModal(true) : undefined
+              }
+              disabled={!agreeChecked}
+              style={{
+                width: 260,
+                opacity: agreeChecked ? 1 : 0.5,
+                cursor: agreeChecked ? "pointer" : "not-allowed",
+              }}
+            >
+              Sign Agreement
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              marginTop: 8,
+            }}
+          >
+           <img
+  src={`${import.meta.env.BASE_URL}assets/images/agreement_signed.png`}
+  alt="Agreement Signed"
+  className="px-media"
+  style={{ maxWidth: 140, marginBottom: 10 }}
+/>
+            
+          </div>
+        )}
 
         {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 10 }}>
@@ -390,31 +328,27 @@ const RubiCateringContract: React.FC<Props> = ({
             onClick={() => {
               if (!signatureSubmitted) return;
               try {
-                localStorage.setItem("yumStep", "rubiCheckout");
-                localStorage.setItem("rubiPayFull", JSON.stringify(payFull));
-                localStorage.setItem("rubiDepositCents", String(depositCents));
-                localStorage.setItem("rubiTotalCents", String(totalCents));
-                localStorage.setItem("rubiDueBy", dueByDate ? dueByDate.toISOString() : "");
-                localStorage.setItem("rubiPlanMonths", String(planMonths));
-                localStorage.setItem("rubiPerMonthCents", String(perMonthCents));
-                localStorage.setItem("rubiLastPaymentCents", String(lastPaymentCents));
+                localStorage.setItem("yumStep", "rubiCateringThankYou");
                 localStorage.setItem("rubiMenuChoice", menuChoice);
-                localStorage.setItem("rubiTierPretty", tierSelection.prettyName || "");
               } catch {}
-              onContinueToCheckout();
+              onContinueToCheckout(); // overlay sends them straight to RubiCateringThankYou
             }}
             disabled={!signatureSubmitted || isGenerating}
             style={{ width: 260, opacity: signatureSubmitted ? 1 : 0.5 }}
           >
-            Continue to Payment
+            Finish
           </button>
-          <button className="boutique-back-btn" onClick={onBack} style={{ width: 260 }}>
+          <button
+            className="boutique-back-btn"
+            onClick={onBack}
+            style={{ width: 260 }}
+          >
             ⬅ Back to Cart
           </button>
         </div>
       </div>
 
-      {/* Signature modal — standardized (blue X) */}
+      {/* Signature modal */}
       {showSignatureModal && (
         <div
           style={{
@@ -428,20 +362,44 @@ const RubiCateringContract: React.FC<Props> = ({
             padding: 16,
           }}
         >
-          <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520, position: "relative", overflow: "hidden" }}>
-            <button className="pixie-card__close" onClick={() => setShowSignatureModal(false)} aria-label="Close">
-              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
+          <div
+            className="pixie-card pixie-card--modal"
+            style={{ maxWidth: 520, position: "relative", overflow: "hidden" }}
+          >
+            <button
+              className="pixie-card__close"
+              onClick={() => setShowSignatureModal(false)}
+              aria-label="Close"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
+                alt="Close"
+              />
             </button>
 
             <div className="pixie-card__body" style={{ textAlign: "center" }}>
-              <h3 className="px-title-lg" style={{ fontSize: "1.7rem", marginBottom: 10 }}>
+              <h3
+                className="px-title-lg"
+                style={{ fontSize: "1.7rem", marginBottom: 10 }}
+              >
                 Sign below or enter a text signature
               </h3>
 
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
                 <button
                   type="button"
-                  className={`px-toggle__btn ${!useTextSignature ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    !useTextSignature
+                      ? "px-toggle__btn--blue px-toggle__btn--active"
+                      : ""
+                  }`}
                   onClick={() => setUseTextSignature(false)}
                   aria-pressed={!useTextSignature}
                 >
@@ -449,7 +407,11 @@ const RubiCateringContract: React.FC<Props> = ({
                 </button>
                 <button
                   type="button"
-                  className={`px-toggle__btn ${useTextSignature ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    useTextSignature
+                      ? "px-toggle__btn--pink px-toggle__btn--active"
+                      : ""
+                  }`}
                   onClick={() => setUseTextSignature(true)}
                   aria-pressed={useTextSignature}
                 >
@@ -486,7 +448,11 @@ const RubiCateringContract: React.FC<Props> = ({
                 />
               )}
 
-              <button className="boutique-primary-btn" onClick={handleSignatureSubmit} style={{ width: 260, margin: "0 auto" }}>
+              <button
+                className="boutique-primary-btn"
+                onClick={handleSignatureSubmit}
+                style={{ width: 260, margin: "0 auto" }}
+              >
                 Save Signature
               </button>
             </div>

@@ -36,6 +36,7 @@ export interface VenueCostStructure {
   // Identity
   venueId: string;
   displayName: string;
+  alcoholDiscountPerGuest?: number;
 
   // Catering / partner flags (⚠️ do not change these — this is your margin logic)
   usesSantis: boolean;
@@ -184,9 +185,9 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     ],
     summerMonths: [6, 7, 8],
     marginTiers: [
-      { min: 1200, max: 4999, margin: 2200 },
-      { min: 5000, max: 8000, margin: 2800 },
-      { min: 8001, max: 999999, margin: 3300 },
+      { min: 1200, max: 4999, margin: 1200 },
+      { min: 5000, max: 8000, margin: 1800 },
+      { min: 8001, max: 999999, margin: 2200 },
     ],
     deposit: 2000,
     allowsSundayBooking: true,
@@ -490,13 +491,13 @@ valleyho: {
     cateringAddOn: 1000,
     maxCapacity: 100,
     weekdayPricing: {
-      monday: 5000,
-      tuesday: 5000,
-      wednesday: 5000,
-      thursday: 5000,
+      monday: 4000,
+      tuesday: 4000,
+      wednesday: 4000,
+      thursday: 4000,
       friday: 4000,
-      saturday: 5000,
-      sunday: 5000,
+      saturday: 4000,
+      sunday: 4000,
     },
     marginTiers: [
       { min: 1200, max: 4999, margin: 2200 },
@@ -514,24 +515,27 @@ valleyho: {
     usesSantis: false,
     cateringAddOn: 1000,
     maxCapacity: 100,
-
-    // ✅ tier × day pricing
+  
+    // Keep base prices (with alcohol) as your master data
     tieredByGuestsAndDay: [
       { maxGuests: 50,  priceByDay: { saturday:  8300, fri_sun:  7800, weekday:  6800 } },
       { maxGuests: 75,  priceByDay: { saturday: 10400, fri_sun:  9900, weekday:  8900 } },
       { maxGuests: 100, priceByDay: { saturday: 12500, fri_sun: 12000, weekday: 11000 } },
     ],
-
+  
     marginTiers: [
-      { min: 1200, max: 4999, margin: 2200 },
-      { min: 5000, max: 8000, margin: 2800 },
-      { min: 8001, max: 999999, margin: 3300 },
+      { min: 1200, max: 4999, margin: 1200 },
+      { min: 5000, max: 8000, margin: 1800 },
+      { min: 8001, max: 999999, margin: 2200 },
     ],
+  
     deposit: 2000,
     allowsSundayBooking: true,
     allowsWhiskAndPaddle: true,
+  
+    // 👇 New field: discount $20 per guest for alcohol-excluded version
+    alcoholDiscountPerGuest: 20,
   },
-
   soho63: {
     venueId: "soho63",
     displayName: "Soho63",
@@ -843,4 +847,22 @@ export function calcSiteServiceCharge(
   const flatFee = venue.serviceFee ?? 0;
   const percentFee = (venue.siteServiceRate ?? 0) * baseSiteFee;
   return flatFee + percentFee;
+}
+/** 
+ * Apply venue-specific adjustments to a computed base site fee.
+ * For Rubi House “no alcohol” version: subtract $X per guest.
+ */
+export function applyAlcoholDiscountIfNeeded(
+  venue: VenueCostStructure,
+  guestCount: number,
+  baseSiteFee: number,
+  opts: { excludeAlcohol?: boolean } = { excludeAlcohol: true }
+): number {
+  // Only Rubi has the per-guest alcohol deduction right now
+  if (venue.venueId === "rubihouse" && opts.excludeAlcohol) {
+    const perGuest = venue.alcoholDiscountPerGuest ?? 0;
+    const discounted = baseSiteFee - guestCount * perGuest;
+    return Math.max(0, discounted);
+  }
+  return baseSiteFee;
 }

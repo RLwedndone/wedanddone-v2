@@ -191,8 +191,8 @@ export const venueIncludedItems: { [key: string]: string[] } = {
   ],
 
   rubihouse: [
-    "5-hour wedding celebration at The Rubi House",
-    "4-hour hosted bar service including sangria, margaritas, beer, wine, iced tea, lemonade, and soft drinks",
+    "5-hour wedding celebration at The Rubi House, DJ included",
+    "Full catering selections from either Brother John’s Feast BBQ Menu or Hermanitos Mexican Menu",
     "One hour of private access to the bridal ready room before the ceremony",
     "Full venue rental included in package price",
     "Full-service wedding planning support from the Wed&Done Planner Team",

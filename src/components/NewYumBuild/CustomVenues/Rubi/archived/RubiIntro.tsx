@@ -45,7 +45,8 @@ const RubiIntro: React.FC<RubiIntroProps> = ({ onContinue, onClose }) => {
             First, you’ll choose a <strong>restaurant menu</strong> — pick from our two delectable options!
           </p>
           <p>
-            Next, you’ll build your menu by selecting courses and items within that restaurant.
+            Next, you’ll build your menu by selecting courses and items within that restaurant (prices vary by choice),
+            then review your cart and check out.
           </p>
         </div>
 

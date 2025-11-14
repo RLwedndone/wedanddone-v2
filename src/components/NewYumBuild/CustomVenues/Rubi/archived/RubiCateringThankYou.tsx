@@ -94,7 +94,7 @@ const RubiCateringThankYou: React.FC<Props> = ({ onContinueDesserts, onClose }) 
           You'll find your receipt and selection confirmation in your <em>Documents</em> folder.
         </p>
         <p className="px-prose-narrow" style={{ marginBottom: 14 }}>
-          Want to add some sweets? Click the button below to book a wedding cake or a goodies table!
+          Want to add more sweets? Click the button below to book a wedding cake or a goodies table!
         </p>
 
         <div className="px-cta-col" style={{ marginTop: 6 }}>

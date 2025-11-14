@@ -27,8 +27,9 @@ import PartyEntranceSong from "./PartyEntranceSong";
 import BrideEntranceSong from "./BrideEntranceSong";
 import OtherCeremonySongs from "./OtherCeremonySongs";
 import RecessionalSong from "./RecessionalSong";
+import JamIncludedCart from "./JamIncludedCart";
 
-type SongModalKey = "bride" | "party" | "recessional" | "other" | null;
+export type SongModalKey = "bride" | "party" | "recessional" | "other" | null;
 
 export type JamStep =
   | "intro" | "ceremonyOrder" | "ceremonyMusic" | "cocktail" | "welcome" | "family" | "grandEntrance"
@@ -56,7 +57,7 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
   const uid = userData?.uid || "";
   const isGuestUser = !getAuth().currentUser;
   const isAddon = mode === "addon";
-
+  const [hasRubiIncludedDJ, setHasRubiIncludedDJ] = useState(false);
   const defaultStep: JamStep = startAt || (isAddon ? "cart" : "intro");
   const [step, setStepRaw] = useState<JamStep>(defaultStep);
 
@@ -107,22 +108,31 @@ useEffect(() => {
 
       const data: any = snap.data();
 
-      // Wedding date from FS (with fallbacks to nested + LS)
+      // 🔹 figure out which venue they booked
+      const bookedVenueSlug =
+        data?.venueRankerData?.booking?.venueSlug ||   // Ranker booking object
+        data?.bookings?.venueSlug ||                  // fallback if you stored it here
+        data?.venueSlug ||                            // or legacy field
+        localStorage.getItem("venueSlug");            // last resort
+
+      setHasRubiIncludedDJ(bookedVenueSlug === "rubihouse");
+
+      // existing logic…
       const fsWeddingDate =
         data.weddingDate ||
         data.wedding?.date ||
         localStorage.getItem("weddingDate") ||
         null;
 
-      // Day of week can be under bookings.dayOfWeek, or top-level dayOfWeek; else compute from date
       const fsDayOfWeek =
         data.bookings?.dayOfWeek ||
         data.dayOfWeek ||
         (fsWeddingDate
-          ? new Date(`${fsWeddingDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" })
+          ? new Date(`${fsWeddingDate}T12:00:00`).toLocaleDateString("en-US", {
+              weekday: "long",
+            })
           : null);
 
-      // Lock flag from FS or LS
       const fsLocked =
         Boolean(data.weddingDateLocked || data.dateLocked) ||
         localStorage.getItem("weddingDateLocked") === "true";
@@ -285,12 +295,39 @@ useEffect(() => {
     <>
       {/* Render the main flow only when the account modal is NOT open */}
       {!showAccountModal && (
-        <div className="pixie-overlay">
+        <div
+          className="pixie-overlay"
+          // 🛡️ Shield all Jam inputs from global key handlers
+          onKeyDownCapture={(e) => {
+            const t = e.target as HTMLElement | null;
+            if (
+              t instanceof HTMLInputElement ||
+              t instanceof HTMLTextAreaElement ||
+              t instanceof HTMLSelectElement
+            ) {
+              e.stopPropagation();
+            }
+          }}
+          onKeyUpCapture={(e) => {
+            const t = e.target as HTMLElement | null;
+            if (
+              t instanceof HTMLInputElement ||
+              t instanceof HTMLTextAreaElement ||
+              t instanceof HTMLSelectElement
+            ) {
+              e.stopPropagation();
+            }
+          }}
+        >
           {/* Scrollable area; individual screens render their own cards */}
           <div ref={cardRef} style={{ width: "100%" }}>
-            {step === "intro" && (
-              <JamIntro onContinue={() => setStep("ceremonyOrder")} onClose={onClose} />
-            )}
+          {step === "intro" && (
+  <JamIntro
+    onContinue={() => setStep("ceremonyOrder")}
+    onClose={onClose}
+    includedMode={hasRubiIncludedDJ}   // 👈 new prop
+  />
+)}
   
             {step === "ceremonyOrder" && (
               <CeremonyOrder
@@ -303,17 +340,18 @@ useEffect(() => {
               />
             )}
   
-            {step === "ceremonyMusic" && (
-              <CeremonyMusic
-                currentStep={step}
-                onBack={() => setStep("ceremonyOrder")}
-                onContinue={() => setStep("cocktail")}
-                jamSelections={jamSelections}
-                setJamSelections={setJamSelections}
-                isGuestUser={isGuestUser}
-                onClose={onClose}
-              />
-            )}
+  {step === "ceremonyMusic" && (
+  <CeremonyMusic
+    currentStep={step}
+    onBack={() => setStep("ceremonyOrder")}
+    onContinue={() => setStep("cocktail")}
+    jamSelections={jamSelections}
+    setJamSelections={setJamSelections}
+    isGuestUser={isGuestUser}
+    onClose={onClose}
+    openSongModal={(key) => setActiveSongModal(key)} 
+  />
+)}
   
             {step === "cocktail" && (
               <CocktailMusic
@@ -392,16 +430,31 @@ useEffect(() => {
               />
             )}
   
-            {step === "cart" && (
-              <PixiePurchaseScreenJam
-                onBack={() => setStep("genres")}
-                setTotal={setTotal}
-                setLineItems={setLineItems}
-                setQuantities={setJamAddOnQuantities}
-                onContinue={handleJamCartContinue}
-                onClose={onClose}
-              />
-            )}
+            {/* Cart step – normal paid Jam vs Rubi-included DJ */}
+{step === "cart" && !hasRubiIncludedDJ && (
+  <PixiePurchaseScreenJam
+    onBack={() => setStep("genres")}
+    setTotal={setTotal}
+    setLineItems={setLineItems}
+    setQuantities={setJamAddOnQuantities}
+    onContinue={handleJamCartContinue}
+    onClose={onClose}
+  />
+)}
+
+{step === "cart" && hasRubiIncludedDJ && (
+  <JamIncludedCart
+    onBack={() => setStep("genres")}
+    onClose={onClose}
+    jamSelections={jamSelections}
+    fullName={
+      `${userData?.firstName || ""} ${userData?.lastName || ""}`.trim() ||
+      getAuth().currentUser?.displayName ||
+      ""
+    }
+    weddingDate={userWeddingDate}
+  />
+)}
   
   {step === "calendar" && userHasLockedDate && (
   <WeddingDateConfirmScreen
