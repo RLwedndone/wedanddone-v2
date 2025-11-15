@@ -5,7 +5,7 @@ import { db } from "../../../../firebase/firebaseConfig";
 import type { ValleyHoSelections, ValleyHoService } from "./ValleyHoMenuBuilder";
 
 /* ---------- TAX & FEES (same as others) ---------- */
-const SERVICE_CHARGE_RATE = 0.22;
+const SERVICE_CHARGE_RATE = 0.25;
 const SALES_TAX_RATE = 0.086;
 const STRIPE_RATE = 0.029;
 const STRIPE_FLAT_FEE = 0.3;

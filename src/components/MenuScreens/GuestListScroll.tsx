@@ -38,6 +38,7 @@ type PlannerSnapshot = {
 
 type PricingSnapshots = {
   salesTaxRate?: number;
+  serviceFeeRate?: number; // 👈 NEW
   venue?: { booked?: boolean; perGuest?: number };
   catering?: { booked?: boolean; perGuest?: number };
   dessert?: { booked?: boolean; isPerGuest?: boolean; perGuest?: number };
@@ -108,7 +109,8 @@ type DeltaBreakdown = {
   plannerSubtotal: number;
   subtotal: number;
   tax: number;
-  stripeFee: number;   // ✅ new
+  stripeFee: number;
+  serviceFee: number;   // 👈 NEW
   totalDueNow: number;
   perGuestVenue?: number;
   perGuestCatering?: number;
@@ -126,7 +128,9 @@ function calcGuestDelta(
   snapshots: PricingSnapshots
 ): DeltaBreakdown {
   const delta = Math.max(0, Math.floor(newCount) - Math.floor(previousCount));
+
   const taxRate = Number(snapshots.salesTaxRate ?? 0);
+  const serviceFeeRate = Number(snapshots.serviceFeeRate ?? 0); // 👈 NEW
 
   const perGuestVenue = snapshots.venue?.booked ? Number(snapshots.venue?.perGuest || 0) : 0;
   const perGuestCatering = snapshots.catering?.booked ? Number(snapshots.catering?.perGuest || 0) : 0;
@@ -147,12 +151,19 @@ function calcGuestDelta(
   const plannerSubtotal = plannerCalc.owed;
 
   const subtotal = venueSubtotal + cateringSubtotal + dessertSubtotal + plannerSubtotal;
-  const tax = +(subtotal * taxRate).toFixed(2);
 
-  // Stripe fee is based on subtotal + tax
-  const stripeFee = +((subtotal + tax) * STRIPE_RATE + STRIPE_FLAT).toFixed(2);
+  // 1) service fee on subtotal
+  const serviceFee = +(subtotal * serviceFeeRate).toFixed(2);
 
-  const totalDueNow = +(subtotal + tax + stripeFee).toFixed(2);
+  // 2) tax on subtotal + service fee
+  const taxableBase = subtotal + serviceFee;
+  const tax = +(taxableBase * taxRate).toFixed(2);
+
+  // 3) Stripe fee on (subtotal + service fee + tax)
+  const stripeFee = +((taxableBase + tax) * STRIPE_RATE + STRIPE_FLAT).toFixed(2);
+
+  // 4) final total
+  const totalDueNow = +(subtotal + serviceFee + tax + stripeFee).toFixed(2);
 
   let plannerExplain: DeltaBreakdown["plannerExplain"] = null;
   if (plannerCalc.newTier) {
@@ -179,11 +190,12 @@ function calcGuestDelta(
     plannerSubtotal,
     subtotal,
     tax,
+    stripeFee,
+    serviceFee,          // 👈 NEW
     totalDueNow,
     perGuestVenue: perGuestVenue || undefined,
     perGuestCatering: perGuestCatering || undefined,
     plannerExplain,
-    stripeFee,
   };
 }
 
@@ -197,6 +209,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const [snapshots, setSnapshots] = useState<PricingSnapshots>({
     salesTaxRate: 0,
+    serviceFeeRate: 0, // 👈 NEW
     venue: { booked: false, perGuest: 0 },
     catering: { booked: false, perGuest: 0 },
     dessert: { booked: false, isPerGuest: false, perGuest: 0 },
@@ -209,15 +222,17 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     const next: PricingSnapshots = {
       salesTaxRate: 0,
+      serviceFeeRate: 0, // 👈 NEW
       venue: { booked: false, perGuest: 0 },
       catering: { booked: false, perGuest: 0 },
       dessert: { booked: false, isPerGuest: false, perGuest: 0 },
       planner: { model: "none" },
     };
-
+    
     if (catSnap.exists()) {
       const c = catSnap.data() as any;
-      next.salesTaxRate = Number(c.salesTaxRate ?? 0);
+      next.salesTaxRate   = Number(c.salesTaxRate ?? 0);
+      next.serviceFeeRate = Number(c.serviceFeeRate ?? 0); // 👈 pull from Firestore
       next.catering = { booked: !!c.booked, perGuest: Number(c.perGuest || 0) };
       if (c.charcuterieSelected) {
         next.dessert = {
@@ -512,12 +527,14 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     ; difference due: <strong>${(delta.plannerExplain.diff || 0).toFixed(2)}</strong>
                   </div>
                 )}
-                {(delta.tax > 0 || delta.stripeFee > 0) && (
-                  <div>
-                    • Taxes &amp; fees:{" "}
-                    <strong>${(delta.tax + (delta.stripeFee || 0)).toFixed(2)}</strong>
-                  </div>
-                )}
+                {(delta.tax > 0 || delta.stripeFee > 0 || delta.serviceFee > 0) && (
+  <div>
+    • Taxes &amp; fees:{" "}
+    <strong>
+      ${(delta.tax + (delta.stripeFee || 0) + (delta.serviceFee || 0)).toFixed(2)}
+    </strong>
+  </div>
+)}
               </div>
             </div>
 

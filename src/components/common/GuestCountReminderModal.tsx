@@ -325,34 +325,51 @@ const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
         </div>
 
         {/* Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-          <button
-            onClick={handleConfirmAndLock}
-            style={{
-              background: "#2c62ba",
-              color: "#fff",
-              border: "none",
-              padding: "0.85rem 1.25rem",
-              borderRadius: 12,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            Confirm and lock-in my current guest count
-          </button>
+<div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "14px",
+    marginTop: "18px",
+  }}
+>
+  {/* Confirm Button (dark blue) */}
+  <button
+    onClick={handleConfirmAndLock}
+    className="boutique-primary-btn"
+    style={{
+      width: "100%",
+      maxWidth: 360,
+      padding: "0.95rem 1.25rem",
+      borderRadius: 12,
+      fontWeight: 700,
+      color: "#fff",
+      border: "none",
+      cursor: "pointer",
+    }}
+  >
+    Confirm and lock-in my current guest count
+  </button>
 
-          <button
-            onClick={handleAddMoreGuests}
-            className="boutique-back-btn"
-            style={{
-              padding: "0.85rem 1.25rem",
-              borderRadius: 12,
-              fontWeight: 800,
-            }}
-          >
-            Add more guests
-          </button>
-        </div>
+  {/* Add More Guests (pink back button) */}
+  <button
+    onClick={handleAddMoreGuests}
+    className="boutique-back-btn"
+    style={{
+      width: "100%",
+      maxWidth: 360,
+      padding: "0.95rem 1.25rem",
+      borderRadius: 12,
+      fontWeight: 700,
+      color: "#fff",
+      border: "none",
+      cursor: "pointer",
+    }}
+  >
+    Add more guests
+  </button>
+</div>
       </div>
     </div>
   );

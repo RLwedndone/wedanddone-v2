@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "../firebase/firebaseConfig";
 import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import VenueAvailabilityAdmin from "../components/admin/VenueAvailabilityAdmin"; // adjust path
 
 import { getGuestState } from "../utils/guestCountStore";
 
@@ -436,6 +437,8 @@ function shouldShowGuestScroll(opts: {
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
+
   const [showMagicCloud, setShowMagicCloud] = useState(false);
 
   // auth / user
@@ -867,6 +870,31 @@ const Dashboard: React.FC = () => {
           }}
         />
       </picture>
+
+      {/* ⭐ ADMIN TOOLS — visible ONLY to Rachelle */}
+    {user?.email === "rachel@wedanddone.com" && (
+      <>
+        <button
+          className="px-button px-button--ghost"
+          style={{
+            position: "absolute",
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            opacity: 0.85,
+          }}
+          onClick={() => setShowAvailabilityAdmin(true)}
+        >
+          Venue Availability Admin
+        </button>
+
+        {showAvailabilityAdmin && (
+          <VenueAvailabilityAdmin
+            onClose={() => setShowAvailabilityAdmin(false)}
+          />
+        )}
+      </>
+    )}
 
       {/* Magic/budget bubble overlay */}
       {showMagicCloud && (
