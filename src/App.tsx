@@ -19,6 +19,7 @@ import "./styles/globals/boutique.master.css";
 import CreateAccount from "./pages/CreateAccount";
 import Login from "./pages/LoginModal";
 import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/NotFound";
 
 // 🧙‍♀️ Venue Ranker Overlay
 import VenueRankerOverlay from "./components/VenueRanker/VenueRankerOverlay";
@@ -62,6 +63,9 @@ const AppRoutes: React.FC = () => {
           path="/venue-ranker"
           element={<VenueRankerOverlay onClose={() => navigate("/dashboard")} />}
         />
+
+        {/* ⭐ Catch-all 404 route – must be last */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );
