@@ -1,5 +1,7 @@
 // src/components/MagicBook/MagicBookOverlay.tsx
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import MagIntro from "./MagIntro";
 import DetailWranglerIntro from "./DetailWrangler/DetailWranglerIntro";
 import DetailWranglerBasics from "./DetailWrangler/DetailWranglerBasics";
@@ -51,9 +53,13 @@ interface MagicBookOverlayProps {
   startAt?: MagicStep;
 }
 
-const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({ setActiveOverlay, startAt }) => {
+const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
+  setActiveOverlay,
+  startAt,
+}) => {
   const [step, setStep] = useState<MagicStep>("intro");
   const overlayRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Centralized "Back to TOC"
   const goToTOC = React.useCallback(() => {
@@ -61,16 +67,15 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({ setActiveOverlay, s
     localStorage.setItem("magicStep", "toc");
   }, []);
 
-  // inside MagicBookOverlay component, after goToTOC is defined
-useEffect(() => {
-  const handler = () => {
-    // same behavior as goToTOC
-    setStep("toc");
-    localStorage.setItem("magicStep", "toc");
-  };
-  window.addEventListener("magic:gotoTOC", handler);
-  return () => window.removeEventListener("magic:gotoTOC", handler);
-}, []);
+  // Listen for global "magic:gotoTOC" events
+  useEffect(() => {
+    const handler = () => {
+      setStep("toc");
+      localStorage.setItem("magicStep", "toc");
+    };
+    window.addEventListener("magic:gotoTOC", handler);
+    return () => window.removeEventListener("magic:gotoTOC", handler);
+  }, []);
 
   // Scroll to top whenever step changes (overlay container + window)
   useScrollToTopOnChange([step], { targetRef: overlayRef });
@@ -142,10 +147,7 @@ useEffect(() => {
         )}
 
         {step === "dwIntro" && (
-          <DetailWranglerIntro
-            onNext={() => setStep("dwBasics")}
-            goToTOC={goToTOC}
-          />
+          <DetailWranglerIntro onNext={() => setStep("dwBasics")} goToTOC={goToTOC} />
         )}
 
         {step === "dwBasics" && (
@@ -178,7 +180,7 @@ useEffect(() => {
             isMobile={false}
             triggerLogin={() => {}}
             triggerSignupModal={() => {}}
-            onClose={() => (window.location.href = "/dashboard")}
+            onClose={() => navigate("/dashboard")} // ✅ fixed: SPA-safe navigation
           />
         )}
 
@@ -295,7 +297,8 @@ useEffect(() => {
           <MagicBookTOC
             setStep={setStep}
             resumeMagicBook={() => {
-              const savedStep = (localStorage.getItem("magicStep") as MagicStep) || "intro";
+              const savedStep =
+                (localStorage.getItem("magicStep") as MagicStep) || "intro";
               setStep(savedStep);
             }}
           />

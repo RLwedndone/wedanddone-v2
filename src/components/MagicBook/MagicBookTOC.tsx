@@ -24,10 +24,10 @@ type MagicStep =
   | "photoPDF"
   | "toc";
 
-interface Props {
-  setStep: (s: MagicStep) => void;
-  // resumeMagicBook: () => void; // not currently used
-}
+  interface Props {
+    setStep: (s: MagicStep) => void;
+    resumeMagicBook?: () => void; // optional, can be used later
+  }
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -40,7 +40,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-const MagicBookTOC: React.FC<Props> = ({ setStep }) => {
+const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
   const isMobile = useIsMobile();
   const [showAllPages, setShowAllPages] = useState(false);
 
