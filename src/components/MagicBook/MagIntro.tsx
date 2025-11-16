@@ -1,15 +1,20 @@
+// src/components/MagicBook/MagIntro.tsx
+import React from "react";
+import { useNavigate } from "react-router-dom";
+
 interface MagIntroProps {
   onNext: () => void;
 }
 
 const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
+  const navigate = useNavigate();
 
   return (
     <div className="pixie-overlay">
       <div className="pixie-card">
         {/* ✖ Close Button */}
         <button
-          onClick={() => window.location.href = "/dashboard"}
+          onClick={() => navigate("/dashboard")}
           style={{
             position: "absolute",
             top: "1rem",
@@ -70,28 +75,30 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
             This is your enchanted planning space for all things weddingy and
             wonderful. Inside you'll find:
             <br />
-            <br />🪄 The Detail Wrangler — your secret stash of expert tips, timelines, and planning spells.
+            <br />🪄 The Detail Wrangler — your secret stash of expert tips,
+            timelines, and planning spells.
             <br />
-            <br />📸 The VIP & Photos chapter — create your VIP list and build a custom shot list for your photographer (with adorable Polaroids!).
+            <br />📸 The VIP & Photos chapter — create your VIP list and build a
+            custom shot list for your photographer (with adorable Polaroids!).
           </p>
 
           <button
-  onClick={() => {
-    console.log("✨ Button clicked");
-    onNext();
-  }}
-  style={{
-    padding: "0.75rem 1.5rem",
-    fontSize: "1.1rem",
-    borderRadius: "8px",
-    backgroundColor: "#2c62ba",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-  }}
->
-  start your story
-</button>
+            onClick={() => {
+              console.log("✨ Button clicked");
+              onNext();
+            }}
+            style={{
+              padding: "0.75rem 1.5rem",
+              fontSize: "1.1rem",
+              borderRadius: "8px",
+              backgroundColor: "#2c62ba",
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            start your story
+          </button>
         </div>
       </div>
     </div>
