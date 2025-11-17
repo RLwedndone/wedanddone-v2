@@ -1,4 +1,3 @@
-// src/components/MagicBook/MagicBookOverlay.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -61,6 +60,10 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
   const overlayRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const handleCloseOverlay = () => {
+    setActiveOverlay(null);
+  };
+
   // Centralized "Back to TOC"
   const goToTOC = React.useCallback(() => {
     setStep("toc");
@@ -77,7 +80,7 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
     return () => window.removeEventListener("magic:gotoTOC", handler);
   }, []);
 
-  // Scroll to top whenever step changes (overlay container + window)
+  // Scroll to top whenever step changes
   useScrollToTopOnChange([step], { targetRef: overlayRef });
 
   // Restore saved step on mount (or use startAt)
@@ -93,61 +96,40 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
 
   return (
     <div
-      ref={overlayRef}
       className="pixie-overlay"
+      ref={overlayRef}
       style={{
         position: "fixed",
         inset: 0,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
         zIndex: 1000,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "auto", // overlay is the scroller
+        overflowY: "auto",
       }}
     >
+      {/* Just a layout wrapper – NO card styles here */}
       <div
         style={{
-          background: "#fff",
-          padding: "2rem",
-          borderRadius: "18px",
-          maxWidth: "600px",
-          width: "90%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
-          position: "relative",
+          width: "100%",
+          maxWidth: 900,
+          margin: "40px auto",
+          padding: "0 16px",
         }}
       >
-        {/* Close X */}
-        <button
-          onClick={() => setActiveOverlay(null)}
-          style={{
-            position: "absolute",
-            top: "1rem",
-            right: "1rem",
-            background: "none",
-            border: "none",
-            fontSize: "1.5rem",
-            cursor: "pointer",
-          }}
-          aria-label="Close"
-        >
-          ✖
-        </button>
-
-        {/* ---- ROUTER ---- */}
         {step === "intro" && (
           <MagIntro
             onNext={() => {
               setStep("toc");
               localStorage.setItem("magicStep", "toc");
             }}
+            onClose={handleCloseOverlay}
           />
         )}
 
         {step === "dwIntro" && (
-          <DetailWranglerIntro onNext={() => setStep("dwBasics")} goToTOC={goToTOC} />
+          <DetailWranglerIntro
+            onNext={() => setStep("dwBasics")}
+            goToTOC={goToTOC}
+          />
         )}
 
         {step === "dwBasics" && (
@@ -180,7 +162,7 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
             isMobile={false}
             triggerLogin={() => {}}
             triggerSignupModal={() => {}}
-            onClose={() => navigate("/dashboard")} // ✅ fixed: SPA-safe navigation
+            onClose={() => navigate("/dashboard")}
           />
         )}
 
@@ -296,6 +278,7 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
         {step === "toc" && (
           <MagicBookTOC
             setStep={setStep}
+            onClose={handleCloseOverlay}
             resumeMagicBook={() => {
               const savedStep =
                 (localStorage.getItem("magicStep") as MagicStep) || "intro";

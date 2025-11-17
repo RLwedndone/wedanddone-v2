@@ -276,23 +276,6 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
-      // --- Pricing snapshot ---
-      await setDoc(
-        doc(userRef, "pricingSnapshots", "catering"),
-        {
-          booked: true,
-          guestCountAtBooking: guestCountFinal,
-          perGuest: perGuestPrice,
-          venueCaterer: "encanterra",
-          tier: diamondTier,
-          lineItems: lineItems?.length ? lineItems : encLineItems,
-          totalBooked: total,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-
       // --- Robot billing snapshot & user doc updates ---
       const planMonths = planMonthsLS || 0;
       const perMonthCents = perMonthCentsLS || 0;
@@ -303,101 +286,140 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
-      await updateDoc(userRef, {
-        documents: arrayUnion({
-          title: "Encanterra Catering Agreement",
-          url: publicUrl,
-          uploadedAt: new Date().toISOString(),
-        }),
+          const contractTotal = round2(totalCents / 100 || total);
+          const amountChargedToday = round2(amountDueTodayCents / 100);
+    
+          const purchaseEntry = {
+            label: "Yum Yum Catering",
+            category: "catering",
+            boutique: "catering",
+            source: "W&D",
+            amount: amountChargedToday,
+            amountChargedToday,
+            contractTotal,
+            payFull,
+            deposit: payFull ? amountChargedToday : amountChargedToday,
+            monthlyAmount: payFull ? 0 : round2((perMonthCents || 0) / 100),
+            months: payFull ? 0 : planMonths,
+            method: payFull ? "paid_in_full" : "deposit",
+            items: lineItems?.length ? lineItems : encLineItems,
+            date: purchaseDate,
+          };
 
-        "bookings.catering": true,
-        weddingDateLocked: true,
-
-        purchases: arrayUnion({
-          label: "yum",
-          amount: Number((amountDueTodayCents / 100).toFixed(2)),
-          date: purchaseDate,
-          method: payFull ? "full" : "deposit",
-        }),
-
-        spendTotal: increment(
-          Number((amountDueTodayCents / 100).toFixed(2))
-        ),
-
-        paymentPlan: payFull
-          ? {
-              product: "yum",
-              type: "full",
-              total,
-              paidNow: amountDueToday,
-              remainingBalance: 0,
-              finalDueDate: null,
-              finalDueAt: null,
-              depositPercent: 1,
-              createdAt: new Date().toISOString(),
-            }
-          : {
-              product: "yum",
-              type: "deposit",
-              total,
-              depositPercent: 0.25,
-              paidNow: amountDueToday,
-              remainingBalance,
-              finalDueDate: finalDueDateStr,
-              finalDueAt: finalDueAtISO,
-              createdAt: new Date().toISOString(),
-            },
-
-        paymentPlanAuto: payFull
-          ? {
-              version: 1,
-              product: "yum",
-              status: "complete",
-              strategy: "paid_in_full",
-              currency: "usd",
-              totalCents,
-              depositCents: totalCents,
-              remainingCents: 0,
-              planMonths: 0,
-              perMonthCents: 0,
-              lastPaymentCents: 0,
-              nextChargeAt: null,
-              finalDueAt: null,
-              stripeCustomerId:
-                customerId ||
-                localStorage.getItem("stripeCustomerId") ||
-                null,
-              venueCaterer: "encanterra",
-              tier: diamondTier,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }
-          : {
-              version: 1,
-              product: "yum",
-              status: "active",
-              strategy: "monthly_until_final",
-              currency: "usd",
-              totalCents,
-              depositCents,
-              remainingCents: Math.max(0, totalCents - depositCents),
-              planMonths,
-              perMonthCents,
-              lastPaymentCents,
-              nextChargeAt,
-              finalDueAt: finalDueAtISO,
-              stripeCustomerId:
-                customerId ||
-                localStorage.getItem("stripeCustomerId") ||
-                null,
-              venueCaterer: "encanterra",
-              tier: diamondTier,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-
-        "progress.yumYum.step": "encanterraCateringThankYou",
-      });
+          await updateDoc(userRef, {
+            // Store the PDF
+            documents: arrayUnion({
+              title: "Encanterra Catering Agreement",
+              url: publicUrl,
+              uploadedAt: new Date().toISOString(),
+            }),
+    
+            // Booking flags
+            "bookings.catering": true,
+            weddingDateLocked: true,
+    
+            // 🔹 Rich purchase entry
+            purchases: arrayUnion(purchaseEntry),
+    
+            // spendTotal = what actually hit the card today
+            spendTotal: increment(amountChargedToday),
+    
+            // 🔹 Normalized catering totals for Guest Scroll + admin
+            "totals.catering.contractTotal": contractTotal,
+            "totals.catering.amountPaid": increment(amountChargedToday),
+            "totals.catering.guestCountAtBooking": guestCountFinal,
+            "totals.catering.perGuest":
+              guestCountFinal > 0
+                ? round2(contractTotal / guestCountFinal)
+                : perGuestPrice,
+            "totals.catering.venueSlug": "encanterra",
+            "totals.catering.diamondTier": diamondTier,
+            "totals.catering.lastUpdatedAt": new Date().toISOString(),
+    
+            // Keep existing plan snapshot for Stripe auto-pay
+            paymentPlan: payFull
+              ? {
+                  product: "catering_encanterra",
+                  type: "paid_in_full",
+                  total: contractTotal,
+                  paidNow: amountChargedToday,
+                  remainingBalance: 0,
+                  finalDueDate: null,
+                  finalDueAt: null,
+                  depositPercent: 1,
+                  createdAt: new Date().toISOString(),
+                }
+              : {
+                  product: "catering_encanterra",
+                  type: "deposit",
+                  total: contractTotal,
+                  depositPercent: 0.25,
+                  paidNow: amountChargedToday,
+                  remainingBalance,
+                  finalDueDate: finalDueDateStr,
+                  finalDueAt: finalDueAtISO,
+                  createdAt: new Date().toISOString(),
+                },
+    
+            paymentPlanAuto: payFull
+              ? {
+                  version: 1,
+                  product: "catering_encanterra",
+                  status: "complete",
+                  strategy: "paid_in_full",
+                  currency: "usd",
+    
+                  totalCents,
+                  depositCents: totalCents,
+                  remainingCents: 0,
+    
+                  planMonths: 0,
+                  perMonthCents: 0,
+                  lastPaymentCents: 0,
+    
+                  nextChargeAt: null,
+                  finalDueAt: null,
+    
+                  stripeCustomerId:
+                    customerId ||
+                    localStorage.getItem("stripeCustomerId") ||
+                    null,
+                  venueCaterer: "encanterra",
+                  tier: diamondTier,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : {
+                  version: 1,
+                  product: "catering_encanterra",
+                  status: "active",
+                  strategy: "monthly_until_final",
+                  currency: "usd",
+    
+                  totalCents,
+                  depositCents,
+                  remainingCents: Math.max(0, totalCents - depositCents),
+    
+                  planMonths,
+                  perMonthCents,
+                  lastPaymentCents,
+    
+                  nextChargeAt,
+                  finalDueAt: finalDueAtISO,
+    
+                  stripeCustomerId:
+                    customerId ||
+                    localStorage.getItem("stripeCustomerId") ||
+                    null,
+                  venueCaterer: "encanterra",
+                  tier: diamondTier,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+    
+            // Route back into overlay correctly
+            "progress.yumYum.step": "encanterraCateringThankYou",
+          });
 
       // 📧 Centralized user+admin booking email (Yum Catering @ Encanterra)
 try {

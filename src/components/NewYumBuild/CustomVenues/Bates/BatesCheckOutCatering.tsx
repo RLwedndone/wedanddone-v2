@@ -262,108 +262,138 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     const lastPaymentCents =
       planMonths > 1 ? remainingCentsTotal - perMonthCents * (planMonths - 1) : 0;
 
-    // ── Persist Firestore updates ───────────────────────────────────────────
-    try {
-      await updateDoc(userRef, {
-        "bookings.catering": true,
-        "bookings.updatedAt": new Date().toISOString(),
-
-        ...(agreementUrl
-          ? {
-              documents: arrayUnion({
-                title: "Bates Catering Agreement",
-                url: agreementUrl,
-                uploadedAt: new Date().toISOString(),
-              }),
-            }
-          : {}),
-
-        purchases: arrayUnion({
-          label: "catering:addon",
-          amount: Number(amountDueToday.toFixed(2)),
-          date: new Date().toISOString(),
-          method: payFull ? "full" : "deposit",
-          source: "BatesCheckout",
-        }),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
-
-        paymentPlan: payFull
-          ? {
-              product: "catering_bates",
-              type: "full",
-              total,
-              paidNow: total,
-              remainingBalance: 0,
-              finalDueDate: null,
-              finalDueAt: null,
-              depositPercent: 1,
-              createdAt: new Date().toISOString(),
-            }
-          : {
-              product: "catering_bates",
-              type: "deposit",
-              total,
-              depositPercent: 0.25,
-              paidNow: amountDueToday,
-              remainingBalance,
-              finalDueDate: finalDueDateStr,
-              finalDueAt: finalISO,
-              createdAt: new Date().toISOString(),
-            },
-
-        paymentPlanAuto: payFull
-          ? {
-              version: 1,
-              product: "catering_bates",
-              status: "complete",
-              strategy: "paid_in_full",
-              currency: "usd",
-
-              totalCents: Math.round(total * 100),
-              depositCents: Math.round(total * 100),
-              remainingCents: 0,
-
-              planMonths: 0,
-              perMonthCents: 0,
-              lastPaymentCents: 0,
-
-              nextChargeAt: null,
-              finalDueAt: null,
-
-              stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
-
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }
-          : {
-              version: 1,
-              product: "catering_bates",
-              status: "active",
-              strategy: "monthly_until_final",
-              currency: "usd",
-
-              totalCents: Math.round(total * 100),
-              depositCents: Math.round(amountDueToday * 100),
-              remainingCents: remainingCentsTotal,
-
-              planMonths,
-              perMonthCents,
-              lastPaymentCents,
-
-              nextChargeAt: firstChargeAtISO, // ~1 month from now
-              finalDueAt: finalISO,
-
-              stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
-
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-      });
-    } catch (err) {
-      console.error("❌ Firestore update failed:", err);
-    }
+        // ── Persist Firestore updates ───────────────────────────────────────────
+        try {
+          // Normalized purchase entry (admin-friendly)
+          const purchaseEntry = {
+            label: "Bates Catering Add-ons",
+            category: "catering",
+            boutique: "catering",
+            source: "W&D",
+    
+            amount: Number(amountDueToday.toFixed(2)),          // hit card today
+            amountChargedToday: Number(amountDueToday.toFixed(2)),
+            contractTotal: Number(total.toFixed(2)),            // full add-ons total
+    
+            payFull: payFull,
+            deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
+            monthlyAmount: payFull ? 0 : perMonthCents / 100,
+            months: payFull ? 0 : planMonths,
+            method: payFull ? "paid_in_full" : "deposit",
+    
+            items: lineItems || [],
+            date: new Date().toISOString(),
+          };
+    
+          await updateDoc(userRef, {
+            // mark catering as booked
+            "bookings.catering": true,
+            "bookings.updatedAt": new Date().toISOString(),
+    
+            // attach the agreement PDF
+            ...(agreementUrl
+              ? {
+                  documents: arrayUnion({
+                    title: "Bates Catering Agreement",
+                    url: agreementUrl,
+                    uploadedAt: new Date().toISOString(),
+                  }),
+                }
+              : {}),
+    
+            // purchase history
+            purchases: arrayUnion(purchaseEntry),
+    
+            // spendTotal reflects what hit the card today
+            spendTotal: increment(Number(amountDueToday.toFixed(2))),
+    
+            // 🔹 Normalized catering totals for Guest Scroll + admin views
+            "totals.catering.contractTotal": Number(total.toFixed(2)),
+            "totals.catering.amountPaid": increment(
+              Number(amountDueToday.toFixed(2))
+            ),
+            "totals.catering.guestCountAtBooking": guestCount,
+            "totals.catering.venueSlug": "batesmansion",
+            "totals.catering.lastUpdatedAt": new Date().toISOString(),
+    
+            // keep existing plan / auto-plan for Stripe autopay
+            paymentPlan: payFull
+              ? {
+                  product: "catering_bates",
+                  type: "full",
+                  total,
+                  paidNow: total,
+                  remainingBalance: 0,
+                  finalDueDate: null,
+                  finalDueAt: null,
+                  depositPercent: 1,
+                  createdAt: new Date().toISOString(),
+                }
+              : {
+                  product: "catering_bates",
+                  type: "deposit",
+                  total,
+                  depositPercent: 0.25,
+                  paidNow: amountDueToday,
+                  remainingBalance,
+                  finalDueDate: finalDueDateStr,
+                  finalDueAt: finalISO,
+                  createdAt: new Date().toISOString(),
+                },
+    
+            paymentPlanAuto: payFull
+              ? {
+                  version: 1,
+                  product: "catering_bates",
+                  status: "complete",
+                  strategy: "paid_in_full",
+                  currency: "usd",
+    
+                  totalCents: Math.round(total * 100),
+                  depositCents: Math.round(total * 100),
+                  remainingCents: 0,
+    
+                  planMonths: 0,
+                  perMonthCents: 0,
+                  lastPaymentCents: 0,
+    
+                  nextChargeAt: null,
+                  finalDueAt: null,
+    
+                  stripeCustomerId:
+                    customerId || localStorage.getItem("stripeCustomerId") || null,
+    
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              : {
+                  version: 1,
+                  product: "catering_bates",
+                  status: "active",
+                  strategy: "monthly_until_final",
+                  currency: "usd",
+    
+                  totalCents: Math.round(total * 100),
+                  depositCents: Math.round(amountDueToday * 100),
+                  remainingCents: remainingCentsTotal,
+    
+                  planMonths,
+                  perMonthCents,
+                  lastPaymentCents,
+    
+                  nextChargeAt: firstChargeAtISO, // ~1 month from now
+                  finalDueAt: finalISO,
+    
+                  stripeCustomerId:
+                    customerId || localStorage.getItem("stripeCustomerId") || null,
+    
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+          });
+        } catch (err) {
+          console.error("❌ Firestore update failed:", err);
+        }
 
     // ✅ Centralized user+admin email (same system used by Floral/Yum core)
 try {

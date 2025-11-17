@@ -660,54 +660,90 @@ const OcotilloCateringContract: React.FC<Props> = ({
           }}
         >
           <button
-            className="boutique-primary-btn"
-            onClick={() => {
-              if (!signatureSubmitted) return;
+  className="boutique-primary-btn"
+  onClick={() => {
+    if (!signatureSubmitted) return;
 
-              // persist user’s payment plan picks for checkout
-              try {
-                localStorage.setItem("yumStep", "cateringCheckout");
-                localStorage.setItem(
-                  "yumCateringPayFull",
-                  JSON.stringify(payFull)
-                );
-                localStorage.setItem(
-                  "yumCateringDepositAmount",
-                  String(depositCents)
-                );
-                localStorage.setItem(
-                  "yumCateringTotalCents",
-                  String(totalCents)
-                );
-                localStorage.setItem(
-                  "yumCateringDueBy",
-                  dueByDate ? dueByDate.toISOString() : ""
-                );
-                localStorage.setItem(
-                  "yumCateringPlanMonths",
-                  String(planMonths)
-                );
-                localStorage.setItem(
-                  "yumCateringPerMonthCents",
-                  String(perMonthCents)
-                );
-                localStorage.setItem(
-                  "yumCateringLastPaymentCents",
-                  String(lastPaymentCents)
-                );
-              } catch {}
+    try {
+      // ---- Generic yum handoff (backwards compatible) ----
+      localStorage.setItem("yumStep", "cateringCheckout");
+      localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
+      localStorage.setItem("yumCateringDepositAmount", String(depositCents));
+      localStorage.setItem("yumCateringTotalCents", String(totalCents));
+      localStorage.setItem(
+        "yumCateringDueBy",
+        dueByDate ? dueByDate.toISOString() : ""
+      );
+      localStorage.setItem("yumCateringPlanMonths", String(planMonths));
+      localStorage.setItem(
+        "yumCateringPerMonthCents",
+        String(perMonthCents)
+      );
+      localStorage.setItem(
+        "yumCateringLastPaymentCents",
+        String(lastPaymentCents)
+      );
 
-              setStep("cateringCheckout");
-            }}
-            disabled={!signatureSubmitted}
-            style={{
-              width: 260,
-              opacity: signatureSubmitted ? 1 : 0.5,
-              cursor: signatureSubmitted ? "pointer" : "not-allowed",
-            }}
-          >
-            Continue to Payment
-          </button>
+      // ---- Ocotillo-specific handoff (what checkout actually reads first) ----
+      localStorage.setItem("ocotilloPayFull", JSON.stringify(payFull));
+      localStorage.setItem("ocotilloDepositAmountCents", String(depositCents));
+      localStorage.setItem("ocotilloTotalCents", String(totalCents));
+      localStorage.setItem("ocotilloPlanMonths", String(planMonths));
+      localStorage.setItem(
+        "ocotilloPerMonthCents",
+        String(perMonthCents)
+      );
+      localStorage.setItem(
+        "ocotilloLastPaymentCents",
+        String(lastPaymentCents)
+      );
+
+      if (dueByDate) {
+        localStorage.setItem("ocotilloDueByISO", dueByDate.toISOString());
+      }
+      if (weddingDate) {
+        localStorage.setItem("ocotilloWeddingDate", weddingDate);
+      }
+      if (dayOfWeek) {
+        localStorage.setItem("ocotilloDayOfWeek", dayOfWeek);
+      }
+
+      localStorage.setItem(
+        "ocotilloPaymentSummaryText",
+        paymentSummaryText
+      );
+      localStorage.setItem(
+        "ocotilloTierLabel",
+        TIER_LABEL[selectedTier]
+      );
+      localStorage.setItem(
+        "ocotilloSelections",
+        JSON.stringify(menuSelections)
+      );
+      localStorage.setItem(
+        "ocotilloLineItems",
+        JSON.stringify(lineItems)
+      );
+
+      if (signatureImage) {
+        localStorage.setItem("ocotilloSignatureImage", signatureImage);
+      }
+    } catch {
+      // non-fatal, checkout has fallbacks
+    }
+
+    // Step name stays whatever your overlay expects
+    setStep("cateringCheckout");
+  }}
+  disabled={!signatureSubmitted}
+  style={{
+    width: 260,
+    opacity: signatureSubmitted ? 1 : 0.5,
+    cursor: signatureSubmitted ? "pointer" : "not-allowed",
+  }}
+>
+  Continue to Payment
+</button>
 
           <button
             className="boutique-back-btn"

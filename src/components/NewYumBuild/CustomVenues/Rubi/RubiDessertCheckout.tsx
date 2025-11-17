@@ -257,8 +257,30 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         "progress.yumYum.step": "rubiDessertThankYou",
       });
 
+      // 🔹 Dessert pricing snapshot for guest-count delta math
+      await setDoc(
+        doc(userRef, "pricingSnapshots", "dessert"),
+        {
+          booked: true,
+          guestCountAtBooking: guestCount,
+          totalBooked: Number(totalEffective.toFixed(2)),
+          perGuest:
+            guestCount > 0
+              ? Number((totalEffective / guestCount).toFixed(2))
+              : 0,
+          venueId: "rubi",
+          style: selectedStyle || null,
+          flavorCombo: selectedFlavorCombo || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
       const signatureImageUrl =
-        signatureImage || localStorage.getItem("yumSignature") || "";
+        signatureImage ||
+        localStorage.getItem("rubiDessertSignature") ||
+        localStorage.getItem("yumSignature") ||
+        "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,

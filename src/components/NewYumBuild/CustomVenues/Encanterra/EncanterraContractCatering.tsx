@@ -2,12 +2,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { db, app } from "../../../../firebase/firebaseConfig";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import emailjs from "emailjs-com";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../../../../firebase/firebaseConfig";
 import { getGuestState } from "../../../../utils/guestCountStore";
-import generateEncanterraAgreementPDF from "../../../../utils/generateEncanterraAgreementPDF";
 
 /* -------------------- date + money helpers -------------------- */
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -46,7 +43,7 @@ export interface EncanterraMenuSelections {
 }
 
 interface Props {
-  total: number;
+  total: number; // grand total from cart (includes service fee, tax, card fees)
   guestCount: number;
   weddingDate: string | null;
   dayOfWeek: string | null;
@@ -61,7 +58,7 @@ interface Props {
 
   setStep: (step: string) => void; // "encanterraCheckout"
   onClose: () => void;
-  onComplete: () => void; // after success
+  onComplete: () => void; // not used here anymore, but kept for parity
 }
 
 const EncanterraContractCatering: React.FC<Props> = ({
@@ -78,11 +75,11 @@ const EncanterraContractCatering: React.FC<Props> = ({
   setSignatureSubmitted,
   setStep,
   onClose,
-  onComplete,
+  onComplete, // eslint appeasement
 }) => {
   const auth = getAuth();
 
-  // user basics for PDF/email
+  // user basics for display / metadata
   const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -137,9 +134,12 @@ const EncanterraContractCatering: React.FC<Props> = ({
   const totalCents = Math.round(total * 100);
   const depositCents = Math.round(depositAmount * 100);
   const balanceCents = Math.max(0, totalCents - depositCents);
-  const planMonths = wedding && dueByDate ? monthsBetweenInclusive(new Date(), dueByDate) : 1;
-  const perMonthCents = planMonths > 0 ? Math.floor(balanceCents / planMonths) : balanceCents;
-  const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
+  const planMonths =
+    wedding && dueByDate ? monthsBetweenInclusive(new Date(), dueByDate) : 1;
+  const perMonthCents =
+    planMonths > 0 ? Math.floor(balanceCents / planMonths) : balanceCents;
+  const lastPaymentCents =
+    balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
     ? `You’re paying $${total.toFixed(2)} today.`
@@ -147,7 +147,11 @@ const EncanterraContractCatering: React.FC<Props> = ({
         2
       )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
         perMonthCents / 100
-      ).toFixed(2)}${planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""}`;
+      ).toFixed(2)}${
+        planMonths > 1
+          ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})`
+          : ""
+      }`;
 
   // boot/persist progress
   useEffect(() => {
@@ -165,13 +169,21 @@ const EncanterraContractCatering: React.FC<Props> = ({
         setLastName(d.lastName || "");
 
         await updateDoc(userRef, { "progress.yumYum.step": "encanterraContract" });
-        await setDoc(doc(userRef, "yumYumData", "encanterraSelections"), menuSelections, { merge: true });
+        await setDoc(
+          doc(userRef, "yumYumData", "encanterraSelections"),
+          menuSelections,
+          { merge: true }
+        );
         await setDoc(
           doc(userRef, "yumYumData", "encanterraCart"),
           { guestCount: lockedGuestCount, tier: selectedTier },
           { merge: true }
         );
-        await setDoc(doc(userRef, "yumYumData", "lineItems"), { lineItems }, { merge: true });
+        await setDoc(
+          doc(userRef, "yumYumData", "lineItems"),
+          { lineItems },
+          { merge: true }
+        );
       } catch (e) {
         console.error("🔥 Error initializing contract state:", e);
       }
@@ -179,26 +191,13 @@ const EncanterraContractCatering: React.FC<Props> = ({
     return () => unsub();
   }, [auth, lineItems, menuSelections, selectedTier, lockedGuestCount]);
 
-  /* -------------------- storage helpers -------------------- */
-  const uploadPdfBlob = async (blob: Blob, uid: string, title: string): Promise<string> => {
-    const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
-    const filename = `${title.replace(/\s+/g, "")}_${Date.now()}.pdf`;
-    const fileRef = ref(storage, `public_docs/${uid}/${filename}`);
-    await uploadBytes(fileRef, blob);
-    const publicUrl = await getDownloadURL(fileRef);
-    await updateDoc(doc(db, "users", uid), {
-      documents: arrayUnion({ title, url: publicUrl, uploadedAt: new Date().toISOString() }),
-    });
-    return publicUrl;
-  };
-
   /* -------------------- signature helpers -------------------- */
   const drawToDataUrl = () => {
     try {
       const c =
         sigCanvasRef.current?.getCanvas?.() ||
         (sigCanvasRef.current as unknown as { _canvas?: HTMLCanvasElement })?._canvas;
-    // @ts-ignore
+      // @ts-ignore
       return c?.toDataURL("image/png") || "";
     } catch {
       return "";
@@ -224,86 +223,87 @@ const EncanterraContractCatering: React.FC<Props> = ({
   };
 
   const handleSignatureSubmit = async () => {
-    const finalSignature = useTextSignature ? generateImageFromText(typedSignature.trim()) : drawToDataUrl();
+    const finalSignature = useTextSignature
+      ? generateImageFromText(typedSignature.trim())
+      : drawToDataUrl();
+
     if (!finalSignature) {
       alert("Please enter or draw a signature.");
       return;
     }
+
     setSignatureImage(finalSignature);
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
 
+    // Save to Firestore + localStorage for checkout / PDFs
     const u = auth.currentUser;
+    try {
+      localStorage.setItem("encSignatureImage", finalSignature);
+      localStorage.setItem("yumSignature", finalSignature);
+    } catch {
+      /* ignore */
+    }
+
     if (u) {
       try {
-        await setDoc(doc(db, "users", u.uid), { yumSignatureImageUrl: finalSignature, yumSigned: true }, { merge: true });
+        await setDoc(
+          doc(db, "users", u.uid),
+          { yumSignatureImageUrl: finalSignature, yumSigned: true },
+          { merge: true }
+        );
       } catch (e) {
         console.error("❌ Failed to save signature:", e);
       }
     }
   };
 
-  /* -------------------- success → PDF + Firestore -------------------- */
-  const handleSuccess = async () => {
-    if (!userId) return;
+  /* -------------------- handoff to Checkout -------------------- */
+  const handleContinueToPayment = () => {
+    if (!signatureSubmitted) return;
+
     try {
-      setIsGenerating(true);
+      // Canonical yum keys (used across venues)
+      localStorage.setItem("yumStep", "encanterraCheckout");
+      localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
+      localStorage.setItem("yumCateringDepositAmount", String(depositCents));
+      localStorage.setItem("yumCateringTotalCents", String(totalCents));
+      localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
+      localStorage.setItem("yumCateringPlanMonths", String(planMonths));
+      localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
+      localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
 
-      const pdfBlob = await generateEncanterraAgreementPDF({
-        fullName: `${firstName} ${lastName}`,
-        total,
-        guestCount: lockedGuestCount,
-        weddingDate: prettyWedding,
-        paymentSummary: paymentSummaryText,
-        signatureImageUrl: signatureImage || "",
-        tierLabel: TIER_LABEL[selectedTier],
-        selections: {
-          hors: menuSelections.hors || [],
-          salads: menuSelections.salads || [],
-          entrees: menuSelections.entrees || [],
-          sides: menuSelections.sides || [],
-        },
-        lineItems,
-      });
+      // Venue-specific mirrors (what EncanterraCheckOutCatering reads first)
+      localStorage.setItem("encPayFull", JSON.stringify(payFull));
+      localStorage.setItem("encDepositAmountCents", String(depositCents));
+      localStorage.setItem("encTotalCents", String(totalCents));
+      localStorage.setItem("encDueByISO", dueByDate ? dueByDate.toISOString() : "");
+      localStorage.setItem("encPlanMonths", String(planMonths));
+      localStorage.setItem("encPerMonthCents", String(perMonthCents));
+      localStorage.setItem("encLastPaymentCents", String(lastPaymentCents));
+      localStorage.setItem("encPaymentSummaryText", paymentSummaryText);
 
-      await uploadPdfBlob(pdfBlob, userId, "Encanterra Catering Agreement");
-
-      await updateDoc(doc(db, "users", userId), {
-        "bookings.catering": true,
-        dateLocked: true,
-        yumGuestCount: lockedGuestCount,
-        encanterraTier: selectedTier,
-        encanterraSelections: menuSelections,
-        purchases: arrayUnion({
-          label: `Catering (${TIER_LABEL[selectedTier]} tier)`,
-          amount: round2(total),
-          date: new Date().toISOString(),
-        }),
-      });
-
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email: auth.currentUser?.email || "Unknown",
-            user_full_name: `${firstName} ${lastName}`,
-            wedding_date: prettyWedding || "Unknown",
-            total: total.toFixed(2),
-            line_items: `Catering (${TIER_LABEL[selectedTier]}) – ${menuSelections.entrees.join(", ")}`,
-          },
-          "5Lqtf5AMR9Uz5_5yF"
-        );
-      } catch (e) {
-        console.warn("EmailJS failed (non-fatal):", e);
-      }
-
-      onComplete();
-    } catch (err) {
-      console.error("❌ Encanterra contract error:", err);
-    } finally {
-      setIsGenerating(false);
+      // label + context
+      localStorage.setItem("encVenueName", "Encanterra");
+      if (weddingDate) localStorage.setItem("encWeddingDate", weddingDate);
+      if (dayOfWeek) localStorage.setItem("encDayOfWeek", dayOfWeek);
+      localStorage.setItem("encTierId", TIER_LABEL[selectedTier]); // "1 Carat" style
+      localStorage.setItem("encanterraPerGuest", String(total / Math.max(1, lockedGuestCount)));
+      localStorage.setItem(
+        "encSelections",
+        JSON.stringify({
+          hors: menuSelections.hors,
+          salads: menuSelections.salads,
+          sides: menuSelections.sides,
+          entrees: menuSelections.entrees,
+        })
+      );
+      localStorage.setItem("encLineItems", JSON.stringify(lineItems));
+    } catch {
+      // worst case, checkout will recompute with fallbacks
     }
+
+    setStep("encanterraCheckout");
   };
 
   /* -------------------- UI (standardized) -------------------- */
@@ -311,7 +311,10 @@ const EncanterraContractCatering: React.FC<Props> = ({
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -327,102 +330,161 @@ const EncanterraContractCatering: React.FC<Props> = ({
         </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
-          You’re booking catering for <strong>{prettyWedding}</strong> ({dayOfWeek || "TBD"}).
+          You’re booking catering for <strong>{prettyWedding}</strong>{" "}
+          ({dayOfWeek || "TBD"}).
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          Total catering cost: <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest(s).
+          Total catering cost:{" "}
+          <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest
+          {lockedGuestCount === 1 ? "" : "s"}. This amount includes venue service
+          fees, applicable taxes, and card processing fees.
         </p>
 
         {/* Booking Terms */}
-        <div className="px-section" style={{ maxWidth: 640, margin: "0 auto 12px", textAlign: "left" }}>
-          <h3 className="px-title" style={{ textAlign: "center", marginBottom: 6 }}>
+        <div
+          className="px-section"
+          style={{ maxWidth: 640, margin: "0 auto 12px", textAlign: "left" }}
+        >
+          <h3
+            className="px-title"
+            style={{ textAlign: "center", marginBottom: 6 }}
+          >
             Booking Terms
           </h3>
-          <ul className="px-prose-narrow" style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}>
-          <li>The amount listed above will count towards your Food & Beverage minimum (if there is one in your Encanterra Venue Contract). Any remaining amount needed to reach the minimum can be made up with the bar package you book directly with the venue, or you can add more to this contract.</li>
+          <ul
+            className="px-prose-narrow"
+            style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}
+          >
             <li>
-              You may pay in full today, or place a <strong>25% non-refundable deposit</strong>.
-              Any remaining balance will be split into monthly installments and must be fully paid{" "}
+              The amount listed above will count toward any Food &amp; Beverage
+              minimum in your Encanterra Venue Contract. Any remaining amount
+              needed to reach the minimum can be covered by the bar package you
+              book directly with the venue, or by adding more items to this
+              contract.
+            </li>
+            <li>
+              You may pay in full today, or place a{" "}
+              <strong>25% non-refundable deposit</strong>. Any remaining balance
+              will be split into monthly installments and must be fully paid{" "}
               <strong>35 days before your wedding date</strong>.
             </li>
             <li>
-              Final guest count is due <strong>30 days</strong> before your wedding. You may increase your
-              count starting 45 days out, but it cannot be lowered after booking.
+              Final guest count is due <strong>30 days</strong> before your
+              wedding. You may increase your count starting 45 days out, but it
+              cannot be lowered after booking.
             </li>
             <li>
-              <strong>Bar Packages:</strong> All alcohol is booked directly with the venue per Arizona liquor laws.
-              Wed&Done does not provide bar service or alcohol.
+              <strong>Bar Packages:</strong> All alcohol is booked directly with
+              the venue per Arizona liquor laws. Wed&amp;Done does not provide
+              bar service or alcohol.
             </li>
             <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid
-              beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred.
+              <strong>Cancellation &amp; Refunds:</strong> If you cancel more
+              than 35 days prior, amounts paid beyond the non-refundable portion
+              will be refunded less any non-recoverable costs already incurred.
               Within 35 days, all payments are non-refundable.
             </li>
             <li>
-              <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee
-              applies; after 14 days, services may be suspended and this agreement may be in default.
+              <strong>Missed Payments:</strong> We’ll automatically retry your
+              card. After 7 days, a $25 late fee applies; after 14 days,
+              services may be suspended and this agreement may be in default.
             </li>
             <li>
-              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and
-              comply with venue rules, which may limit service/display options.
+              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
+              standard food-safety guidelines and comply with venue rules, which
+              may limit service/display options.
             </li>
             <li>
-              <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control.
-              We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond
-              non-recoverable costs incurred.
+              <strong>Force Majeure:</strong> Neither party is liable for delays
+              beyond reasonable control. We’ll work in good faith to reschedule;
+              if not possible, we’ll refund amounts paid beyond non-recoverable
+              costs incurred.
             </li>
-            <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
+            <li>
+              In the unlikely event of our cancellation or issue, liability is
+              limited to a refund of payments made.
+            </li>
           </ul>
         </div>
 
         {/* Plan toggle */}
-        <h4 className="px-title" style={{ marginTop: 6, marginBottom: 6 }}>
+        <h4
+          className="px-title"
+          style={{ marginTop: 6, marginBottom: 6 }}
+        >
           Choose how you’d like to pay:
         </h4>
         <div className="px-toggle" style={{ marginBottom: 8 }}>
           <button
             type="button"
-            className={`px-toggle__btn ${payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
-            onClick={() => { setPayFull(true); setSignatureSubmitted(false); }}
+            className={`px-toggle__btn ${
+              payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""
+            }`}
+            onClick={() => {
+              setPayFull(true);
+              setSignatureSubmitted(false);
+            }}
             aria-pressed={payFull}
           >
             Pay in Full
           </button>
           <button
             type="button"
-            className={`px-toggle__btn ${!payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
-            onClick={() => { setPayFull(false); setSignatureSubmitted(false); }}
+            className={`px-toggle__btn ${
+              !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+            }`}
+            onClick={() => {
+              setPayFull(false);
+              setSignatureSubmitted(false);
+            }}
             aria-pressed={!payFull}
           >
             Deposit + Monthly
           </button>
         </div>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 10 }}>{paymentSummaryText}</p>
+        <p className="px-prose-narrow" style={{ marginBottom: 10 }}>
+          {paymentSummaryText}
+        </p>
 
         {/* Agree */}
         <div style={{ margin: "6px 0 8px" }}>
-          <label className="px-prose-narrow" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={agreeChecked} onChange={(e) => setAgreeChecked(e.target.checked)} />
+          <label
+            className="px-prose-narrow"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+          >
+            <input
+              type="checkbox"
+              checked={agreeChecked}
+              onChange={(e) => setAgreeChecked(e.target.checked)}
+            />
             I have read and agree to the terms above.
           </label>
         </div>
 
         {/* Sign / Continue */}
         {!signatureSubmitted ? (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+          <div
+            style={{ display: "flex", justifyContent: "center", marginTop: 8 }}
+          >
             <button
               className="boutique-primary-btn"
               onClick={handleSignClick}
               disabled={!agreeChecked}
-              style={{ width: 260, opacity: agreeChecked ? 1 : 0.5, cursor: agreeChecked ? "pointer" : "not-allowed" }}
+              style={{
+                width: 260,
+                opacity: agreeChecked ? 1 : 0.5,
+                cursor: agreeChecked ? "pointer" : "not-allowed",
+              }}
             >
               Sign Agreement
             </button>
           </div>
         ) : (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+          <div
+            style={{ display: "flex", justifyContent: "center", marginTop: 8 }}
+          >
             <img
               src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
               alt="Agreement Signed"
@@ -432,36 +494,31 @@ const EncanterraContractCatering: React.FC<Props> = ({
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 10 }}>
           <button
             className="boutique-primary-btn"
-            onClick={() => {
-              if (!signatureSubmitted) return;
-              try {
-                localStorage.setItem("yumStep", "encanterraCheckout");
-                localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
-                localStorage.setItem("yumCateringDepositAmount", String(depositCents));
-                localStorage.setItem("yumCateringTotalCents", String(totalCents));
-                localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
-                localStorage.setItem("yumCateringPlanMonths", String(planMonths));
-                localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
-                localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
-              } catch {}
-              setStep("encanterraCheckout");
-            }}
+            onClick={handleContinueToPayment}
             disabled={!signatureSubmitted || isGenerating}
-            style={{ width: 260, opacity: signatureSubmitted ? 1 : 0.5 }}
+            style={{
+              width: 260,
+              opacity: signatureSubmitted ? 1 : 0.5,
+              cursor: signatureSubmitted ? "pointer" : "not-allowed",
+            }}
           >
             Continue to Payment
           </button>
-          <button className="boutique-back-btn" onClick={() => setStep("encanterraCart")} style={{ width: 260 }}>
+          <button
+            className="boutique-back-btn"
+            onClick={() => setStep("encanterraCart")}
+            style={{ width: 260 }}
+          >
             ⬅ Back to Cart
           </button>
         </div>
       </div>
 
-      {/* Signature modal — standard, blue X; scrollbar hidden */}
+      {/* Signature modal */}
       {showSignatureModal && (
         <div
           style={{
@@ -475,20 +532,44 @@ const EncanterraContractCatering: React.FC<Props> = ({
             padding: 16,
           }}
         >
-          <div className="pixie-card pixie-card--modal" style={{ maxWidth: 520, position: "relative", overflow: "hidden" }}>
-            <button className="pixie-card__close" onClick={() => setShowSignatureModal(false)} aria-label="Close">
-              <img src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`} alt="Close" />
+          <div
+            className="pixie-card pixie-card--modal"
+            style={{ maxWidth: 520, position: "relative", overflow: "hidden" }}
+          >
+            <button
+              className="pixie-card__close"
+              onClick={() => setShowSignatureModal(false)}
+              aria-label="Close"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
+                alt="Close"
+              />
             </button>
 
             <div className="pixie-card__body" style={{ textAlign: "center" }}>
-              <h3 className="px-title-lg" style={{ fontSize: "1.7rem", marginBottom: 10 }}>
+              <h3
+                className="px-title-lg"
+                style={{ fontSize: "1.7rem", marginBottom: 10 }}
+              >
                 Sign below or enter a text signature
               </h3>
 
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
                 <button
                   type="button"
-                  className={`px-toggle__btn ${!useTextSignature ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    !useTextSignature
+                      ? "px-toggle__btn--blue px-toggle__btn--active"
+                      : ""
+                  }`}
                   onClick={() => setUseTextSignature(false)}
                   aria-pressed={!useTextSignature}
                 >
@@ -496,7 +577,11 @@ const EncanterraContractCatering: React.FC<Props> = ({
                 </button>
                 <button
                   type="button"
-                  className={`px-toggle__btn ${useTextSignature ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
+                  className={`px-toggle__btn ${
+                    useTextSignature
+                      ? "px-toggle__btn--pink px-toggle__btn--active"
+                      : ""
+                  }`}
                   onClick={() => setUseTextSignature(true)}
                   aria-pressed={useTextSignature}
                 >
@@ -533,7 +618,11 @@ const EncanterraContractCatering: React.FC<Props> = ({
                 />
               )}
 
-              <button className="boutique-primary-btn" onClick={handleSignatureSubmit} style={{ width: 260, margin: "0 auto" }}>
+              <button
+                className="boutique-primary-btn"
+                onClick={handleSignatureSubmit}
+                style={{ width: 260, margin: "0 auto" }}
+              >
                 Save Signature
               </button>
             </div>

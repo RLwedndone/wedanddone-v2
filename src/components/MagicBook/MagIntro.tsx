@@ -1,43 +1,33 @@
 // src/components/MagicBook/MagIntro.tsx
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
 interface MagIntroProps {
   onNext: () => void;
+  onClose: () => void;
 }
 
-const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
-  const navigate = useNavigate();
-
+const MagIntro: React.FC<MagIntroProps> = ({ onNext, onClose }) => {
   return (
-    <div className="pixie-overlay">
-      <div className="pixie-card">
-        {/* ✖ Close Button */}
-        <button
-          onClick={() => navigate("/dashboard")}
-          style={{
-            position: "absolute",
-            top: "1rem",
-            right: "1rem",
-            background: "none",
-            border: "none",
-            fontSize: "1.5rem",
-            cursor: "pointer",
-          }}
-        >
-          ✖
-        </button>
+    <div className="pixie-card">
+      {/* Pink X */}
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
 
+      <div className="pixie-card__body">
         {/* Title Image */}
         <img
           src={`${import.meta.env.BASE_URL}assets/images/MagicBookTextIntro.png`}
           alt="Magic Book Intro Title"
-          style={{
-            width: "100%",
-            maxWidth: "400px",
-            margin: "0 auto 1.5rem",
-            display: "block",
-          }}
+          className="px-media px-media--md"
+          style={{ marginBottom: "1.5rem" }}
         />
 
         {/* Looping Intro Video */}
@@ -46,13 +36,8 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
           loop
           muted
           playsInline
-          style={{
-            width: "100%",
-            maxWidth: "400px",
-            borderRadius: "12px",
-            margin: "0 auto 1.5rem",
-            display: "block",
-          }}
+          className="px-media px-media--md"
+          style={{ borderRadius: "12px", marginBottom: "1.5rem" }}
         >
           <source
             src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/Mag_Book_Intro.mp4`}
@@ -75,30 +60,29 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext }) => {
             This is your enchanted planning space for all things weddingy and
             wonderful. Inside you'll find:
             <br />
-            <br />🪄 The Detail Wrangler — your secret stash of expert tips,
+            <br />
+            🪄 The Detail Wrangler — your secret stash of expert tips,
             timelines, and planning spells.
             <br />
-            <br />📸 The VIP & Photos chapter — create your VIP list and build a
+            <br />
+            📸 The VIP & Photos chapter — create your VIP list and build a
             custom shot list for your photographer (with adorable Polaroids!).
           </p>
 
           <button
-            onClick={() => {
-              console.log("✨ Button clicked");
-              onNext();
-            }}
-            style={{
-              padding: "0.75rem 1.5rem",
-              fontSize: "1.1rem",
-              borderRadius: "8px",
-              backgroundColor: "#2c62ba",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            start your story
-          </button>
+  onClick={onNext}
+  className="boutique-primary-btn"
+  style={{
+    padding: "0.75rem 1.5rem",
+    fontSize: "1.1rem",
+    borderRadius: "8px",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+  }}
+>
+  start your story
+</button>
         </div>
       </div>
     </div>

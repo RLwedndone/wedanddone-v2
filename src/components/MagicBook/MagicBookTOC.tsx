@@ -24,10 +24,10 @@ type MagicStep =
   | "photoPDF"
   | "toc";
 
-  interface Props {
-    setStep: (s: MagicStep) => void;
-    resumeMagicBook?: () => void; // optional, can be used later
-  }
+interface Props {
+  setStep: (s: MagicStep) => void;
+  onClose: () => void;
+}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -40,7 +40,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
+const MagicBookTOC: React.FC<Props> = ({ setStep, onClose }) => {
   const isMobile = useIsMobile();
   const [showAllPages, setShowAllPages] = useState(false);
 
@@ -49,152 +49,113 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
     setStep(step);
   };
 
-  // shared sizing
-  const BUTTON_WIDTH_PCT = "72%";
-  const BUTTON_MAX_W = 340;
-
-  // title image overlay
-  const TITLE_IMG_PATH = `${import.meta.env.BASE_URL}assets/images/TOC_tile.png`;
-  const TITLE_HEIGHT = isMobile ? 120 : 160;
-  // const TITLE_WIDTH = isMobile ? 220 : 300; // not used
-
   return (
-    <>
-      <div
-        className="pixie-overlay"
-        style={{
-          padding: 0,
-          overflowY: "auto",
-          scrollPaddingTop: isMobile ? 120 : 160,
-        }}
-      >
-        {/* Book background container */}
-        <div
+    <div className="pixie-card">
+      {/* Pink X */}
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
+      {/* Card Body */}
+      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        
+        {/* Placeholder looping video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
           style={{
-            position: "relative",
             width: "100%",
-            maxWidth: 900,
-            borderRadius: 24,
-            backgroundImage: `url(${import.meta.env.BASE_URL}assets/images/toc.png)`,
-            backgroundSize: "cover",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center top",
-            padding: isMobile ? "3rem 1rem 2rem" : "4rem 2rem 2rem",
-            boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
-            margin: "0 auto",
-            overflowAnchor: "none" as any,
+            maxWidth: 320,
+            borderRadius: "12px",
+            margin: "0 auto 1.5rem",
+            display: "block",
           }}
         >
-          {/* Title art (not interactive) */}
-          <img
-            src={TITLE_IMG_PATH}
-            alt="MBD's Table of Contents"
-            style={{
-              position: "absolute",
-              top: isMobile ? 100 : 70,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "45%",
-              height: "auto",
-              pointerEvents: "none",
-              userSelect: "none",
-            }}
+          <source
+            src={`${import.meta.env.BASE_URL}assets/videos/bookmark.mp4`}
+            type="video/mp4"
           />
+        </video>
 
-          {/* Spacer to push content below the title */}
-          <div style={{ height: TITLE_HEIGHT }} />
+        {/* Title */}
+        <h2
+          style={{
+            fontFamily: "Jenna Sue, cursive",
+            color: "#2c62ba",
+            fontSize: isMobile ? "2rem" : "2.4rem",
+            marginBottom: "0.75rem",
+          }}
+        >
+          Table of Contents
+        </h2>
 
-          {/* Content band */}
-          <div
-            style={{
-              marginTop: 80,
-              display: "grid",
-              gap: isMobile ? 8 : 12,
-              justifyItems: "center",
-            }}
-          >
-            {/* Explainer text (match button width) */}
-            <div
-              style={{
-                width: BUTTON_WIDTH_PCT,
-                maxWidth: BUTTON_MAX_W,
-                textAlign: "center",
-              }}
-            >
-              <p style={{ margin: 0, color: "#333", lineHeight: 1.45 }}>
-                Pick where you’d like to jump in. You can always come back here.
-              </p>
-            </div>
+        {/* Subtitle text */}
+        <p
+          style={{
+            color: "#444",
+            lineHeight: 1.5,
+            maxWidth: 350,
+            margin: "0 auto 1.5rem",
+            padding: "0 1rem",
+          }}
+        >
+          Pick where you’d like to go next inside your Magical Book of Deets.  
+          You can always return here.
+        </p>
 
-            {/* Big path buttons */}
-            <img
-              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/detailwrangler_button.png`}
-              alt="Detail Wrangler"
-              onClick={() => go("dwIntro")}
-              style={{
-                width: BUTTON_WIDTH_PCT,
-                maxWidth: BUTTON_MAX_W,
-                cursor: "pointer",
-                transition: "transform 0.18s ease",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = "scale(1.03)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = "scale(1.0)";
-              }}
-            />
+        {/* Chapter Buttons */}
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/detailwrangler_button.png`}
+          alt="Detail Wrangler"
+          onClick={() => go("dwIntro")}
+          style={{
+            width: "80%",
+            maxWidth: 340,
+            cursor: "pointer",
+            marginBottom: "1rem",
+            transition: "transform 0.18s ease",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+          onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        />
 
-            <img
-              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/VIPandPhotos.png`}
-              alt="VIP’s & Photos"
-              onClick={() => go("photoVIPIntro")}
-              style={{
-                width: BUTTON_WIDTH_PCT,
-                maxWidth: BUTTON_MAX_W,
-                cursor: "pointer",
-                transition: "transform 0.18s ease",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = "scale(1.03)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = "scale(1.0)";
-              }}
-            />
-          </div>
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/VIPandPhotos.png`}
+          alt="VIP’s & Photos"
+          onClick={() => go("photoVIPIntro")}
+          style={{
+            width: "80%",
+            maxWidth: 340,
+            cursor: "pointer",
+            marginBottom: "1.5rem",
+            transition: "transform 0.18s ease",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
+          onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        />
 
-          {/* “All Pages” big button */}
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: isMobile ? 12 : 10,
-            }}
-          >
-            <img
-              src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/all_pages.png`}
-              alt="All pages (jump anywhere)"
-              onClick={() => setShowAllPages(true)}
-              style={{
-                width: "70%",
-                maxWidth: 200,
-                cursor: "pointer",
-                transition: "transform .2s ease",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = "scale(1.05)";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = "scale(1.0)";
-              }}
-            />
-          </div>
-
-          <div style={{ height: 8 }} />
-        </div>
+        {/* All Pages */}
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/toc_buttons/all_pages.png`}
+          alt="All pages (jump anywhere)"
+          onClick={() => setShowAllPages(true)}
+          style={{
+            width: "60%",
+            maxWidth: 200,
+            cursor: "pointer",
+            transition: "transform 0.18s ease",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+          onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        />
       </div>
 
-      {/* ===== All Pages Modal (white card) ===== */}
+      {/* ===== ALL PAGES MODAL ===== */}
       {showAllPages && (
         <div
           role="dialog"
@@ -222,8 +183,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
               maxHeight: "80vh",
               overflowY: "auto",
               position: "relative",
-              padding: "1.25rem 1.25rem 1.5rem",
-              boxShadow: "0 12px 24px rgba(0,0,0,0.25)",
+              padding: "1.25rem 1.25rem 2rem",
               textAlign: "center",
             }}
           >
@@ -245,7 +205,6 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
               ✖
             </button>
 
-            {/* Title */}
             <h2
               style={{
                 margin: "6px 0 14px",
@@ -297,12 +256,6 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
                         cursor: "pointer",
                         font: "inherit",
                       }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.textDecoration = "underline";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.textDecoration = "none";
-                      }}
                     >
                       {label}
                     </button>
@@ -350,12 +303,6 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
                         cursor: "pointer",
                         font: "inherit",
                       }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.textDecoration = "underline";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.textDecoration = "none";
-                      }}
                     >
                       {label}
                     </button>
@@ -364,29 +311,26 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, resumeMagicBook }) => {
               </ul>
             </div>
 
-            {/* Back to TOC (purple) */}
-            <div>
-              <button
-                onClick={() => setShowAllPages(false)}
-                style={{
-                  width: 200,
-                  backgroundColor: "#7b4bd8",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "0.75rem 1rem",
-                  fontSize: "1.05rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                🪄 Back to TOC
-              </button>
-            </div>
+            <button
+              onClick={() => setShowAllPages(false)}
+              className="boutique-primary-btn"
+              style={{
+                width: 200,
+                borderRadius: 8,
+                padding: "0.75rem 1rem",
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                color: "#fff",
+                border: "none",
+              }}
+            >
+              🪄 Back to TOC
+            </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

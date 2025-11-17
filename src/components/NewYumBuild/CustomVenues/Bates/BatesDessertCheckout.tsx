@@ -234,87 +234,100 @@ const safeLast  = userDoc?.lastName  || lastName  || "User";
         );
       } catch {}
 
-      // Purchases entry
-      const purchaseEntry = {
-        label: "Yum Yum Desserts",
-        category: "dessert",
-        boutique: "dessert",
-        source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(totalEffective.toFixed(2)),
-        payFull: usingFull,
-        deposit: usingFull
-          ? 0
-          : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
-        months: usingFull ? 0 : mths,
-        method: usingFull ? "paid_in_full" : "deposit",
-        items: lineItems,
-        date: new Date().toISOString(),
-      };
-
-      await updateDoc(userRef, {
-        purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(
-          Number(amountDueToday.toFixed(2))
-        ),
-        paymentPlan: {
-          product: "dessert",
-          type: usingFull ? "paid_in_full" : "deposit",
-          total: totalEffective,
-          depositPercent: usingFull ? 1 : 0.25,
-          paidNow: amountDueToday,
-          remainingBalance: usingFull
-            ? 0
-            : remainingBalance,
-          finalDueDate: finalDueDateStr,
-          finalDueAt: finalDueISO,
-          createdAt: new Date().toISOString(),
-        },
-        paymentPlanAuto: {
-          version: 1,
-          product: "dessert",
-          status: usingFull
-            ? "complete"
-            : remainingBalance > 0
-            ? "active"
-            : "complete",
-          strategy: usingFull
-            ? "paid_in_full"
-            : "monthly_until_final",
-          currency: "usd",
-          totalCents: Math.round(totalEffective * 100),
-          depositCents: Math.round(
-            (usingFull ? 0 : amountDueToday) * 100
-          ),
-          remainingCents: Math.round(
-            (usingFull ? 0 : remainingBalance) * 100
-          ),
-          planMonths: usingFull ? 0 : mths,
-          perMonthCents: usingFull
-            ? 0
-            : Math.round(perMonth * 100),
-          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-          nextChargeAt: usingFull
-            ? null
-            : nextChargeAtISO,
-          finalDueAt: finalDueISO,
-          stripeCustomerId:
-            localStorage.getItem("stripeCustomerId") || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        "progress.yumYum.step":
-          "batesDessertThankYou",
-      });
-
-      // Build PDF (use mths/perMonthCents in fallback summary)
-      const signatureImageUrl =
-        signatureImage ||
-        localStorage.getItem("batesDessertSignature") ||
-        localStorage.getItem("yumSignature") ||
-        "";
+            // Purchases entry
+            const purchaseEntry = {
+              label: "Yum Yum Desserts",
+              category: "dessert",
+              boutique: "dessert",
+              source: "W&D",
+              amount: Number(amountDueToday.toFixed(2)),
+              amountChargedToday: Number(amountDueToday.toFixed(2)),
+              contractTotal: Number(totalEffective.toFixed(2)),
+              payFull: usingFull,
+              deposit: usingFull
+                ? 0
+                : Number(amountDueToday.toFixed(2)),
+              monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
+              months: usingFull ? 0 : mths,
+              method: usingFull ? "paid_in_full" : "deposit",
+              items: lineItems,
+              date: new Date().toISOString(),
+            };
+      
+            await updateDoc(userRef, {
+              // purchase history
+              purchases: arrayUnion(purchaseEntry),
+      
+              // spendTotal = what hit the card today
+              spendTotal: increment(Number(amountDueToday.toFixed(2))),
+      
+              // 🔹 Normalized dessert totals for Guest Scroll + admin
+              "totals.dessert.contractTotal": Number(totalEffective.toFixed(2)),
+              "totals.dessert.amountPaid": increment(
+                Number(amountDueToday.toFixed(2))
+              ),
+              "totals.dessert.guestCountAtBooking": guestCount,
+              "totals.dessert.venueSlug": "batesmansion",
+              "totals.dessert.style": selectedStyle || null,
+              "totals.dessert.flavorCombo": selectedFlavorCombo || null,
+              "totals.dessert.lastUpdatedAt": new Date().toISOString(),
+      
+              // keep existing plan snapshot for Stripe autopay
+              paymentPlan: {
+                product: "dessert",
+                type: usingFull ? "paid_in_full" : "deposit",
+                total: totalEffective,
+                depositPercent: usingFull ? 1 : 0.25,
+                paidNow: amountDueToday,
+                remainingBalance: usingFull ? 0 : remainingBalance,
+                finalDueDate: finalDueDateStr,
+                finalDueAt: finalDueISO,
+                createdAt: new Date().toISOString(),
+              },
+      
+              paymentPlanAuto: {
+                version: 1,
+                product: "dessert",
+                status: usingFull
+                  ? "complete"
+                  : remainingBalance > 0
+                  ? "active"
+                  : "complete",
+                strategy: usingFull ? "paid_in_full" : "monthly_until_final",
+                currency: "usd",
+      
+                totalCents: Math.round(totalEffective * 100),
+                depositCents: Math.round(
+                  (usingFull ? 0 : amountDueToday) * 100
+                ),
+                remainingCents: Math.round(
+                  (usingFull ? 0 : remainingBalance) * 100
+                ),
+      
+                planMonths: usingFull ? 0 : mths,
+                perMonthCents: usingFull ? 0 : perMonthCents,
+                lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+      
+                nextChargeAt: usingFull ? null : nextChargeAtISO,
+                finalDueAt: finalDueISO,
+      
+                stripeCustomerId:
+                  localStorage.getItem("stripeCustomerId") || null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+      
+              // route TY screen
+              "progress.yumYum.step": "batesDessertThankYou",
+            });
+    
+      
+            // Build PDF (use mths/perMonthCents in fallback summary)
+            const signatureImageUrl =
+              signatureImage ||
+              localStorage.getItem("batesDessertSignature") ||
+              localStorage.getItem("yumSignature") ||
+              "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,

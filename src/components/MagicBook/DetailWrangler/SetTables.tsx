@@ -1,3 +1,4 @@
+// src/components/MagicBook/DetailWrangler/SetTables.tsx
 import React, { useEffect } from "react";
 
 interface SetTablesProps {
@@ -35,6 +36,20 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
     onBack();
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][SetTables] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   // Reserve 16:9 space so the video doesn't push content after paint
   const TopVideo: React.FC = () => (
     <div style={{ width: "75%", margin: "0 auto 1.5rem" }}>
@@ -69,14 +84,17 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
             backgroundColor: "#fff",
           }}
         >
-          <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/setTable.mp4`} type="video/mp4" />
+          <source
+            src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/setTable.mp4`}
+            type="video/mp4"
+          />
         </video>
       </div>
     </div>
   );
 
   return (
-    // ⬇️ Return a card (the overlay comes from MagicBookOverlay)
+    // ⬇️ Card only – overlay comes from MagicBookOverlay
     <div
       className="pixie-card"
       style={{
@@ -84,8 +102,21 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
         margin: "0 auto",
         padding: "2rem 1.5rem",
         textAlign: "left",
+        position: "relative",
       }}
     >
+      {/* Pink X – Back to TOC */}
+      <button
+        className="pixie-card__close"
+        onClick={handleBackToTOC}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
       {/* 🎥 Top Video */}
       <TopVideo />
 
@@ -101,12 +132,14 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
       </h2>
 
       <p>
-        No need to shine your silverware (we’ve got that covered), but we <strong>do</strong> recommend
-        creating a guest seating plan — even if you're serving a buffet.
+        No need to shine your silverware (we’ve got that covered), but we{" "}
+        <strong>do</strong> recommend creating a guest seating plan — even if
+        you're serving a buffet.
       </p>
       <p>
-        Assigned seating makes guests feel more thoughtfully welcomed and prevents that moment of chaos when
-        the reception doors swing open and everyone rushes the tables.
+        Assigned seating makes guests feel more thoughtfully welcomed and
+        prevents that moment of chaos when the reception doors swing open and
+        everyone rushes the tables.
       </p>
       <p>Here are a few ways to keep it graceful:</p>
       <ul style={{ paddingLeft: "1.25rem", marginTop: "0.5rem" }}>
@@ -119,8 +152,8 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
           </span>
         </li>
         <li>
-          Offering entrée choices? You’ll need place cards too — with each guest’s name <em>and</em> their
-          meal selection
+          Offering entrée choices? You’ll need place cards too — with each
+          guest’s name <em>and</em> their meal selection
         </li>
       </ul>
 
@@ -148,7 +181,12 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
           <button
             onClick={handleBack}
             className="boutique-back-btn"
-            style={{ width: 180, padding: "0.75rem 1rem", fontSize: "1.1rem", fontWeight: 600 }}
+            style={{
+              width: 180,
+              padding: "0.75rem 1rem",
+              fontSize: "1.1rem",
+              fontWeight: 600,
+            }}
           >
             ⬅ Back
           </button>
@@ -156,32 +194,23 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
 
         {/* Purple Back to TOC */}
         <div style={{ marginTop: "0.5rem" }}>
-        <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+          <button
+            onClick={handleBackToTOC}
+            style={{
+              backgroundColor: "#7b4bd8",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "0.75rem 1rem",
+              fontSize: "1.05rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              width: 180,
+              marginTop: "0.5rem",
+            }}
+          >
+            🪄 Back to TOC
+          </button>
         </div>
       </div>
     </div>
