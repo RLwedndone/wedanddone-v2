@@ -51,10 +51,16 @@ const SaveTheDatePage: React.FC<SaveTheDatePageProps> = ({
       className="pixie-card"
       style={{
         position: "relative",
-        padding: 0,
-        overflow: "hidden",
+        // 🧽 give the card its inner padding
+        padding: "0 1.5rem 1.5rem",
         maxWidth: 600,
-        margin: "0 auto",
+        margin: "40px auto 24px",
+        textAlign: "center",
+  
+        // 🧵 make the card scroll within the viewport instead of clipping
+        maxHeight: "calc(100vh - 80px)",
+        overflowY: "auto",
+        // ❌ remove overflow: "hidden"
       }}
     >
       {/* Pink X – Back to TOC */}
@@ -69,15 +75,17 @@ const SaveTheDatePage: React.FC<SaveTheDatePageProps> = ({
         />
       </button>
 
-      {/* 📷 Full-bleed image */}
-      <div style={{ paddingTop: "2rem", textAlign: "center" }}>
+            {/* 📷 Image inside the card */}
+            <div style={{ paddingTop: "2rem", marginBottom: "0.5rem" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/save_date.png`}
           alt="Save the Date"
           style={{
             width: "100%",
+            maxWidth: 560,
             height: "auto",
             display: "block",
+            margin: "0 auto",
             position: "relative",
             zIndex: 1,
           }}

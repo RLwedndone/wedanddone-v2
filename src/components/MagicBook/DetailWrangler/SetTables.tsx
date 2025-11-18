@@ -100,7 +100,7 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
       style={{
         maxWidth: 700,
         margin: "0 auto",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.5rem",
         textAlign: "left",
         position: "relative",
       }}

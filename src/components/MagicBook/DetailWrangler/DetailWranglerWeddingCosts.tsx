@@ -76,7 +76,7 @@ const DetailWranglerWeddingCosts: React.FC<DetailWranglerWeddingCostsProps> = ({
       ref={cardRef}
       className="pixie-card"
       style={{
-        padding: "2rem",
+        padding: "2rem 3.5rem", 
         position: "relative",
         textAlign: "center",
         maxWidth: "640px",

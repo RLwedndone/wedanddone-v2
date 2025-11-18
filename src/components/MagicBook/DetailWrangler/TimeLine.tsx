@@ -1,3 +1,4 @@
+// src/components/MagicBook/DetailWrangler/TimeLine.tsx
 import React, { useEffect } from "react";
 
 interface TimeLineProps {
@@ -35,6 +36,20 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
     // going back to Save The Date
     localStorage.setItem("magicStep", "saveTheDate");
     onBack();
+  };
+
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][TimeLine] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
   };
 
   // Reserve 16:9 space for videos (prevents layout jump)
@@ -84,26 +99,58 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
       style={{
         maxWidth: 700,
         margin: "0 auto",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.0rem",
         textAlign: "center",
+        position: "relative",
       }}
     >
+      {/* Pink X – Back to TOC */}
+      <button
+        className="pixie-card__close"
+        onClick={handleBackToTOC}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
       {/* 🎥 Top Video */}
-      <Vid src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/time_line.mp4`} />
+      <Vid
+        src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/time_line.mp4`}
+      />
 
       <h2
         className="boutique-title"
-        style={{ color: "#2c62ba", fontSize: "2rem", fontWeight: "bold", marginBottom: "1.5rem" }}
+        style={{
+          color: "#2c62ba",
+          fontSize: "2rem",
+          fontWeight: "bold",
+          marginBottom: "1.5rem",
+        }}
       >
         Timeline
       </h2>
 
-      <p style={{ fontSize: "1rem", lineHeight: 1.6, marginBottom: "1rem" }}>
-        Your W&amp;D Planning Pixies will assemble a tailored timeline for your wedding day, but you might
-        need a little bit of info sooner.
+      <p
+        style={{
+          fontSize: "1rem",
+          lineHeight: 1.6,
+          marginBottom: "1rem",
+        }}
+      >
+        Your W&amp;D Planning Pixies will assemble a tailored timeline for your
+        wedding day, but you might need a little bit of info sooner.
       </p>
 
-      <p style={{ fontSize: "1rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+      <p
+        style={{
+          fontSize: "1rem",
+          lineHeight: 1.6,
+          marginBottom: "1.5rem",
+        }}
+      >
         Here are our recommendations for creating a preliminary timeline:
       </p>
 
@@ -117,16 +164,20 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
         }}
       >
         <li style={{ marginBottom: "0.75rem" }}>
-          ⭐ Set your ceremony time at least an hour and a half before the sun sets
+          ⭐ Set your ceremony time at least an hour and a half before the sun
+          sets
         </li>
         <li style={{ marginBottom: "0.75rem" }}>
-          ⭐ Your invitation should state that the ceremony begins at least 15 minutes before you actually plan to start
+          ⭐ Your invitation should state that the ceremony begins at least 15
+          minutes before you actually plan to start
         </li>
         <li style={{ marginBottom: "0.75rem" }}>
-          ⭐ Decide if you and your fiancé will be doing a “first look.” Plan extra time before or after the ceremony depending on your answer
+          ⭐ Decide if you and your fiancé will be doing a “first look.” Plan
+          extra time before or after the ceremony depending on your answer
         </li>
         <li style={{ marginBottom: "0.75rem" }}>
-          ⭐ Makeup and hair should be completed at least 30 minutes before your photographer begins
+          ⭐ Makeup and hair should be completed at least 30 minutes before your
+          photographer begins
         </li>
       </ul>
 
@@ -167,7 +218,12 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
           <button
             className="boutique-back-btn"
             onClick={handleBack}
-            style={{ width: 180, padding: "0.75rem 1rem", fontSize: "1.1rem", fontWeight: 600 }}
+            style={{
+              width: 180,
+              padding: "0.75rem 1rem",
+              fontSize: "1.1rem",
+              fontWeight: 600,
+            }}
           >
             ⬅ Back
           </button>
@@ -175,32 +231,23 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
 
         {/* Purple Back to TOC */}
         <div style={{ marginTop: "0.5rem" }}>
-        <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+          <button
+            onClick={handleBackToTOC}
+            style={{
+              backgroundColor: "#7b4bd8",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "0.75rem 1rem",
+              fontSize: "1.05rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              width: 180,
+              marginTop: "0.5rem",
+            }}
+          >
+            🪄 Back to TOC
+          </button>
         </div>
       </div>
     </div>

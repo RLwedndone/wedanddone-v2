@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 
 interface PhotoShotList2Props {
   onNext: () => void;
@@ -111,6 +111,15 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
   const [activeShot, setActiveShot] = useState<string | null>(null);
   const [modalTemp, setModalTemp] = useState<string[]>([]);
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Scroll card to top on mount
+  useEffect(() => {
+    try {
+      cardRef.current?.scrollIntoView({ block: "start" });
+    } catch {}
+  }, []);
+
   // ----- Load couple info (supports legacy couple shapes)
   useEffect(() => {
     const raw = localStorage.getItem(COUPLE_KEY);
@@ -124,8 +133,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
         "";
       const last =
         (lb2?.last && String(lb2.last)) ||
-        (lb2?.name &&
-          String(lb2.name).split(" ").slice(1).join(" ")) ||
+        (lb2?.name && String(lb2.name).split(" ").slice(1).join(" ")) ||
         "";
 
       setLb2FirstName(first);
@@ -243,8 +251,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
         key: "party",
         label: `${you} with Wedding Party`,
         img: `${import.meta.env.BASE_URL}assets/images/Shot_Cards/LB2_shot_6_party.png`,
-        helper:
-          "Include bridesmaids, groomsmen, flower girls, etc.",
+        helper: "Include bridesmaids, groomsmen, flower girls, etc.",
         allowAllVips: true,
       });
     }
@@ -295,8 +302,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
       Object.entries(defaults).forEach(([key, names]) => {
         if (!visible.has(key)) return;
         if (skippedShots[key]) return;
-        if (!next[key] || next[key].length === 0)
-          next[key] = names || [];
+        if (!next[key] || next[key].length === 0) next[key] = names || [];
       });
       return next;
     });
@@ -341,12 +347,39 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
     margin: "0.25rem 0 1rem",
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][PhotoShotList2] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   return (
-    <div className="pixie-overlay">
+    <>
       <div
+        ref={cardRef}
         className="pixie-card"
-        style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem" }}
+        style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
       >
+        {/* Pink X = Back to TOC */}
+        <button
+          className="pixie-card__close"
+          onClick={handleBackToTOC}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+
         {/* top icon */}
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
           <img
@@ -464,8 +497,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
                       <em>Skipping this shot</em>
                     ) : chosen.length ? (
                       <>
-                        <strong>Selected:</strong>{" "}
-                        {chosen.join(", ")}
+                        <strong>Selected:</strong> {chosen.join(", ")}
                       </>
                     ) : (
                       <em>Click the card to choose names</em>
@@ -503,7 +535,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
               marginBottom: "0.5rem",
             }}
           >
-            Tip: Use this for one-on-one portraits (e.g., {you} + Best Man,
+            Tip: Use this for one-on-one portraits (e.g., {you} + Best Man,{" "}
             {you} + Sister) or any special group.
           </div>
           <CustomShotForm you={you} />
@@ -541,19 +573,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
           {/* Purple Back to TOC */}
           <div style={{ marginTop: "0.5rem" }}>
             <button
-              onClick={() => {
-                console.log(
-                  "[DBG][Style] TOC click – has goToTOC?",
-                  typeof goToTOC === "function"
-                );
-                if (typeof goToTOC === "function") {
-                  goToTOC();
-                  return;
-                }
-                // Fallback: set intent + tell overlay to navigate
-                localStorage.setItem("magicStep", "toc");
-                window.dispatchEvent(new Event("magic:gotoTOC"));
-              }}
+              onClick={handleBackToTOC}
               style={{
                 backgroundColor: "#7b4bd8",
                 color: "#fff",
@@ -730,7 +750,7 @@ const PhotoShotList2: React.FC<PhotoShotList2Props> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

@@ -212,6 +212,7 @@ const handleSave = async () => {
           borderRadius: "18px",
           padding: "1.5rem",
           paddingTop: "3.5rem",
+          paddingBottom: "3.5rem",      // ⬅ extra breathing room
           maxWidth: "500px",
           width: "100%",
           maxHeight: "90vh",

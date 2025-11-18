@@ -275,17 +275,12 @@ const MagicBookOverlay: React.FC<MagicBookOverlayProps> = ({
           />
         )}
 
-        {step === "toc" && (
-          <MagicBookTOC
-            setStep={setStep}
-            onClose={handleCloseOverlay}
-            resumeMagicBook={() => {
-              const savedStep =
-                (localStorage.getItem("magicStep") as MagicStep) || "intro";
-              setStep(savedStep);
-            }}
-          />
-        )}
+{step === "toc" && (
+  <MagicBookTOC
+    setStep={setStep}
+    onClose={handleCloseOverlay}
+  />
+)}
       </div>
     </div>
   );

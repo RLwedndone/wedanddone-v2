@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 
 interface PhotoShotList1Props {
   onNext: () => void;
@@ -34,7 +34,9 @@ type ShotDef = {
 // ---------- role helpers ----------
 const asArray = (r: string | string[]) => (Array.isArray(r) ? r : [r]);
 const normalizeOneRole = (r: unknown) =>
-  typeof r === "string" ? r.replace(/^[^’']+[’']s?\s+/i, "").trim().toLowerCase() : "";
+  typeof r === "string"
+    ? r.replace(/^[^’']+[’']s?\s+/i, "").trim().toLowerCase()
+    : "";
 const dedup = <T,>(arr: T[]) => Array.from(new Set(arr));
 
 type RoleBuckets = {
@@ -49,8 +51,8 @@ const bucketsFromVIPs = (list: VIPEntry[]): RoleBuckets => {
   const mothers = new Set<string>();
   const fathers = new Set<string>();
   const brothers = new Set<string>();
-  const sisters  = new Set<string>();
-  const party    = new Set<string>();
+  const sisters = new Set<string>();
+  const party = new Set<string>();
 
   list.forEach(({ name, role }) => {
     asArray(role).forEach((raw) => {
@@ -62,14 +64,19 @@ const bucketsFromVIPs = (list: VIPEntry[]): RoleBuckets => {
         fathers.add(name);
       } else if (r === "brother") {
         brothers.add(name);
-      } else if (r === "sister")  {
+      } else if (r === "sister") {
         sisters.add(name);
       } else if (
-        r.includes("maid of honor") || r.includes("matron of honor") ||
-        r.includes("bridesmaid")    || r.includes("junior bridesmaid") ||
-        r.includes("flower girl")   || r.includes("flowergirl") ||
-        r === "best man"            || r.includes("groomsman") ||
-        r.includes("junior groomsman") || r === "ring bearer"
+        r.includes("maid of honor") ||
+        r.includes("matron of honor") ||
+        r.includes("bridesmaid") ||
+        r.includes("junior bridesmaid") ||
+        r.includes("flower girl") ||
+        r.includes("flowergirl") ||
+        r === "best man" ||
+        r.includes("groomsman") ||
+        r.includes("junior groomsman") ||
+        r === "ring bearer"
       ) {
         party.add(name);
       }
@@ -80,15 +87,15 @@ const bucketsFromVIPs = (list: VIPEntry[]): RoleBuckets => {
     mothers: [...mothers],
     fathers: [...fathers],
     brothers: [...brothers],
-    sisters : [...sisters],
-    party   : [...party],
+    sisters: [...sisters],
+    party: [...party],
   };
 };
 
 const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC }) => {
-  const [lb1FullName, setLb1FullName]   = useState<string>("");
+  const [lb1FullName, setLb1FullName] = useState<string>("");
   const [lb1FirstName, setLb1FirstName] = useState<string>("");
-  const [lb1Label, setLb1Label]         = useState<string>("");
+  const [lb1Label, setLb1Label] = useState<string>("");
 
   const [vip1, setVip1] = useState<VIPEntry[]>([]);
   const [vip2, setVip2] = useState<VIPEntry[]>([]); // for wedding party options
@@ -99,6 +106,15 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
   // Modal state
   const [activeShot, setActiveShot] = useState<string | null>(null);
   const [modalTemp, setModalTemp] = useState<string[]>([]);
+
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Scroll card to top on mount
+  useEffect(() => {
+    try {
+      cardRef.current?.scrollIntoView({ block: "start" });
+    } catch {}
+  }, []);
 
   // ----- Load couple info (supports legacy couple shapes)
   useEffect(() => {
@@ -182,11 +198,11 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
   // ----- Build the visible shot cards (hide when there’s nobody to include)
   const shotList: ShotDef[] = useMemo(() => {
     const parentCount = role1.mothers.length + role1.fathers.length;
-    const hasParents  = parentCount >= 2;
+    const hasParents = parentCount >= 2;
     const hasSiblings = role1.brothers.length > 0 || role1.sisters.length > 0;
-    const hasFamily   = hasParents || hasSiblings;
-    const party       = dedup([...role1.party, ...role2.party]);
-    const hasParty    = party.length > 0;
+    const hasFamily = hasParents || hasSiblings;
+    const party = dedup([...role1.party, ...role2.party]);
+    const hasParty = party.length > 0;
 
     const shots: ShotDef[] = [];
 
@@ -243,12 +259,16 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
     const visible = new Set(shotList.map((s) => s.key));
     setSelections((prev) => {
       const next = { ...prev };
-      Object.keys(next).forEach((k) => { if (!visible.has(k)) delete next[k]; });
+      Object.keys(next).forEach((k) => {
+        if (!visible.has(k)) delete next[k];
+      });
       return next;
     });
     setSkippedShots((prev) => {
       const next = { ...prev };
-      Object.keys(next).forEach((k) => { if (!visible.has(k)) delete next[k]; });
+      Object.keys(next).forEach((k) => {
+        if (!visible.has(k)) delete next[k];
+      });
       return next;
     });
   }, [shotList]);
@@ -257,17 +277,17 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
   useEffect(() => {
     if (!lb1FullName) return;
 
-    const parents  = dedup([...role1.mothers, ...role1.fathers]);
+    const parents = dedup([...role1.mothers, ...role1.fathers]);
     const siblings = dedup([...role1.brothers, ...role1.sisters]);
-    const party    = dedup([...role1.party, ...role2.party]);
+    const party = dedup([...role1.party, ...role2.party]);
 
     const defaults: Record<string, string[]> = {
       "whole-family": dedup([...parents, ...siblings]),
-      "parents": parents,
-      "siblings": siblings,
-      "mom": role1.mothers,
-      "dad": role1.fathers,
-      "party": party,
+      parents,
+      siblings,
+      mom: role1.mothers,
+      dad: role1.fathers,
+      party,
     };
 
     const visible = new Set(shotList.map((s) => s.key));
@@ -323,9 +343,39 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
     margin: "0.25rem 0 1rem",
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][PhotoShotList1] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   return (
-    <div className="pixie-overlay">
-      <div className="pixie-card" style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem" }}>
+    <>
+      <div
+        ref={cardRef}
+        className="pixie-card"
+        style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
+      >
+        {/* Pink X (Back to TOC) */}
+        <button
+          className="pixie-card__close"
+          onClick={handleBackToTOC}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+
         {/* 🔷 Top icon spot (LB1 art) */}
         <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
           <img
@@ -337,7 +387,9 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
 
         {/* 📝 Dynamic header */}
         <h2 style={headerFont}>
-          {lb1FirstName ? `${lb1FirstName}’s Formal Family Shot List` : "Formal Family Shot List"}
+          {lb1FirstName
+            ? `${lb1FirstName}’s Formal Family Shot List`
+            : "Formal Family Shot List"}
         </h2>
 
         {/* ✅ Explainer */}
@@ -351,7 +403,9 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
             padding: "0 0.5rem",
           }}
         >
-          ✨ We’ve sprinkled a bit of magic and pre-filled each shot with VIPs from your list. Tap a card to peek inside and add or remove anyone you wish. For one-on-one portraits or anything extra special, use the Custom Shot box below.
+          ✨ We’ve sprinkled a bit of magic and pre-filled each shot with VIPs from your list.
+          Tap a card to peek inside and add or remove anyone you wish. For one-on-one portraits
+          or anything extra special, use the Custom Shot box below.
         </p>
 
         {/* 📸 One vertical column of large cards */}
@@ -379,7 +433,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
                   borderRadius: 16,
                   background: "#fff",
                   overflow: "hidden",
-                  boxShadow: "0 6px 14px rgba(0,0,0,0.06)",
+                  boxShadow: "0 6px 14px rgba(0, 0, 0, 0.06)",
                   margin: "0 auto",
                 }}
               >
@@ -419,12 +473,24 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
                     {shot.label}
                   </div>
                   {shot.helper && (
-                    <div style={{ color: "#666", fontSize: "0.92rem", marginBottom: 6 }}>
+                    <div
+                      style={{
+                        color: "#666",
+                        fontSize: "0.92rem",
+                        marginBottom: 6,
+                      }}
+                    >
                       {shot.helper}
                     </div>
                   )}
 
-                  <div style={{ fontSize: "0.95rem", color: "#444", minHeight: 22 }}>
+                  <div
+                    style={{
+                      fontSize: "0.95rem",
+                      color: "#444",
+                      minHeight: 22,
+                    }}
+                  >
                     {skipped ? (
                       <em>Skipping this shot</em>
                     ) : chosen.length ? (
@@ -451,12 +517,25 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
             background: "#fafbff",
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: "0.5rem", color: "#2c62ba" }}>
+          <div
+            style={{
+              fontWeight: 700,
+              marginBottom: "0.5rem",
+              color: "#2c62ba",
+            }}
+          >
             Add a Custom Shot
           </div>
 
-          <div style={{ color: "#555", fontSize: "0.92rem", marginBottom: "0.5rem" }}>
-            Tip: Use this for one-on-one portraits (e.g., {you} + Maid of Honor, {you} + Brother) or any special group.
+          <div
+            style={{
+              color: "#555",
+              fontSize: "0.92rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Tip: Use this for one-on-one portraits (e.g., {you} + Maid of Honor, {you} + Brother) or
+            any special group.
           </div>
 
           <CustomShotForm you={you} />
@@ -491,19 +570,10 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
             ⬅ Previous Page
           </button>
 
-          {/* Purple Back to TOC (matches other screens) */}
+          {/* Purple Back to TOC */}
           <div style={{ marginTop: "0.5rem" }}>
             <button
-              onClick={() => {
-                console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-                if (typeof goToTOC === "function") {
-                  goToTOC();
-                  return;
-                }
-                // Fallback: set intent + tell overlay to navigate
-                localStorage.setItem("magicStep", "toc");
-                window.dispatchEvent(new Event("magic:gotoTOC"));
-              }}
+              onClick={handleBackToTOC}
               style={{
                 backgroundColor: "#7b4bd8",
                 color: "#fff",
@@ -547,24 +617,49 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
               padding: "1rem 1rem 1.1rem",
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: "1.15rem", marginBottom: 4, color: "#2c62ba" }}>
+            <div
+              style={{
+                fontWeight: 800,
+                fontSize: "1.15rem",
+                marginBottom: 4,
+                color: "#2c62ba",
+              }}
+            >
               {currentShotDef.label}
             </div>
             {currentShotDef.helper && (
-              <div style={{ color: "#666", marginBottom: 8 }}>{currentShotDef.helper}</div>
+              <div style={{ color: "#666", marginBottom: 8 }}>
+                {currentShotDef.helper}
+              </div>
             )}
 
             {/* Modal controls */}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                marginBottom: "0.6rem",
+              }}
+            >
               <button
                 onClick={selectAllModal}
-                style={{ padding: "0.45rem 0.9rem", borderRadius: 8, border: "1px solid #ddd", cursor: "pointer" }}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: 8,
+                  border: "1px solid #ddd",
+                  cursor: "pointer",
+                }}
               >
                 Select All
               </button>
               <button
                 onClick={clearAllModal}
-                style={{ padding: "0.45rem 0.9rem", borderRadius: 8, border: "1px solid #ddd", cursor: "pointer" }}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: 8,
+                  border: "1px solid #ddd",
+                  cursor: "pointer",
+                }}
               >
                 Clear All
               </button>
@@ -574,7 +669,8 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gridTemplateColumns:
+                  "repeat(auto-fill, minmax(240px, 1fr))",
                 gap: "0.6rem 0.9rem",
                 maxHeight: "50vh",
                 overflow: "auto",
@@ -585,16 +681,30 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
                 const roles = Array.isArray(vip.role) ? vip.role : [vip.role];
                 const checked = modalTemp.includes(vip.name);
                 return (
-                  <label key={vip.name} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <label
+                    key={vip.name}
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "flex-start",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={(e) => toggleModalName(vip.name, e.target.checked)}
+                      onChange={(e) =>
+                        toggleModalName(vip.name, e.target.checked)
+                      }
                       style={{ marginTop: 2 }}
                     />
                     <span>
                       <span style={{ fontWeight: 600 }}>{vip.name}</span>
-                      {roles.length ? <span style={{ color: "#666" }}> ({roles.join(", ")})</span> : null}
+                      {roles.length ? (
+                        <span style={{ color: "#666" }}>
+                          {" "}
+                          ({roles.join(", ")})
+                        </span>
+                      ) : null}
                     </span>
                   </label>
                 );
@@ -602,16 +712,36 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
             </div>
 
             {/* Modal footer */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.9rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.5rem",
+                marginTop: "0.9rem",
+              }}
+            >
               <button
                 onClick={closeModal}
-                style={{ padding: "0.55rem 1.1rem", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: 10,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={saveModal}
-                style={{ padding: "0.55rem 1.1rem", borderRadius: 10, border: "none", background: "#2c62ba", color: "#fff", cursor: "pointer" }}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#2c62ba",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
               >
                 Save
               </button>
@@ -619,7 +749,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
@@ -628,7 +758,9 @@ const CustomShotForm: React.FC<{ you: string }> = ({ you }) => {
   const [title, setTitle] = useState("");
   const [names, setNames] = useState("");
   const [error, setError] = useState("");
-  const [customs, setCustoms] = useState<Array<{ id: string; label: string; names: string[] }>>([]);
+  const [customs, setCustoms] = useState<
+    Array<{ id: string; label: string; names: string[] }>
+  >([]);
 
   // hydrate
   useEffect(() => {
@@ -644,29 +776,43 @@ const CustomShotForm: React.FC<{ you: string }> = ({ you }) => {
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     const base = raw ? JSON.parse(raw) : {};
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, custom: customs }));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...base, custom: customs })
+    );
   }, [customs]);
 
   const parseNames = (raw: string) =>
-    raw.split(",").map((n) => n.trim()).filter(Boolean);
+    raw
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
 
   const add = () => {
     setError("");
     const t = title.trim();
     const arr = parseNames(names);
     if (!t) return setError("Please enter a short shot description.");
-    if (arr.length < 2) return setError("Add at least two names, separated by commas.");
+    if (arr.length < 2)
+      return setError("Add at least two names, separated by commas.");
     const id = `custom-${Date.now()}`;
     setCustoms((prev) => [...prev, { id, label: t, names: arr }]);
     setTitle("");
     setNames("");
   };
 
-  const remove = (id: string) => setCustoms((prev) => prev.filter((c) => c.id !== id));
+  const remove = (id: string) =>
+    setCustoms((prev) => prev.filter((c) => c.id !== id));
 
   return (
     <>
-      <label style={{ display: "block", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: "0.9rem",
+          marginBottom: "0.25rem",
+        }}
+      >
         Shot description (e.g., “{you} with Maid of Honor”)
       </label>
       <input
@@ -683,7 +829,13 @@ const CustomShotForm: React.FC<{ you: string }> = ({ you }) => {
         }}
       />
 
-      <label style={{ display: "block", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: "0.9rem",
+          marginBottom: "0.25rem",
+        }}
+      >
         Who’s in this photo? (comma-separated)
       </label>
       <input
@@ -701,7 +853,13 @@ const CustomShotForm: React.FC<{ you: string }> = ({ you }) => {
       />
 
       {error && (
-        <div style={{ color: "#c0392b", fontSize: "0.9rem", marginBottom: "0.4rem" }}>
+        <div
+          style={{
+            color: "#c0392b",
+            fontSize: "0.9rem",
+            marginBottom: "0.4rem",
+          }}
+        >
           {error}
         </div>
       )}
@@ -737,16 +895,37 @@ const CustomShotForm: React.FC<{ you: string }> = ({ you }) => {
                 background: "#fff",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <div style={{ fontWeight: 600 }}>{`Custom – ${c.label}`}</div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>
+                  {`Custom – ${c.label}`}
+                </div>
                 <button
                   onClick={() => remove(c.id)}
-                  style={{ background: "none", border: "none", color: "#2c62ba", textDecoration: "underline", cursor: "pointer" }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#2c62ba",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
                 >
                   Remove
                 </button>
               </div>
-              <div style={{ marginTop: 6, fontSize: "0.95rem", color: "#444" }}>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: "0.95rem",
+                  color: "#444",
+                }}
+              >
                 <strong>Names:</strong> {c.names.join(", ")}
               </div>
             </li>

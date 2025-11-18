@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 interface PhotoVIPIntroProps {
   onNext: () => void;
@@ -7,6 +7,17 @@ interface PhotoVIPIntroProps {
 }
 
 const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }) => {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll card into view on mount
+  useEffect(() => {
+    try {
+      cardRef.current?.scrollIntoView({ block: "start" });
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const handleNext = () => {
     localStorage.setItem("magicStep", "coupleInfo");
     onNext();
@@ -18,20 +29,48 @@ const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }
     onBack();
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][PhotoVIPIntro] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   return (
     // ✅ use a card (the overlay wrapper is provided by MagicBookOverlay)
     <div
+      ref={cardRef}
       className="pixie-card"
       style={{
         backgroundColor: "#fff",
         maxWidth: 700,
         margin: "0 auto",
-        padding: "2rem 1.5rem",
+        padding: "2rem 4.5rem",
         textAlign: "left",
+        position: "relative",
       }}
     >
+      {/* 💗 Pink X close → TOC */}
+      <button
+        className="pixie-card__close"
+        onClick={handleBackToTOC}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
       {/* 🎥 Top Video */}
-      <div style={{ width: "75%", margin: "0 auto 1.5rem" }}>
+      <div style={{ width: "95%", margin: "0 auto 1.5rem" }}>
         <div style={{ position: "relative", paddingTop: "56.25%" }}>
           <video
             autoPlay
@@ -63,7 +102,10 @@ const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }
               backgroundColor: "#fff",
             }}
           >
-            <source src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/love_birds.mp4`} type="video/mp4" />
+            <source
+              src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/love_birds.mp4`}
+              type="video/mp4"
+            />
           </video>
         </div>
       </div>
@@ -82,7 +124,9 @@ const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }
         </h2>
 
         <p>These pages will help you plan the perfect formal shot list for your big day!</p>
-        <p><strong>In the next few pages, you’ll:</strong></p>
+        <p>
+          <strong>In the next few pages, you’ll:</strong>
+        </p>
         <ul style={{ paddingLeft: "1.2rem", marginBottom: "1rem" }}>
           <li>Tell us about you, as a couple 💕</li>
           <li>Share your VIPs (Parents, Wedding Party, etc.)</li>
@@ -95,19 +139,27 @@ const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }
       </div>
 
       {/* 📘 Navigation Buttons */}
-      <div style={{ textAlign: "center", marginTop: "2rem", display: "grid", gap: "0.6rem", justifyItems: "center" }}>
-        {/* Next */}
-        <button
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "2rem",
+          display: "grid",
+          gap: "0.6rem",
+          justifyItems: "center",
+        }}
+      >
+          {/* Blue Next */}
+          <button
           onClick={handleNext}
           style={{
+            width: 180,
             backgroundColor: "#2c62ba",
             color: "#fff",
-            fontSize: "1.1rem",
-            padding: "0.75rem 2rem",
-            borderRadius: 999,
             border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.1rem",
             cursor: "pointer",
-            width: 250,
           }}
         >
           Turn the Page →
@@ -124,31 +176,22 @@ const PhotoVIPIntro: React.FC<PhotoVIPIntroProps> = ({ onNext, onBack, goToTOC }
 
         {/* 🪄 Back to TOC (purple) */}
         <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+          onClick={handleBackToTOC}
+          style={{
+            backgroundColor: "#7b4bd8",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.05rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            width: 180,
+            marginTop: "0.5rem",
+          }}
+        >
+          🪄 Back to TOC
+        </button>
       </div>
     </div>
   );

@@ -307,95 +307,139 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
-      await updateDoc(userRef, {
-        documents: arrayUnion({
-          title: "Ocotillo Catering Agreement",
-          url: publicUrl,
-          uploadedAt: new Date().toISOString(),
-        }),
+          const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
+          const contractTotalRounded = Number(total.toFixed(2));
+          const perMonthDollars = round2((perMonthCents || 0) / 100);
 
-        "bookings.catering": true,
-        weddingDateLocked: true,
-
-        purchases: arrayUnion({
-          label: "yum",
-          amount: Number((amountDueTodayCents / 100).toFixed(2)),
-          date: purchaseDate,
-          method: payFull ? "full" : "deposit",
-        }),
-
-        spendTotal: increment(Number((amountDueTodayCents / 100).toFixed(2))),
-
-        paymentPlan: payFull
-          ? {
-              product: "yum",
-              type: "full",
-              total,
-              paidNow: amountDueToday,
-              remainingBalance: 0,
-              finalDueDate: null,
-              finalDueAt: null,
-              depositPercent: 1,
-              createdAt: new Date().toISOString(),
-            }
-          : {
-              product: "yum",
-              type: "deposit",
-              total,
-              depositPercent: 0.25,
-              paidNow: amountDueToday,
-              remainingBalance,
-              finalDueDate: finalDueDateStr,
-              finalDueAt: finalDueAtISO,
-              createdAt: new Date().toISOString(),
-            },
-
-        paymentPlanAuto: payFull
-          ? {
-              version: 1,
-              product: "yum",
-              status: "complete",
-              strategy: "paid_in_full",
-              currency: "usd",
-              totalCents,
-              depositCents: totalCents,
-              remainingCents: 0,
-              planMonths: 0,
-              perMonthCents: 0,
-              lastPaymentCents: 0,
-              nextChargeAt: null,
-              finalDueAt: null,
-              stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
-              venueCaterer: "ocotillo",
-              tier: ocotilloTier,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }
-          : {
-              version: 1,
-              product: "yum",
-              status: "active",
-              strategy: "monthly_until_final",
-              currency: "usd",
-              totalCents,
-              depositCents,
-              remainingCents: Math.max(0, totalCents - depositCents),
-              planMonths,
-              perMonthCents,
-              lastPaymentCents,
-              nextChargeAt,
-              finalDueAt: finalDueAtISO,
-              stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
-              venueCaterer: "ocotillo",
-              tier: ocotilloTier,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-
-        "progress.yumYum.step": "ocotilloCateringThankYou",
-      });
+            // Build a normalized purchase entry for Guest Scroll / admin
+            const purchaseEntry = {
+              label: "Yum Yum Catering",
+              category: "catering",
+              boutique: "catering",
+              source: "W&D",
+              venueId: "ocotillo",
+      
+              amount: amountDueTodayRounded,
+              amountChargedToday: amountDueTodayRounded,
+              contractTotal: contractTotalRounded,
+      
+              payFull: payFull,
+              deposit: payFull ? amountDueTodayRounded : amountDueTodayRounded,
+              monthlyAmount: payFull ? 0 : perMonthDollars,
+              months: payFull ? 0 : planMonths,
+              method: payFull ? "paid_in_full" : "deposit",
+      
+              items: lineItems?.length ? lineItems : ocLineItems,
+              date: purchaseDate,
+            };
+      
+            await updateDoc(userRef, {
+              // 🔹 Document list
+              documents: arrayUnion({
+                title: "Ocotillo Catering Agreement",
+                url: publicUrl,
+                uploadedAt: new Date().toISOString(),
+              }),
+      
+              // 🔹 Booking flags
+              "bookings.catering": true,
+              weddingDateLocked: true,
+              lastPurchaseAt: serverTimestamp(),
+      
+              // 🔹 Purchases array + global spend
+              purchases: arrayUnion(purchaseEntry),
+              spendTotal: increment(amountDueTodayRounded),
+      
+              // 🔹 Category totals for Guest Scroll / admin
+              "totals.catering.totalPaid": increment(amountDueTodayRounded),
+              "totals.catering.lastPurchaseAt": serverTimestamp(),
+              "totals.catering.lastVenueId": "ocotillo",
+              "totals.catering.lastContractTotal": contractTotalRounded,
+              "totals.catering.guestCount": guestCountFinal,
+      
+              // 🔹 Human-readable plan snapshot (last purchase)
+              paymentPlan: payFull
+                ? {
+                    product: "catering_ocotillo",
+                    type: "paid_in_full",
+                    total,
+                    depositPercent: 1,
+                    paidNow: amountDueTodayRounded,
+                    remainingBalance: 0,
+                    finalDueDate: null,
+                    finalDueAt: null,
+                    createdAt: new Date().toISOString(),
+                  }
+                : {
+                    product: "catering_ocotillo",
+                    type: "deposit",
+                    total,
+                    depositPercent: 0.25,
+                    paidNow: amountDueTodayRounded,
+                    remainingBalance,
+                    finalDueDate: finalDueDateStr,
+                    finalDueAt: finalDueAtISO,
+                    createdAt: new Date().toISOString(),
+                  },
+      
+              // 🔹 Robot-facing plan snapshot for auto-pay
+              paymentPlanAuto: payFull
+                ? {
+                    version: 1,
+                    product: "catering_ocotillo",
+                    status: "complete",
+                    strategy: "paid_in_full",
+                    currency: "usd",
+      
+                    totalCents,
+                    depositCents: totalCents,
+                    remainingCents: 0,
+      
+                    planMonths: 0,
+                    perMonthCents: 0,
+                    lastPaymentCents: 0,
+      
+                    nextChargeAt: null,
+                    finalDueAt: null,
+      
+                    stripeCustomerId:
+                      customerId || localStorage.getItem("stripeCustomerId") || null,
+      
+                    venueCaterer: "ocotillo",
+                    tier: ocotilloTier,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }
+                : {
+                    version: 1,
+                    product: "catering_ocotillo",
+                    status: remainingBalance > 0 ? "active" : "complete",
+                    strategy: "monthly_until_final",
+                    currency: "usd",
+      
+                    totalCents,
+                    depositCents,
+                    remainingCents: Math.max(0, totalCents - depositCents),
+      
+                    planMonths,
+                    perMonthCents,
+                    lastPaymentCents,
+      
+                    nextChargeAt,
+                    finalDueAt: finalDueAtISO,
+      
+                    stripeCustomerId:
+                      customerId || localStorage.getItem("stripeCustomerId") || null,
+      
+                    venueCaterer: "ocotillo",
+                    tier: ocotilloTier,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  },
+      
+              // 🔹 Overlay restore
+              "progress.yumYum.step": "ocotilloCateringThankYou",
+            });
 
       // 📧 Centralized booking email for Yum Catering @ Ocotillo
 try {

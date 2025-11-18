@@ -77,7 +77,7 @@ const DetailWranglerBasics: React.FC<DetailWranglerBasicsProps> = ({
       style={{
         maxWidth: "600px",
         margin: "0 auto",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.5rem",
         textAlign: "center",
       }}
     >

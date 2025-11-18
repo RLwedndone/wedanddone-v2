@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { auth, db } from "../../../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -22,6 +22,16 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
   const [customRoleInput, setCustomRoleInput] = useState("");
   const [vipList, setVipList] = useState<VIPEntry[]>([]);
   const [userId, setUserId] = useState("");
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll into view on mount
+  useEffect(() => {
+    try {
+      cardRef.current?.scrollIntoView({ block: "start" });
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // 🔁 One definitive list of roles used by the UI
   const roleOptions = useMemo(() => {
@@ -72,7 +82,9 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
         const label = (lb1?.label && String(lb1.label)) || "";
         setLoveBird1({ first: firstName, label });
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
 
     // Load from localStorage first
@@ -132,6 +144,20 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
     onBack();
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][VIP1] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   // ✨ styles
   const headerFont: React.CSSProperties = {
     fontFamily: "'Jenna Sue','Jena Sue',cursive",
@@ -153,7 +179,23 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
   return (
     // ✅ Card only — the overlay wrapper comes from MagicBookOverlay
-    <div className="pixie-card" style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem" }}>
+    <div
+      ref={cardRef}
+      className="pixie-card"
+      style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
+    >
+      {/* 💗 Pink X close → TOC */}
+      <button
+        className="pixie-card__close"
+        onClick={handleBackToTOC}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
       {/* 🖼 Top image */}
       <div style={{ marginBottom: "0.5rem", textAlign: "center" }}>
         <img
@@ -188,7 +230,13 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
       {/* Role checkboxes */}
       <div style={{ margin: "0.5rem auto 0.25rem", maxWidth: 680 }}>
-        <div style={{ fontWeight: 600, marginBottom: "0.35rem", textAlign: "center" }}>
+        <div
+          style={{
+            fontWeight: 600,
+            marginBottom: "0.35rem",
+            textAlign: "center",
+          }}
+        >
           Select all roles that apply
         </div>
 
@@ -204,7 +252,11 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
             const id = `vip1-role-${role.replace(/\s+/g, "-").toLowerCase()}`;
             const checked = selectedRoles.includes(role);
             return (
-              <label key={role} htmlFor={id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label
+                key={role}
+                htmlFor={id}
+                style={{ display: "flex", alignItems: "center", gap: 8 }}
+              >
                 <input
                   id={id}
                   type="checkbox"
@@ -222,7 +274,14 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
         </div>
 
         {/* Custom role adder */}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.6rem", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            marginTop: "0.6rem",
+            alignItems: "center",
+          }}
+        >
           <input
             type="text"
             placeholder="Add another role (e.g., Cousin, Godmother)"
@@ -240,7 +299,9 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
             onClick={() => {
               const val = customRoleInput.trim();
               if (!val) return;
-              setSelectedRoles((prev) => (prev.includes(val) ? prev : [...prev, val]));
+              setSelectedRoles((prev) =>
+                prev.includes(val) ? prev : [...prev, val]
+              );
               setCustomRoleInput("");
             }}
             style={{
@@ -338,17 +399,18 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
           justifyItems: "center",
         }}
       >
-        <button
+       {/* Blue Next */}
+       <button
           onClick={handleNext}
           style={{
+            width: 180,
             backgroundColor: "#2c62ba",
             color: "#fff",
-            fontSize: "1.05rem",
-            padding: "0.7rem 2rem",
-            borderRadius: 999,
             border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.1rem",
             cursor: "pointer",
-            width: 250,
           }}
         >
           Turn the Page →
@@ -364,31 +426,22 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
         {/* 🪄 Back to TOC (purple) */}
         <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+          onClick={handleBackToTOC}
+          style={{
+            backgroundColor: "#7b4bd8",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.05rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            width: 180,
+            marginTop: "0.5rem",
+          }}
+        >
+          🪄 Back to TOC
+        </button>
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ const DetailWranglerIntro: React.FC<DetailWranglerIntroProps> = ({
         maxWidth: "600px",
         margin: "0 auto",
         textAlign: "center",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.8rem",
       }}
     >
       {/* Pink X – go back to TOC */}

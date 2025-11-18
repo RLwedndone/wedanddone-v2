@@ -49,6 +49,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, onClose }) => {
     setStep(step);
   };
 
+
   return (
     <div className="pixie-card">
       {/* Pink X */}
@@ -155,181 +156,203 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, onClose }) => {
         />
       </div>
 
-      {/* ===== ALL PAGES MODAL ===== */}
       {showAllPages && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setShowAllPages(false)}
+  <div
+    role="dialog"
+    aria-modal="true"
+    onClick={() => setShowAllPages(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      zIndex: 2000,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "1rem",
+    }}
+  >
+    <div
+      className="pixie-card"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        background: "#fff",
+        borderRadius: 18,
+        width: "92%",
+        maxWidth: 560,
+        maxHeight: "80vh",
+        overflowY: "auto",
+        position: "relative",
+        padding: "1.25rem 1.25rem 2rem",
+        textAlign: "center",
+      }}
+    >
+      {/* Close X */}
+      <button
+        onClick={() => setShowAllPages(false)}
+        aria-label="Close"
+        style={{
+          position: "absolute",
+          top: 10,
+          right: 10,
+          background: "none",
+          border: "none",
+          fontSize: "1.4rem",
+          cursor: "pointer",
+          lineHeight: 1,
+        }}
+      >
+        ✖
+      </button>
+
+      {/* 🌟 NEW — TOP BOOKMARK VIDEO */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          width: "100%",
+          maxWidth: 260,
+          borderRadius: "12px",
+          margin: "0 auto 1rem",
+          display: "block",
+        }}
+      >
+        <source
+          src={`${import.meta.env.BASE_URL}assets/videos/bookmark.mp4`}
+          type="video/mp4"
+        />
+      </video>
+
+      <h2
+        style={{
+          margin: "6px 0 14px",
+          color: "#2c62ba",
+          fontSize: "1.8rem",
+          fontWeight: 800,
+          letterSpacing: "0.2px",
+          fontFamily: "Jenna Sue, cursive",
+        }}
+      >
+        Jump Anywhere!
+      </h2>
+
+      {/* ========== Detail Wrangler List ========== */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: "1.1rem" }}>
+          Detail Wrangler
+        </div>
+        <ul
           style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            zIndex: 2000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1rem",
+            listStyle: "disc",
+            paddingLeft: 0,
+            margin: 0,
+            display: "inline-block",
+            textAlign: "left",
+            lineHeight: 1.8,
           }}
         >
-          <div
-            className="pixie-card"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: 18,
-              width: "92%",
-              maxWidth: 560,
-              maxHeight: "80vh",
-              overflowY: "auto",
-              position: "relative",
-              padding: "1.25rem 1.25rem 2rem",
-              textAlign: "center",
-            }}
-          >
-            {/* Close X */}
-            <button
-              onClick={() => setShowAllPages(false)}
-              aria-label="Close"
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: "none",
-                border: "none",
-                fontSize: "1.4rem",
-                cursor: "pointer",
-                lineHeight: 1,
-              }}
-            >
-              ✖
-            </button>
-
-            <h2
-              style={{
-                margin: "6px 0 14px",
-                color: "#2c62ba",
-                fontSize: "1.6rem",
-                fontWeight: 800,
-                letterSpacing: "0.2px",
-              }}
-            >
-              Jump Anywhere!
-            </h2>
-
-            {/* Detail Wrangler */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                Detail Wrangler
-              </div>
-              <ul
+          {[
+            ["Intro", "dwIntro"],
+            ["Basics", "dwBasics"],
+            ["Style", "dwStyle"],
+            ["Wedding Costs", "dwCosts"],
+            ["Save The Date", "saveTheDate"],
+            ["Timeline", "timeline"],
+            ["Set Tables", "setTables"],
+          ].map(([label, step]) => (
+            <li key={label} style={{ marginBottom: 2 }}>
+              <button
+                onClick={() => {
+                  setShowAllPages(false);
+                  localStorage.setItem("magicStep", step as MagicStep);
+                  setStep(step as MagicStep);
+                }}
                 style={{
-                  listStyle: "disc",
-                  paddingLeft: 0,
-                  margin: 0,
-                  display: "inline-block",
-                  textAlign: "left",
-                  lineHeight: 1.75,
+                  background: "none",
+                  border: "none",
+                  color: "#2c62ba",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
                 }}
               >
-                {[
-                  ["Intro", "dwIntro"],
-                  ["Basics", "dwBasics"],
-                  ["Style", "dwStyle"],
-                  ["Wedding Costs", "dwCosts"],
-                  ["Save The Date", "saveTheDate"],
-                  ["Timeline", "timeline"],
-                  ["Set Tables", "setTables"],
-                ].map(([label, step]) => (
-                  <li key={label} style={{ marginBottom: 2 }}>
-                    <button
-                      onClick={() => {
-                        setShowAllPages(false);
-                        localStorage.setItem("magicStep", step as MagicStep);
-                        setStep(step as MagicStep);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#2c62ba",
-                        padding: 0,
-                        cursor: "pointer",
-                        font: "inherit",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-            {/* VIPs & Photos */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                VIPs & Photos
-              </div>
-              <ul
-                style={{
-                  listStyle: "disc",
-                  paddingLeft: 0,
-                  margin: 0,
-                  display: "inline-block",
-                  textAlign: "left",
-                  lineHeight: 1.75,
-                }}
-              >
-                {[
-                  ["Intro", "photoVIPIntro"],
-                  ["Couple Info", "coupleInfo"],
-                  ["VIP List", "vip"],
-                  ["LB1 Shots", "photoShotList1"],
-                  ["LB2 Shots", "photoShotList2"],
-                  ["Combined Shots", "photoShotListCombined"],
-                  ["Export PDF", "photoPDF"],
-                ].map(([label, step]) => (
-                  <li key={label} style={{ marginBottom: 2 }}>
-                    <button
-                      onClick={() => {
-                        setShowAllPages(false);
-                        localStorage.setItem("magicStep", step as MagicStep);
-                        setStep(step as MagicStep);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#2c62ba",
-                        padding: 0,
-                        cursor: "pointer",
-                        font: "inherit",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <button
-              onClick={() => setShowAllPages(false)}
-              className="boutique-primary-btn"
-              style={{
-                width: 200,
-                borderRadius: 8,
-                padding: "0.75rem 1rem",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                color: "#fff",
-                border: "none",
-              }}
-            >
-              🪄 Back to TOC
-            </button>
-          </div>
+      {/* ========== VIPs & Photos List ========== */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: "1.1rem" }}>
+          VIPs & Photos
         </div>
-      )}
+        <ul
+          style={{
+            listStyle: "disc",
+            paddingLeft: 0,
+            margin: 0,
+            display: "inline-block",
+            textAlign: "left",
+            lineHeight: 1.8,
+          }}
+        >
+          {[
+            ["Intro", "photoVIPIntro"],
+            ["Couple Info", "coupleInfo"],
+            ["VIP List", "vip"],
+            ["LB1 Shots", "photoShotList1"],
+            ["LB2 Shots", "photoShotList2"],
+            ["Combined Shots", "photoShotListCombined"],
+            ["Export PDF", "photoPDF"],
+          ].map(([label, step]) => (
+            <li key={label} style={{ marginBottom: 2 }}>
+              <button
+                onClick={() => {
+                  setShowAllPages(false);
+                  localStorage.setItem("magicStep", step as MagicStep);
+                  setStep(step as MagicStep);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#2c62ba",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: "0.75rem" }}>
+  <button
+    onClick={() => setShowAllPages(false)}
+    className="boutique-primary-btn"
+    style={{
+      width: 220,
+      borderRadius: 8,
+      padding: "0.75rem 1rem",
+      fontSize: "1.05rem",
+      fontWeight: 700,
+      cursor: "pointer",
+      color: "#fff",
+      border: "none",
+    }}
+  >
+    🪄 Back to TOC
+  </button>
+</div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

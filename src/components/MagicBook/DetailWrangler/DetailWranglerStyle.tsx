@@ -14,14 +14,12 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Ensure the card starts at the very top on mount
   useEffect(() => {
     try {
       cardRef.current?.scrollIntoView({ block: "start" });
     } catch {}
   }, []);
 
-  /* ---------------- DEBUG HELPERS ---------------- */
   const dbgInfo = (e: React.MouseEvent) => {
     const t = e.currentTarget as HTMLElement;
     const pe = getComputedStyle(t).pointerEvents;
@@ -55,28 +53,24 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
 
   const onTocClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     console.log("[DBG][Style] TOC click fired", dbgInfo(e));
-    // Call through to overlay if provided
     if (typeof goToTOC === "function") {
       goToTOC();
       return;
     }
-    // Fallback: set intent + tell overlay to navigate
     localStorage.setItem("magicStep", "toc");
     window.dispatchEvent(new Event("magic:gotoTOC"));
   };
-  /* ------------------------------------------------ */
 
   return (
+    // ✅ standard pixie card with normal padding and scrollable content
     <div
       ref={cardRef}
       className="pixie-card"
       style={{
         position: "relative",
-        padding: 0,
-        overflow: "hidden",
-        maxWidth: "600px",
+        maxWidth: 700,
         margin: "0 auto",
-        height: "auto",
+        padding: "1.5rem 1.5rem 1.75rem",
         textAlign: "center",
       }}
     >
@@ -92,56 +86,47 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
         />
       </button>
 
-      {/* 🌈 Full Background Image */}
-      <div style={{ paddingTop: "2rem" }}>
+      {/* 📜 Style Baby artwork inside the card */}
+      <div
+        style={{
+          marginTop: "0.75rem",
+          marginBottom: "1.25rem",
+        }}
+      >
         <img
           src={`${import.meta.env.BASE_URL}assets/images/style_baby.png`}
-          alt="Style Baby Background"
+          alt="Style, Baby!"
           style={{
             width: "100%",
+            maxWidth: 640,
             height: "auto",
             display: "block",
-            position: "relative",
-            zIndex: 1,
+            margin: "0 auto",
+            borderRadius: 16,
           }}
         />
       </div>
 
-      {/* ✍️ (Reserved) Text Overlay – add content if needed */}
-      <div
-        style={{
-          position: "absolute",
-          top: "26%",
-          left: "8%",
-          width: "84%",
-          zIndex: 2,
-          textAlign: "center",
-          color: "#2c2c2c",
-          fontSize: "1rem",
-          lineHeight: 1.6,
-          fontWeight: 500,
-          pointerEvents: "none", // make sure this overlay never blocks clicks
-        }}
-      />
+      {/* (No absolute overlay needed; text is baked into the PNG) */}
 
       {/* ✨ CTA + Back Buttons */}
       <div
         style={{
-          padding: "1rem",
-          position: "relative",
-          zIndex: 3,
+          marginTop: "0.5rem",
+          display: "grid",
+          gap: "0.6rem",
+          justifyItems: "center",
         }}
       >
         {/* Next / Turn the Page */}
         <button
           onClick={onNextClick}
           style={{
-            width: 180,
-            marginTop: "1rem",
+            width: 220,
             backgroundColor: "#2c62ba",
             color: "#fff",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 999,
             padding: "0.75rem 1rem",
             fontSize: "1.1rem",
             fontWeight: 600,
@@ -151,17 +136,14 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
           Turn the Page ➡
         </button>
 
-        <br />
-
         {/* Back */}
         <button
           onClick={onBackClick}
           className="boutique-back-btn"
           style={{
-            width: 180,
+            width: 220,
             padding: "0.75rem 1rem",
-            marginTop: "1rem",
-            fontSize: "1.1rem",
+            fontSize: "1.05rem",
             fontWeight: 600,
           }}
         >
@@ -181,7 +163,7 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
             fontWeight: 600,
             cursor: "pointer",
             width: 180,
-            marginTop: "0.5rem",
+            marginTop: "0.25rem",
           }}
         >
           🪄 Back to TOC

@@ -42,7 +42,7 @@ const MakeItOfficial: React.FC<MakeItOfficialProps> = ({
       className="pixie-card"
       style={{
         textAlign: "center",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.0rem",
         maxWidth: 600,
         margin: "0 auto",
         position: "relative",

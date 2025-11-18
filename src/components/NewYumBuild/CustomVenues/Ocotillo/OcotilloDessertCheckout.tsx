@@ -221,6 +221,12 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
         nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
       }
 
+            // --- Normalized numbers for Firestore snapshots ---
+            const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
+            const contractTotalRounded = Number(totalEffective.toFixed(2));
+            const perMonthDollars =
+              usingFull ? 0 : round2(perMonthCents / 100);
+
       // Firestore: mark dessert booked for Ocotillo + set plan info
       await setDoc(
         userRef,
@@ -246,70 +252,151 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
         localStorage.setItem("yumStep", "ocotilloDessertThankYou");
       } catch {}
 
-      // Build purchase entry for Budget Wand etc.
-      const purchaseEntry = {
-        label: "Yum Yum Desserts",
-        category: "dessert",
-        boutique: "dessert",
-        source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(totalEffective.toFixed(2)),
-        payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
-        months: usingFull ? 0 : mths,
-        method: usingFull ? "paid_in_full" : "deposit",
-        items: lineItems,
-        date: new Date().toISOString(),
-      };
-
       await updateDoc(userRef, {
-        purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
-        paymentPlan: {
-          product: "dessert",
-          type: usingFull ? "paid_in_full" : "deposit",
-          total: totalEffective,
-          depositPercent: usingFull ? 1 : 0.25,
-          paidNow: amountDueToday,
-          remainingBalance: usingFull ? 0 : remainingBalance,
-          finalDueDate: finalDueDateStr,
-          finalDueAt: finalDueISO,
-          createdAt: new Date().toISOString(),
+        // 🔹 Purchases log (normalized dessert entry)
+        purchases: arrayUnion({
+          label: "Yum Yum Desserts",
+          category: "dessert",
+          boutique: "dessert",
+          source: "W&D",
+          amount: amountDueTodayRounded,
+          amountChargedToday: amountDueTodayRounded,
+          contractTotal: contractTotalRounded,
+          payFull: usingFull,
+          deposit: usingFull ? 0 : amountDueTodayRounded,
+          monthlyAmount: usingFull ? 0 : perMonthDollars,
+          months: usingFull ? 0 : mths,
+          method: usingFull ? "paid_in_full" : "deposit",
+          items: lineItems,
+          date: new Date().toISOString(),
+        }),
+
+        // 🔹 Global spend total
+        spendTotal: increment(amountDueTodayRounded),
+
+        // 🔹 Dessert totals for the guest scroll
+        totals: {
+          ...(userDoc.totals || {}),
+          dessert: {
+            ...(userDoc.totals?.dessert || {}),
+            contractTotal: round2(
+              (userDoc.totals?.dessert?.contractTotal || 0) +
+                contractTotalRounded
+            ),
+            amountPaid: round2(
+              (userDoc.totals?.dessert?.amountPaid || 0) +
+                amountDueTodayRounded
+            ),
+          },
         },
-        paymentPlanAuto: {
-          version: 1,
-          product: "dessert",
-          status: usingFull
-            ? "complete"
-            : remainingBalance > 0
-            ? "active"
-            : "complete",
-          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
-          currency: "usd",
-          totalCents: Math.round(totalEffective * 100),
-          depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-          remainingCents: Math.round((usingFull ? 0 : remainingBalance) * 100),
-          planMonths: usingFull ? 0 : mths,
-          perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
-          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-          nextChargeAt: usingFull ? null : nextChargeAtISO,
-          finalDueAt: finalDueISO,
-          stripeCustomerId: customerId || localStorage.getItem("stripeCustomerId") || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        // pin linear TY step so dashboard / overlay knows where to send them
+
+        // 🔹 Dessert-only plan snapshot (Ocotillo)
+        paymentPlanDessert: usingFull
+          ? {
+              product: "dessert_ocotillo",
+              type: "paid_in_full",
+              total: contractTotalRounded,
+              depositPercent: 1,
+              paidNow: contractTotalRounded,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "dessert_ocotillo",
+              type: "deposit",
+              total: contractTotalRounded,
+              depositPercent: 0.25,
+              paidNow: amountDueTodayRounded,
+              remainingBalance: round2(
+                contractTotalRounded - amountDueTodayRounded
+              ),
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueISO,
+              createdAt: new Date().toISOString(),
+            },
+
+        // 🔹 Robot-friendly auto-pay snapshot (dessert only)
+        paymentPlanDessertAuto: usingFull
+          ? {
+              version: 1,
+              product: "dessert_ocotillo",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
+              totalCents: Math.round(contractTotalRounded * 100),
+              depositCents: Math.round(contractTotalRounded * 100),
+              remainingCents: 0,
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
+              nextChargeAt: null,
+              finalDueAt: null,
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              version: 1,
+              product: "dessert_ocotillo",
+              status:
+                round2(contractTotalRounded - amountDueTodayRounded) > 0
+                  ? "active"
+                  : "complete",
+              strategy: "monthly_until_final",
+              currency: "usd",
+              totalCents: Math.round(contractTotalRounded * 100),
+              depositCents: Math.round(amountDueTodayRounded * 100),
+              remainingCents: Math.round(
+                round2(contractTotalRounded - amountDueTodayRounded) *
+                  100
+              ),
+              planMonths: mths,
+              perMonthCents,
+              lastPaymentCents,
+              nextChargeAt: nextChargeAtISO,
+              finalDueAt: finalDueISO,
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+
+        // 🔹 Yum overlay restore
         "progress.yumYum.step": "ocotilloDessertThankYou",
       });
-
-      // Build PDF
-      const signatureImageUrl =
-        signatureImage ||
-        localStorage.getItem("ocotilloDessertSignature") ||
-        localStorage.getItem("yumSignature") ||
-        "";
+      
+            // 🔹 Dessert pricing snapshot for guest-count delta
+            await setDoc(
+              doc(userRef, "pricingSnapshots", "dessert"),
+              {
+                booked: true,
+                guestCountAtBooking: guestCount,
+                totalBooked: Number(totalEffective.toFixed(2)),
+                perGuest:
+                  guestCount > 0
+                    ? Number((totalEffective / guestCount).toFixed(2))
+                    : 0,
+                venueId: "ocotillo",
+                style: selectedStyle || null,
+                flavorCombo: selectedFlavorCombo || null,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            );
+      
+            // Build PDF (use mths/perMonthCents in fallback summary)
+            const signatureImageUrl =
+            signatureImage ||
+            localStorage.getItem("ocotilloDessertSignature") ||
+            localStorage.getItem("yumSignature") ||
+            "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,

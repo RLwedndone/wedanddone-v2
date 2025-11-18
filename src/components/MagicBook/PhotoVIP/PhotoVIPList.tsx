@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface PhotoVIPListProps {
   onNext: () => void;
@@ -9,6 +9,16 @@ interface PhotoVIPListProps {
 const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) => {
   const [loveBird1Name, setLoveBird1Name] = useState<string>("");
   const [loveBird2Name, setLoveBird2Name] = useState<string>("");
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll card into view on mount
+  useEffect(() => {
+    try {
+      cardRef.current?.scrollIntoView({ block: "start" });
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     const coupleData = localStorage.getItem("magicBookCoupleInfo");
@@ -17,7 +27,9 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
       const parsed = JSON.parse(coupleData);
       if (parsed?.loveBird1?.first) setLoveBird1Name(parsed.loveBird1.first);
       if (parsed?.loveBird2?.first) setLoveBird2Name(parsed.loveBird2.first);
-    } catch {}
+    } catch {
+      // ignore
+    }
   }, []);
 
   const handleNext = () => {
@@ -32,20 +44,48 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
     onBack();
   };
 
+  const handleBackToTOC = () => {
+    console.log(
+      "[DBG][PhotoVIPList] TOC click – has goToTOC?",
+      typeof goToTOC === "function"
+    );
+    if (typeof goToTOC === "function") {
+      goToTOC();
+      return;
+    }
+    // Fallback: set intent + tell overlay to navigate
+    localStorage.setItem("magicStep", "toc");
+    window.dispatchEvent(new Event("magic:gotoTOC"));
+  };
+
   return (
     // ✅ use the white card container; overlay wrapper is provided by MagicBookOverlay
     <div
+      ref={cardRef}
       className="pixie-card"
       style={{
         backgroundColor: "#fff",
         maxWidth: 700,
         margin: "0 auto",
-        padding: "2rem 1.5rem",
+        padding: "2rem 3.5rem",
         textAlign: "left",
+        position: "relative",
       }}
     >
+      {/* 💗 Pink X close → TOC */}
+      <button
+        className="pixie-card__close"
+        onClick={handleBackToTOC}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
       {/* 🎥 Centered Video with reserved 16:9 */}
-      <div style={{ width: "75%", margin: "0 auto 1.5rem" }}>
+      <div style={{ width: "100%", margin: "0 auto 1.5rem" }}>
         <div style={{ position: "relative", paddingTop: "56.25%" }}>
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/Magic_Book/red_carpet.mp4`}
@@ -79,13 +119,15 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
       </h2>
 
       <p style={{ maxWidth: 700, textAlign: "center", margin: "0 auto 1rem" }}>
-        It’s time to build your VIP lists. You’ll enter each side of the family separately — one clipboard
-        for <strong>{loveBird1Name || "Love Bird #1"}</strong>, one for{" "}
+        It’s time to build your VIP lists. You’ll enter each side of the family
+        separately — one clipboard for{" "}
+        <strong>{loveBird1Name || "Love Bird #1"}</strong>, one for{" "}
         <strong>{loveBird2Name || "Love Bird #2"}</strong>.
       </p>
       <p style={{ maxWidth: 700, textAlign: "center", margin: "0 auto 2rem" }}>
-        Start by adding close family, wedding party members, and anyone you’d like to include in your formal
-        photos. These names will auto-magically appear in your photo shot list later!
+        Start by adding close family, wedding party members, and anyone you’d
+        like to include in your formal photos. These names will auto-magically
+        appear in your photo shot list later!
       </p>
 
       {/* Buttons */}
@@ -98,21 +140,21 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
           justifyItems: "center",
         }}
       >
-        {/* Continue */}
+        {/* Blue Next */}
         <button
           onClick={handleNext}
           style={{
+            width: 180,
             backgroundColor: "#2c62ba",
             color: "#fff",
-            fontSize: "1.1rem",
-            padding: "0.75rem 2rem",
-            borderRadius: 999,
             border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.1rem",
             cursor: "pointer",
-            width: 250,
           }}
         >
-          Let’s Build the VIP Lists →
+          Build the VIP List
         </button>
 
         {/* Back */}
@@ -126,31 +168,22 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
 
         {/* 🪄 Back to TOC (purple) */}
         <button
-  onClick={() => {
-    console.log("[DBG][Style] TOC click – has goToTOC?", typeof goToTOC === "function");
-    if (typeof goToTOC === "function") {
-      goToTOC();
-      return;
-    }
-    // Fallback: set intent + tell overlay to navigate
-    localStorage.setItem("magicStep", "toc");
-    window.dispatchEvent(new Event("magic:gotoTOC"));
-  }}
-  style={{
-    backgroundColor: "#7b4bd8",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0.75rem 1rem",
-    fontSize: "1.05rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    width: 180,
-    marginTop: "0.5rem",
-  }}
->
-  🪄 Back to TOC
-</button>
+          onClick={handleBackToTOC}
+          style={{
+            backgroundColor: "#7b4bd8",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "0.75rem 1rem",
+            fontSize: "1.05rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            width: 180,
+            marginTop: "0.5rem",
+          }}
+        >
+          🪄 Back to TOC
+        </button>
       </div>
     </div>
   );

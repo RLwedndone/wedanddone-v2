@@ -154,7 +154,7 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         2
       )} (final due ${finalDuePretty}).`;
 
-  const handleSuccess = async (): Promise<void> => {
+      const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -169,6 +169,21 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
       const safeLast = userDoc?.lastName || "User";
       const fullName = `${safeFirst} ${safeLast}`;
       const weddingYMD: string | null = userDoc?.weddingDate || null;
+
+            // store stripeCustomerId for later auto-pay pulls
+            try {
+              if (customerId && customerId !== userDoc?.stripeCustomerId) {
+                await updateDoc(userRef, {
+                  stripeCustomerId: customerId,
+                  "stripe.updatedAt": serverTimestamp(),
+                });
+                try {
+                  localStorage.setItem("stripeCustomerId", customerId);
+                } catch {}
+              }
+            } catch (e) {
+              console.warn("⚠️ Could not save stripeCustomerId:", e);
+            }
 
       const wedding = parseLocalYMD(weddingYMD || "");
       const finalDueDate = wedding
