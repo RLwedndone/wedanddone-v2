@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/dessert/YumCheckOutDessert.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import CheckoutForm from "../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -17,6 +17,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateDessertAgreementPDF from "../../../utils/generateDessertAgreementPDF";
 import { YumStep } from "../yumTypes";
 import { notifyBooking } from "../../../utils/email/email";
+import { setAndLockGuestCount } from "../../../utils/guestCountStore";
 
 // ─────────────────────────────────────────────
 // Helpers (dates & math)
@@ -109,6 +110,30 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
       }
     })();
   }, []);
+
+  // ─────────────────────────────────────────────
+  // Resolve effective guest count (prop → localStorage fallbacks)
+  // ─────────────────────────────────────────────
+  const effectiveGuestCount = useMemo(() => {
+    // 1) Trust a non-zero prop first
+    if (guestCount && guestCount > 0) return guestCount;
+
+    // 2) Fall back to Yum / global guest-count keys
+    try {
+      const keys = ["yumDessertGuestCount", "yumGuestCount", "guestCount"] as const;
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const n = Number(raw);
+        if (!Number.isNaN(n) && n > 0) return n;
+      }
+    } catch {
+      // ignore LS issues
+    }
+
+    // 3) Nothing usable found
+    return 0;
+  }, [guestCount]);
 
   // ─────────────────────────────────────────────
   // 25% deposit today → rest until final-due (-35d)
@@ -213,134 +238,134 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
       }
 
-            // ── Firestore: mark booked + snapshot basic dessert data ──
-            await setDoc(
-              userRef,
-              {
-                bookings: {
-                  ...(userDoc?.bookings || {}),
-                  dessert: true,
-                },
-                weddingDateLocked: true,
-                yumDessertStyle: selectedStyle,
-                yumDessertFlavorCombo: selectedFlavorCombo,
-                yumDessertGuestCount: guestCount,
-                lastPurchaseAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-      
-            try {
-              localStorage.setItem("yumBookedDessert", "true");
-            } catch {}
-      
-            // Fire global events quickly so Budget Wand / dashboard update instantly
-            try {
-              window.dispatchEvent(new Event("dessertCompletedNow"));
-              window.dispatchEvent(new Event("purchaseMade"));
-            } catch (e) {
-              /* non-blocking */
-            }
-      
-            // ── Purchases entry (for spend dashboard & snapshots) ──
-            const purchaseEntry = {
-              label: "Yum Yum Desserts",
-              category: "dessert",
-              boutique: "dessert",
-              source: "W&D",
-              amount: Number(amountDueToday.toFixed(2)),
-              amountChargedToday: Number(amountDueToday.toFixed(2)),
-              contractTotal: Number(totalEffective.toFixed(2)),
-              payFull: usingFull,
-              deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-              monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
-              months: usingFull ? 0 : derivedPlanMonths,
-              method: usingFull ? "paid_in_full" : "deposit",
-              items: lineItems,
-              date: new Date().toISOString(),
-            };
-      
-            await updateDoc(userRef, {
-              purchases: arrayUnion(purchaseEntry),
-      
-              // spendTotal reflects what hit the card today
-              spendTotal: increment(Number(amountDueToday.toFixed(2))),
-      
-              paymentPlan: {
-                product: "dessert",
-                type: usingFull ? "paid_in_full" : "deposit",
-                total: totalEffective,
-                depositPercent: usingFull ? 1 : DEPOSIT_PCT,
-                paidNow: amountDueToday,
-                remainingBalance: usingFull ? 0 : remainingBalance,
-                finalDueDate: finalDueDateStr,
-                finalDueAt: finalDueISO,
-                createdAt: new Date().toISOString(),
-              },
-      
-              paymentPlanAuto: {
-                version: 1,
-                product: "dessert",
-                status: usingFull
-                  ? "complete"
-                  : remainingBalance > 0
-                  ? "active"
-                  : "complete",
-                strategy: usingFull ? "paid_in_full" : "monthly_until_final",
-                currency: "usd",
-                totalCents: Math.round(totalEffective * 100),
-                depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-                remainingCents: Math.round(
-                  (usingFull ? 0 : remainingBalance) * 100
-                ),
-                planMonths: usingFull ? 0 : derivedPlanMonths,
-                perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
-                lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-                nextChargeAt: usingFull ? null : nextChargeAtISO,
-                finalDueAt: finalDueISO,
-                stripeCustomerId: localStorage.getItem("stripeCustomerId") || null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-      
-              // Route them to the correct Thank You based on whether catering is already booked
-              "progress.yumYum.step": bookings.catering
-                ? "thankyouBoth"
-                : "thankyouDessertOnly",
-            });
-      
-            // 🔹 Dessert pricing snapshot for guest-count delta math
-            await setDoc(
-              doc(userRef, "pricingSnapshots", "dessert"),
-              {
-                booked: true,
-                guestCountAtBooking: guestCount,
-                totalBooked: Number(totalEffective.toFixed(2)),
-                perGuest:
-                  guestCount > 0
-                    ? Number((totalEffective / guestCount).toFixed(2))
-                    : 0,
-      
-                // helpful metadata for debugging / display
-                venueId: "noVenue",
-                style: selectedStyle || null,
-                flavorCombo: selectedFlavorCombo || null,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-      
-            // ── Build + upload PDF agreement ──
-            const signatureImageUrl =
-              signatureImage ||
-              localStorage.getItem("yumSignature") ||
-              "";
+      // ── Firestore: mark booked + snapshot basic dessert data ──
+      await setDoc(
+        userRef,
+        {
+          bookings: {
+            ...(userDoc?.bookings || {}),
+            dessert: true,
+          },
+          weddingDateLocked: true,
+          yumDessertStyle: selectedStyle,
+          yumDessertFlavorCombo: selectedFlavorCombo,
+          yumDessertGuestCount: effectiveGuestCount,
+          lastPurchaseAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      try {
+        localStorage.setItem("yumBookedDessert", "true");
+      } catch {}
+
+      // Fire global events quickly so Budget Wand / dashboard update instantly
+      try {
+        window.dispatchEvent(new Event("dessertCompletedNow"));
+        window.dispatchEvent(new Event("purchaseMade"));
+      } catch (e) {
+        /* non-blocking */
+      }
+
+      // ── Purchases entry (for spend dashboard & snapshots) ──
+      const purchaseEntry = {
+        label: "Yum Yum Desserts",
+        category: "dessert",
+        boutique: "dessert",
+        source: "W&D",
+        amount: Number(amountDueToday.toFixed(2)),
+        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        contractTotal: Number(totalEffective.toFixed(2)),
+        payFull: usingFull,
+        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
+        months: usingFull ? 0 : derivedPlanMonths,
+        method: usingFull ? "paid_in_full" : "deposit",
+        items: lineItems,
+        date: new Date().toISOString(),
+      };
+
+      await updateDoc(userRef, {
+        purchases: arrayUnion(purchaseEntry),
+
+        // spendTotal reflects what hit the card today
+        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+
+        paymentPlan: {
+          product: "dessert",
+          type: usingFull ? "paid_in_full" : "deposit",
+          total: totalEffective,
+          depositPercent: usingFull ? 1 : DEPOSIT_PCT,
+          paidNow: amountDueToday,
+          remainingBalance: usingFull ? 0 : remainingBalance,
+          finalDueDate: finalDueDateStr,
+          finalDueAt: finalDueISO,
+          createdAt: new Date().toISOString(),
+        },
+
+        paymentPlanAuto: {
+          version: 1,
+          product: "dessert",
+          status: usingFull
+            ? "complete"
+            : remainingBalance > 0
+            ? "active"
+            : "complete",
+          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
+          currency: "usd",
+          totalCents: Math.round(totalEffective * 100),
+          depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
+          remainingCents: Math.round(
+            (usingFull ? 0 : remainingBalance) * 100
+          ),
+          planMonths: usingFull ? 0 : derivedPlanMonths,
+          perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
+          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+          nextChargeAt: usingFull ? null : nextChargeAtISO,
+          finalDueAt: finalDueISO,
+          stripeCustomerId: localStorage.getItem("stripeCustomerId") || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+
+        // Route them to the correct Thank You based on whether catering is already booked
+        "progress.yumYum.step": bookings.catering
+          ? "thankyouBoth"
+          : "thankyouDessertOnly",
+      });
+
+      // 🔹 Dessert pricing snapshot for guest-count delta math
+      await setDoc(
+        doc(userRef, "pricingSnapshots", "dessert"),
+        {
+          booked: true,
+          guestCountAtBooking: effectiveGuestCount,
+          totalBooked: Number(totalEffective.toFixed(2)),
+          perGuest:
+            effectiveGuestCount > 0
+              ? Number((totalEffective / effectiveGuestCount).toFixed(2))
+              : 0,
+
+          // helpful metadata for debugging / display
+          venueId: "noVenue",
+          style: selectedStyle || null,
+          flavorCombo: selectedFlavorCombo || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      // ── Build + upload PDF agreement ──
+      const signatureImageUrl =
+        signatureImage ||
+        localStorage.getItem("yumSignature") ||
+        "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,
         total: totalEffective,
         deposit: amountDueToday,
-        guestCount,
+        guestCount: effectiveGuestCount,
         weddingDate: weddingYMD || "TBD",
         signatureImageUrl,
         paymentSummary:
@@ -371,30 +396,37 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         }),
       });
 
+      // 🔒 Lock guest count for Yum Desserts (NoVenue support)
+      try {
+        await setAndLockGuestCount(effectiveGuestCount || 0, "yum:dessert");
+      } catch (e) {
+        console.warn("⚠️ Could not lock guest count for dessert:", e);
+      }
+
       // 📧 User + Admin emails (centralized; non-blocking)
-try {
-  const current = getAuth().currentUser;
-  await notifyBooking("yum_dessert", {
-    user_email: current?.email || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: (fullName.split(" ")[0] || "Friend"), // safe first
-    wedding_date: weddingYMD || "TBD",
+      try {
+        const current = getAuth().currentUser;
+        await notifyBooking("yum_dessert", {
+          user_email: current?.email || "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: fullName.split(" ")[0] || "Friend", // safe first
+          wedding_date: weddingYMD || "TBD",
 
-    pdf_url: publicUrl,
-    pdf_title: "Yum Yum Dessert Agreement",
+          pdf_url: publicUrl,
+          pdf_title: "Yum Yum Dessert Agreement",
 
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems || []).join(", "),
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDuePretty,
+          total: totalEffective.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDuePretty,
 
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Yum Yum Desserts",
-  });
-} catch (e) {
-  console.warn("notifyBooking (dessert) failed (continuing):", e);
-}
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Yum Yum Desserts",
+        });
+      } catch (e) {
+        console.warn("notifyBooking (dessert) failed (continuing):", e);
+      }
 
       // ── Wizard advance & persist yumStep ──
       const nextStep = (bookings.catering

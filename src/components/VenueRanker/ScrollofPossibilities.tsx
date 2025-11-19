@@ -315,11 +315,11 @@ const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
           {availableVenues.map((venue) => (
             <div key={venue} className="castle-card">
               <img
-                src={`/assets/images/CastleButtons/${venueToCastleImage[venue]}`}
-                alt={venue}
-                className="castle-button"
-                onClick={() => handleVenueClick(venue)}
-              />
+  src={`${import.meta.env.BASE_URL}assets/images/CastleButtons/${venueToCastleImage[venue]}`}
+  alt={venue}
+  className="castle-button"
+  onClick={() => handleVenueClick(venue)}
+/>
             </div>
           ))}
         </div>

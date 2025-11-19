@@ -255,22 +255,65 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         date: new Date().toISOString(),
       };
 
-      await updateDoc(userRef, {
-        purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
-        paymentPlan: {
-          product: "dessert",
-          type: usingFull ? "paid_in_full" : "deposit",
-          total: totalEffective,
-          depositPercent: usingFull ? 1 : 0.25,
-          paidNow: amountDueToday,
-          remainingBalance: usingFull ? 0 : remainingBalance,
-          finalDueDate: finalDueDateStr,
-          finalDueAt: finalDueISO,
-          createdAt: new Date().toISOString(),
-        },
-        "progress.yumYum.step": "rubiDessertThankYou",
-      });
+            // cents + plan snapshot for paymentPlanAuto
+            const totalCents = Math.round(totalEffective * 100);
+            const depositCents = Math.round((usingFull ? 0 : amountDueToday) * 100);
+            const remainingCents = Math.round(
+              (usingFull ? 0 : remainingBalance) * 100
+            );
+
+            await updateDoc(userRef, {
+              purchases: arrayUnion(purchaseEntry),
+              spendTotal: increment(Number(amountDueToday.toFixed(2))),
+      
+              // 🔹 normalized dessert total for guest scroll / Budget Wand
+              "totals.dessert": Number(totalEffective.toFixed(2)),
+      
+              // 🔹 human-readable dessert plan snapshot
+              paymentPlan: {
+                product: "dessert",
+                type: usingFull ? "paid_in_full" : "deposit",
+                total: totalEffective,
+                depositPercent: usingFull ? 1 : 0.25,
+                paidNow: amountDueToday,
+                remainingBalance: usingFull ? 0 : remainingBalance,
+                finalDueDate: finalDueDateStr,
+                finalDueAt: finalDueISO,
+                createdAt: new Date().toISOString(),
+              },
+      
+              // 🔹 robot-friendly dessert auto-pay snapshot
+              paymentPlanAuto: {
+                version: 1,
+                product: "dessert_rubi",
+                status: usingFull
+                  ? "complete"
+                  : remainingBalance > 0
+                  ? "active"
+                  : "complete",
+                strategy: usingFull ? "paid_in_full" : "monthly_until_final",
+                currency: "usd",
+      
+                totalCents,
+                depositCents,
+                remainingCents,
+      
+                planMonths: usingFull ? 0 : mths,
+                perMonthCents: usingFull ? 0 : perMonthCents,
+                lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+      
+                nextChargeAt: usingFull ? null : nextChargeAtISO,
+                finalDueAt: finalDueISO,
+      
+                stripeCustomerId:
+                  localStorage.getItem("stripeCustomerId") || null,
+      
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+      
+              "progress.yumYum.step": "rubiDessertThankYou",
+            });
 
       // 🔹 Dessert pricing snapshot for guest-count delta math
       await setDoc(

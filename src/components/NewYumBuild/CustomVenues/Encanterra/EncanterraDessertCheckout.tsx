@@ -235,85 +235,131 @@ const EncanterraDessertCheckout: React.FC<
         );
       }
 
-      // Firestore: mark dessert booked and persist plan snapshot
-      await setDoc(
-        userRef,
-        {
-          bookings: {
-            ...(userDoc?.bookings || {}),
-            dessert: true,
-          },
-          encanterraDessertsBooked: true,
-          weddingDateLocked: true,
-          yumDessertStyle: selectedStyle,
-          yumDessertFlavorCombo: selectedFlavorCombo,
-          yumDessertGuestCount: guestCount,
-          lastPurchaseAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      // Local flags for Encanterra flow
-      try {
-        localStorage.setItem(
-          "encJustBookedDessert",
-          "true"
-        );
-        localStorage.setItem(
-          "encDessertsBooked",
-          "true"
-        );
-        localStorage.setItem(
-          "encYumStep",
-          "encanterraDessertThankYou"
-        );
-        localStorage.setItem(
-          "yumStep",
-          "encanterraDessertThankYou"
-        );
-      } catch {}
-
-            // Purchases entry
+            // 🔹 Basic totals / snapshot for this dessert booking
+            const contractTotal = round2(totalEffective);
+            const amountChargedToday = round2(amountDueToday);
+      
+            // 🔹 Purchases entry (matches NoVenue + Bates patterns)
             const purchaseEntry = {
               label: "Yum Yum Desserts",
               category: "dessert",
               boutique: "dessert",
               source: "W&D",
-              amount: Number(amountDueToday.toFixed(2)),
-              amountChargedToday: Number(amountDueToday.toFixed(2)),
-              contractTotal: Number(totalEffective.toFixed(2)),
+              amount: amountChargedToday,
+              amountChargedToday,
+              contractTotal,
               payFull: usingFull,
-              deposit: usingFull
-                ? 0
-                : Number(amountDueToday.toFixed(2)),
-              monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
+              deposit: usingFull ? 0 : amountChargedToday,
+              monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
               months: usingFull ? 0 : mths,
               method: usingFull ? "paid_in_full" : "deposit",
               items: lineItems,
               date: new Date().toISOString(),
             };
       
+            // 🔹 Mark dessert booked + base flags
+            await setDoc(
+              userRef,
+              {
+                bookings: {
+                  ...(userDoc?.bookings || {}),
+                  dessert: true,
+                },
+                encanterraDessertsBooked: true,
+                weddingDateLocked: true,
+                yumDessertStyle: selectedStyle,
+                yumDessertFlavorCombo: selectedFlavorCombo,
+                yumDessertGuestCount: guestCount,
+                lastPurchaseAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+      
+            // 🔹 Signature image (cleaned up – no Bates key)
+            const signatureImageUrl =
+              signatureImage ||
+              localStorage.getItem("yumSignature") ||
+              "";
+      
+            // 🔹 Build the Dessert Agreement PDF
+            const pdfBlob = await generateDessertAgreementPDF({
+              fullName,
+              total: contractTotal,
+              deposit: amountChargedToday,
+              guestCount,
+              weddingDate: weddingYMD || "TBD",
+              signatureImageUrl,
+              paymentSummary:
+                paymentSummaryText ||
+                (usingFull
+                  ? `You're paying $${amountChargedToday.toFixed(2)} today.`
+                  : `You're paying $${amountChargedToday.toFixed(
+                      2
+                    )} today, then ${mths} monthly payments of about $${(
+                      perMonthCents / 100
+                    ).toFixed(2)} (final due ${finalDueDateStr}).`),
+              selectedStyle,
+              selectedFlavorCombo,
+              lineItems,
+            });
+      
+            // 🔹 Upload PDF
+            const storage = getStorage(
+              app,
+              "gs://wedndonev2.firebasestorage.app"
+            );
+            const filename = `YumDessertAgreement_${Date.now()}.pdf`;
+            const fileRef = ref(
+              storage,
+              `public_docs/${user.uid}/${filename}`
+            );
+            await uploadBytes(fileRef, pdfBlob);
+            const publicUrl = await getDownloadURL(fileRef);
+      
+            // 🔹 Robot billing snapshot + docs + dessert totals
             await updateDoc(userRef, {
+              // PDF list
+              documents: arrayUnion({
+                title: "Yum Yum Dessert Agreement",
+                url: publicUrl,
+                uploadedAt: new Date().toISOString(),
+              }),
+      
+              // Rich purchase entry
               purchases: arrayUnion(purchaseEntry),
-              spendTotal: increment(
-                Number(amountDueToday.toFixed(2))
-              ),
+      
+              // Overall spend
+              spendTotal: increment(amountChargedToday),
+      
+              // ✅ Normalized dessert totals for Guest Scroll + admin
+              "totals.dessert.contractTotal": contractTotal,
+              "totals.dessert.amountPaid": increment(amountChargedToday),
+              "totals.dessert.guestCountAtBooking": guestCount,
+              "totals.dessert.perGuest":
+                guestCount > 0
+                  ? round2(contractTotal / guestCount)
+                  : 0,
+              "totals.dessert.venueSlug": "encanterra",
+              "totals.dessert.style": selectedStyle || null,
+              "totals.dessert.flavorCombo": selectedFlavorCombo || null,
+              "totals.dessert.lastUpdatedAt": new Date().toISOString(),
+      
+              // Payment plan snapshot (for Stripe auto-pay logic)
               paymentPlan: {
-                product: "dessert",
+                product: "dessert_encanterra",
                 type: usingFull ? "paid_in_full" : "deposit",
-                total: totalEffective,
+                total: contractTotal,
                 depositPercent: usingFull ? 1 : 0.25,
-                paidNow: amountDueToday,
-                remainingBalance: usingFull
-                  ? 0
-                  : remainingBalance,
+                paidNow: amountChargedToday,
+                remainingBalance: usingFull ? 0 : remainingBalance,
                 finalDueDate: finalDueDateStr,
                 finalDueAt: finalDueISO,
                 createdAt: new Date().toISOString(),
               },
+      
               paymentPlanAuto: {
                 version: 1,
-                product: "dessert",
+                product: "dessert_encanterra",
                 status: usingFull
                   ? "complete"
                   : remainingBalance > 0
@@ -323,105 +369,31 @@ const EncanterraDessertCheckout: React.FC<
                   ? "paid_in_full"
                   : "monthly_until_final",
                 currency: "usd",
-                totalCents: Math.round(totalEffective * 100),
-                depositCents: Math.round(
-                  (usingFull ? 0 : amountDueToday) * 100
-                ),
-                remainingCents: Math.round(
-                  (usingFull ? 0 : remainingBalance) * 100
-                ),
-                planMonths: usingFull ? 0 : mths,
-                perMonthCents: usingFull
+      
+                totalCents: Math.round(contractTotal * 100),
+                depositCents: usingFull
+                  ? Math.round(contractTotal * 100)
+                  : Math.round(amountChargedToday * 100),
+                remainingCents: usingFull
                   ? 0
-                  : Math.round(perMonth * 100),
+                  : Math.round(remainingBalance * 100),
+      
+                planMonths: usingFull ? 0 : mths,
+                perMonthCents: usingFull ? 0 : perMonthCents,
                 lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-                nextChargeAt: usingFull
-                  ? null
-                  : nextChargeAtISO,
+      
+                nextChargeAt: usingFull ? null : nextChargeAtISO,
                 finalDueAt: finalDueISO,
+      
                 stripeCustomerId:
                   localStorage.getItem("stripeCustomerId") || null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               },
-              "progress.yumYum.step":
-                "batesDessertThankYou",
+      
+              // Correct overlay progress for Encanterra desserts
+              "progress.yumYum.step": "encanterraDessertThankYou",
             });
-      
-            // 🔹 Dessert pricing snapshot for guest-count delta
-            await setDoc(
-              doc(userRef, "pricingSnapshots", "dessert"),
-              {
-                booked: true,
-                guestCountAtBooking: guestCount,
-                totalBooked: Number(totalEffective.toFixed(2)),
-                perGuest:
-                  guestCount > 0
-                    ? Number((totalEffective / guestCount).toFixed(2))
-                    : 0,
-                venueId: "bates",
-                style: selectedStyle || null,
-                flavorCombo: selectedFlavorCombo || null,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-      
-            // Build PDF (use mths/perMonthCents in fallback summary)
-            const signatureImageUrl =
-              signatureImage ||
-              localStorage.getItem("batesDessertSignature") ||
-              localStorage.getItem("yumSignature") ||
-              "";
-
-      const pdfBlob =
-        await generateDessertAgreementPDF({
-          fullName,
-          total: totalEffective,
-          deposit: amountDueToday,
-          guestCount,
-          weddingDate: weddingYMD || "TBD",
-          signatureImageUrl,
-          paymentSummary:
-            paymentSummaryText ||
-            (usingFull
-              ? `You're paying $${amountDueToday.toFixed(
-                  2
-                )} today.`
-              : `You're paying $${amountDueToday.toFixed(
-                  2
-                )} today, then ${mths} monthly payments of about $${(
-                  perMonthCents / 100
-                ).toFixed(
-                  2
-                )} (final due ${finalDueDateStr}).`),
-          selectedStyle,
-          selectedFlavorCombo,
-          lineItems,
-        });
-
-      // Upload PDF
-      const storage = getStorage(
-        app,
-        "gs://wedndonev2.firebasestorage.app"
-      );
-      const filename = `YumDessertAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(
-        storage,
-        `public_docs/${user.uid}/${filename}`
-      );
-      await uploadBytes(fileRef, pdfBlob);
-      const publicUrl = await getDownloadURL(
-        fileRef
-      );
-
-      await updateDoc(userRef, {
-        documents: arrayUnion({
-          title: "Yum Yum Dessert Agreement",
-          url: publicUrl,
-          uploadedAt: new Date().toISOString(),
-        }),
-      });
 
       // 📧 Centralized booking email for Yum Desserts @ Encanterra
 try {

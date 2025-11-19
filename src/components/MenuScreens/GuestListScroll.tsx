@@ -1,8 +1,6 @@
 // src/components/MenuScreens/GuestListScroll.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Elements } from "@stripe/react-stripe-js";
 import CheckoutForm from "../../CheckoutForm";
-import { stripePromise } from "../../utils/stripePromise";
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
@@ -34,7 +32,7 @@ const clamp = (n: number, min: number, max: number) =>
 const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [loading, setLoading] = useState(true);
 
-  const [value, setValue] = useState<number>(0);     // current slider/input value
+  const [value, setValue] = useState<number>(0); // current slider/input value
   const [original, setOriginal] = useState<number>(0); // locked/base guest count
   const [locked, setLocked] = useState(false);
 
@@ -42,6 +40,8 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [showCheckout, setShowCheckout] = useState(false);
 
   const [delta, setDelta] = useState<GuestCountDeltaResult | null>(null);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // --- 1) Hydrate base guest count from global guestCountStore
   useEffect(() => {
@@ -118,12 +118,42 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const bump = (d: number) =>
     setValue((v) => clamp(v + Math.abs(d), original, 2000));
 
-  const pretty = useMemo(
-    () => `${value.toLocaleString()} guests`,
-    [value]
-  );
+  const pretty = useMemo(() => `${value.toLocaleString()} guests`, [value]);
 
   const FINAL_REASON: GuestLockReason = "final" as GuestLockReason;
+
+  // 🔹 helper: keeps GuestCountReminderModal + account screen in sync
+  const markGuestCountConfirmedEverywhere = async (
+    uid: string,
+    finalCount: number
+  ) => {
+    const now = Date.now();
+    const bookingRef = doc(db, "users", uid, "venueRankerData", "booking");
+    const userRef = doc(db, "users", uid);
+
+    await setDoc(
+      bookingRef,
+      {
+        guestCountConfirmedAt: now,
+        guestCountFinal: finalCount,
+        guestCountLocked: true,
+      },
+      { merge: true }
+    );
+
+    await setDoc(
+      userRef,
+      {
+        guestCountConfirmedAt: now,
+        guestCountLocked: true,
+      },
+      { merge: true }
+    );
+
+    try {
+      localStorage.setItem("guestCountConfirmedAt", String(now));
+    } catch {}
+  };
 
   const totalDueNow = delta?.totalDelta || 0;
   const additionalGuests = delta?.addedGuests || 0;
@@ -135,11 +165,26 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       return;
     }
 
-    // No money due — just lock final guest count
-    await setAndLockGuestCount(value, FINAL_REASON);
-    window.dispatchEvent(new Event("guestCountUpdated"));
-    window.dispatchEvent(new Event("guestCountLocked"));
-    onClose();
+    const auth = getAuth();
+    const u = auth.currentUser;
+
+    try {
+      // 1) Lock in global guestCountStore
+      await setAndLockGuestCount(value, FINAL_REASON);
+      window.dispatchEvent(new Event("guestCountUpdated"));
+      window.dispatchEvent(new Event("guestCountLocked"));
+
+      // 2) Persist “confirmed + locked” for reminder/account screens
+      if (u) {
+        await markGuestCountConfirmedEverywhere(u.uid, value);
+      }
+
+      // 3) Show standalone Thank You screen
+      setShowThankYou(true);
+    } catch (e) {
+      console.error("❌ Finalize guest count (no charge) failed:", e);
+      onClose(); // fallback
+    }
   };
 
   const handleStripeSuccess = async () => {
@@ -153,18 +198,16 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
 
     try {
+      // 🧙‍♀️ show magic-in-progress overlay
+      setIsProcessing(true);
+
       // 1) Persist + lock with reason "final"
       await setAndLockGuestCount(value, FINAL_REASON);
       window.dispatchEvent(new Event("guestCountUpdated"));
       window.dispatchEvent(new Event("guestCountLocked"));
 
-      // 2) Mark final submission in booking doc (for reminder reads)
-      const bookingRef = doc(db, "users", u.uid, "venueRankerData", "booking");
-      await setDoc(
-        bookingRef,
-        { guestCountConfirmedAt: Date.now(), guestCountFinal: value },
-        { merge: true }
-      );
+      // 2) Mark final submission in booking + user root
+      await markGuestCountConfirmedEverywhere(u.uid, value);
 
       // 3) Generate/upload “Final Bill” PDF if there *was* a delta
       if (delta && totalDueNow > 0) {
@@ -196,7 +239,6 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             catering: cateringLine?.addedTotal || 0,
             dessert: dessertLine?.addedTotal || 0,
             planner: plannerLine?.addedTotal || 0,
-            // all-in per-guest amounts already include taxes/fees from the original bookings
             tax: 0,
             stripeFee: 0,
             subtotal,
@@ -212,7 +254,10 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           }),
         });
 
-        const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
+        const storage = getStorage(
+          app,
+          "gs://wedndonev2.firebasestorage.app"
+        );
         const filename = `FinalBill_${Date.now()}.pdf`;
         const fileRef = ref(storage, `public_docs/${u.uid}/${filename}`);
         await uploadBytes(fileRef, pdf);
@@ -232,21 +277,96 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           }),
         });
       }
+
+      // ✅ Done: close Stripe overlay, show thank you
+      setShowCheckout(false);
+      setShowThankYou(true);
     } catch (e) {
       console.error("❌ Finalize guest count failed:", e);
-    } finally {
       setShowCheckout(false);
       onClose();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  // ─────────────────────────────
+  // Standalone Thank You screen
+  // ─────────────────────────────
+  if (showThankYou) {
+    return (
+      <div style={styles.backdrop}>
+        <div style={styles.card}>
+          <button
+            onClick={onClose}
+            style={styles.closeAbs}
+            aria-label="Close"
+          >
+            ✖
+          </button>
+
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/guestcount.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={styles.heroVideo}
+          />
+
+          <h2
+            style={{
+              marginTop: 8,
+              marginBottom: 8,
+              fontFamily: "'Jenna Sue', cursive",
+              fontSize: "2rem",
+              color: "#2c62ba",
+              textAlign: "center",
+            }}
+          >
+            Guest count locked – you’re all set!
+          </h2>
+
+          <p
+            style={{
+              ...styles.sub,
+              maxWidth: 480,
+              margin: "0 auto 16px",
+            }}
+          >
+            We’ve updated your final guest count and generated a little receipt
+            for your records. Madge won’t bug you about guest count changes for
+            this wedding anymore.
+          </p>
+
+          <div style={{ textAlign: "center", marginTop: 8 }}>
+            <button
+              className="boutique-primary-btn"
+              style={styles.cta}
+              onClick={onClose}
+            >
+              Back to my dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────
+  // Normal Scroll + Checkout UI
+  // ─────────────────────────────
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.h2Centered}>Add More Guests</h2>
-          <button onClick={onClose} style={styles.closeAbs} aria-label="Close">
+          <button
+            onClick={onClose}
+            style={styles.closeAbs}
+            aria-label="Close"
+          >
             ✖
           </button>
         </div>
@@ -266,9 +386,10 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         ) : (
           <>
             <p style={styles.sub}>
-              More RSVPs than you thought? No problem! Use this little counter to add to your
-              guest count. Our magic system will calculate the additional cost and show you
-              exactly how much more you’ll need to pay for those extra partiers!
+              More RSVPs than you thought? No problem! Use this little counter
+              to add to your guest count. Our magic system will calculate the
+              additional cost and show you exactly how much more you’ll need to
+              pay for those extra partiers!
             </p>
 
             {/* Counter */}
@@ -276,7 +397,9 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <div style={styles.bigNumber} aria-live="polite">
                 {pretty}
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              <div
+                style={{ display: "flex", gap: 8, justifyContent: "center" }}
+              >
                 <button onClick={() => bump(1)} style={styles.bumpBtn}>
                   +1
                 </button>
@@ -324,10 +447,8 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       • {line.label}:{" "}
                       {line.perGuest && line.addedGuests > 0 ? (
                         <>
-                          <strong>
-                            ${line.perGuest.toFixed(2)}
-                          </strong>{" "}
-                          × {line.addedGuests} guests ={" "}
+                          <strong>${line.perGuest.toFixed(2)}</strong> ×{" "}
+                          {line.addedGuests} guests ={" "}
                           <strong>${line.addedTotal.toFixed(2)}</strong>
                         </>
                       ) : (
@@ -341,7 +462,11 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
             {/* CTA */}
             <div
-              style={{ display: "flex", justifyContent: "center", marginTop: 18 }}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: 18,
+              }}
             >
               <button
                 className="boutique-primary-btn"
@@ -356,56 +481,131 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             {/* Inline Stripe overlay */}
             {showCheckout && totalDueNow > 0 && (
               <div style={styles.overlay}>
-                <div style={styles.overlayCard}>
-                  <video
-                    src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
-                    autoPlay
-                    muted
-                    playsInline
-                    loop
-                    style={{
-                      width: "140px",
-                      display: "block",
-                      margin: "0 auto 0.5rem",
-                      borderRadius: "12px",
-                    }}
-                    aria-hidden="true"
-                  />
+                <div
+                  style={{
+                    ...styles.overlayCard,
+                    width: isProcessing
+                      ? "min(520px, 94vw)"
+                      : "min(480px, 92vw)",
+                    padding: isProcessing
+                      ? "22px 22px 20px"
+                      : styles.overlayCard.padding,
+                  }}
+                >
+                  {isProcessing ? (
+                    <>
+                      {/* ✨ Magic in progress state */}
+                      <video
+                        src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{
+                          width: "260px",
+                          maxWidth: "100%",
+                          display: "block",
+                          margin: "0 auto 0.75rem",
+                          borderRadius: "12px",
+                        }}
+                        aria-hidden="true"
+                      />
 
-                  <h3
-                    style={{
-                      margin: "0.25rem 0 0.25rem",
-                      color: "#2c62ba",
-                      fontSize: "2rem",
-                      lineHeight: 1.2,
-                      fontWeight: 800,
-                      fontFamily:
-                        "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif",
-                    }}
-                  >
-                    Final Balance
-                  </h3>
+                      <h3
+                        style={{
+                          margin: "0.25rem 0 0.25rem",
+                          color: "#2c62ba",
+                          fontSize: "1.8rem",
+                          lineHeight: 1.2,
+                          fontWeight: 800,
+                          fontFamily:
+                            "'Jenna Sue', cursive, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+                        }}
+                      >
+                        Madge is sealing your guest scroll…
+                      </h3>
 
-                  <p style={{ marginTop: 6, fontSize: "1.1rem" }}>
-                    Amount due now:{" "}
-                    <strong>${totalDueNow.toFixed(2)}</strong>
-                  </p>
+                      <p
+                        style={{
+                          marginTop: 6,
+                          fontSize: "1rem",
+                          color: "#444",
+                        }}
+                      >
+                        She’s finalizing your guest count and tucking your final
+                        bill into your Documents.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* 🔐 Final Balance + Stripe form */}
+                      <video
+                        src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+                        autoPlay
+                        muted
+                        playsInline
+                        loop
+                        style={{
+                          width: "140px",
+                          display: "block",
+                          margin: "0 auto 0.5rem",
+                          borderRadius: "12px",
+                        }}
+                        aria-hidden="true"
+                      />
 
-                  <Elements stripe={stripePromise}>
-                    <CheckoutForm
-                      total={totalDueNow}
-                      onSuccess={handleStripeSuccess}
-                      isAddon={false}
-                    />
-                  </Elements>
+                      <h3
+                        style={{
+                          margin: "0.25rem 0 0.25rem",
+                          color: "#2c62ba",
+                          fontSize: "2rem",
+                          lineHeight: 1.2,
+                          fontWeight: 800,
+                          fontFamily:
+                            "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif",
+                        }}
+                      >
+                        Final Balance
+                      </h3>
 
-                  <button
-                    onClick={() => setShowCheckout(false)}
-                    className="boutique-back-btn"
-                    style={{ marginTop: 12 }}
-                  >
-                    Cancel
-                  </button>
+                      <p style={{ marginTop: 6, fontSize: "1.1rem" }}>
+                        Amount due now:{" "}
+                        <strong>${totalDueNow.toFixed(2)}</strong>
+                      </p>
+
+                      {/* ✅ Same CheckoutForm pattern as other boutiques */}
+                      <CheckoutForm
+                        total={totalDueNow}
+                        onSuccess={handleStripeSuccess}
+                        isAddon={false}
+                        customerEmail={
+                          getAuth().currentUser?.email || undefined
+                        }
+                        customerName={
+                          getAuth().currentUser?.displayName ||
+                          "Wed&Done Client"
+                        }
+                        customerId={(() => {
+                          try {
+                            return (
+                              localStorage.getItem("stripeCustomerId") ||
+                              undefined
+                            );
+                          } catch {
+                            return undefined;
+                          }
+                        })()}
+                      />
+
+                      <button
+                        onClick={() => setShowCheckout(false)}
+                        className="boutique-back-btn"
+                        style={{ marginTop: 12 }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

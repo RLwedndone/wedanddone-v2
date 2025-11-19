@@ -291,6 +291,25 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         "progress.yumYum.step": "tubacDessertThankYou",
       });
 
+      // 🔹 Dessert pricing snapshot for guest-count delta math
+      await setDoc(
+        doc(userRef, "pricingSnapshots", "dessert"),
+        {
+          booked: true,
+          guestCountAtBooking: guestCount,
+          totalBooked: Number(totalEffective.toFixed(2)),
+          perGuest:
+            guestCount > 0
+              ? Number((totalEffective / guestCount).toFixed(2))
+              : 0,
+          venueId: "tubac",
+          style: selectedStyle || null,
+          flavorCombo: selectedFlavorCombo || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
       // Build PDF
       const signatureImageUrl =
         signatureImage ||

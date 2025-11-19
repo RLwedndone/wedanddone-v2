@@ -29,7 +29,8 @@ const prettyGroup = (s: string) =>
     .replace(/\b\w/g, (m) => m.toUpperCase()); // "BROWNIES & BARS" -> "Brownies & Bars"
 
 // helper for local images
-const png = (name: string) => `/assets/images/YumYum/${name}.png`;
+const png = (name: string) =>
+  `${import.meta.env.BASE_URL}assets/images/YumYum/${name}.png`;
 
 const YumMenuBuilderDessert: React.FC<YumMenuBuilderDessertProps> = ({
   dessertType,
