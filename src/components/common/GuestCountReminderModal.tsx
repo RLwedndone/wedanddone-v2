@@ -15,6 +15,8 @@ function daysBetween(a: Date, b: Date) {
 }
 
 type GuestCountReminderModalProps = {
+  /** Whether Dashboard wants this modal to be eligible to show */
+  visible?: boolean;
   /** Open your GuestListScroll flow */
   onOpenGuestCountFlow: () => void;
   /** Optional close callback */
@@ -27,6 +29,7 @@ const LOCAL_WEDDING_KEYS = ["weddingDate", "yumSelectedDate", "weddingDateISO"] 
 
 // ───────── Component ─────────
 const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
+  visible = false,
   onOpenGuestCountFlow,
   onClose,
 }) => {
@@ -129,7 +132,10 @@ const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
     return { show, lockDate };
   }, [weddingDateStr, confirmedAt]);
 
-  useEffect(() => setShouldShow(computed.show), [computed.show]);
+  useEffect(() => {
+    // Only show if Dashboard says it's allowed AND timing logic agrees
+    setShouldShow(visible && computed.show);
+  }, [visible, computed.show]);
 
   if (loading || !shouldShow) return null;
 

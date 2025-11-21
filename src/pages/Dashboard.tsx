@@ -29,6 +29,9 @@ import WedAndDoneOverlay from "../components/WedAndDoneInfo/WedAndDoneOverlay";
 import LoginModal from "./LoginModal";
 import MadgeChatModal from "../components/MadgeChat/MadgeChatModal";
 import MenuController from "../components/NewYumBuild/shared/MenuController";
+import PixiePurchaseCenter from "../components/MenuScreens/PixiePurchaseCenter";
+import PixiePurchaseCheckout from "../components/MenuScreens/PixiePurchaseCheckout";
+import type { PixiePurchase } from "../utils/pixiePurchaseTypes";
 
 import "../styles/globals/boutique.master.css";
 import "./Dashboard.css";
@@ -390,6 +393,7 @@ type UserMenuScreenType =
   | "bookings"
   | "guestListScroll"
   | "payments"
+  | "pixiePurchases"
   | null;
 
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -440,6 +444,9 @@ const Dashboard: React.FC = () => {
   const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
 
   const [showMagicCloud, setShowMagicCloud] = useState(false);
+
+  const [pixiePurchases, setPixiePurchases] = useState<PixiePurchase[]>([]);
+  const [hasPixieNotifications, setHasPixieNotifications] = useState(false);
 
   // auth / user
   const [user, setUser] = useState<User | null>(null);
@@ -493,16 +500,17 @@ const Dashboard: React.FC = () => {
   const [showGuestCountFlow, setShowGuestCountFlow] = useState(false);
 
   // mini overlay system (separate from activeOverlay state)
-  const [overlay, setOverlay] = useState<null | {
-    type:
-      | "venueRanker"
-      | "photo"
-      | "floral"
-      | "planner"
-      | "yumyum"
-      | "jam";
-    startAt?: string;
-  }>(null);
+  type InlineOverlay =
+  | {
+      type: "venueRanker" | "photo" | "floral" | "planner" | "yumyum" | "jam";
+      startAt?: string;
+    }
+  | {
+      type: "pixiePurchaseCheckout";
+      purchase: PixiePurchase;
+    };
+
+const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
   const closeOverlay = () => setOverlay(null);
 
@@ -549,6 +557,9 @@ const Dashboard: React.FC = () => {
       case "payments":
         setActiveUserMenuScreen(section);
         break;
+      case "pixiePurchases":
+  setActiveUserMenuScreen("pixiePurchases");
+  break;
       case "guestListScroll":
         setActiveUserMenuScreen("guestListScroll");
         break;
@@ -707,7 +718,7 @@ const Dashboard: React.FC = () => {
   // pull completion flags, totals, and guest list timing
   useEffect(() => {
     if (!isAuthReady) return;
-
+  
     const handleRefresh = async () => {
       console.log("✨ Refreshing dashboard state...");
       const u = auth.currentUser;
@@ -715,17 +726,17 @@ const Dashboard: React.FC = () => {
         console.log("[REFRESH] no user; skipping FS read");
         return;
       }
-
+  
       try {
         const docRef = doc(db, "users", u.uid);
         const docSnap = await getDoc(docRef);
         if (!docSnap.exists()) return;
-
+  
         const data = docSnap.data() as any;
-
+  
         const flags = deriveCompletionFlags(data);
         console.log("[REFRESH] derived flags:", flags);
-
+  
         setFloralCompleted(flags.floral);
         setJamGrooveComplete(flags.jam);
         setPhotoCompleted(flags.photography);
@@ -733,14 +744,12 @@ const Dashboard: React.FC = () => {
         setDessertCompleted(flags.dessert);
         setPlannerCompleted(flags.planner);
         setVenueCompleted(flags.venue);
-
-        // read weddingDate
+  
         const weddingDateYMD: string | null =
           (data.weddingDate as string) ||
           data.profileData?.weddingDate ||
           null;
-
-        // read guestCountConfirmedAt from subdoc used by GuestListScroll
+  
         let confirmedAt: number | null = null;
         try {
           const bookingRef = doc(
@@ -761,15 +770,14 @@ const Dashboard: React.FC = () => {
         } catch (e) {
           console.warn("⚠️ Could not read guestCountConfirmedAt:", e);
         }
-
-        // define what "guest dependent booking" means:
+  
         const hasGuestDependentBooking = !!(
           flags.venue ||
           flags.catering ||
           flags.dessert ||
           flags.planner
         );
-
+  
         setShowGuestListButton(
           shouldShowGuestScroll({
             weddingDateYMD,
@@ -777,40 +785,46 @@ const Dashboard: React.FC = () => {
             hasGuestDependentBooking,
           })
         );
-
-        // magometer totals
+  
+        // 🔹 NEW Pixie purchase load
+        const pixSnap = await getDoc(
+          doc(db, "users", u.uid, "meta", "pixiePurchases")
+        );
+        const pixData = pixSnap.exists() ? pixSnap.data().items || [] : [];
+        setPixiePurchases(pixData);
+  
+        const unpaid = pixData.some((p: any) => p.status === "pending");
+        setHasPixieNotifications(unpaid);
+  
+        // 💰 Mag-o-Meter totals
         const purchases = data.purchases || [];
         const total = purchases.reduce(
-          (acc: number, item: { amount: number }) =>
-            acc + item.amount,
+          (acc: number, item: { amount: number }) => acc + item.amount,
           0
         );
-
+  
         const localOutside = localStorage.getItem("outsidePurchases");
-        const outsideParsed = localOutside
-          ? JSON.parse(localOutside)
-          : [];
+        const outsideParsed = localOutside ? JSON.parse(localOutside) : [];
         const outsideSpend = outsideParsed.reduce(
-          (sum: number, p: { amount: number }) =>
-            sum + Number(p.amount),
+          (sum: number, p: { amount: number }) => sum + Number(p.amount),
           0
         );
-
+  
         setTotalSpent(total + outsideSpend);
       } catch (error) {
         console.error("❌ Error refreshing dashboard state:", error);
       }
     };
-
+  
     window.addEventListener("purchaseMade", handleRefresh);
     window.addEventListener("cateringCompletedNow", handleRefresh);
     window.addEventListener("dessertCompletedNow", handleRefresh);
     window.addEventListener("jamCompletedNow", handleRefresh);
     window.addEventListener("budgetUpdated", handleRefresh);
     window.addEventListener("outsidePurchaseMade", handleRefresh);
-
-    handleRefresh(); // initial after auth ready
-
+  
+    handleRefresh();
+  
     return () => {
       window.removeEventListener("purchaseMade", handleRefresh);
       window.removeEventListener("cateringCompletedNow", handleRefresh);
@@ -982,6 +996,18 @@ const Dashboard: React.FC = () => {
               startAt="intro"
             />
           )}
+          {overlay.type === "pixiePurchaseCheckout" && (
+      <PixiePurchaseCheckout
+        purchaseId={overlay.purchaseId!}
+        onClose={closeOverlay}
+        onMarkPaid={() => {
+          // re-sync dashboard and close
+          window.dispatchEvent(new Event("purchaseMade"));
+          closeOverlay();
+        }}
+      />
+    )}
+
           {/* overlay.type === "menuController" would be handled by showingMenuController below */}
         </div>
       )}
@@ -1001,6 +1027,19 @@ const Dashboard: React.FC = () => {
           }}
         />
       )}
+
+{activeUserMenuScreen === "pixiePurchases" && (
+  <PixiePurchaseCenter
+    onClose={() => setActiveUserMenuScreen("menu")}
+    onOpenCheckout={(purchaseId) => {
+      setActiveUserMenuScreen(null);
+      setOverlay({
+        type: "pixiePurchaseCheckout",
+        purchaseId,
+      });
+    }}
+  />
+)}
 
       {/* MAIN HUD + BOUTIQUE BUTTONS */}
       <DashboardButtons

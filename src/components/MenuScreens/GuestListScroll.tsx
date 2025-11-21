@@ -1,30 +1,19 @@
 // src/components/MenuScreens/GuestListScroll.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import CheckoutForm from "../../CheckoutForm";
-
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import {
   doc,
-  getDoc,
   setDoc,
-  updateDoc,
-  arrayUnion,
+  collection,
+  addDoc,
 } from "firebase/firestore";
-import { db, app } from "../../firebase/firebaseConfig";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db } from "../../firebase/firebaseConfig";
 
-import generateGuestDeltaReceiptPDF from "../../utils/generateGuestDeltaReceiptPDF";
 import {
   getGuestState,
   setAndLockGuestCount,
   type GuestLockReason,
 } from "../../utils/guestCountStore";
-
-import {
-  computeGuestCountDeltas,
-  type GuestCountDeltaResult,
-  type DeltaLine,
-} from "../../utils/guestCountDeltas";
 
 const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
@@ -36,12 +25,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [original, setOriginal] = useState<number>(0); // locked/base guest count
   const [locked, setLocked] = useState(false);
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
-
-  const [delta, setDelta] = useState<GuestCountDeltaResult | null>(null);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   // --- 1) Hydrate base guest count from global guestCountStore
   useEffect(() => {
@@ -79,48 +63,13 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
   }, []);
 
-  // --- 2) Track current user id for the delta helper
-  useEffect(() => {
-    const unsub = onAuthStateChanged(getAuth(), (u) => {
-      setUserId(u?.uid || null);
-    });
-    return () => unsub();
-  }, []);
-
-  // --- 3) Recompute deltas whenever the guest count changes
-  useEffect(() => {
-    if (!userId) {
-      setDelta(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await computeGuestCountDeltas({
-          userId,
-          newGuestCount: value,
-        });
-        if (!cancelled) {
-          setDelta(res);
-        }
-      } catch (e) {
-        console.warn("[GuestListScroll] computeGuestCountDeltas failed:", e);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, value]);
-
-  const bump = (d: number) =>
-    setValue((v) => clamp(v + Math.abs(d), original, 2000));
-
-  const pretty = useMemo(() => `${value.toLocaleString()} guests`, [value]);
+  const pretty = useMemo(
+    () => `${value.toLocaleString()} guests`,
+    [value]
+  );
 
   const FINAL_REASON: GuestLockReason = "final" as GuestLockReason;
+  const additionalGuests = Math.max(value - original, 0);
 
   // 🔹 helper: keeps GuestCountReminderModal + account screen in sync
   const markGuestCountConfirmedEverywhere = async (
@@ -155,16 +104,35 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     } catch {}
   };
 
-  const totalDueNow = delta?.totalDelta || 0;
-  const additionalGuests = delta?.addedGuests || 0;
-  const deltaLines: DeltaLine[] = delta?.lines || [];
+  // 🔹 helper: log a Pixie Purchase-style request for a human invoice
+  const createGuestCountPixieRequest = async (
+    uid: string,
+    oldCount: number,
+    newCount: number,
+    added: number
+  ) => {
+    const nowIso = new Date().toISOString();
+    const colRef = collection(db, "users", uid, "pixiePurchases");
 
-  const handleLockAndMaybePay = async () => {
-    if (totalDueNow > 0) {
-      setShowCheckout(true);
-      return;
-    }
+    await addDoc(colRef, {
+      type: "guest_count_increase",
+      label: "Guest Count Increase",
+      description: `Guest count change from ${oldCount} to ${newCount} (+${added}).`,
+      amount: null, // you (human) set this later
+      currency: "usd",
+      status: "requested",
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      oldGuestCount: oldCount,
+      newGuestCount: newCount,
+      additionalGuests: added,
+    });
+  };
 
+  const bump = (d: number) =>
+    setValue((v) => clamp(v + Math.abs(d), original, 2000));
+
+  const handleSubmitFinalGuestCount = async () => {
     const auth = getAuth();
     const u = auth.currentUser;
 
@@ -177,184 +145,89 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       // 2) Persist “confirmed + locked” for reminder/account screens
       if (u) {
         await markGuestCountConfirmedEverywhere(u.uid, value);
+
+        // 3) If they actually added guests, create a Pixie Purchase request
+        if (additionalGuests > 0) {
+          await createGuestCountPixieRequest(
+            u.uid,
+            original,
+            value,
+            additionalGuests
+          );
+        }
       }
 
-      // 3) Show standalone Thank You screen
+      // 4) Show TY overlay instead of leaving scroll visible
       setShowThankYou(true);
     } catch (e) {
-      console.error("❌ Finalize guest count (no charge) failed:", e);
+      console.error("❌ Finalize guest count (request only) failed:", e);
       onClose(); // fallback
     }
   };
 
-  const handleStripeSuccess = async () => {
-    const auth = getAuth();
-    const u = auth.currentUser;
-
-    if (!u) {
-      setShowCheckout(false);
-      onClose();
-      return;
-    }
-
+  // 🔹 Close helper for the Thank You screen
+  const handleCloseToDashboard = () => {
     try {
-      // 🧙‍♀️ show magic-in-progress overlay
-      setIsProcessing(true);
+      // Hint for any reminder logic that this flow completed
+      localStorage.setItem("guestCountScrollCompleted", "true");
+    } catch {}
+    onClose();
 
-      // 1) Persist + lock with reason "final"
-      await setAndLockGuestCount(value, FINAL_REASON);
-      window.dispatchEvent(new Event("guestCountUpdated"));
-      window.dispatchEvent(new Event("guestCountLocked"));
-
-      // 2) Mark final submission in booking + user root
-      await markGuestCountConfirmedEverywhere(u.uid, value);
-
-      // 3) Generate/upload “Final Bill” PDF if there *was* a delta
-      if (delta && totalDueNow > 0) {
-        const cateringLine = delta.lines.find((l) => l.id === "catering");
-        const dessertLine = delta.lines.find((l) => l.id === "dessert");
-        const venueLine = delta.lines.find((l) => l.id === "venue");
-        const plannerLine = delta.lines.find((l) => l.id === "planner");
-
-        const subtotal =
-          (cateringLine?.addedTotal || 0) +
-          (dessertLine?.addedTotal || 0) +
-          (venueLine?.addedTotal || 0) +
-          (plannerLine?.addedTotal || 0);
-
-        const pdf = await generateGuestDeltaReceiptPDF({
-          fullName: u.displayName || "Wed&Done Client",
-          weddingDate: localStorage.getItem("yumSelectedDate") || "",
-          oldCount: original,
-          newCount: value,
-          additionalGuests: delta.addedGuests,
-          perGuest: {
-            venue: venueLine?.perGuest || 0,
-            catering: cateringLine?.perGuest || 0,
-            dessert: dessertLine?.perGuest || 0,
-            planner: plannerLine?.perGuest || 0,
-          },
-          amounts: {
-            venue: venueLine?.addedTotal || 0,
-            catering: cateringLine?.addedTotal || 0,
-            dessert: dessertLine?.addedTotal || 0,
-            planner: plannerLine?.addedTotal || 0,
-            tax: 0,
-            stripeFee: 0,
-            subtotal,
-            total: totalDueNow,
-          },
-          notes: delta.lines.map((line) => {
-            if (line.perGuest && line.addedGuests > 0) {
-              return `${line.label}: $${line.perGuest.toFixed(2)} × ${
-                line.addedGuests
-              } = $${line.addedTotal.toFixed(2)}`;
-            }
-            return `${line.label}: $${line.addedTotal.toFixed(2)}`;
-          }),
-        });
-
-        const storage = getStorage(
-          app,
-          "gs://wedndonev2.firebasestorage.app"
-        );
-        const filename = `FinalBill_${Date.now()}.pdf`;
-        const fileRef = ref(storage, `public_docs/${u.uid}/${filename}`);
-        await uploadBytes(fileRef, pdf);
-        const publicUrl = await getDownloadURL(fileRef);
-
-        await updateDoc(doc(db, "users", u.uid), {
-          documents: arrayUnion({
-            title: "Final Bill (Guest Count Update)",
-            url: publicUrl,
-            uploadedAt: new Date().toISOString(),
-          }),
-          purchases: arrayUnion({
-            label: "guest_count_delta",
-            amount: Number(totalDueNow.toFixed(2)),
-            date: new Date().toISOString(),
-            method: "final_adjustment",
-          }),
-        });
-      }
-
-      // ✅ Done: close Stripe overlay, show thank you
-      setShowCheckout(false);
-      setShowThankYou(true);
-    } catch (e) {
-      console.error("❌ Finalize guest count failed:", e);
-      setShowCheckout(false);
-      onClose();
-    } finally {
-      setIsProcessing(false);
+    // Hard jump to dashboard so no “scroll window” is left behind
+    try {
+      const base = `${window.location.origin}${
+        import.meta.env.BASE_URL || "/"
+      }`;
+      window.location.href = `${base}dashboard`;
+    } catch {
+      // fallback: onClose already ran
     }
   };
 
   // ─────────────────────────────
-  // Standalone Thank You screen
+  // THANK YOU BRANCH (full overlay)
   // ─────────────────────────────
-  if (showThankYou) {
+  if (!loading && showThankYou) {
     return (
       <div style={styles.backdrop}>
-        <div style={styles.card}>
+        <div style={styles.thankYouCard}>
           <button
-            onClick={onClose}
+            onClick={handleCloseToDashboard}
             style={styles.closeAbs}
             aria-label="Close"
           >
             ✖
           </button>
 
-          <video
-            src={`${import.meta.env.BASE_URL}assets/videos/guestcount.mp4`}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={styles.heroVideo}
+          <img
+            src={`${import.meta.env.BASE_URL}assets/images/guestcount_madge.png`}
+            alt="Guest count locked"
+            style={styles.thankYouImage}
           />
 
-          <h2
-            style={{
-              marginTop: 8,
-              marginBottom: 8,
-              fontFamily: "'Jenna Sue', cursive",
-              fontSize: "2rem",
-              color: "#2c62ba",
-              textAlign: "center",
-            }}
-          >
-            Guest count locked – you’re all set!
-          </h2>
+          <h3 style={styles.thankYouTitle}>
+            Guest count locked — you’re all set!
+          </h3>
 
-          <p
-            style={{
-              ...styles.sub,
-              maxWidth: 480,
-              margin: "0 auto 16px",
-            }}
-          >
-            We’ve updated your final guest count and generated a little receipt
-            for your records. Madge won’t bug you about guest count changes for
-            this wedding anymore.
+          <p style={styles.thankYouBody}>
+            We’re preparing the final bill for your additional guests and will
+            send it to you through your Pixie Purchase folder in the menu.
           </p>
 
-          <div style={{ textAlign: "center", marginTop: 8 }}>
-            <button
-              className="boutique-primary-btn"
-              style={styles.cta}
-              onClick={onClose}
-            >
-              Back to my dashboard
-            </button>
-          </div>
+          <button
+            className="boutique-primary-btn"
+            style={styles.cta}
+            onClick={handleCloseToDashboard}
+          >
+            Back to my dashboard
+          </button>
         </div>
       </div>
     );
   }
 
   // ─────────────────────────────
-  // Normal Scroll + Checkout UI
+  // MAIN SCROLL UI
   // ─────────────────────────────
   return (
     <div style={styles.backdrop}>
@@ -362,11 +235,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.h2Centered}>Add More Guests</h2>
-          <button
-            onClick={onClose}
-            style={styles.closeAbs}
-            aria-label="Close"
-          >
+          <button onClick={onClose} style={styles.closeAbs} aria-label="Close">
             ✖
           </button>
         </div>
@@ -387,9 +256,9 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <>
             <p style={styles.sub}>
               More RSVPs than you thought? No problem! Use this little counter
-              to add to your guest count. Our magic system will calculate the
-              additional cost and show you exactly how much more you’ll need to
-              pay for those extra partiers!
+              to update your final guest count. Once you submit, we’ll lock it
+              in and our Pixie team will prepare the final bill and send it to
+              you through your Pixie Purchase folder in the menu.
             </p>
 
             {/* Counter */}
@@ -428,7 +297,7 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               />
             </div>
 
-            {/* Breakdown */}
+            {/* Simple “additional guests” breakdown */}
             <div style={styles.breakdownCard}>
               <div style={styles.breakdownTitle}>
                 {additionalGuests > 0
@@ -437,178 +306,24 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
 
               <div style={styles.totalLine}>
-                Total due now: <strong>${totalDueNow.toFixed(2)}</strong>
+                We’ll prepare the final bill for any additional guests and send
+                it to you as a Pixie Purchase.
               </div>
-
-              {additionalGuests > 0 && deltaLines.length > 0 && (
-                <div style={styles.notes}>
-                  {deltaLines.map((line) => (
-                    <div key={line.id}>
-                      • {line.label}:{" "}
-                      {line.perGuest && line.addedGuests > 0 ? (
-                        <>
-                          <strong>${line.perGuest.toFixed(2)}</strong> ×{" "}
-                          {line.addedGuests} guests ={" "}
-                          <strong>${line.addedTotal.toFixed(2)}</strong>
-                        </>
-                      ) : (
-                        <strong>${line.addedTotal.toFixed(2)}</strong>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* CTA */}
             <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                marginTop: 18,
-              }}
+              style={{ display: "flex", justifyContent: "center", marginTop: 18 }}
             >
               <button
                 className="boutique-primary-btn"
                 disabled={value < original}
-                onClick={handleLockAndMaybePay}
+                onClick={handleSubmitFinalGuestCount}
                 style={styles.cta}
               >
                 Submit &amp; lock final guest count
               </button>
             </div>
-
-            {/* Inline Stripe overlay */}
-            {showCheckout && totalDueNow > 0 && (
-              <div style={styles.overlay}>
-                <div
-                  style={{
-                    ...styles.overlayCard,
-                    width: isProcessing
-                      ? "min(520px, 94vw)"
-                      : "min(480px, 92vw)",
-                    padding: isProcessing
-                      ? "22px 22px 20px"
-                      : styles.overlayCard.padding,
-                  }}
-                >
-                  {isProcessing ? (
-                    <>
-                      {/* ✨ Magic in progress state */}
-                      <video
-                        src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        style={{
-                          width: "260px",
-                          maxWidth: "100%",
-                          display: "block",
-                          margin: "0 auto 0.75rem",
-                          borderRadius: "12px",
-                        }}
-                        aria-hidden="true"
-                      />
-
-                      <h3
-                        style={{
-                          margin: "0.25rem 0 0.25rem",
-                          color: "#2c62ba",
-                          fontSize: "1.8rem",
-                          lineHeight: 1.2,
-                          fontWeight: 800,
-                          fontFamily:
-                            "'Jenna Sue', cursive, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-                        }}
-                      >
-                        Madge is sealing your guest scroll…
-                      </h3>
-
-                      <p
-                        style={{
-                          marginTop: 6,
-                          fontSize: "1rem",
-                          color: "#444",
-                        }}
-                      >
-                        She’s finalizing your guest count and tucking your final
-                        bill into your Documents.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      {/* 🔐 Final Balance + Stripe form */}
-                      <video
-                        src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
-                        autoPlay
-                        muted
-                        playsInline
-                        loop
-                        style={{
-                          width: "140px",
-                          display: "block",
-                          margin: "0 auto 0.5rem",
-                          borderRadius: "12px",
-                        }}
-                        aria-hidden="true"
-                      />
-
-                      <h3
-                        style={{
-                          margin: "0.25rem 0 0.25rem",
-                          color: "#2c62ba",
-                          fontSize: "2rem",
-                          lineHeight: 1.2,
-                          fontWeight: 800,
-                          fontFamily:
-                            "'Nunito', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif",
-                        }}
-                      >
-                        Final Balance
-                      </h3>
-
-                      <p style={{ marginTop: 6, fontSize: "1.1rem" }}>
-                        Amount due now:{" "}
-                        <strong>${totalDueNow.toFixed(2)}</strong>
-                      </p>
-
-                      {/* ✅ Same CheckoutForm pattern as other boutiques */}
-                      <CheckoutForm
-                        total={totalDueNow}
-                        onSuccess={handleStripeSuccess}
-                        isAddon={false}
-                        customerEmail={
-                          getAuth().currentUser?.email || undefined
-                        }
-                        customerName={
-                          getAuth().currentUser?.displayName ||
-                          "Wed&Done Client"
-                        }
-                        customerId={(() => {
-                          try {
-                            return (
-                              localStorage.getItem("stripeCustomerId") ||
-                              undefined
-                            );
-                          } catch {
-                            return undefined;
-                          }
-                        })()}
-                      />
-
-                      <button
-                        onClick={() => setShowCheckout(false)}
-                        className="boutique-back-btn"
-                        style={{ marginTop: 12 }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -742,7 +457,7 @@ const styles = {
   totalLine: {
     fontSize: 14,
     color: "#333",
-    marginBottom: 10,
+    marginBottom: 4,
   } as React.CSSProperties,
 
   notes: {
@@ -758,22 +473,41 @@ const styles = {
     fontWeight: 800,
   } as React.CSSProperties,
 
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.45)",
-    display: "grid",
-    placeItems: "center",
-    zIndex: 1100,
+  // ✨ Thank-you specific styles
+  thankYouCard: {
+    width: "min(92vw, 620px)",
+    maxHeight: "88vh",
+    overflowY: "auto",
+    background: "#fff",
+    borderRadius: 24,
+    boxShadow: "0 12px 32px rgba(0,0,0,.25)",
+    padding: "30px 28px 24px",
+    position: "relative",
+    textAlign: "center",
   } as React.CSSProperties,
 
-  overlayCard: {
-    background: "#fff",
-    borderRadius: 18,
-    padding: "18px 18px 16px",
-    width: "min(480px, 92vw)",
-    boxShadow: "0 12px 32px rgba(0,0,0,0.25)",
-    textAlign: "center",
+  thankYouImage: {
+    width: 220,
+    height: "auto",
+    borderRadius: 24,
+    display: "block",
+    margin: "0 auto 18px",
+  } as React.CSSProperties,
+
+  thankYouTitle: {
+    marginTop: 4,
+    marginBottom: 10,
+    fontFamily: "'Jenna Sue', cursive",
+    fontSize: "2rem",
+    color: "#2c62ba",
+  } as React.CSSProperties,
+
+  thankYouBody: {
+    margin: "0 0 18px",
+    color: "#333",
+    fontSize: "0.98rem",
+    maxWidth: 460,
+    marginInline: "auto",
   } as React.CSSProperties,
 };
 
