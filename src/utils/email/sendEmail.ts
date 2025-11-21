@@ -1,14 +1,37 @@
 // src/utils/email/sendEmail.ts
 import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../config/emailjsConfig";
 
-export async function sendEmail(templateId: string, params: Record<string, any>) {
-  const serviceId = "service_xayel1i"; // your EmailJS service id
-  const pubKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+// Initialize once (safe no-op if already inited)
+let initialized = false;
+function ensureInit() {
+  if (initialized) return;
+  try {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    initialized = true;
+  } catch (err) {
+    console.warn("EmailJS init skipped (non-browser environment).");
+  }
+}
 
-  if (!pubKey) {
+export async function sendEmail(
+  templateId: string,
+  params: Record<string, any>
+) {
+  ensureInit();
+
+  if (!EMAILJS_PUBLIC_KEY) {
     console.error("❌ Missing EmailJS public key");
     throw new Error("Missing EmailJS public key");
   }
 
-  return emailjs.send(serviceId, templateId, params, pubKey);
+  return emailjs.send(
+    EMAILJS_SERVICE_ID,
+    templateId,
+    params,
+    EMAILJS_PUBLIC_KEY
+  );
 }
