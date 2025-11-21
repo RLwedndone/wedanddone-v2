@@ -4,12 +4,11 @@ import { getAuth } from "firebase/auth";
 import { generateGrooveGuidePDF } from "../../utils/generateGrooveGuidePDF";
 import { uploadDocToFirestore } from "../../utils/uploadDocToFirestore";
 import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../config/emailjsConfig";
 
-try {
-  emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-} catch {
-  // ignore init failures in non-browser environments
-}
 
 interface JamIncludedCartProps {
   onBack: () => void;
@@ -66,24 +65,25 @@ const JamIncludedCart: React.FC<JamIncludedCartProps> = ({
       const title = `Groove Guide – Jam & Groove (${safeDate})`;
       const downloadURL = await uploadDocToFirestore(user.uid, pdfBlob, title);
 
-      // 3) Send admin “New Booking – product_name” email with View PDF link
-      try {
-        await emailjs.send(
-          "service_xayel1i",          // 🔧 your existing EmailJS service ID
-          "template_jq2xexq",     // 🔧 swap to the actual ID for this HTML template
-          {
-            product_name: "Jam & Groove Groove Guide – Rubi House DJ",
-            user_full_name: fullName || user.displayName || "Unknown User",
-            user_email: user.email || "unknown@wedanddone.com",
-            wedding_date: formattedDate,
-            pdf_url: downloadURL,
-          }
-        );
-        console.log("📧 Rubi DJ Groove Guide admin email sent");
-      } catch (emailErr) {
-        console.error("❌ Error sending Rubi DJ email:", emailErr);
-        // don’t block success if the email fails; PDF is still saved
-      }
+            // 3) Send admin “New Booking – product_name” email with View PDF link
+            try {
+              await emailjs.send(
+                EMAILJS_SERVICE_ID,
+                "template_jq2xexq",
+                {
+                  product_name: "Jam & Groove Groove Guide – Rubi House DJ",
+                  user_full_name: fullName || user.displayName || "Unknown User",
+                  user_email: user.email || "unknown@wedndone.com",
+                  wedding_date: formattedDate,
+                  pdf_url: downloadURL,
+                },
+                EMAILJS_PUBLIC_KEY
+              );
+              console.log("📧 Rubi DJ Groove Guide admin email sent");
+            } catch (emailErr) {
+              console.error("❌ Error sending Rubi DJ email:", emailErr);
+              // don’t block success if the email fails; PDF is still saved
+            }
 
       setIsDone(true);
     } catch (err) {

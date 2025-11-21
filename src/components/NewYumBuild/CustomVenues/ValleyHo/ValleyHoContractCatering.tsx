@@ -6,7 +6,11 @@ import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../../../config/emailjsConfig";
 import type { ValleyHoSelections, ValleyHoService } from "./ValleyHoMenuBuilder";
 
 /* -------------------- date + money helpers -------------------- */
@@ -339,19 +343,19 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
         progress: { yumYum: { step: "cateringThankYou" } },
       });
 
-      // courtesy email (same template used elsewhere)
-      await emailjs.send(
-        "service_xayel1i",
-        "template_nvsea3z",
-        {
-          user_email: auth.currentUser?.email || "Unknown",
-          user_full_name: `${firstName} ${lastName}`,
-          wedding_date: prettyWedding || "Unknown",
-          total: total.toFixed(2),
-          line_items: lineItems.join("\n"),
-        },
-        "5Lqtf5AMR9Uz5_5yF"
-      );
+            // courtesy email (same template used elsewhere)
+            await emailjs.send(
+              EMAILJS_SERVICE_ID,
+              "template_nvsea3z",
+              {
+                user_email: auth.currentUser?.email || "Unknown",
+                user_full_name: `${firstName} ${lastName}`,
+                wedding_date: prettyWedding || "Unknown",
+                total: total.toFixed(2),
+                line_items: lineItems.join("\n"),
+              },
+              EMAILJS_PUBLIC_KEY
+            );
 
       onComplete();
     } catch (err) {

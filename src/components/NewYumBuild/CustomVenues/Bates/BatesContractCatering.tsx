@@ -4,7 +4,11 @@ import SignatureCanvas from "react-signature-canvas";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../../../config/emailjsConfig";
 
 import { db, app } from "../../../../firebase/firebaseConfig";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
@@ -238,23 +242,23 @@ localStorage.setItem("yumBillingRobot", JSON.stringify(billingRobot));
 // Fire a window event so any listeners can react
 window.dispatchEvent(new CustomEvent("billingPlanSelected", { detail: billingRobot }));
 
-      // Optional email
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email: auth.currentUser?.email || "Unknown",
-            user_full_name: `${firstName} ${lastName}`,
-            wedding_date: formattedDate || "Unknown",
-            total: total.toFixed(2),
-            line_items: "Bates Catering Add-ons",
-          },
-          "5Lqtf5AMR9Uz5_5yF"
-        );
-      } catch (e) {
-        console.warn("✉️ EmailJS failed (non-fatal):", e);
-      }
+            // Optional email
+            try {
+              await emailjs.send(
+                EMAILJS_SERVICE_ID,
+                "template_nvsea3z",
+                {
+                  user_email: auth.currentUser?.email || "Unknown",
+                  user_full_name: `${firstName} ${lastName}`,
+                  wedding_date: formattedDate || "Unknown",
+                  total: total.toFixed(2),
+                  line_items: "Bates Catering Add-ons",
+                },
+                EMAILJS_PUBLIC_KEY
+              );
+            } catch (e) {
+              console.warn("✉️ EmailJS failed (non-fatal):", e);
+            }
 
       onComplete();
     } catch (e) {

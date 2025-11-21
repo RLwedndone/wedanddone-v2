@@ -11,7 +11,11 @@ import {
 } from "firebase/firestore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../../../config/emailjsConfig";
 import { getGuestState } from "../../../../utils/guestCountStore";
 
 import generateOcotilloAgreementPDF from "../../../../utils/generateOcotilloAgreementPDF";
@@ -365,25 +369,25 @@ const OcotilloCateringContract: React.FC<Props> = ({
         }),
       });
 
-      // Heads-up email
-      try {
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_email: auth.currentUser?.email || "Unknown",
-            user_full_name: `${firstName} ${lastName}`,
-            wedding_date: prettyWedding || "Unknown",
-            total: total.toFixed(2),
-            line_items: `Ocotillo Catering (${TIER_LABEL[selectedTier]}) – ${menuSelections.entrees.join(
-              ", "
-            )}`,
-          },
-          "5Lqtf5AMR9Uz5_5yF"
-        );
-      } catch (err) {
-        console.warn("⚠️ emailjs send failed:", err);
-      }
+            // Heads-up email
+            try {
+              await emailjs.send(
+                EMAILJS_SERVICE_ID,
+                "template_nvsea3z",
+                {
+                  user_email: auth.currentUser?.email || "Unknown",
+                  user_full_name: `${firstName} ${lastName}`,
+                  wedding_date: prettyWedding || "Unknown",
+                  total: total.toFixed(2),
+                  line_items: `Ocotillo Catering (${TIER_LABEL[selectedTier]}) – ${menuSelections.entrees.join(
+                    ", "
+                  )}`,
+                },
+                EMAILJS_PUBLIC_KEY
+              );
+            } catch (err) {
+              console.warn("⚠️ emailjs send failed:", err);
+            }
 
       onComplete();
     } catch (err) {

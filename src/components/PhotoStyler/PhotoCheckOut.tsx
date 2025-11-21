@@ -152,21 +152,16 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (finishedOnceRef.current) return;
     finishedOnceRef.current = true;
-
+  
     const auth = getAuth();
     const user = auth.currentUser;
-
-    try {
-      if (import.meta.env.VITE_EMAILJS_PUBLIC_KEY) {
-        emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-      }
-    } catch {}
-
+  
     setIsGenerating(true);
-
+  
     try {
       const uidToUse = user?.uid || uid;
       const userRef = doc(db, "users", uidToUse);
+      // ...
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? snap.data() : {};
 

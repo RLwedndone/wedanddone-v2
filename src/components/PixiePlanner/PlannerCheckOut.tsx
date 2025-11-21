@@ -17,8 +17,6 @@ import {
 import { db } from "../../firebase/firebaseConfig";
 import emailjs from "@emailjs/browser";
 
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-
 interface PlannerCheckOutProps {
   onClose: () => void;
   /** optional: go back to the contract screen */
@@ -364,27 +362,32 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
       await updateDoc(userRef, updates);
 
       // ---------- 4) Admin heads-up
-      try {
-        const fullName = `${firstName || "Magic"} ${lastName || "User"}`.trim();
-        await emailjs.send(
-          "service_xayel1i",
-          "template_nvsea3z",
-          {
-            user_name: fullName,
-            user_email: userData?.email || "unknown@wedndone.com",
-            wedding_date: weddingDateSafe || "TBD",
-            total: total.toFixed(2),
-            line_items: `Planner Coordination for ${guestCount} guests`,
-            pdf_url: url || "",
-            pdf_title: "Pixie Planner Agreement",
-            payment_now: amountDueToday.toFixed(2),
-            remaining_balance: remainingBalance.toFixed(2),
-            final_due: finalDueDateStr,
-          }
-        );
-      } catch (mailErr) {
-        console.warn("EmailJS failed:", mailErr);
-      }
+try {
+  const fullName = `${firstName || "Magic"} ${lastName || "User"}`.trim();
+  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  if (publicKey) {
+    await emailjs.send(
+      "service_xayel1i",
+      "template_nvsea3z",
+      {
+        user_name: fullName,
+        user_email: userData?.email || "unknown@wedndone.com",
+        wedding_date: weddingDateSafe || "TBD",
+        total: total.toFixed(2),
+        line_items: `Planner Coordination for ${guestCount} guests`,
+        pdf_url: url || "",
+        pdf_title: "Pixie Planner Agreement",
+        payment_now: amountDueToday.toFixed(2),
+        remaining_balance: remainingBalance.toFixed(2),
+        final_due: finalDueDateStr,
+      },
+      publicKey
+    );
+  }
+} catch (mailErr) {
+  console.warn("EmailJS failed:", mailErr);
+}
 
       // ---------- 5) UI updates
       window.dispatchEvent(new Event("purchaseMade"));

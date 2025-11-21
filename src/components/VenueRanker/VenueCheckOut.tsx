@@ -37,8 +37,6 @@ function fmtPretty(d: Date | null): string {
   return d ? format(d, "MMMM d, yyyy") : "";
 }
 
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-
 interface VenueCheckOutProps {
   onClose?: () => void;
   setStepSuccess?: () => void;
@@ -441,20 +439,30 @@ try {
       localStorage.setItem("yumStep", "contract");
 
       // email buyer
-      try {
-        const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const TEMPLATE_ID =
-          import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
-        if (SERVICE_ID && TEMPLATE_ID) {
-          await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-            user_email: userData.email,
-            user_name: `${firstName} ${lastName}`,
-            pdf_url: pdfUrl,
-          });
-        }
-      } catch (mailErr) {
-        console.warn("EmailJS failed:", mailErr);
-      }
+try {
+  const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
+  const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  if (SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY) {
+    await emailjs.send(
+      SERVICE_ID,
+      TEMPLATE_ID,
+      {
+        user_email: userData.email,
+        user_name: `${firstName} ${lastName}`,
+        pdf_url: pdfUrl,
+      },
+      PUBLIC_KEY
+    );
+  } else {
+    console.warn(
+      "⚠️ Venue EmailJS not configured (service/template/public key missing); skipping buyer email."
+    );
+  }
+} catch (mailErr) {
+  console.warn("EmailJS failed:", mailErr);
+}
 
       // email admin
       try {

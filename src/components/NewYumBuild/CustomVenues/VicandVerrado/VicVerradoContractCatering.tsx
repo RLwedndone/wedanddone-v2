@@ -4,7 +4,11 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { arrayUnion, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db, app } from "../../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../../../config/emailjsConfig";
 import { getGuestState } from "../../../../utils/guestCountStore";
 
 // ⬇️ Create this util beside your other PDF gens (see notes below)
@@ -308,19 +312,19 @@ useEffect(() => {
         }),
       });
 
-      // lightweight email notice (adjust IDs if you use different service/template)
-      await emailjs.send(
-        "service_xayel1i",
-        "template_nvsea3z",
-        {
-          user_email: auth.currentUser?.email || "Unknown",
-          user_full_name: `${firstName} ${lastName}`,
-          wedding_date: prettyWedding || "Unknown",
-          total: total.toFixed(2),
-          line_items: `Catering (${TIER_LABEL[selectedTier]}) – ${menuSelections.entrees.join(", ")}`,
-        },
-        "5Lqtf5AMR9Uz5_5yF"
-      );
+            // lightweight email notice (adjust IDs if you use different service/template)
+            await emailjs.send(
+              EMAILJS_SERVICE_ID,
+              "template_nvsea3z",
+              {
+                user_email: auth.currentUser?.email || "Unknown",
+                user_full_name: `${firstName} ${lastName}`,
+                wedding_date: prettyWedding || "Unknown",
+                total: total.toFixed(2),
+                line_items: `Catering (${TIER_LABEL[selectedTier]}) – ${menuSelections.entrees.join(", ")}`,
+              },
+              EMAILJS_PUBLIC_KEY
+            );
 
       onComplete();
     } catch (err) {

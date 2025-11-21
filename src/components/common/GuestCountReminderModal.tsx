@@ -3,6 +3,10 @@ import { onAuthStateChanged, getAuth, User } from "firebase/auth";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../config/emailjsConfig";
 
 // ───────── Helpers ─────────
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -153,7 +157,7 @@ const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
     try {
       // keep consistent with other files you already use
       await emailjs.send(
-        "service_xayel1i",
+        EMAILJS_SERVICE_ID,
         "template_nvsea3z",
         {
           user_name: payload.name || "Guest",
@@ -165,7 +169,7 @@ const GuestCountReminderModal: React.FC<GuestCountReminderModalProps> = ({
           pdf_title: "Guest Count Confirmation",
           uid: payload.uid || "",
         },
-        "5Lqtf5AMR9Uz5_5yF" // your public key used elsewhere
+        EMAILJS_PUBLIC_KEY
       );
     } catch (err) {
       console.warn("GuestCountReminderModal: admin email failed (non-blocking)", err);

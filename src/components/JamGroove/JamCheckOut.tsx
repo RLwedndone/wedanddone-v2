@@ -22,9 +22,11 @@ import { generateGrooveGuidePDF } from "../../utils/generateGrooveGuidePDF";
 import { JamSelectionsType } from "./JamOverlay";
 import { notifyBooking } from "../../utils/email/email";
 
-// For Groove Guide PDF emails only
 import emailjs from "@emailjs/browser";
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../config/emailjsConfig";
 
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -330,12 +332,17 @@ window.dispatchEvent(new Event("dateLockedNow"));
             module: "jam",
           }),
         });
-        await emailjs.send("service_xayel1i", "template_w498nvm", {
-          user_name: `${firstName} ${lastName}`,
-          wedding_date: weddingDate,
-          pdf_url: grooveUrl,
-          pdf_title: "Groove Guide PDF",
-        });
+        await emailjs.send(
+          EMAILJS_SERVICE_ID,
+          "template_w498nvm",
+          {
+            user_name: `${firstName} ${lastName}`,
+            wedding_date: weddingDate,
+            pdf_url: grooveUrl,
+            pdf_title: "Groove Guide PDF",
+          },
+          EMAILJS_PUBLIC_KEY
+        );
       }
 
       window.dispatchEvent(new Event("purchaseMade"));

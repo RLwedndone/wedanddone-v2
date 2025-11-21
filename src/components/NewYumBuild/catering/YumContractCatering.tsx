@@ -6,7 +6,11 @@ import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { db, app } from "../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
-import emailjs from "emailjs-com";
+import emailjs from "@emailjs/browser";
+import {
+  EMAILJS_SERVICE_ID,
+  EMAILJS_PUBLIC_KEY,
+} from "../../../config/emailjsConfig";
 import { YumStep } from "../yumTypes";
 
 /* -------------------- date + money helpers -------------------- */
@@ -357,7 +361,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
       });
 
       await emailjs.send(
-        "service_xayel1i",
+        EMAILJS_SERVICE_ID,
         "template_nvsea3z",
         {
           user_email: auth.currentUser?.email || "Unknown",
@@ -368,7 +372,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             "Catering Booking - " +
             (menuSelections?.mains?.join(", ") || "N/A"),
         },
-        "5Lqtf5AMR9Uz5_5yF"
+        EMAILJS_PUBLIC_KEY
       );
 
       onComplete();

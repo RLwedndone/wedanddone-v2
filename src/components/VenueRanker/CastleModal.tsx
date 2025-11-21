@@ -12,9 +12,6 @@ import VenueGuestEditor from "./VenueGuestEditor";
 import { getGuestState } from "../../utils/guestCountStore";
 import { calculatePlan } from "../../utils/calculatePlan";
 import emailjs from "@emailjs/browser";
-try {
-  emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-} catch {}
 
 import {
   venuePricing,
@@ -600,23 +597,32 @@ const saveVenueRequestToFirestore = async () => {
 //        console.log("✨ Venue request saved:", { id: docRef.id, ...payload });
 
 try {
-  await emailjs.send(
-    "service_xayel1i",
-    "template_vawsamm",
-    {
-      user_name: auth.currentUser?.displayName || "Unknown User",
-      user_email: auth.currentUser?.email || "unknown@wedanddone.com",
-      email: auth.currentUser?.email || "unknown@wedanddone.com", // for {{email}} Reply-To
-      venue_name: details.title || venueSlug,
-      venue_slug: venueSlug,
-      requested_date: (payload.requestedDate || "TBD"),
-      guest_count: String(payload.guestCount || 0),
-      quoted_total: payload.quotedTotal != null ? payload.quotedTotal.toFixed(2) : "N/A",
-      firestore_path: `venueRequests/${docRef.id}`,
-    }
-    // you can omit the 4th arg if you've already called emailjs.init(...) at module load
-  );
-  console.log("📧 Manual venue request email sent");
+  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  if (publicKey) {
+    await emailjs.send(
+      "service_xayel1i",
+      "template_vawsamm",
+      {
+        user_name: auth.currentUser?.displayName || "Unknown User",
+        user_email: auth.currentUser?.email || "unknown@wedanddone.com",
+        email: auth.currentUser?.email || "unknown@wedanddone.com", // for {{email}} Reply-To
+        venue_name: details.title || venueSlug,
+        venue_slug: venueSlug,
+        requested_date: payload.requestedDate || "TBD",
+        guest_count: String(payload.guestCount || 0),
+        quoted_total:
+          payload.quotedTotal != null
+            ? payload.quotedTotal.toFixed(2)
+            : "N/A",
+        firestore_path: `venueRequests/${docRef.id}`,
+      },
+      publicKey
+    );
+    console.log("📧 Manual venue request email sent");
+  } else {
+    console.warn("⚠️ EMAILJS public key missing; skipping admin email.");
+  }
 } catch (e) {
   console.error("❌ EmailJS send failed", e);
 }
