@@ -1,3 +1,4 @@
+// src/utils/email/email.ts
 import emailjs from "@emailjs/browser";
 import {
   EMAIL_TEMPLATES,
@@ -9,12 +10,13 @@ import {
 import { getAuth } from "firebase/auth";
 import { db } from "../../firebase/firebaseConfig";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  EMAILJS_PUBLIC_KEY,
+  EMAILJS_SERVICE_ID,
+} from "../../config/emailjsConfig";
 
-// Initialize once
-emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
-
-// Single service id (update here if you ever change)
-const SERVICE_ID = "service_xayel1i";
+// Single service id (centralized)
+const SERVICE_ID = EMAILJS_SERVICE_ID;
 
 /** Vars you’ll pass from checkouts/thank-yous */
 export type BookingVars = {
@@ -26,7 +28,7 @@ export type BookingVars = {
   wedding_date?: string;
 
   // Admin-facing fields
-  user_email?: string;       // 👈 used in To: {{user_email}} for user templates too
+  user_email?: string; // 👈 used in To: {{user_email}} for user templates too
   user_full_name?: string;
   pdf_url?: string;
   pdf_title?: string;
@@ -47,11 +49,19 @@ export type BookingVars = {
 const templateId = (key: TemplateKey) => EMAIL_TEMPLATES[key];
 
 /** Low-level sender with verbose debug */
-async function sendTemplate(templateKey: TemplateKey, vars: Record<string, any>) {
+async function sendTemplate(
+  templateKey: TemplateKey,
+  vars: Record<string, any>
+) {
   const id = templateId(templateKey);
   if (!id) {
     console.error(`[email] Unknown template key: ${templateKey}`);
     throw new Error(`Unknown template key: ${templateKey}`);
+  }
+
+  if (!EMAILJS_PUBLIC_KEY) {
+    console.error("❌ Missing EMAILJS_PUBLIC_KEY in emailjsConfig.ts");
+    throw new Error("Missing EmailJS public key");
   }
 
   // Trim the debug preview so console stays readable
@@ -67,22 +77,33 @@ async function sendTemplate(templateKey: TemplateKey, vars: Record<string, any>)
     preview
   );
 
-  return emailjs.send(SERVICE_ID, id, vars);
+  // ✅ Use the shared SERVICE_ID + PUBLIC_KEY from config
+  return emailjs.send(SERVICE_ID, id, vars, EMAILJS_PUBLIC_KEY);
 }
 
 /** Pretty name used in admin subject/body */
 function humanizeProduct(key: BookingProductKey) {
   switch (key) {
-    case "floral": return "Floral";
-    case "floral_addon": return "Floral Add-On";
-    case "photo": return "Photo";
-    case "photo_addon": return "Photo Add-On";
-    case "planner": return "Planner";
-    case "jam": return "Jam & Groove (DJ)";
-    case "venue": return "Venue";
-    case "yum_catering": return "Yum Yum Catering";
-    case "yum_dessert": return "Yum Yum Dessert";
-    default: return "Booking";
+    case "floral":
+      return "Floral";
+    case "floral_addon":
+      return "Floral Add-On";
+    case "photo":
+      return "Photo";
+    case "photo_addon":
+      return "Photo Add-On";
+    case "planner":
+      return "Planner";
+    case "jam":
+      return "Jam & Groove (DJ)";
+    case "venue":
+      return "Venue";
+    case "yum_catering":
+      return "Yum Yum Catering";
+    case "yum_dessert":
+      return "Yum Yum Dessert";
+    default:
+      return "Booking";
   }
 }
 
@@ -102,9 +123,13 @@ function buildUserVars(vars: BookingVars) {
   return {
     firstName: vars.firstName || "Friend",
     wedding_date: vars.wedding_date || "TBD",
-    total: typeof vars.total === "number" ? vars.total.toFixed(2) : (vars.total ?? ""),
+    total:
+      typeof vars.total === "number"
+        ? vars.total.toFixed(2)
+        : vars.total ?? "",
     line_items: vars.line_items || "",
-    dashboardUrl: vars.dashboardUrl || "https://wedndone.com/dashboard",
+    dashboardUrl:
+      vars.dashboardUrl || "https://wedndone.com/dashboard",
     // 👇 make sure {{user_email}} resolves in EmailJS "To Email"
     user_email: vars.user_email || "unknown@wedndone.com",
   };
@@ -142,7 +167,9 @@ export async function notifyBooking(
     tasks.push(
       sendTemplate(mapping.user, userVars)
         .then(() => console.log(`✅ User email sent: ${mapping.user}`))
-        .catch((e) => console.error(`❌ User email failed: ${mapping.user}`, e))
+        .catch((e) =>
+          console.error(`❌ User email failed: ${mapping.user}`, e)
+        )
     );
   }
 
@@ -151,19 +178,24 @@ export async function notifyBooking(
     tasks.push(
       sendTemplate(mapping.admin, adminVars)
         .then(() => console.log(`✅ Admin email sent: ${mapping.admin}`))
-        .catch((e) => console.error(`❌ Admin email failed: ${mapping.admin}`, e))
+        .catch((e) =>
+          console.error(`❌ Admin email failed: ${mapping.admin}`, e)
+        )
     );
   }
 
   await Promise.allSettled(tasks);
 }
+
 // ─────────────────────────────────────────────────────────────
 // ✨ Final Welcome email helper (waits for Firestore firstName)
 // ─────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const toTitle = (s: string) =>
-  s.replace(/\s+/g, " ").trim().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  s.replace(/\s+/g, " ").trim().replace(/(^|\s)\S/g, (c) =>
+    c.toUpperCase()
+  );
 const nameFromEmail = (email?: string | null) => {
   if (!email) return "";
   const local = (email.split("@")[0] || "").replace(/[._-]+/g, " ");
@@ -182,20 +214,28 @@ export async function sendWelcome(vars: BookingVars = {}) {
   let data: any = null;
 
   // Wait up to ~8 seconds for Firestore firstName to appear
-for (let attempt = 1; attempt <= 16; attempt++) {
+  for (let attempt = 1; attempt <= 16; attempt++) {
     const snap = await getDoc(userRef);
     if (snap.exists()) {
       data = snap.data();
       if (data?.emails?.welcomeSentAt) {
-        console.log("🔕 Welcome already sent at:", data.emails.welcomeSentAt);
+        console.log(
+          "🔕 Welcome already sent at:",
+          data.emails.welcomeSentAt
+        );
         return;
       }
       if (data?.firstName) {
-        console.log(`✅ Found firstName on attempt ${attempt}:`, data.firstName);
+        console.log(
+          `✅ Found firstName on attempt ${attempt}:`,
+          data.firstName
+        );
         break;
       }
     }
-    console.log(`⏳ Waiting for Firestore profile (attempt ${attempt})...`);
+    console.log(
+      `⏳ Waiting for Firestore profile (attempt ${attempt})...`
+    );
     await sleep(500);
   }
 
@@ -230,7 +270,9 @@ for (let attempt = 1; attempt <= 16; attempt++) {
   console.log("✅ Welcome email sent successfully");
 
   try {
-    await updateDoc(userRef, { "emails.welcomeSentAt": serverTimestamp() });
+    await updateDoc(userRef, {
+      "emails.welcomeSentAt": serverTimestamp(),
+    });
   } catch (e) {
     console.warn("⚠️ Unable to mark welcomeSentAt:", e);
   }
