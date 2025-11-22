@@ -1,3 +1,4 @@
+// src/components/FloralPicker/FloralCheckOut.tsx
 import React, { useState, useRef } from "react";
 import CheckoutForm from "../../CheckoutForm";
 import { generateFloralAgreementPDF } from "../../utils/generateFloralAgreementPDF";
@@ -17,24 +18,21 @@ import { db } from "../../firebase/firebaseConfig";
 // ✅ centralized email helper (sends user + admin from template map)
 import { notifyBooking } from "../../utils/email/email";
 
-// helper – round to cents (kept for parity if needed later)
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 interface FloralCheckOutProps {
   onClose: () => void;
   isAddon?: boolean;
-  total: number;                 // GRAND total incl. taxes/fees
-  depositAmount: number;         // legacy prop; we’ll prefer computed 25% if missing
-  payFull: boolean;              // pay in full vs deposit
-  paymentSummary: string;        // optional custom text
+  total: number;
+  depositAmount: number;
+  payFull: boolean;
+  paymentSummary: string;
   signatureImage: string;
-  onSuccess: () => void;         // used to advance to thank-you
+  onSuccess: () => void;
   setStepSuccess?: () => void;
-
-  // required:
   firstName: string;
   lastName: string;
-  weddingDate: string;           // YYYY-MM-DD
+  weddingDate: string;
   lineItems: string[];
   uid: string;
 }
@@ -48,7 +46,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
   paymentSummary,
   signatureImage,
   onSuccess,
-  setStepSuccess, // passthrough to CheckoutForm if you prefer
+  setStepSuccess,
   firstName,
   lastName,
   weddingDate,
@@ -58,9 +56,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // ─────────────────────────────────────────────────────────────
-  // Payment policy: 25% now (buffer), remaining due 30 days before wedding
-  // ─────────────────────────────────────────────────────────────
   const DEPOSIT_PCT = 0.25;
 
   const parsedWedding = weddingDate ? new Date(`${weddingDate}T12:00:00`) : null;
@@ -73,7 +68,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     Math.round(total * DEPOSIT_PCT * 100) / 100
   );
 
-  // Prefer incoming deposit prop if valid, otherwise compute 25%
   const effectiveDeposit =
     Number.isFinite(depositAmount) && depositAmount > 0
       ? depositAmount
@@ -93,9 +87,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       })
     : "30 days before your wedding date";
 
-  // ─────────────────────────────────────────────────────────────
-  // Handle success from Stripe (now accepts optional { customerId })
-  // ─────────────────────────────────────────────────────────────
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     console.log("💳 Payment successful!");
 
@@ -107,7 +98,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     const userSnap = await getDoc(userRef);
     const userDoc = userSnap.data() || {};
 
-    // ✅ Persist Stripe customer id if we got one (and don’t already have it)
     try {
       const existingId = userDoc?.stripeCustomerId as string | undefined;
       if (customerId && customerId !== existingId) {
@@ -124,7 +114,6 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       console.warn("⚠️ Could not save stripeCustomerId:", e);
     }
 
-    // 🔑 Ensure a default payment method is attached for off-session charges
     try {
       await fetch(
         "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
@@ -143,8 +132,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
 
     const safeFirst = userDoc?.firstName || firstName || "Magic";
-    const safeLast  = userDoc?.lastName || lastName  || "User";
-    const fullName  = `${safeFirst} ${safeLast}`;
+    const safeLast = userDoc?.lastName || lastName || "User";
+    const fullName = `${safeFirst} ${safeLast}`;
     const purchaseDate = new Date().toLocaleDateString("en-US");
 
     const asStartOfDayUTC = (d: Date) =>
@@ -163,7 +152,9 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     function monthsBetweenInclusive(from: Date, to: Date) {
       const a = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
       const b = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
-      let months = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+      let months =
+        (b.getUTCFullYear() - a.getUTCFullYear()) * 12 +
+        (b.getUTCMonth() - a.getUTCMonth());
       if (to.getUTCDate() >= from.getUTCDate()) months += 1;
       return Math.max(1, months);
     }
@@ -202,7 +193,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           "bookings.updatedAt": new Date().toISOString(),
         });
 
-        // ✅ Send both user + admin from the centralized helper
+        // ✅ Send both user + admin for floral add-ons
         {
           const current = getAuth().currentUser;
           await notifyBooking("floral_addon", {
@@ -215,7 +206,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             total: total.toFixed(2),
             line_items: (lineItems || []).join(", "),
             dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-            product_name: "Floral Add-On", // 👈
+            product_name: "Floral Add-On",
           });
         }
 
@@ -234,139 +225,157 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
 
     // ---------- Full contract flow ----------
-console.log("📝 Generating Floral Agreement PDF…");
-setIsGenerating(true);
+    console.log("📝 Generating Floral Agreement PDF…");
+    setIsGenerating(true);
 
-try {
-  const blob = await generateFloralAgreementPDF({
-    firstName: userDoc?.firstName || firstName || "Magic",
-    lastName:  userDoc?.lastName  || lastName  || "User",
-    total,
-    deposit: payFull ? 0 : amountDueToday,
-    payFull,
-    monthlyAmount: payFull ? 0 : remainingBalance,
-    paymentSummary: paymentSummary || "",
-    weddingDate,
-    signatureImageUrl: signatureImage || "",
-    lineItems: lineItems || [],
-  });
+    try {
+      const blob = await generateFloralAgreementPDF({
+        firstName: userDoc?.firstName || firstName || "Magic",
+        lastName: userDoc?.lastName || lastName || "User",
+        total,
+        deposit: payFull ? 0 : amountDueToday,
+        payFull,
+        monthlyAmount: payFull ? 0 : remainingBalance,
+        paymentSummary: paymentSummary || "",
+        weddingDate,
+        signatureImageUrl: signatureImage || "",
+        lineItems: lineItems || [],
+      });
 
-  const fileName = `FloralAgreement_${Date.now()}.pdf`;
-  const filePath = `public_docs/${user.uid}/${fileName}`;
-  const url = await uploadPdfBlob(blob, filePath);
+      const fileName = `FloralAgreement_${Date.now()}.pdf`;
+      const filePath = `public_docs/${user.uid}/${fileName}`;
+      const url = await uploadPdfBlob(blob, filePath);
 
-  // ✅ ONE purchase row that represents the FULL contract amount
-  const purchaseTotalRow = {
-    label: "floral",
-    category: "floral",
-    type: "contract_meta", // lets Mag-O-Meter treat this as the total
-    fullContractAmount: Number(total.toFixed(2)),
-    contractTotal:      Number(total.toFixed(2)),
-    total:              Number(total.toFixed(2)),
+      const purchaseTotalRow = {
+        label: "floral",
+        category: "floral",
+        type: "contract_meta",
+        fullContractAmount: Number(total.toFixed(2)),
+        contractTotal: Number(total.toFixed(2)),
+        total: Number(total.toFixed(2)),
+        payFull: !!payFull,
+        deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: payFull ? 0 : Number(remainingBalance.toFixed(2)),
+        months: payFull ? 0 : 1,
+        date: new Date().toISOString(),
+      };
 
-    // optional trace fields (don’t affect the total computation)
-    payFull: !!payFull,
-    deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
-    monthlyAmount: payFull ? 0 : Number(remainingBalance.toFixed(2)),
-    months: payFull ? 0 : 1, // remaining balance due near wedding
-    date: new Date().toISOString(),
-  };
+      await updateDoc(userRef, {
+        "bookings.floral": true,
+        floralSigned: true,
+        floralPdfUrl: url,
+        weddingDateLocked: true,
+        documents: arrayUnion({
+          title: "Floral Agreement",
+          url,
+          uploadedAt: new Date().toISOString(),
+        }),
+        purchases: arrayUnion(purchaseTotalRow),
+        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        paymentPlan: payFull
+          ? {
+              product: "floral",
+              type: "full",
+              total,
+              paidNow: total,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              depositPercent: 1,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "floral",
+              type: "deposit",
+              total,
+              depositPercent: DEPOSIT_PCT,
+              paidNow: amountDueToday,
+              remainingBalance,
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueDate?.toISOString() ?? null,
+              createdAt: new Date().toISOString(),
+            },
+        paymentPlanAuto: payFull
+          ? {
+              version: 1,
+              product: "floral",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
+              totalCents: Math.round(total * 100),
+              depositCents: Math.round(total * 100),
+              remainingCents: 0,
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
+              nextChargeAt: null,
+              finalDueAt: null,
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : (() => {
+              const nowUTC = new Date();
+              const firstChargeAtISO = nextApproxMonthUTC(nowUTC);
+              const firstChargeAt = new Date(firstChargeAtISO);
+              const finalISO = finalDueDate
+                ? asStartOfDayUTC(finalDueDate).toISOString()
+                : null;
+              const planMonths = finalDueDate
+                ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
+                : 1;
+              const remainingCentsTotal = Math.round(remainingBalance * 100);
+              const perMonthCents = Math.floor(remainingCentsTotal / planMonths);
+              const lastPaymentCents =
+                remainingCentsTotal - perMonthCents * Math.max(0, planMonths - 1);
 
-  await updateDoc(userRef, {
-    "bookings.floral": true,
-    floralSigned: true,
-    floralPdfUrl: url,
-    weddingDateLocked: true,
+              return {
+                version: 1,
+                product: "floral",
+                status: "active",
+                strategy: "monthly_until_final",
+                currency: "usd",
+                totalCents: Math.round(total * 100),
+                depositCents: Math.round(amountDueToday * 100),
+                remainingCents: remainingCentsTotal,
+                planMonths,
+                perMonthCents,
+                lastPaymentCents,
+                nextChargeAt: firstChargeAtISO,
+                finalDueAt: finalISO,
+                stripeCustomerId:
+                  customerId || localStorage.getItem("stripeCustomerId") || null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+            })(),
+      });
 
-    documents: arrayUnion({
-      title: "Floral Agreement",
-      url,
-      uploadedAt: new Date().toISOString(),
-    }),
+      // ⭐ NEW: send floral booking emails (user + admin)
+      {
+        const current = getAuth().currentUser;
 
-    // 👇 single total row only (no separate deposit line)
-    purchases: arrayUnion(purchaseTotalRow),
+        await notifyBooking("floral", {
+          user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: safeFirst,
 
-    // optional: reflects cash paid today in any running tally you show
-    spendTotal: increment(Number(amountDueToday.toFixed(2))),
+          wedding_date: weddingDate || "TBD",
 
-    paymentPlan: payFull
-      ? {
-          product: "floral",
-          type: "full",
-          total,
-          paidNow: total,
-          remainingBalance: 0,
-          finalDueDate: null,
-          finalDueAt: null,
-          depositPercent: 1,
-          createdAt: new Date().toISOString(),
-        }
-      : {
-          product: "floral",
-          type: "deposit",
-          total,
-          depositPercent: DEPOSIT_PCT,
-          paidNow: amountDueToday,
-          remainingBalance,
-          finalDueDate: finalDueDateStr,
-          finalDueAt: finalDueDate?.toISOString() ?? null,
-          createdAt: new Date().toISOString(),
-        },
+          pdf_url: url,
+          pdf_title: "Floral Agreement",
 
-    // keep your auto-plan logic exactly as before
-    paymentPlanAuto: payFull
-      ? {
-          version: 1,
-          product: "floral",
-          status: "complete",
-          strategy: "paid_in_full",
-          currency: "usd",
-          totalCents: Math.round(total * 100),
-          depositCents: Math.round(total * 100),
-          remainingCents: 0,
-          planMonths: 0,
-          perMonthCents: 0,
-          lastPaymentCents: 0,
-          nextChargeAt: null,
-          finalDueAt: null,
-          stripeCustomerId:
-            customerId || localStorage.getItem("stripeCustomerId") || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      : (() => {
-          const nowUTC = new Date();
-          const firstChargeAtISO = nextApproxMonthUTC(nowUTC);
-          const firstChargeAt = new Date(firstChargeAtISO);
-          const finalISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
-          const planMonths = finalDueDate ? monthsBetweenInclusive(firstChargeAt, finalDueDate) : 1;
-          const remainingCentsTotal = Math.round(remainingBalance * 100);
-          const perMonthCents = Math.floor(remainingCentsTotal / planMonths);
-          const lastPaymentCents =
-            remainingCentsTotal - perMonthCents * Math.max(0, planMonths - 1);
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
 
-          return {
-            version: 1,
-            product: "floral",
-            status: "active",
-            strategy: "monthly_until_final",
-            currency: "usd",
-            totalCents: Math.round(total * 100),
-            depositCents: Math.round(amountDueToday * 100),
-            remainingCents: remainingCentsTotal,
-            planMonths,
-            perMonthCents,
-            lastPaymentCents,
-            nextChargeAt: firstChargeAtISO,
-            finalDueAt: finalISO,
-            stripeCustomerId:
-              customerId || localStorage.getItem("stripeCustomerId") || null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-        })(),
-  });
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
+
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+        });
+      }
 
       window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(new Event("floralCompletedNow"));

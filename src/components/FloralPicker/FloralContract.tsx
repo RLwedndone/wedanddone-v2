@@ -4,6 +4,7 @@ import SignatureCanvas from "react-signature-canvas";
 import { doc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../firebase/firebaseConfig";
 
+
 interface FloralContractProps {
   bookingData: {
     weddingDate?: string;
