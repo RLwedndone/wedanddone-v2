@@ -201,6 +201,12 @@ useEffect(() => {
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? snap.data() : {};
 
+      const safeFirst =
+  (userDoc as any)?.firstName || firstName || "Magic";
+const safeLast =
+  (userDoc as any)?.lastName || lastName || "User";
+const fullName = `${safeFirst} ${safeLast}`.trim();
+
       const purchase = {
         label: isAddon ? "Jam & Groove Add-On" : "Jam & Groove Booking",
         category: "jam",
@@ -216,32 +222,32 @@ useEffect(() => {
       };
 
       // PDFs
-      let pdfUrl = "";
-      if (isAddon) {
-        const purchaseDate = new Date().toLocaleDateString("en-US");
-        const pdfBlob = await generateJamAddOnReceiptPDF({
-          fullName: `${firstName} ${lastName}`,
-          lineItems,
-          total: amountDueToday,
-          purchaseDate,
-        });
-        const fileName = `JamAddOnReceipt_${Date.now()}.pdf`;
-        const filePath = `public_docs/${uid}/${fileName}`;
-        pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
-      } else {
-        const pdfBlob = await generateJamAgreementPDF({
-          fullName: `${firstName} ${lastName}`,
-          total: totalEffective,
-          deposit: payFull ? totalEffective : amountDueToday,
-          paymentSummary,
-          weddingDate,
-          signatureImageUrl: signatureImage,
-          lineItems,
-        });
-        const fileName = `JamAgreement_${Date.now()}.pdf`;
-        const filePath = `public_docs/${uid}/${fileName}`;
-        pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
-      }
+let pdfUrl = "";
+if (isAddon) {
+  const purchaseDate = new Date().toLocaleDateString("en-US");
+  const pdfBlob = await generateJamAddOnReceiptPDF({
+    fullName,
+    lineItems,
+    total: amountDueToday,
+    purchaseDate,
+  });
+  const fileName = `JamAddOnReceipt_${Date.now()}.pdf`;
+  const filePath = `public_docs/${uid}/${fileName}`;
+  pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+} else {
+  const pdfBlob = await generateJamAgreementPDF({
+    fullName,
+    total: totalEffective,
+    deposit: payFull ? totalEffective : amountDueToday,
+    paymentSummary,
+    weddingDate,
+    signatureImageUrl: signatureImage,
+    lineItems,
+  });
+  const fileName = `JamAgreement_${Date.now()}.pdf`;
+  const filePath = `public_docs/${uid}/${fileName}`;
+  pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+}
 
       const docItem = {
         title: isAddon ? "Jam & Groove Add-On Receipt" : "Jam & Groove Agreement",

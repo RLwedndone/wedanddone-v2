@@ -2,8 +2,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { getAuth } from "firebase/auth";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  updateDoc,
+  getDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../../../../firebase/firebaseConfig";
+import { notifyBooking } from "../../../../utils/email/email";
 
 import type { RubiBBQSelections } from "./RubiBBQMenuBuilder";
 import type { RubiMexSelections } from "./RubiMexMenuBuilder";
@@ -179,6 +186,104 @@ const RubiCateringContract: React.FC<Props> = ({
     }
   };
 
+  const handleFinish = async () => {
+    if (!signatureSubmitted) return;
+  
+    const u = auth.currentUser;
+    if (!u) {
+      // No logged-in user – just advance like before
+      try {
+        localStorage.setItem("yumStep", "rubiCateringThankYou");
+        localStorage.setItem("rubiMenuChoice", menuChoice);
+      } catch {}
+      onContinueToCheckout();
+      return;
+    }
+  
+    try {
+      const userRef = doc(db, "users", u.uid);
+      const snap = await getDoc(userRef);
+      const userDoc = snap.exists() ? (snap.data() as any) : {};
+  
+      const safeFirst = userDoc?.firstName || "Magic";
+      const safeLast = userDoc?.lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
+      const email =
+        userDoc?.email || u.email || "unknown@wedndone.com";
+  
+      // Wedding date for email – prefer prop, fall back to user doc
+      const weddingYMD: string | null =
+        weddingDate || userDoc?.weddingDate || null;
+  
+      // Mark in Firestore that Rubi catering is booked/included
+      await updateDoc(userRef, {
+        bookings: {
+          ...(userDoc?.bookings || {}),
+          catering: true,
+        },
+        rubiCateringIncluded: true,
+        "progress.yumYum.step": "rubiCateringThankYou",
+        lastPurchaseAt: serverTimestamp(),
+      });
+  
+      // Build line items for the email – we already have them
+      const lineItemsForEmail = (lineItems && lineItems.length
+        ? lineItems
+        : []
+      ).join(", ");
+  
+      // Send centralized booking email (user + admin)
+      try {
+        await notifyBooking("yum_catering", {
+          // who + basics
+          user_email: email,
+          user_full_name: fullName,
+          firstName: safeFirst,
+  
+          // details
+          wedding_date: weddingYMD || "TBD",
+          total: total.toFixed(2), // will be 0.00, but keeps schema happy
+          line_items: lineItemsForEmail,
+  
+          // pdf info – none yet for Rubi included menus
+          pdf_url: "",
+          pdf_title: "",
+  
+          // payment breakdown – fully included
+          payment_now: "0.00",
+          remaining_balance: "0.00",
+          final_due: "Included in your Rubi House venue package",
+  
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name:
+            menuChoice === "bbq"
+              ? "Rubi House Catering – Brother John’s BBQ (Included)"
+              : "Rubi House Catering – Brother John’s Mexican (Included)",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_catering) failed for Rubi:", mailErr);
+      }
+  
+      // Local progress flags like before
+      try {
+        localStorage.setItem("yumStep", "rubiCateringThankYou");
+        localStorage.setItem("rubiMenuChoice", menuChoice);
+      } catch {}
+  
+      // Advance overlay to RubiCateringThankYou
+      onContinueToCheckout();
+    } catch (err) {
+      console.error("❌ Rubi catering finish failed:", err);
+      // If something goes wrong, still let them through so they’re not stuck
+      try {
+        localStorage.setItem("yumStep", "rubiCateringThankYou");
+        localStorage.setItem("rubiMenuChoice", menuChoice);
+      } catch {}
+      onContinueToCheckout();
+    }
+  };
+
   /* -------------------- UI -------------------- */
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 720 }}>
@@ -323,21 +428,14 @@ const RubiCateringContract: React.FC<Props> = ({
 
         {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 10 }}>
-          <button
-            className="boutique-primary-btn"
-            onClick={() => {
-              if (!signatureSubmitted) return;
-              try {
-                localStorage.setItem("yumStep", "rubiCateringThankYou");
-                localStorage.setItem("rubiMenuChoice", menuChoice);
-              } catch {}
-              onContinueToCheckout(); // overlay sends them straight to RubiCateringThankYou
-            }}
-            disabled={!signatureSubmitted || isGenerating}
-            style={{ width: 260, opacity: signatureSubmitted ? 1 : 0.5 }}
-          >
-            Finish
-          </button>
+        <button
+  className="boutique-primary-btn"
+  onClick={handleFinish}
+  disabled={!signatureSubmitted || isGenerating}
+  style={{ width: 260, opacity: signatureSubmitted ? 1 : 0.5 }}
+>
+  Finish
+</button>
           <button
             className="boutique-back-btn"
             onClick={onBack}
