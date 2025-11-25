@@ -124,6 +124,14 @@ export function useMagometerTotals() {
     [outsidePurchases]
   );
 
+  // 🔄 NEW: Refresh whenever the logged-in user changes
+useEffect(() => {
+  const unsub = getAuth().onAuthStateChanged(() => {
+    refresh(); // fetch budget + purchases for this user
+  });
+  return () => unsub();
+}, []);
+
   const totalSpentCombined = totalWd + totalOutside;
 
   // 👇 NEW: remember locally that the user has spent something

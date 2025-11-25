@@ -8,14 +8,14 @@ interface Props {
 
 const PixiePurchaseThankYou: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
-    // Play sparkle chime when the screen appears
-    try {
-      const result = playMagicSound() as void | Promise<void>;
-      // handle browsers that return a Promise from audio.play()
-      Promise.resolve(result).catch(() => {});
-    } catch {
-      // non-fatal if audio fails
-    }
+    // Mirror FloralThankYouInitial behaviour
+    playMagicSound();
+
+    // (Optional) these are probably already fired in checkout,
+    // but they won’t hurt if duplicated:
+    window.dispatchEvent(new Event("purchaseMade"));
+    window.dispatchEvent(new Event("documentsUpdated"));
+    window.dispatchEvent(new Event("budgetUpdated"));
   }, []);
 
   return (
@@ -49,7 +49,7 @@ const PixiePurchaseThankYou: React.FC<Props> = ({ onClose }) => {
           (click the little gold bar in the top-right of your dashboard).
           <br />
           <br />
-          You can always return here if the Pixies cook up something new.
+          You can always come back here if the Pixies cook up something new.
         </p>
         <button className="boutique-primary-btn" onClick={onClose}>
           Back to my dashboard

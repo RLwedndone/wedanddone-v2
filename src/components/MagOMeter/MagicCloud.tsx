@@ -6,7 +6,6 @@ import MagicWandAccountModal from "./MagicWandAccountModal";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import OutsidePurchasesModal from "./OutsidePurchasesModal";
-import WandMagicMeter from "./WandMagicMeter"; // (kept import; if unused, fine)
 
 interface MagicCloudProps {
   isMobile: boolean;
@@ -62,7 +61,11 @@ const MagicCloud: React.FC<MagicCloudProps> = ({ isMobile, onClose }) => {
   // ─────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────
-  const formatDollars = (amount: number) => `$${amount.toLocaleString()}`;
+  const formatDollars = (amount: number) => {
+    const sign = amount < 0 ? "-" : "";
+    const abs = Math.abs(amount);
+    return `${sign}$${abs.toLocaleString()}`;
+  };
 
   // Treat every Wed&Done purchase as the FULL contracted amount for budgeting.
   const getFullContractAmount = (p: WnDPurchase): number => {
@@ -91,7 +94,7 @@ const MagicCloud: React.FC<MagicCloudProps> = ({ isMobile, onClose }) => {
   const totalSpent = wedDoneSpend + totalOutsideSpend;
 
   const budgetNumber = Number(savedBudget ?? customBudget ?? 0);
-  const remaining = Math.max(0, budgetNumber - totalSpent);
+  const remaining = budgetNumber - totalSpent;
 
   // ─────────────────────────────────────────────
   // Data bootstrap
@@ -298,9 +301,16 @@ const handleSave = async () => {
               <p style={{ fontSize: "1.35rem", margin: "0.35rem 0" }}>
                 Total Spent: {formatDollars(totalSpent)}
               </p>
-              <p style={{ fontSize: "1.2rem", color: "#27ae60", fontWeight: 600, margin: 0 }}>
-                💰 Remaining: {formatDollars(remaining)}
-              </p>
+              <p
+  style={{
+    fontSize: "1.2rem",
+    color: remaining >= 0 ? "#27ae60" : "#c0392b", // green if under, red if over
+    fontWeight: 600,
+    margin: 0,
+  }}
+>
+  💰 Remaining: {formatDollars(remaining)}
+</p>
             </div>
 
             {/* 🧾 Wed&Done Purchases (itemized) */}
@@ -366,6 +376,53 @@ const handleSave = async () => {
                 })
               )}
             </div>
+
+            {/* 🌎 Outside Purchases (itemized) */}
+<div
+  style={{
+    textAlign: "left",
+    background: "#fffaf7",
+    border: "1px solid #f5d3b8",
+    borderRadius: 12,
+    padding: "12px 14px",
+    marginBottom: "1.25rem",
+  }}
+>
+  <h4 style={{ margin: "0 0 8px", color: "#c76a2b" }}>Outside Purchases</h4>
+
+  {outsideItems.length === 0 ? (
+    <p style={{ margin: 0, color: "#666" }}>
+      Nothing added from outside Wed&Done yet.
+    </p>
+  ) : (
+    outsideItems.map((p, idx) => (
+      <div
+        key={`${p.label}-${idx}`}
+        style={{
+          borderTop: idx === 0 ? "none" : "1px dashed #f0c9a5",
+          paddingTop: idx === 0 ? 0 : 10,
+          marginTop: idx === 0 ? 0 : 10,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            gap: 8,
+          }}
+        >
+          <strong style={{ color: "#333" }}>
+            {p.label || "Outside Purchase"}
+          </strong>
+          <span style={{ color: "#333" }}>
+            {formatDollars(Number(p.amount || 0))}
+          </span>
+        </div>
+      </div>
+    ))
+  )}
+</div>
 
             {/* ➕ Add Outside Purchase */}
             <div style={{ textAlign: "center" }}>

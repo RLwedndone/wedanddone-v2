@@ -18,6 +18,7 @@ import type { PixiePurchase } from "../../utils/pixiePurchaseTypes";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
 import { generatePixiePurchaseReceiptPDF } from "../../utils/generatePixiePurchaseReceiptPDF";
 import { sendAdminPixiePurchasePaidEmail } from "../../utils/sendPixiePurchaseEmails";
+import playMagicSound from "../../utils/playMagicSound";
 
 interface Props {
   purchase: PixiePurchase;
@@ -34,13 +35,18 @@ const PixiePurchaseCheckout: React.FC<Props> = ({
   const [isComplete, setIsComplete] = useState(false); // final thank-you
 
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+    // 🔔 Fire sparkle sound immediately after Stripe success
+    try {
+      playMagicSound("pixie:paid");
+    } catch {}
+  
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) {
       onClose();
       return;
     }
-
+  
     try {
       setIsProcessing(true);
 

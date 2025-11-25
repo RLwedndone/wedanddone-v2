@@ -234,9 +234,12 @@ const hasLive = (liveBudget ?? 0) > 0 || (liveSpent ?? 0) > 0;
 const totalBudgetForWand = hasLive ? (liveBudget ?? 0) : lsBudget;
 const totalSpentForWand  = hasLive ? (liveSpent  ?? 0) : lsOutsideSpent;
 
+
 // 🔮 Pick the correct wand PNG based on % spent
 const percent =
-  totalBudgetForWand > 0 ? (totalSpentForWand / totalBudgetForWand) * 100 : 0;
+  totalBudgetForWand > 0
+    ? (totalSpentForWand / totalBudgetForWand) * 100
+    : 0;
 
 const BASE = import.meta.env.BASE_URL || "/";
 const wandIconSrc =
