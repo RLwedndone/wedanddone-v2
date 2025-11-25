@@ -8,61 +8,109 @@ import {
   updateDoc,
   arrayUnion,
   serverTimestamp,
+  increment,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
 import CheckoutForm from "../../CheckoutForm";
 import type { PixiePurchase } from "../../utils/pixiePurchaseTypes";
 
+import { uploadPdfBlob } from "../../helpers/firebaseUtils";
+import { generatePixiePurchaseReceiptPDF } from "../../utils/generatePixiePurchaseReceiptPDF";
+import { sendAdminPixiePurchasePaidEmail } from "../../utils/sendPixiePurchaseEmails";
+
 interface Props {
-    purchase: PixiePurchase;
-    onClose: () => void;
-    onMarkPaid: () => void;
-  }
+  purchase: PixiePurchase;
+  onClose: () => void;
+  onMarkPaid: () => void;
+}
 
-  const PixiePurchaseCheckout: React.FC<Props> = ({ purchase, onClose, onMarkPaid }) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+const PixiePurchaseCheckout: React.FC<Props> = ({
+  purchase,
+  onClose,
+  onMarkPaid,
+}) => {
+  const [isProcessing, setIsProcessing] = useState(false); // magic-in-progress state
+  const [isComplete, setIsComplete] = useState(false); // final thank-you
 
-  const handleSuccess = async () => {
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) {
-      // no user? just bail back out
       onClose();
       return;
     }
-  
+
     try {
       setIsProcessing(true);
-  
+
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const data = (snap.exists() ? snap.data() : {}) as any;
-  
+
       const currentList: PixiePurchase[] = (data.pixiePurchases || []) as PixiePurchase[];
-  
-      const nowISO = new Date().toISOString();
-  
-      const updatedList = currentList.map((p) =>
+
+      const now = new Date();
+      const nowISO = now.toISOString();
+
+      // Pretty timestamp for email
+      const paidAtPretty = now.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+
+      // 🔄 Mark this Pixie Purchase as paid
+      let updatedList = currentList.map((p) =>
         p.id === purchase.id
           ? {
               ...p,
-              status: "paid",
+              status: "paid" as const,
               paidAt: nowISO,
             }
           : p
       );
-  
+
       // If somehow it wasn't in the list, append a paid version
       if (!updatedList.find((p) => p.id === purchase.id)) {
-        updatedList.push({
-          ...purchase,
-          status: "paid",
-          paidAt: nowISO,
-        });
+        updatedList = [
+          ...updatedList,
+          {
+            ...purchase,
+            status: "paid",
+            paidAt: nowISO,
+          },
+        ];
       }
-  
+
+      const safeFirst = data.firstName || "Magic";
+      const safeLast = data.lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`.trim();
+      const userEmail = data.email || user.email || "unknown@wedndone.com";
+
+      const purchaseDatePretty = now.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      // 🧾 Generate Pixie Purchase receipt PDF
+      const pdfBlob = await generatePixiePurchaseReceiptPDF({
+        fullName,
+        label: purchase.label,
+        description: purchase.description,
+        amount: purchase.amount,
+        currency: "USD",
+        purchaseDate: purchaseDatePretty,
+      });
+
+      const fileName = `PixiePurchase_${purchase.id}_${Date.now()}.pdf`;
+      const filePath = `public_docs/${user.uid}/${fileName}`;
+      const pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+
+      // 💰 Entry for purchases array (Mag-O-Meter + history)
       const purchaseEntry = {
         label: purchase.label,
         category: purchase.category || "pixie_purchase",
@@ -72,7 +120,17 @@ interface Props {
         method: "pixie_purchase",
         pixieId: purchase.id,
       };
-  
+
+      // 📄 Document entry for the user's Documents tab
+      const docItem = {
+        title: purchase.label || "Pixie Purchase Receipt",
+        url: pdfUrl,
+        uploadedAt: nowISO,
+        kind: "receipt",
+        module: "pixie",
+      };
+
+      // 1) Save updated pixiePurchases list
       await setDoc(
         userRef,
         {
@@ -81,33 +139,108 @@ interface Props {
         },
         { merge: true }
       );
-  
+
+      // 2) Push purchase + document + spendTotal
       await updateDoc(userRef, {
         purchases: arrayUnion(purchaseEntry),
+        documents: arrayUnion(docItem),
+        spendTotal: increment(Number(purchase.amount.toFixed(2))),
       });
-  
-      // let the parent (Dashboard) refresh + close, etc.
-      onMarkPaid();
-  
+
+      // 3) Notify admin that Pixie Purchase was PAID
+      try {
+        await sendAdminPixiePurchasePaidEmail({
+          userFullName: fullName,
+          userEmail,
+          pixieLabel: purchase.label,
+          pixieType: purchase.type || "custom",
+          pixieAmount: purchase.amount,
+          paidAtPretty,
+          pdfUrl,
+        });
+      } catch (emailErr) {
+        console.warn("⚠️ Failed to send Pixie Purchase PAID admin email:", emailErr);
+      }
+
+      // 4) Let dashboard / Mag-O-Meter know
+      try {
+        window.dispatchEvent(new Event("purchaseMade"));
+        window.dispatchEvent(new Event("documentsUpdated"));
+        window.dispatchEvent(new Event("budgetUpdated"));
+      } catch {
+        // non-fatal
+      }
+
+      // ✅ Do NOT call onMarkPaid here anymore.
+      // We wait until the user closes the thank-you screen.
       setIsComplete(true);
     } catch (err) {
       console.error("❌ Pixie purchase finalize failed:", err);
-      // leave them on screen so they can retry or cancel
     } finally {
       setIsProcessing(false);
     }
   };
 
   const goBackToMenu = () => {
+    // Now we tell the parent it's paid *when the user exits the thank-you screen*
+    try {
+      onMarkPaid();
+    } catch {
+      // non-fatal
+    }
     onClose();
   };
 
-  // ✅ After successful payment: show a simple thank-you card
+  // ✅ After successful payment: show a thank-you card with Pixie video + Docs info
   if (isComplete) {
+  
     return (
       <div style={styles.backdrop}>
         <div style={styles.card}>
           <button onClick={goBackToMenu} style={styles.closeBtn}>
+            ✖
+          </button>
+  
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/pix_thankyou.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={styles.heroVideo}
+          />
+  
+          <h2 style={styles.title}>Pixie Purchase complete!</h2>
+  
+          <p style={styles.body}>
+            Your Pixie Purchase has been paid in full! <br />
+            <br />
+            You’ll find your receipt inside your <strong>Docs</strong> folder  
+            (click the little gold bar in the top-right of your dashboard ✨)
+          </p>
+  
+          <button
+            className="boutique-primary-btn"
+            style={styles.cta}
+            onClick={goBackToMenu}
+          >
+            Back to my dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ⏳ While we’re generating the PDF + updating Firestore, show magic-in-progress
+  if (isProcessing) {
+    return (
+      <div style={styles.backdrop}>
+        <div style={styles.card}>
+          <button
+            onClick={onClose}
+            style={{ ...styles.closeBtn, opacity: 0.4, cursor: "default" }}
+            disabled
+          >
             ✖
           </button>
 
@@ -120,26 +253,17 @@ interface Props {
             style={styles.heroVideo}
           />
 
-          <h2 style={styles.title}>Pixie Purchase complete!</h2>
+          <h2 style={styles.title}>Madge is working her magic…</h2>
           <p style={styles.body}>
-            Your payment has been processed and this Pixie Purchase is now
-            marked as paid. You’ll see it reflected in your Mag-O-Meter and
-            documents shortly.
+            We’re generating your Pixie Purchase receipt and updating your
+            Mag-O-Meter. This should only take a moment.
           </p>
-
-          <button
-            className="boutique-primary-btn"
-            style={styles.cta}
-            onClick={goBackToMenu}
-          >
-            Back to my menu
-          </button>
         </div>
       </div>
     );
   }
 
-  // 🔐 Main checkout UI
+  // 🔐 Main checkout UI – lock/credit-card video at the top
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>

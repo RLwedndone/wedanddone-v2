@@ -3,6 +3,7 @@ import { auth, db } from "../firebase/firebaseConfig";
 import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import VenueAvailabilityAdmin from "../components/admin/VenueAvailabilityAdmin"; // adjust path
+import AdminPixiePurchasePanel from "../components/admin/AdminPixiePurchasePanel";
 
 import { getGuestState } from "../utils/guestCountStore";
 
@@ -442,6 +443,7 @@ const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
+  const [showPixieAdmin, setShowPixieAdmin] = useState(false);
 
   const [showMagicCloud, setShowMagicCloud] = useState(false);
 
@@ -786,15 +788,15 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
           })
         );
   
-        // 🔹 NEW Pixie purchase load
-        const pixSnap = await getDoc(
-          doc(db, "users", u.uid, "meta", "pixiePurchases")
-        );
-        const pixData = pixSnap.exists() ? pixSnap.data().items || [] : [];
-        setPixiePurchases(pixData);
-  
-        const unpaid = pixData.some((p: any) => p.status === "pending");
-        setHasPixieNotifications(unpaid);
+        // 🔹 NEW Pixie purchase load (top-level field)
+const pixData: PixiePurchase[] = Array.isArray(data.pixiePurchases)
+? data.pixiePurchases
+: [];
+
+setPixiePurchases(pixData);
+
+const unpaid = pixData.some((p) => p.status === "pending");
+setHasPixieNotifications(unpaid);
   
         // 💰 Mag-o-Meter totals
         const purchases = data.purchases || [];
@@ -885,30 +887,52 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
         />
       </picture>
 
-      {/* ⭐ ADMIN TOOLS — visible ONLY to Rachelle */}
-    {user?.email === "rachel@wedanddone.com" && (
-      <>
-        <button
-          className="px-button px-button--ghost"
-          style={{
-            position: "absolute",
-            top: 20,
-            right: 20,
-            zIndex: 9999,
-            opacity: 0.85,
-          }}
-          onClick={() => setShowAvailabilityAdmin(true)}
-        >
-          Venue Availability Admin
-        </button>
+      {/* ⭐ ADMIN TOOLS — visible ONLY to Rachel */}
+{user?.email === "rachel@wedanddone.com" && (
+  <>
+    {/* Venue Availability button */}
+    <button
+      className="px-button px-button--ghost"
+      style={{
+        position: "absolute",
+        top: 20,
+        right: 20,
+        zIndex: 9999,
+        opacity: 0.85,
+      }}
+      onClick={() => setShowAvailabilityAdmin(true)}
+    >
+      Venue Availability Admin
+    </button>
 
-        {showAvailabilityAdmin && (
-          <VenueAvailabilityAdmin
-            onClose={() => setShowAvailabilityAdmin(false)}
-          />
-        )}
-      </>
+    {/* Pixie Purchases admin button */}
+    <button
+      className="px-button px-button--ghost"
+      style={{
+        position: "absolute",
+        top: 60,
+        right: 20,
+        zIndex: 9999,
+        opacity: 0.85,
+      }}
+      onClick={() => setShowPixieAdmin(true)}
+    >
+      Pixie Purchases Admin
+    </button>
+
+    {showAvailabilityAdmin && (
+      <VenueAvailabilityAdmin
+        onClose={() => setShowAvailabilityAdmin(false)}
+      />
     )}
+
+    {showPixieAdmin && (
+      <AdminPixiePurchasePanel
+        onClose={() => setShowPixieAdmin(false)}
+      />
+    )}
+  </>
+)}
 
       {/* Magic/budget bubble overlay */}
       {showMagicCloud && (
@@ -930,11 +954,13 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
             showGuestListButton,
           })}
           <UserMenu
-            onClose={() => setActiveUserMenuScreen(null)}
-            onSelect={handleMenuSelect}
-            onLogout={handleLogout}
-            showGuestListScroll={showGuestListButton}
-          />
+  onClose={() => setActiveUserMenuScreen(null)}
+  onSelect={handleMenuSelect}
+  onLogout={handleLogout}
+  showGuestListScroll={showGuestListButton}
+  // 🧚 NEW: only show Pixie tile if there’s something to pay
+  showPixiePurchases={hasPixieNotifications}
+/>
         </>
       )}
 
@@ -997,16 +1023,15 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
             />
           )}
           {overlay.type === "pixiePurchaseCheckout" && (
-      <PixiePurchaseCheckout
-        purchaseId={overlay.purchaseId!}
-        onClose={closeOverlay}
-        onMarkPaid={() => {
-          // re-sync dashboard and close
-          window.dispatchEvent(new Event("purchaseMade"));
-          closeOverlay();
-        }}
-      />
-    )}
+  <PixiePurchaseCheckout
+    purchase={overlay.purchase}
+    onClose={closeOverlay}
+    onMarkPaid={() => {
+      window.dispatchEvent(new Event("purchaseMade"));
+      closeOverlay();
+    }}
+  />
+)}
 
           {/* overlay.type === "menuController" would be handled by showingMenuController below */}
         </div>
@@ -1031,16 +1056,15 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 {activeUserMenuScreen === "pixiePurchases" && (
   <PixiePurchaseCenter
     onClose={() => setActiveUserMenuScreen("menu")}
-    onOpenCheckout={(purchaseId) => {
+    onOpenCheckout={(purchase) => {
       setActiveUserMenuScreen(null);
       setOverlay({
         type: "pixiePurchaseCheckout",
-        purchaseId,
+        purchase,
       });
     }}
   />
 )}
-
       {/* MAIN HUD + BOUTIQUE BUTTONS */}
       <DashboardButtons
         isMobile={isMobile}
@@ -1135,6 +1159,10 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
             startAt: startStep,
           });
         }}
+
+ // 🧚 NEW:
+ hasPixieNotifications={hasPixieNotifications}
+        
         /* HUD handlers */
         onOpenMenu={() => setActiveUserMenuScreen("menu")}
         onOpenMadge={() => setIsChatOpen(true)}
@@ -1158,8 +1186,9 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
       {/* Guest Count Reminder ribbon (timing logic already handled in setShowGuestListButton) */}
       <GuestCountReminderModal
-        onOpenGuestCountFlow={handleOpenGuestCountFlow}
-      />
+  visible={showGuestListButton}
+  onOpenGuestCountFlow={handleOpenGuestCountFlow}
+/>
 
       {/* 🧪 Dev-only tools (preset loader + reset) */}
 {process.env.NODE_ENV !== "production" && (

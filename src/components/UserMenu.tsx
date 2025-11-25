@@ -7,21 +7,24 @@ type UserMenuScreenType =
   | "docs"
   | "bookings"
   | "guestListScroll"
-  | "payments"; // ✅ add payments
+  | "payments"
+  | "pixiePurchases";
 
-type UserMenuProps = {
-  onClose: () => void;
-  onSelect: (section: UserMenuScreenType) => void;
-  onLogout: () => void;
-  showGuestListScroll?: boolean; // controls visibility
-};
+  type UserMenuProps = {
+    onClose: () => void;
+    onSelect: (section: UserMenuScreenType) => void;
+    onLogout: () => void;
+    showGuestListScroll?: boolean;
+    showPixiePurchases?: boolean;   // ✅ new flag
+  };
 
-const UserMenu: React.FC<UserMenuProps> = ({
-  onClose,
-  onSelect,
-  onLogout,
-  showGuestListScroll = false,
-}) => {
+  const UserMenu: React.FC<UserMenuProps> = ({
+    onClose,
+    onSelect,
+    onLogout,
+    showGuestListScroll = false,
+    showPixiePurchases = false,   // ⭐ NEW
+  }) => {
   const handleClick = (section: UserMenuScreenType) => onSelect(section);
 
   return (
@@ -93,6 +96,23 @@ const UserMenu: React.FC<UserMenuProps> = ({
               </button>
             </li>
           )}
+
+{showPixiePurchases && (
+  <li>
+    <button
+      className="menu-btn"
+      onClick={() => handleClick("pixiePurchases")}
+      title="Pixie Purchases"
+      aria-label="Pixie Purchases"
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}assets/images/pixie_purchase.png`}
+        alt="Pixie Purchases"
+        className="menu-item-img"
+      />
+    </button>
+  </li>
+)}
 
           <li>
             <button className="menu-btn" onClick={onLogout}>

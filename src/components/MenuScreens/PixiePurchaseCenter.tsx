@@ -35,8 +35,6 @@ const PixiePurchaseCenter: React.FC<Props> = ({ onClose, onOpenCheckout }) => {
         if (snap.exists()) {
           const data = snap.data() as any;
           const list = (data.pixiePurchases || []) as PixiePurchase[];
-
-          // Only show pending items
           setItems(list.filter((p) => p.status === "pending"));
         } else {
           setItems([]);
@@ -59,6 +57,13 @@ const PixiePurchaseCenter: React.FC<Props> = ({ onClose, onOpenCheckout }) => {
         </button>
 
         <h2 style={styles.title}>Pixie Purchases</h2>
+
+        {/* 🌟 NEW: Pixie purchase wand image */}
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/pixie_purchase_wand.png`}
+          alt="Pixie Purchase Wand"
+          style={styles.wand}
+        />
 
         <p style={styles.sub}>
           Any one-off charges or requests will appear here for you to review and
@@ -136,7 +141,14 @@ const styles = {
     fontFamily: "'Jenna Sue', cursive",
     fontSize: "2.2rem",
     color: "#2c62ba",
-    marginBottom: 8,
+    marginBottom: 6,
+  } as React.CSSProperties,
+
+  // ✨ NEW: wand style
+  wand: {
+    width: 90,
+    margin: "0 auto 14px",
+    display: "block",
   } as React.CSSProperties,
 
   sub: {
