@@ -91,6 +91,10 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   const [bannerMsg, setBannerMsg] = useState<string | null>(null);
   const [changesSaved, setChangesSaved] = useState(false);
 
+  // NEW: final lock + increase request (from user doc)
+  const [finalLocked, setFinalLocked] = useState<boolean>(false);
+  const [increaseRequested, setIncreaseRequested] = useState<number | null>(null);
+
   // ─────────────────────────────────────────────────────────────
   // Load profile (names, contact, date, etc.)
   // ─────────────────────────────────────────────────────────────
@@ -131,6 +135,14 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       }
 
       setDateLocked(!!data.weddingDateLocked);
+
+      // 🔒 guest-count final lock + increase request status
+      setFinalLocked(!!data.guestCountFinalLocked);
+      if (typeof data.guestCountIncreaseRequested === "number") {
+        setIncreaseRequested(data.guestCountIncreaseRequested);
+      } else {
+        setIncreaseRequested(null);
+      }
     })();
   }, []);
 
@@ -215,7 +227,11 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
     const auth = getAuth();
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
       await updateProfile(userCred.user, {
         displayName: `${firstName} ${lastName}`,
@@ -287,7 +303,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user") return;
       if (err?.code === "auth/account-exists-with-different-credential") {
-        alert("An account with this email exists with a different sign-in method. Try email/password.");
+        alert(
+          "An account with this email exists with a different sign-in method. Try email/password."
+        );
         return;
       }
       console.error("❌ Google sign-up failed:", err);
@@ -308,7 +326,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     // 🚫 block saving a past date (if editable)
     if (!dateLocked && weddingDate && isPastYMD(weddingDate)) {
       setDateError("Please choose a future date.");
-      setBannerMsg("Your wedding date appears to be in the past. Please update it before saving.");
+      setBannerMsg(
+        "Your wedding date appears to be in the past. Please update it before saving."
+      );
       return;
     }
 
@@ -359,7 +379,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setChangesSaved(false), 3000);
     } catch (error) {
       console.error("❌ Failed to save account info:", error);
-      setBannerMsg("Something went wrong saving your changes. Please try again.");
+      setBannerMsg(
+        "Something went wrong saving your changes. Please try again."
+      );
     }
   };
 
@@ -541,7 +563,8 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   marginBottom: "1.5rem",
                 }}
               >
-                Your date is locked after a booking. Contact us if you need to make a change!
+                Your date is locked after a booking. Contact us if you need to
+                make a change!
               </p>
             </>
           ) : (
@@ -555,10 +578,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   setWeddingDate(date);
 
                   if (date && !isNaN(new Date(`${date}T12:00:00`).getTime())) {
-                    const weekday = new Date(`${date}T12:00:00`).toLocaleDateString(
-                      "en-US",
-                      { weekday: "long" }
-                    );
+                    const weekday = new Date(
+                      `${date}T12:00:00`
+                    ).toLocaleDateString("en-US", { weekday: "long" });
                     setDayOfWeek(weekday);
                   } else {
                     setDayOfWeek("");
@@ -635,7 +657,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   style={{
                     fontSize: ".9rem",
                     color: "#666",
-                    marginBottom: ".75rem",
+                    marginBottom: ".5rem",
                   }}
                 >
                   Locked after:{" "}
@@ -644,7 +666,35 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   </strong>
                   .
                 </div>
-                {/* ⛔️ DO NOT render "Change my guest count" button here if locked */}
+
+                {/* Final lock / increase status */}
+                {finalLocked && increaseRequested == null && (
+                  <div
+                    style={{
+                      fontSize: ".9rem",
+                      color: "#2c62ba",
+                      marginBottom: ".75rem",
+                    }}
+                  >
+                    Guest count confirmed:{" "}
+                    <strong>{gc || 0}</strong> guests
+                  </div>
+                )}
+
+                {!finalLocked && increaseRequested != null && (
+                  <div
+                    style={{
+                      fontSize: ".9rem",
+                      color: "#c0392b",
+                      marginBottom: ".75rem",
+                    }}
+                  >
+                    Guest count increase requested:{" "}
+                    <strong>{increaseRequested}</strong> guests
+                  </div>
+                )}
+
+                {/* no change buttons when locked */}
               </>
             ) : (
               <>
@@ -680,10 +730,16 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   Max allowed: <strong>250</strong>
                 </div>
 
-                {/* ✅ Only show this button when NOT locked */}
+                {/* ✅ Only show this button when NOT locked (soft or final) */}
                 <button
                   className="boutique-secondary-btn"
-                  style={{ marginBottom: ".75rem" }}
+                  style={{
+                    marginBottom: ".75rem",
+                    backgroundColor: "#5f8ff0",
+                    color: "#fff",
+                    borderRadius: 12,
+                    border: "none",
+                  }}
                   onClick={() => {
                     window.dispatchEvent(
                       new CustomEvent("openUserMenuScreen", {
@@ -742,7 +798,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           </p>
         )}
 
-        {/* Logged-in: Save + Save GC Only + Reset Password */}
+        {/* Logged-in: Save + (maybe) Save GC Only + Reset Password */}
         {!isGuest && (
           <div
             style={{
@@ -766,34 +822,34 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               Save Changes
             </button>
 
-            <button
-              className="boutique-secondary-btn"
-              onClick={async () => {
-                if (locked) {
-                  setBannerMsg(
-                    "Guest count is locked after a booking. Use the Guest Count Scroll to request a change."
+            {/* Only visible when guest count NOT locked at all */}
+            {!locked && (
+              <button
+                className="boutique-secondary-btn"
+                onClick={async () => {
+                  const n = Math.max(
+                    0,
+                    Math.min(250, Math.floor(Number(gc) || 0))
                   );
-                  return;
-                }
-                const n = Math.max(
-                  0,
-                  Math.min(250, Math.floor(Number(gc) || 0))
-                );
-                await setGuestCount(n);
-                setOriginalGC(n);
-                setChangesSaved(true);
-                setTimeout(() => setChangesSaved(false), 2000);
-              }}
-              style={{
-                marginTop: "0.5rem",
-                width: "260px",
-                padding: "0.65rem",
-                fontSize: "0.95rem",
-                borderRadius: "12px",
-              }}
-            >
-              Save Guest Count Only
-            </button>
+                  await setGuestCount(n);
+                  setOriginalGC(n);
+                  setChangesSaved(true);
+                  setTimeout(() => setChangesSaved(false), 2000);
+                }}
+                style={{
+                  marginTop: "0.5rem",
+                  width: "260px",
+                  padding: "0.65rem",
+                  fontSize: "0.95rem",
+                  borderRadius: "12px",
+                  backgroundColor: "#5f8ff0",
+                  color: "#fff",
+                  border: "none",
+                }}
+              >
+                Save Guest Count Only
+              </button>
+            )}
 
             <button
               className="boutique-back-btn"

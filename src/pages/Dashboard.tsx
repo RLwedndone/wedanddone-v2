@@ -425,17 +425,32 @@ function shouldShowGuestScroll(opts: {
   weddingDateYMD?: string | null;
   confirmedAt?: number | null;
   hasGuestDependentBooking?: boolean;
+  finalLocked?: boolean;
+  increaseRequested?: number | null;
 }) {
-  const { weddingDateYMD, confirmedAt = null, hasGuestDependentBooking = true } =
-    opts;
+  const {
+    weddingDateYMD,
+    confirmedAt = null,
+    hasGuestDependentBooking = true,
+    finalLocked = false,
+    increaseRequested = null,
+  } = opts;
+
   if (!hasGuestDependentBooking) return false;
+
+  // 🚫 stop showing if:
+  // - guest count is final-locked
+  // - or an increase request is already in the system
+  // - or they already confirmed
+  if (finalLocked) return false;
+  if (increaseRequested != null) return false;
   if (confirmedAt) return false;
 
   const date = parseLocalYMD(weddingDateYMD || "");
   if (!date) return false;
 
   const du = daysUntil(date);
-  // show only between 45 and 30 days out
+  // ✅ show only between 45 and 30 days out
   return du <= 45 && du >= 30;
 }
 
@@ -748,45 +763,59 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
         setVenueCompleted(flags.venue);
   
         const weddingDateYMD: string | null =
-          (data.weddingDate as string) ||
-          data.profileData?.weddingDate ||
-          null;
-  
-        let confirmedAt: number | null = null;
-        try {
-          const bookingRef = doc(
-            db,
-            "users",
-            u.uid,
-            "venueRankerData",
-            "booking"
-          );
-          const bookingSnap = await getDoc(bookingRef);
-          if (bookingSnap.exists()) {
-            const bd = bookingSnap.data() as any;
-            confirmedAt =
-              typeof bd?.guestCountConfirmedAt === "number"
-                ? bd.guestCountConfirmedAt
-                : null;
-          }
-        } catch (e) {
-          console.warn("⚠️ Could not read guestCountConfirmedAt:", e);
-        }
-  
-        const hasGuestDependentBooking = !!(
-          flags.venue ||
-          flags.catering ||
-          flags.dessert ||
-          flags.planner
-        );
-  
-        setShowGuestListButton(
-          shouldShowGuestScroll({
-            weddingDateYMD,
-            confirmedAt,
-            hasGuestDependentBooking,
-          })
-        );
+  (data.weddingDate as string) ||
+  data.profileData?.weddingDate ||
+  null;
+
+// 🔒 final lock + increase-request flags (top-level on user doc)
+const finalLocked =
+  data.guestCountFinalLocked === true;
+
+const increaseRequested =
+  typeof data.guestCountIncreaseRequested === "number"
+    ? data.guestCountIncreaseRequested
+    : null;
+
+let confirmedAt: number | null = null;
+try {
+  const bookingRef = doc(
+    db,
+    "users",
+    u.uid,
+    "venueRankerData",
+    "booking"
+  );
+  const bookingSnap = await getDoc(bookingRef);
+  if (bookingSnap.exists()) {
+    const bd = bookingSnap.data() as any;
+    confirmedAt =
+      typeof bd?.guestCountConfirmedAt === "number"
+        ? bd.guestCountConfirmedAt
+        : null;
+  }
+} catch (e) {
+  console.warn("⚠️ Could not read guestCountConfirmedAt:", e);
+}
+
+const hasGuestDependentBooking = !!(
+  flags.venue ||
+  flags.catering ||
+  flags.dessert ||
+  flags.planner
+);
+
+// 👇 This now controls BOTH:
+// - GuestCountReminderModal visibility
+// - GuestListScroll tile in the Menu
+setShowGuestListButton(
+  shouldShowGuestScroll({
+    weddingDateYMD,
+    confirmedAt,
+    hasGuestDependentBooking,
+    finalLocked,
+    increaseRequested,
+  })
+);
   
         // 🔹 NEW Pixie purchase load (top-level field)
 const pixData: PixiePurchase[] = Array.isArray(data.pixiePurchases)
