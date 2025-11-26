@@ -6,8 +6,11 @@ import {
   setDoc,
   collection,
   addDoc,
+  getDoc, 
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
+
+import emailjs from "@emailjs/browser";
 
 import {
   getGuestState,
@@ -26,6 +29,8 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [locked, setLocked] = useState(false);
 
   const [showThankYou, setShowThankYou] = useState(false);
+  const [didIncrease, setDidIncrease] = useState(false);
+  const [finalLockedCount, setFinalLockedCount] = useState<number | null>(null);
 
   // --- 1) Hydrate base guest count from global guestCountStore
   useEffect(() => {
@@ -129,6 +134,170 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     });
   };
 
+      // 🔹 helper: send admin notification via EmailJS (guest count INCREASE)
+  const sendGuestCountIncreaseAdminEmail = async (
+    uid: string,
+    oldCount: number,
+    newCount: number,
+    added: number
+  ) => {
+    try {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+      const templateId =
+        import.meta.env.VITE_EMAILJS_GUEST_COUNT_INCREASE_TEMPLATE_ID;
+      const adminEmail = import.meta.env.VITE_EMAILJS_ADMIN_EMAIL;
+
+      if (!serviceId || !publicKey || !templateId || !adminEmail) {
+        console.warn(
+          "⚠️ EmailJS env vars missing for guest count increase admin notification."
+        );
+        return;
+      }
+
+      // Pull user profile for name / venue
+      const userRef = doc(db, "users", uid);
+      const snap = await getDoc(userRef);
+      const data = (snap.exists() ? snap.data() : {}) as any;
+
+      const first = (data.firstName || "").toString().trim();
+      const last = (data.lastName || "").toString().trim();
+      const displayName = [first, last].filter(Boolean).join(" ");
+      const userFullName =
+        displayName || (data.profileName as string) || "Wed&Done User";
+
+      const userEmail =
+        (data.email as string) ||
+        (data.contactEmail as string) ||
+        "";
+
+      const venueName =
+        (data.bookings?.venueName as string) ||
+        (data.bookings?.venue as string) ||
+        (data.venueBooked as string) ||
+        localStorage.getItem("selectedVenue") ||
+        "Unknown venue";
+
+      const submittedAt = new Date().toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Phoenix",
+      });
+
+      await emailjs.send(
+        serviceId,
+        templateId,
+        {
+          admin_email: adminEmail,
+          user_full_name: userFullName,
+          user_email: userEmail,
+          venue_name: venueName,
+          original_guest_count: String(oldCount),
+          new_guest_count: String(newCount),
+          additional_guests: String(added),
+          submitted_at: submittedAt,
+        },
+        publicKey
+      );
+
+      console.log("📨 Guest count increase admin email sent:", {
+        userFullName,
+        userEmail,
+        venueName,
+        oldCount,
+        newCount,
+        added,
+      });
+    } catch (err) {
+      console.warn(
+        "⚠️ Failed to send guest count increase admin email:",
+        err
+      );
+    }
+  };
+
+  // 🔹 helper: send admin notification when guest count is CONFIRMED (no increase)
+  const sendGuestCountConfirmedAdminEmail = async (
+    uid: string,
+    count: number
+  ) => {
+    try {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+      const templateId =
+        import.meta.env.VITE_EMAILJS_GUEST_COUNT_CONFIRMED_TEMPLATE_ID;
+      const adminEmail = import.meta.env.VITE_EMAILJS_ADMIN_EMAIL;
+
+      if (!serviceId || !publicKey || !templateId || !adminEmail) {
+        console.warn(
+          "⚠️ EmailJS env vars missing for guest count confirmed admin notification."
+        );
+        return;
+      }
+
+      // Pull user profile for name / venue
+      const userRef = doc(db, "users", uid);
+      const snap = await getDoc(userRef);
+      const data = (snap.exists() ? snap.data() : {}) as any;
+
+      const first = (data.firstName || "").toString().trim();
+      const last = (data.lastName || "").toString().trim();
+      const displayName = [first, last].filter(Boolean).join(" ");
+      const userFullName =
+        displayName || (data.profileName as string) || "Wed&Done User";
+
+      const userEmail =
+        (data.email as string) ||
+        (data.contactEmail as string) ||
+        "";
+
+      const venueName =
+        (data.bookings?.venueName as string) ||
+        (data.bookings?.venue as string) ||
+        (data.venueBooked as string) ||
+        localStorage.getItem("selectedVenue") ||
+        "Unknown venue";
+
+      const submittedAt = new Date().toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Phoenix",
+      });
+
+      await emailjs.send(
+        serviceId,
+        templateId,
+        {
+          admin_email: adminEmail,
+          user_full_name: userFullName,
+          user_email: userEmail,
+          venue_name: venueName,
+          original_guest_count: String(count),
+          submitted_at: submittedAt,
+        },
+        publicKey
+      );
+
+      console.log("📨 Guest count CONFIRMED admin email sent:", {
+        userFullName,
+        userEmail,
+        venueName,
+        count,
+      });
+    } catch (err) {
+      console.warn(
+        "⚠️ Failed to send guest count confirmed admin email:",
+        err
+      );
+    }
+  };
+
   const bump = (d: number) =>
     setValue((v) => clamp(v + Math.abs(d), original, 2000));
 
@@ -137,6 +306,11 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const u = auth.currentUser;
 
     try {
+      // decide once, before we touch the global store
+      const increased = value > original;
+      setDidIncrease(increased);
+      setFinalLockedCount(value);
+
       // 1) Lock in global guestCountStore
       await setAndLockGuestCount(value, FINAL_REASON);
       window.dispatchEvent(new Event("guestCountUpdated"));
@@ -146,14 +320,24 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       if (u) {
         await markGuestCountConfirmedEverywhere(u.uid, value);
 
-        // 3) If they actually added guests, create a Pixie Purchase request
         if (additionalGuests > 0) {
+          // 3a) They actually added guests → create Pixie request + "increase" email
           await createGuestCountPixieRequest(
             u.uid,
             original,
             value,
             additionalGuests
           );
+
+          await sendGuestCountIncreaseAdminEmail(
+            u.uid,
+            original,
+            value,
+            additionalGuests
+          );
+        } else {
+          // 3b) No increase → just "confirmed" email
+          await sendGuestCountConfirmedAdminEmail(u.uid, original);
         }
       }
 
@@ -199,9 +383,12 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             ✖
           </button>
 
-          <img
-            src={`${import.meta.env.BASE_URL}assets/images/guestcount_madge.png`}
-            alt="Guest count locked"
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/guestcount.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
             style={styles.thankYouImage}
           />
 
@@ -209,10 +396,18 @@ const GuestListScroll: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             Guest count locked — you’re all set!
           </h3>
 
-          <p style={styles.thankYouBody}>
-            We’re preparing the final bill for your additional guests and will
-            send it to you through your Pixie Purchase folder in the menu.
-          </p>
+          {didIncrease ? (
+            <p style={styles.thankYouBody}>
+              We’re preparing the final bill for your additional guests and will
+              send it to you through your Pixie Purchase folder in the menu.
+            </p>
+          ) : (
+            <p style={styles.thankYouBody}>
+              We’ve locked in your final guest count of{" "}
+              <strong>{finalLockedCount ?? value}</strong> guests. You’re all
+              set on our end! Can’t wait for the magic of the big day!
+            </p>
+          )}
 
           <button
             className="boutique-primary-btn"
@@ -371,8 +566,8 @@ const styles = {
 
   closeAbs: {
     position: "absolute",
-    right: 6,
-    top: 0,
+    right: 10,
+    top: 8,
     border: "none",
     background: "transparent",
     fontSize: 22,

@@ -729,27 +729,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                 >
                   Max allowed: <strong>250</strong>
                 </div>
-
-                {/* ✅ Only show this button when NOT locked (soft or final) */}
-                <button
-                  className="boutique-secondary-btn"
-                  style={{
-                    marginBottom: ".75rem",
-                    backgroundColor: "#5f8ff0",
-                    color: "#fff",
-                    borderRadius: 12,
-                    border: "none",
-                  }}
-                  onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent("openUserMenuScreen", {
-                        detail: "guestListScroll",
-                      })
-                    );
-                  }}
-                >
-                  Change my guest count
-                </button>
               </>
             )}
           </section>
@@ -821,35 +800,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
             >
               Save Changes
             </button>
-
-            {/* Only visible when guest count NOT locked at all */}
-            {!locked && (
-              <button
-                className="boutique-secondary-btn"
-                onClick={async () => {
-                  const n = Math.max(
-                    0,
-                    Math.min(250, Math.floor(Number(gc) || 0))
-                  );
-                  await setGuestCount(n);
-                  setOriginalGC(n);
-                  setChangesSaved(true);
-                  setTimeout(() => setChangesSaved(false), 2000);
-                }}
-                style={{
-                  marginTop: "0.5rem",
-                  width: "260px",
-                  padding: "0.65rem",
-                  fontSize: "0.95rem",
-                  borderRadius: "12px",
-                  backgroundColor: "#5f8ff0",
-                  color: "#fff",
-                  border: "none",
-                }}
-              >
-                Save Guest Count Only
-              </button>
-            )}
 
             <button
               className="boutique-back-btn"
