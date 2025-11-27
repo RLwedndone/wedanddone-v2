@@ -1,6 +1,7 @@
 // src/components/CheckoutForm.tsx
 import React, { useState } from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { getAuth } from "firebase/auth";
 
 type CheckoutFormProps = {
   total: number; // amount to charge NOW (full or deposit)
@@ -16,7 +17,8 @@ type CheckoutFormProps = {
 };
 
 // ✅ Always go through the proxy (vite.config.ts will rewrite)
-const API_BASE = "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi";
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi";
 
 const CheckoutForm: React.FC<CheckoutFormProps> = ({
   total,
@@ -33,7 +35,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (event) => {
+  const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (
+    event
+  ) => {
     event.preventDefault();
     if (!stripe || !elements) return;
 
@@ -56,16 +60,26 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
         }
       })();
 
+      // get Firebase UID (if signed in)
+      const auth = getAuth();
+      const uid = auth.currentUser?.uid || "";
+
       const res = await fetch(`${API_BASE}/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: amountInCents,
           currency: "usd",
-          metadata: { flow: isAddon ? "addon" : "main" },
+          metadata: {
+            flow: isAddon ? "addon" : "main",
+            firebase_uid: uid || undefined, // 🔹 tie Stripe customer to Firebase user
+          },
           customerId: customerId || cachedCustomerId,
           email: customerEmail || undefined,
           name: (customerName && customerName.trim()) || undefined,
+
+          // 🔹 Ask backend to save this card on the customer for off-session use
+          saveCard: true,
         }),
       });
 
@@ -78,7 +92,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
       if (data.customerId) {
         try {
           localStorage.setItem("stripeCustomerId", data.customerId);
-        } catch {}
+        } catch {
+          // ignore localStorage failures
+        }
       }
 
       // 2) Confirm payment with Stripe.js

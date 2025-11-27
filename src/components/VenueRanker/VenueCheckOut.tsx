@@ -9,7 +9,6 @@ import { useUser } from "../../contexts/UserContext";
 import CheckoutForm from "../../CheckoutForm";
 import { generateVenueAgreementPDF } from "../../utils/generateVenueAgreementPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
-import { sendAdminNotification } from "../../utils/sendAdminNotification";
 import emailjs from "@emailjs/browser";
 import { VENUE_MENU_MAP } from "../../utils/venueMenuMap";
 import {
@@ -186,169 +185,170 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
     ? fmtPretty(finalDueDate)
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
-  const handleSuccess = async () => {
-    setIsGenerating(true);
-
-    try {
-      console.log("🧭 [VenueCheckout] Start finalize flow");
-
-      // Pull latest user doc so we can append docs, purchases, etc.
-      const userSnap = await getDoc(userRef);
-      const userDoc = userSnap.data() || {};
-      const existingDocs: any[] = Array.isArray(userDoc.documents)
-        ? userDoc.documents
-        : [];
-
-      const paymentSummary = isPayingFull
-        ? `Paid in Full: $${fmtMoney(total)}`
-        : `Deposit: $${fmtMoney(
-            amountDueToday
-          )} + ${numMonthlyPayments} monthly payments of ${fmtMoney(
-            monthlyPayment
-          )} (final due ${finalDueDateStr}).`;
-
-      const venueSlug = (localStorage.getItem("venueSlug") || "").trim();
-      const venueNameFromLS =
-        localStorage.getItem("venueName") || venueName;
-
-      const metaFromMap =
-        VENUE_MENU_MAP[venueSlug] || VENUE_MENU_MAP.santi_default;
-
-      const cateringType =
-        localStorage.getItem("cateringType") ||
-        metaFromMap?.cateringType ||
-        "custom";
-
-      const setMenuId =
-        localStorage.getItem("setMenuId") ||
-        metaFromMap?.setMenuId ||
-        null;
-
-      // persist catering info to localStorage for Yum handoff
-      localStorage.setItem("cateringType", cateringType);
-      if (setMenuId) localStorage.setItem("setMenuId", setMenuId);
-
-      // Venue terms / booking terms safety
-      const safeVenueSpecificDetails: string[] = Array.isArray(
-        contractData?.venueSpecificDetails
-      )
-        ? contractData.venueSpecificDetails
-        : Array.isArray(contractData?.venueTerms)
-        ? contractData.venueTerms
-        : [];
-
-      const defaultBookingTerms: string[] = [
-        "Deposit & payments. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout.",
-        `Date & availability. Booking is for ${new Date(
-          `${weddingDate}T12:00:00`
-        ).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
-        `Guest count lock. Your guest count for this booking is ${
-          userData.guestCount ?? "the number on file"
-        }.`,
-        "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited.",
-        "Rescheduling. Subject to venue availability and possible additional fees.",
-        "Cancellations. Venue deposits are non-refundable.",
-        "Vendor rules. You agree to comply with venue rules (noise, decor, insurance, etc.).",
-        "Liability. Wed&Done is not liable for consequential damages.",
-        "Force majeure. Events beyond reasonable control may allow rescheduling or partial refunds.",
-      ];
-
-      const safeBookingTerms: string[] =
-        Array.isArray(contractData?.bookingTerms) &&
-        contractData.bookingTerms.length
-          ? contractData.bookingTerms
-          : defaultBookingTerms;
-
-      // Generate the PDF
-      const pdfBlob = await generateVenueAgreementPDF({
-        firstName,
-        lastName,
-        total: Number(total || 0),
-        deposit: isPayingFull ? 0 : Number(amountDueToday || 0),
-        paymentSummary,
-        weddingDate,
-        signatureImageUrl: signatureImage,
-        venueName,
-        guestCount: userData.guestCount || 0,
-        venueSpecificDetails: safeVenueSpecificDetails,
-        bookingTerms: safeBookingTerms,
-      });
-
-      // bookingId for traceability (not strictly needed for availability now,
-      // but good to have in user doc & emails)
-      const bookingId = `venue-${uid}-${Date.now()}`;
-
-      // this is the date we will write into the venue's bookedDates array
-      const blockedDateForAvailability =
-        weddingDate ||
-        userData?.weddingDate ||
-        localStorage.getItem("venueWeddingDate") ||
-        "";
-
-      // Mark Venue Ranker complete on the user
-      await setDoc(
-        userRef,
-        {
-          venueRanker: {
-            status: "complete",
-            completedAt: new Date().toISOString(),
+    const handleSuccess = async () => {
+      setIsGenerating(true);
+  
+      try {
+        console.log("🧭 [VenueCheckout] Start finalize flow");
+  
+        // Pull latest user doc so we can append docs, purchases, etc.
+        const userSnap = await getDoc(userRef);
+        const userDoc = userSnap.data() || {};
+        const existingDocs: any[] = Array.isArray(userDoc.documents)
+          ? userDoc.documents
+          : [];
+  
+        const paymentSummary = isPayingFull
+          ? `Paid in Full: $${fmtMoney(total)}`
+          : `Deposit: $${fmtMoney(
+              amountDueToday
+            )} + ${numMonthlyPayments} monthly payments of ${fmtMoney(
+              monthlyPayment
+            )} (final due ${finalDueDateStr}).`;
+  
+        const venueSlug = (localStorage.getItem("venueSlug") || "").trim();
+        const venueNameFromLS =
+          localStorage.getItem("venueName") || venueName;
+  
+        const metaFromMap =
+          VENUE_MENU_MAP[venueSlug] || VENUE_MENU_MAP.santi_default;
+  
+        const cateringType =
+          localStorage.getItem("cateringType") ||
+          metaFromMap?.cateringType ||
+          "custom";
+  
+        const setMenuId =
+          localStorage.getItem("setMenuId") ||
+          metaFromMap?.setMenuId ||
+          null;
+  
+        // persist catering info to localStorage for Yum handoff
+        localStorage.setItem("cateringType", cateringType);
+        if (setMenuId) localStorage.setItem("setMenuId", setMenuId);
+  
+        // Venue terms / booking terms safety
+        const safeVenueSpecificDetails: string[] = Array.isArray(
+          contractData?.venueSpecificDetails
+        )
+          ? contractData.venueSpecificDetails
+          : Array.isArray(contractData?.venueTerms)
+          ? contractData.venueTerms
+          : [];
+  
+        const defaultBookingTerms: string[] = [
+          "Deposit & payments. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout.",
+          `Date & availability. Booking is for ${new Date(
+            `${weddingDate}T12:00:00`
+          ).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
+          `Guest count lock. Your guest count for this booking is ${
+            userData.guestCount ?? "the number on file"
+          }.`,
+          "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited.",
+          "Rescheduling. Subject to venue availability and possible additional fees.",
+          "Cancellations. Venue deposits are non-refundable.",
+          "Vendor rules. You agree to comply with venue rules (noise, decor, insurance, etc.).",
+          "Liability. Wed&Done is not liable for consequential damages.",
+          "Force majeure. Events beyond reasonable control may allow rescheduling or partial refunds.",
+        ];
+  
+        const safeBookingTerms: string[] =
+          Array.isArray(contractData?.bookingTerms) &&
+          contractData.bookingTerms.length
+            ? contractData.bookingTerms
+            : defaultBookingTerms;
+  
+        // Generate the PDF
+        const pdfBlob = await generateVenueAgreementPDF({
+          firstName,
+          lastName,
+          total: Number(total || 0),
+          deposit: isPayingFull ? 0 : Number(amountDueToday || 0),
+          paymentSummary,
+          weddingDate,
+          signatureImageUrl: signatureImage,
+          venueName,
+          guestCount: userData.guestCount || 0,
+          venueSpecificDetails: safeVenueSpecificDetails,
+          bookingTerms: safeBookingTerms,
+        });
+  
+        // bookingId for traceability
+        const bookingId = `venue-${uid}-${Date.now()}`;
+  
+        // this is the date we will write into the venue's bookedDates array
+        const blockedDateForAvailability =
+          weddingDate ||
+          userData?.weddingDate ||
+          localStorage.getItem("venueWeddingDate") ||
+          "";
+  
+        // Mark Venue Ranker complete on the user
+        await setDoc(
+          userRef,
+          {
+            venueRanker: {
+              status: "complete",
+              completedAt: new Date().toISOString(),
+            },
+            progress: { venueRanker: "complete" },
           },
-          progress: { venueRanker: "complete" },
-        },
-        { merge: true }
-      );
-
-      // local flags for dashboard / restore
-      localStorage.setItem("venueRankerCompleted", "true");
-      localStorage.removeItem("venueRankerCheckpoint");
-
-      // Upload PDF and store URL in Firestore
-      const fileName = `VenueAgreement_${Date.now()}.pdf`;
-      const filePath = `public_docs/${uid}/${fileName}`;
-      const pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
-
-      // Lock guest count globally
-      const st = await getGuestState();
-      const guestCount = Math.max(0, Number(st.value) || 0);
-      await setAndLockGuestCount(guestCount, "venue");
-
-      // safer DOW calc
-      const safeDayOfWeek = blockedDateForAvailability
-        ? new Date(
-            blockedDateForAvailability + "T12:00:00"
-          ).toLocaleDateString("en-US", { weekday: "long" })
-        : "";
-
-// ---- Build purchase record for Mag-O-Meter (TOTAL contract, not just deposit) ----
-const purchase = {
-  type: "wdd",
-  category: "venue",
-  label: venueNameFromLS || "venue",
-  date: new Date().toISOString(),
-
-  // what was charged now vs the whole contract
-  amountChargedToday: isPayingFull ? Number(total || 0) : Number(amountDueToday || 0),
-
-  // plan metadata so totals can be derived if needed
-  payFull: !!isPayingFull,
-  deposit: isPayingFull ? 0 : Number(amountDueToday || 0),
-  monthlyAmount: isPayingFull ? 0 : Number(monthlyPayment || 0),
-  months: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
-  installments: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
-  numMonths: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
-
-  // make TOTAL explicit for the hook
-  fullContractAmount: Number(total || 0),
-  contractTotal:     Number(total || 0),
-  total:             Number(total || 0),
-
-  items: ["venue"],
-};
-
+          { merge: true }
+        );
+  
+        // local flags for dashboard / restore
+        localStorage.setItem("venueRankerCompleted", "true");
+        localStorage.removeItem("venueRankerCheckpoint");
+  
+        // Upload PDF and store URL in Firestore
+        const fileName = `VenueAgreement_${Date.now()}.pdf`;
+        const filePath = `public_docs/${uid}/${fileName}`;
+        const pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+  
+        // Lock guest count globally
+        const st = await getGuestState();
+        const guestCount = Math.max(0, Number(st.value) || 0);
+        await setAndLockGuestCount(guestCount, "venue");
+  
+        // safer DOW calc
+        const safeDayOfWeek = blockedDateForAvailability
+          ? new Date(
+              blockedDateForAvailability + "T12:00:00"
+            ).toLocaleDateString("en-US", { weekday: "long" })
+          : "";
+  
+        // ---- Build purchase record for Mag-O-Meter (TOTAL contract, not just deposit) ----
+        const purchase = {
+          type: "wdd",
+          category: "venue",
+          label: venueNameFromLS || "venue",
+          date: new Date().toISOString(),
+  
+          // what was charged now vs the whole contract
+          amountChargedToday: isPayingFull
+            ? Number(total || 0)
+            : Number(amountDueToday || 0),
+  
+          // plan metadata so totals can be derived if needed
+          payFull: !!isPayingFull,
+          deposit: isPayingFull ? 0 : Number(amountDueToday || 0),
+          monthlyAmount: isPayingFull ? 0 : Number(monthlyPayment || 0),
+          months: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+          installments: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+          numMonths: isPayingFull ? 0 : Number(numMonthlyPayments || 0),
+  
+          // make TOTAL explicit for the hook
+          fullContractAmount: Number(total || 0),
+          contractTotal: Number(total || 0),
+          total: Number(total || 0),
+  
+          items: ["venue"],
+        };
+  
         await updateDoc(userRef, {
           // append new doc + purchase safely
           documents: arrayUnion({
@@ -357,7 +357,7 @@ const purchase = {
             uploadedAt: new Date().toISOString(),
           }),
           purchases: arrayUnion(purchase),
-        
+  
           // nested booking flags (won’t overwrite other bookings)
           "bookings.venue": true,
           "bookings.venueSlug": venueSlug,
@@ -366,7 +366,7 @@ const purchase = {
           "bookings.dayOfWeek": safeDayOfWeek,
           "bookings.bookingId": bookingId,
           "bookings.createdAt": new Date().toISOString(),
-        
+  
           // top-level flags
           dateLocked: true,
           weddingDateLocked: true,
@@ -374,10 +374,10 @@ const purchase = {
           guestCountLocked: true,
           venueSigned: true,
           venuePdfUrl: pdfUrl,
-        
+  
           // progress (keep venueRanker intact)
           "progress.yumYum": { source: "venue", step: "contract" },
-        
+  
           // detailed booking data for handoffs
           venueRankerData: {
             booking: {
@@ -399,89 +399,116 @@ const purchase = {
             },
           },
         });
-        
+  
         // fire UI events for dashboard + booking sync
         window.dispatchEvent(new Event("documentsUpdated"));
         window.dispatchEvent(new Event("purchaseMade"));
         window.dispatchEvent(new Event("venueCompletedNow"));
-
-      // ✅ NEW: Mark this date as booked in Firestore (adds to venues/{slug}.bookedDates)
-try {
-  if (venueSlug && blockedDateForAvailability) {
-    await markVenueDateUnavailable({
-      venueSlug,
-      weddingDate: blockedDateForAvailability,
-      bookingId,
-    });
-    console.log(
-      `[VenueCheckout] ✅ Marked ${blockedDateForAvailability} unavailable for ${venueSlug}`
-    );
-  } else {
-    console.warn(
-      "[VenueCheckout] ⚠️ Missing venueSlug or blockedDateForAvailability, skipping bookedDates write."
-    );
-  }
-} catch (blockErr) {
-  console.warn(
-    "[VenueCheckout] ❌ Could not block date (maybe already blocked):",
-    blockErr
-  );
-}
-
-      // Fire events so other parts of UI update
-      window.dispatchEvent(new Event("guestCountUpdated"));
-      window.dispatchEvent(new Event("guestCountLocked"));
-
-      // prep Yum handoff
-      localStorage.setItem("yumSource", "venue");
-      localStorage.setItem("yumVenueSlug", venueSlug);
-      if (setMenuId) localStorage.setItem("yumSetMenuId", setMenuId);
-      localStorage.setItem("yumStep", "contract");
-
-      // email buyer
-try {
-  const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-  const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
-  const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-  if (SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY) {
-    await emailjs.send(
-      SERVICE_ID,
-      TEMPLATE_ID,
-      {
-        user_email: userData.email,
-        user_name: `${firstName} ${lastName}`,
-        pdf_url: pdfUrl,
-      },
-      PUBLIC_KEY
-    );
-  } else {
-    console.warn(
-      "⚠️ Venue EmailJS not configured (service/template/public key missing); skipping buyer email."
-    );
-  }
-} catch (mailErr) {
-  console.warn("EmailJS failed:", mailErr);
-}
-
-      // email admin
-      try {
-        await sendAdminNotification(
-          `🏰 Booking Alert: ${venueName}`,
-          `${firstName} ${lastName} just booked ${venueName} on ${blockedDateForAvailability}.`
-        );
-      } catch (adminErr) {
-        console.warn("Admin notify failed:", adminErr);
+  
+        // ✅ Mark this date as booked in Firestore (adds to venues/{slug}.bookedDates)
+        try {
+          if (venueSlug && blockedDateForAvailability) {
+            await markVenueDateUnavailable({
+              venueSlug,
+              weddingDate: blockedDateForAvailability,
+              bookingId,
+            });
+            console.log(
+              `[VenueCheckout] ✅ Marked ${blockedDateForAvailability} unavailable for ${venueSlug}`
+            );
+          } else {
+            console.warn(
+              "[VenueCheckout] ⚠️ Missing venueSlug or blockedDateForAvailability, skipping bookedDates write."
+            );
+          }
+        } catch (blockErr) {
+          console.warn(
+            "[VenueCheckout] ❌ Could not block date (maybe already blocked):",
+            blockErr
+          );
+        }
+  
+        // Fire events so other parts of UI update
+        window.dispatchEvent(new Event("guestCountUpdated"));
+        window.dispatchEvent(new Event("guestCountLocked"));
+  
+        // prep Yum handoff
+        localStorage.setItem("yumSource", "venue");
+        localStorage.setItem("yumVenueSlug", venueSlug);
+        if (setMenuId) localStorage.setItem("yumSetMenuId", setMenuId);
+        localStorage.setItem("yumStep", "contract");
+  
+        // 📧 email buyer
+        try {
+          const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+          const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_VENUE_TEMPLATE_ID;
+          const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+  
+          if (SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY) {
+            await emailjs.send(
+              SERVICE_ID,
+              TEMPLATE_ID,
+              {
+                user_email: userData.email,
+                user_name: `${firstName} ${lastName}`,
+                pdf_url: pdfUrl,
+              },
+              PUBLIC_KEY
+            );
+            console.log("📨 Venue buyer email sent");
+          } else {
+            console.warn(
+              "⚠️ Venue EmailJS not configured (service/template/public key missing); skipping buyer email."
+            );
+          }
+        } catch (mailErr) {
+          console.warn("EmailJS buyer failed:", mailErr);
+        }
+  
+        // 📧 email admin (venue-specific template)
+        try {
+          const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+          const TEMPLATE_ID =
+            import.meta.env.VITE_EMAILJS_VENUE_ADMIN_TEMPLATE_ID;
+          const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+          const ADMIN_EMAIL = import.meta.env.VITE_EMAILJS_ADMIN_EMAIL;
+  
+          if (SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY && ADMIN_EMAIL) {
+            await emailjs.send(
+              SERVICE_ID,
+              TEMPLATE_ID,
+              {
+                admin_email: ADMIN_EMAIL,
+                user_email: userData.email,
+                user_name: `${firstName} ${lastName}`,
+                venue_name: venueNameFromLS,
+                wedding_date: blockedDateForAvailability || "(not set)",
+                amount_today: fmtMoney(amountDueToday),
+                total_contract: fmtMoney(total),
+                pay_full: isPayingFull ? "Yes" : "No",
+                payment_summary: paymentSummary,
+                pdf_url: pdfUrl,
+              },
+              PUBLIC_KEY
+            );
+            console.log("📨 Venue admin email sent");
+          } else {
+            console.warn(
+              "⚠️ Venue admin EmailJS not configured; skipping admin email."
+            );
+          }
+        } catch (adminErr) {
+          console.warn("Admin EmailJS failed:", adminErr);
+        }
+  
+        setIsGenerating(false);
+        setCurrentScreen("thankyou");
+      } catch (err) {
+        console.error("💥 [VenueCheckout] Fatal error:", err);
+        setIsGenerating(false);
+        setCurrentScreen("thankyou");
       }
-
-      setIsGenerating(false);
-      setCurrentScreen("thankyou");
-    } catch (err) {
-      console.error("💥 [VenueCheckout] Fatal error:", err);
-      setIsGenerating(false);
-      setCurrentScreen("thankyou");
-    }
-  };
+    };
 
   return (
     <>
