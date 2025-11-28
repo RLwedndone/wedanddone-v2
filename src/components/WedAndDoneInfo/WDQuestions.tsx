@@ -2,41 +2,16 @@ import React, { useState } from "react";
 
 interface WDQuestionsProps {
   onClose: () => void;
+  onNext: (screen: "intro" | "ourstory" | "questions" | "partners") => void;
 }
 
-const CARD_WIDTH = 600;  // (still matches overlay card)
-const CLOUD_WIDTH = 220;
+interface FaqItem {
+  q: string;
+  a: React.ReactNode;
+}
 
-const faqList = [
-  {
-    q: "What “big ticket” items are NOT included in my Wed&Done wedding?",
-    a: "We can’t handle your bar tab — state liquor laws mean alcohol purchases have to be handled directly by you (or your venue). If your venue includes a bar as part of its food & beverage minimum, we’ll note the details in your contract."
-  },
-  {
-    q: "When should I book my Wed&Done vendors?",
-    a: "Venues in Arizona often book 14–18 months in advance, so sooner is better if you have your eye on a specific spot. Other vendors can be booked closer to your date, but we always recommend locking in the biggies early."
-  },
-  {
-    q: "What if I already have a venue booked?",
-    a: "If you’ve already booked one of our partner venues, let us know and we’ll update the system so everything magically adjusts for you. If your venue is not a partner, check whether they allow outside vendors — if they do, you can still shop our boutique for everything else you need."
-  },
-  {
-    q: "What if I already have a photographer, DJ, baker, or florist?",
-    a: "Totally fine! Wed&Done is built so you can book only what you need. You can still use our boutique for everything else, or we can fill in just the gaps."
-  },
-  {
-    q: "Will I be choosing from a huge list of every vendor?",
-    a: "Nope — one of the best parts of Wed&Done is that we’ve done the vetting for you. Each boutique has a small, curated set of all-pro vendors with room for upgrades or custom requests if you want something extra."
-  },
-  {
-    q: "I’m not seeing hair & makeup — what’s the deal?",
-    a: "Bridal beauty isn’t a built-in boutique yet. It’s deeply personal (and some of our couples are pros themselves!). But our Pixie Planners have fantastic recommendations — just ask and we’ll share our favorites."
-  },
-  {
-    q: "When should I complete each boutique?",
-    a: "Book your venue and photographer first — those are the vendors that book up fastest. In Arizona, venues are often reserved 14–18 months out, so don’t wait if you have your heart set on a specific date. Catering, music, florals, and desserts can be done later, but don’t leave them until the last minute — venues usually need final counts 30 days before your wedding."
-  }
-];
+const CARD_WIDTH = 600; // (still matches overlay card)
+const CLOUD_WIDTH = 220;
 
 const CLOUD_IMAGES = [
   `${import.meta.env.BASE_URL}assets/images/cloud1.png`,
@@ -51,9 +26,61 @@ const SKY_BG = `${import.meta.env.BASE_URL}assets/images/Starry_Night.png`;
 // ✅ new constant for Madge bubble art
 const MADGE_BUBBLE = `${import.meta.env.BASE_URL}assets/images/madge_bubble.png`;
 
-const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
-  const [active, setActive] = useState<{ q: string; a: string } | null>(null);
+const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose, onNext }) => {
+  const [active, setActive] = useState<FaqItem | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 600;
+
+  // FAQ list now lives *inside* the component so it can use onNext
+  const faqList: FaqItem[] = [
+    {
+      q: "What “big ticket” items are NOT included in my Wed&Done wedding?",
+      a: "We can’t handle your bar tab — state liquor laws mean alcohol purchases have to be handled directly by you (or your venue). If your venue includes a bar as part of its food & beverage minimum, we’ll note the details in your contract.",
+    },
+    {
+      q: "When should I book my Wed&Done vendors?",
+      a: "Venues in Arizona often book 14–18 months in advance, so sooner is better if you have your eye on a specific spot. Other vendors can be booked closer to your date, but we always recommend locking in the biggies early.",
+    },
+    {
+      q: "What if I already have a venue booked?",
+      a: "If you’ve already booked one of our partner venues, let us know and we’ll update the system so everything magically adjusts for you. If your venue is not a partner, check whether they allow outside vendors — if they do, you can still shop our boutique for everything else you need.",
+    },
+    {
+      q: "What if I already have a photographer, DJ, baker, or florist?",
+      a: "Totally fine! Wed&Done is built so you can book only what you need. You can still use our boutique for everything else, or we can fill in just the gaps.",
+    },
+    {
+      q: "Will I be choosing from a huge list of every vendor?",
+      a: (
+        <>
+          Nope — one of the best parts of Wed&Done is that we’ve done the
+          vetting for you. Each boutique has a small, curated set of all-pro
+          vendors with room for upgrades or custom requests if you want
+          something extra. If you'd like to check out our list of pros, just
+          click the{" "}
+          <span
+            style={{
+              color: "#2c62ba",
+              fontWeight: 600,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+            onClick={() => onNext("partners")}
+          >
+            Vendor Partners Page
+          </span>{" "}
+          to see our curated list!
+        </>
+      ),
+    },
+    {
+      q: "I’m not seeing hair & makeup — what’s the deal?",
+      a: "Bridal beauty isn’t a built-in boutique yet. It’s deeply personal (and some of our couples are pros themselves!). But our Pixie Planners have fantastic recommendations — just ask and we’ll share our favorites.",
+    },
+    {
+      q: "When should I complete each boutique?",
+      a: "Book your venue and photographer first — those are the vendors that book up fastest. In Arizona, venues are often reserved 14–18 months out, so don’t wait if you have your heart set on a specific date. Catering, music, florals, and desserts can be done later, but don’t leave them until the last minute — venues usually need final counts 30 days before your wedding.",
+    },
+  ];
 
   const bubble = isMobile
     ? { width: 380, height: 620, cardTop: 190, cardBottom: 72, side: 24, close: 10 }
@@ -175,103 +202,103 @@ const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose }) => {
 
       {/* Modal */}
       {active && (
-  <>
-    {/* Dark backdrop */}
-    <div
-      onClick={() => setActive(null)}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        zIndex: 2000,
-      }}
-    />
+        <>
+          {/* Dark backdrop */}
+          <div
+            onClick={() => setActive(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              zIndex: 2000,
+            }}
+          />
 
-    {/* Bubble with Madge */}
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: bubble.width,
-        height: bubble.height,
-        backgroundImage: `url(${MADGE_BUBBLE})`,
-        backgroundSize: "contain",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
-        zIndex: 2001,
-        pointerEvents: "auto",
-        overscrollBehavior: "contain",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* White answer card */}
-      <div
-        style={{
-          position: "absolute",
-          top: bubble.cardTop,
-          left: bubble.side,
-          right: bubble.side,
-          bottom: bubble.cardBottom,
-          background: "rgba(255,255,255,0.96)",
-          borderRadius: 16,
-          boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
-          padding: isMobile ? "1rem 1.1rem" : "1.25rem 1.35rem",
-          overflow: "visible",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-        }}
-      >
-        {/* ✕ close button INSIDE the white card */}
-        <button
-          onClick={() => setActive(null)}
-          aria-label="Close answer"
-          style={{
-            position: "absolute",
-            top: isMobile ? "0.5rem" : "0.75rem",
-            right: isMobile ? "0.5rem" : "0.75rem",
-            background: "none",
-            border: "none",
-            fontSize: isMobile ? "1.25rem" : "1.35rem",
-            color: "#2c62ba",
-            fontWeight: 800,
-            cursor: "pointer",
-            lineHeight: 1,
-          }}
-        >
-          ✕
-        </button>
+          {/* Bubble with Madge */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: bubble.width,
+              height: bubble.height,
+              backgroundImage: `url(${MADGE_BUBBLE})`,
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              zIndex: 2001,
+              pointerEvents: "auto",
+              overscrollBehavior: "contain",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* White answer card */}
+            <div
+              style={{
+                position: "absolute",
+                top: bubble.cardTop,
+                left: bubble.side,
+                right: bubble.side,
+                bottom: bubble.cardBottom,
+                background: "rgba(255,255,255,0.96)",
+                borderRadius: 16,
+                boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+                padding: isMobile ? "1rem 1.1rem" : "1.25rem 1.35rem",
+                overflow: "visible",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              {/* ✕ close button INSIDE the white card */}
+              <button
+                onClick={() => setActive(null)}
+                aria-label="Close answer"
+                style={{
+                  position: "absolute",
+                  top: isMobile ? "0.5rem" : "0.75rem",
+                  right: isMobile ? "0.5rem" : "0.75rem",
+                  background: "none",
+                  border: "none",
+                  fontSize: isMobile ? "1.25rem" : "1.35rem",
+                  color: "#2c62ba",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
 
-        {/* Question text */}
-        <div
-          style={{
-            fontWeight: 800,
-            marginBottom: 10,
-            textAlign: "center",
-            fontSize: isMobile ? "1.05rem" : "1.15rem",
-          }}
-        >
-          {active.q}
-        </div>
+              {/* Question text */}
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: 10,
+                  textAlign: "center",
+                  fontSize: isMobile ? "1.05rem" : "1.15rem",
+                }}
+              >
+                {active.q}
+              </div>
 
-        {/* Answer text */}
-        <div
-          style={{
-            lineHeight: 1.6,
-            textAlign: "center",
-            fontSize: isMobile ? "0.98rem" : "1.05rem",
-          }}
-        >
-          {active.a}
-        </div>
-      </div>
-    </div>
-  </>
-)}
+              {/* Answer text */}
+              <div
+                style={{
+                  lineHeight: 1.6,
+                  textAlign: "center",
+                  fontSize: isMobile ? "0.98rem" : "1.05rem",
+                }}
+              >
+                {active.a}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <style>{`
         @keyframes floatAnim {

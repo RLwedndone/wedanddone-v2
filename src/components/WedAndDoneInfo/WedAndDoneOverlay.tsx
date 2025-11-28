@@ -14,7 +14,6 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
   const [screen, setScreen] = useState<InfoScreen>("intro");
   const handleNext = (nextScreen: InfoScreen) => setScreen(nextScreen);
 
-  // ✅ we’ll style the card differently for the Q&A screen
   const isQuestions = screen === "questions";
 
   return (
@@ -26,59 +25,70 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
         width: "100vw",
         height: "100vh",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        zIndex: 1000,
+        zIndex: 3000, // ⬆️ make sure it sits above everything
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        overflow: "hidden", // ✅ only the card will scroll
+        overflow: "hidden", // only the card scrolls
       }}
     >
       <div
         style={{
-          // ⭐ starry background only on the Questions screen
+          // ⭐ Starry background only on the Questions screen
           background: isQuestions ? "transparent" : "#fff",
-          backgroundImage: isQuestions ? 'url(`${import.meta.env.BASE_URL}assets/images/Starry_Night.png`)' : undefined,
+          backgroundImage: isQuestions
+            ? `url(${import.meta.env.BASE_URL}assets/images/Starry_Night.png)`
+            : undefined,
           backgroundRepeat: isQuestions ? "repeat-y" : undefined,
-          backgroundSize: isQuestions ? "100% auto" : undefined, // fill width, keep tile ratio
+          backgroundSize: isQuestions ? "100% auto" : undefined,
           backgroundPosition: isQuestions ? "center top" : undefined,
 
-          // spacing
           padding: isQuestions ? "0" : "2rem",
           borderRadius: "18px",
           maxWidth: "600px",
           width: "90%",
           maxHeight: "90vh",
 
-          // ✅ the ONLY scrollbar
           overflowY: "auto",
 
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
           position: "relative",
         }}
       >
-        {/* ✖ Close Button */}
+        {/* 🩷 Branded Pink X Close Button */}
         <button
           onClick={onClose}
+          className="pixie-card__close"
           style={{
             position: "absolute",
-            top: "1rem",
-            right: "1rem",
+            top: isQuestions ? "1.2rem" : "1rem",
+            right: isQuestions ? "1.2rem" : "1rem",
             background: "none",
             border: "none",
-            fontSize: "1.5rem",
+            padding: 0,
             cursor: "pointer",
-            color: isQuestions ? "#fff" : "inherit", // readable on starry bg
-            textShadow: isQuestions ? "0 1px 3px rgba(0,0,0,0.5)" : undefined,
-            zIndex: 1,
+            zIndex: 2,
           }}
+          aria-label="Close"
         >
-          ✖
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+            style={{ width: 32, height: 32, display: "block" }}
+          />
         </button>
 
         {/* 🔄 Screen Content */}
         {screen === "intro" && <WDIntro onNext={handleNext} />}
-        {screen === "ourstory" && <OurStory onClose={() => setScreen("intro")} />}
-        {screen === "questions" && <WDQuestions onClose={onClose} />} {/* content-only */}
+        {screen === "ourstory" && (
+          <OurStory onClose={() => setScreen("intro")} />
+        )}
+        {screen === "questions" && (
+  <WDQuestions
+    onClose={onClose}
+    onNext={handleNext}    // ⭐ add this
+  />
+)}
         {screen === "partners" && <WDPartners onClose={onClose} />}
       </div>
     </div>
