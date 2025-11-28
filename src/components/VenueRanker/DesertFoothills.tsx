@@ -1,9 +1,10 @@
-// src/components/VenueRanker/DesertFoothills.tsx
 import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
+import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -113,15 +114,19 @@ const DesertFoothills: React.FC<DesertFoothillsProps> = ({
         </h2>
 
 {/* 🎥 Venue video */}
-<VenueVideo
-      vimeoId="829584056"
-      title="Desert Foothills"
-    />
+<LazyVimeo
+  videoId="829584056"
+  title="Desert Foothills"
+  thumbnail={VIDEO_THUMBNAILS.DesertFoot}
+/>
 
         {/* Prompt */}
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          How do you feel about this one?
-        </p>
+<p
+  className="px-prose-narrow"
+  style={{ marginTop: "1.25rem", marginBottom: 12 }}
+>
+  How do you feel about this one?
+</p>
 
         {/* Radios */}
         <div style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}>

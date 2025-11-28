@@ -3,7 +3,9 @@ import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
 import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
+
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -74,13 +76,13 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
-
+  
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* 🏷️ Collection chip */}
         <div style={{ marginBottom: "0.75rem" }}>
           <button
             type="button"
-            onClick={() => setShowTooltip(v => !v)}
+            onClick={() => setShowTooltip((v) => !v)}
             style={{
               backgroundColor: buttonColor,
               color: "#fff",
@@ -101,7 +103,7 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
                 border: "1px solid #ddd",
                 borderRadius: 10,
                 padding: "10px 12px",
-                maxWidth: 520,
+                maxWidth: 560,
                 marginInline: "auto",
                 textAlign: "left",
               }}
@@ -110,22 +112,31 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
             </div>
           )}
         </div>
-
+  
         {/* Title */}
-        <h2 className="px-title" style={{ marginBottom: 10 }}>Bates Mansion</h2>
-{/* 🎥 Venue video */}
-<VenueVideo
-      vimeoId="829586701"
-      title="Bates Mansion"
-    />
-
+        <h2 className="px-title px-title--lg" style={{ marginBottom: 12 }}>
+          Bates Mansion
+        </h2>
+  
+        {/* 🎥 Venue video */}
+        <LazyVimeo
+          videoId="829586701"
+          title="Bates Mansion"
+          thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/BatesThumb.jpg`}
+        />
+  
         {/* Prompt */}
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
+        <p
+          className="px-prose-narrow"
+          style={{ marginTop: "1.25rem", marginBottom: 12 }}
+        >
           How do you feel about this one?
         </p>
-
+  
         {/* Radios */}
-        <div style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}>
+        <div
+          style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}
+        >
           <label>
             <input
               type="radio"
@@ -160,13 +171,13 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
             not for me
           </label>
         </div>
-
+  
         {showError && (
           <p style={{ color: "#c62828", fontWeight: 600, marginBottom: 12 }}>
             Please select an option to continue.
           </p>
         )}
-
+  
         {/* CTAs */}
         <div className="px-cta-col" style={{ marginTop: 8 }}>
           <button className="boutique-primary-btn" onClick={handleContinue}>

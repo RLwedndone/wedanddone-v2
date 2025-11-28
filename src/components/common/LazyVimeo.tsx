@@ -1,79 +1,62 @@
 import React, { useState } from "react";
 
 interface LazyVimeoProps {
-  videoId: string;           // e.g. "1106994127"
-  thumbnailSrc: string;      // local image for poster
-  alt?: string;
+  videoId: string;
+  title: string;
+  thumbnail: string;
 }
 
-const LazyVimeo: React.FC<LazyVimeoProps> = ({ videoId, thumbnailSrc, alt }) => {
-  const [playing, setPlaying] = useState(false);
+const LazyVimeo: React.FC<LazyVimeoProps> = ({ videoId, title, thumbnail }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  const vimeoSrc = `https://player.vimeo.com/video/${videoId}?autoplay=1`;
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        paddingTop: "56.25%", // 16:9
-        borderRadius: 12,
-        overflow: "hidden",
-        backgroundColor: "#000",
-      }}
-    >
-      {playing ? (
-        <iframe
-          src={vimeoSrc}
-          title={alt || "Video"}
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
-          loading="lazy"
+  // 🔹 Thumbnail state
+  if (!isPlaying) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsPlaying(true)}
+        style={{
+          position: "relative",
+          display: "block",
+          width: "100%",
+          maxWidth: 520,
+          margin: "0 auto",
+          borderRadius: 16,
+          overflow: "hidden",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          background: "transparent",
+        }}
+      >
+        <img
+          src={thumbnail}
+          alt={title}
           style={{
-            position: "absolute",
-            inset: 0,
+            display: "block",
             width: "100%",
-            height: "100%",
-            border: "none",
+            height: "auto",
           }}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setPlaying(true)}
+
+        {/* ▶️ Play button overlay */}
+        <div
           style={{
             position: "absolute",
             inset: 0,
-            width: "100%",
-            height: "100%",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            background: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
           }}
         >
-          <img
-            src={thumbnailSrc}
-            alt={alt || "Video thumbnail"}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-
-          {/* Play button overlay */}
           <div
             style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
               width: 72,
               height: 72,
               borderRadius: "50%",
-              background: "rgba(0,0,0,0.65)",
+              background: "rgba(255,255,255,0.92)",
+              boxShadow: "0 6px 18px rgba(0,0,0,0.25)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -83,15 +66,43 @@ const LazyVimeo: React.FC<LazyVimeoProps> = ({ videoId, thumbnailSrc, alt }) => 
               style={{
                 width: 0,
                 height: 0,
-                borderTop: "12px solid transparent",
-                borderBottom: "12px solid transparent",
-                borderLeft: "20px solid #fff",
+                borderTop: "14px solid transparent",
+                borderBottom: "14px solid transparent",
+                borderLeft: "22px solid #2c62ba",
                 marginLeft: 4,
               }}
             />
           </div>
-        </button>
-      )}
+        </div>
+      </button>
+    );
+  }
+
+  // 🔹 Playing state – no more height: 0 / padding-bottom trick
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 520,
+        margin: "0 auto",
+        borderRadius: 16,
+        overflow: "hidden",
+      }}
+    >
+      <iframe
+        src={`https://player.vimeo.com/video/${videoId}?autoplay=1`}
+        title={title}
+        frameBorder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        style={{
+          display: "block",
+          width: "100%",
+          aspectRatio: "16 / 9",
+          height: "auto",
+        }}
+      />
     </div>
   );
 };

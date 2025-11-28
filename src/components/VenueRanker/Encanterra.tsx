@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
+import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -120,12 +122,18 @@ const Encanterra: React.FC<EncanterraProps> = ({
         </h2>
 
         {/* 🎥 Venue video */}
-        <VenueVideo vimeoId="829574455" title="Encanterra" />
-
-        {/* Prompt */}
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          How do you feel about this one?
-        </p>
+        <LazyVimeo
+  videoId="829574455"
+  title="Encanterra"
+  thumbnail={VIDEO_THUMBNAILS.Encanterra}
+/>
+       {/* Prompt */}
+<p
+  className="px-prose-narrow"
+  style={{ marginTop: "1.25rem", marginBottom: 12 }}
+>
+  How do you feel about this one?
+</p>
 
         {/* Radios (unique group name) */}
         <div

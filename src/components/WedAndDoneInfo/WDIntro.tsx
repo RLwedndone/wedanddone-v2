@@ -21,11 +21,11 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
       />
 
       {/* Vimeo Video */}
-      <div style={{ marginBottom: "1.5rem" }}>
+<div style={{ marginBottom: "1.5rem" }}>
   <LazyVimeo
     videoId="1106994127"
-    thumbnailSrc={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/WDintroThumb.jpg`}
-    alt="Wed&Done Intro Video"
+    title="Wed&Done Intro Video"
+    thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/WDintroThumb.jpg`}
   />
 </div>
 

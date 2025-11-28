@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
+import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -117,10 +119,11 @@ const SchnepfBarn: React.FC<SchnepfBarnProps> = ({
         </h2>
 
         {/* 🎥 Venue video */}
-        <VenueVideo
-          vimeoId="829959049"
-          title="Schnepf’s Big Red Barn"
-        />
+        <LazyVimeo
+  videoId="829959049"
+  title="Schnepf’s Big Red Barn"
+  thumbnail={VIDEO_THUMBNAILS.SchnepfBRB}
+/>
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
           How do you feel about this one?

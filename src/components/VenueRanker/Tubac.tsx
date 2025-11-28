@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
+import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -117,14 +119,19 @@ const Tubac: React.FC<TubacProps> = ({
         </h2>
 
         {/* 🎥 Venue video */}
-        <VenueVideo
-          vimeoId="829959547"
-          title="Tubac Golf Resort"
-        />
+        <LazyVimeo
+  videoId="829959547"
+  title="Tubac Golf Resort"
+  thumbnail={VIDEO_THUMBNAILS.Tubac}
+/>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          How do you feel about this one?
-        </p>
+        {/* Prompt */}
+<p
+  className="px-prose-narrow"
+  style={{ marginTop: "1.25rem", marginBottom: 12 }}
+>
+  How do you feel about this one?
+</p>
 
         {/* 🔘 Radio group (unique name) */}
         <div

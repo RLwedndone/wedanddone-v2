@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { venueToCollection } from "../../utils/venueCollections";
 import { venueCollectionDescriptions } from "../../utils/venueCollectionDescriptions";
+import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
-import VenueVideo from "./VenueVideo";
+import LazyVimeo from "../common/LazyVimeo";
+import { VIDEO_THUMBNAILS } from "./videoThumbnails";
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -117,7 +119,11 @@ const RubiHouse: React.FC<RubiHouseProps> = ({
         </h2>
 
         {/* 🎥 Venue video */}
-        <VenueVideo vimeoId="829596336" title="The Rubi House" />
+        <LazyVimeo
+  videoId="829596336"
+  title="The Rubi House"
+  thumbnail={VIDEO_THUMBNAILS.Rubi}
+/>
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
           How do you feel about this one?
