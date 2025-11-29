@@ -757,3 +757,20 @@
 .wand-slot:hover .wand-media {
   transform: scale(1.06);
 }
+
+/* Subtle page-turn style entrance for all pixie cards */
+.pixie-card {
+  animation: venuePageTurnIn 260ms ease-out;
+  transform-origin: right center; /* feels like flipping from the right edge */
+}
+
+@keyframes venuePageTurnIn {
+  from {
+    transform: rotateY(-10deg) translateX(12px);
+    opacity: 0;
+  }
+  to {
+    transform: rotateY(0deg) translateX(0);
+    opacity: 1;
+  }
+}

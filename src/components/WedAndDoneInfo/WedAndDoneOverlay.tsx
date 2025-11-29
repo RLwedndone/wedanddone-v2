@@ -1,10 +1,19 @@
+// src/components/WedAndDoneInfo/WedAndDoneOverlay.tsx
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // ⭐ NEW
 import WDIntro from "./WDIntro";
 import OurStory from "./OurStory";
 import WDQuestions from "./WDQuestions";
 import WDPartners from "./WDPartners";
+import LegalStuff from "./LegalStuff";
 
-type InfoScreen = "intro" | "ourstory" | "questions" | "partners";
+type InfoScreen =
+  | "intro"
+  | "ourstory"
+  | "questions"
+  | "weddingwisdom" // ⭐ NEW
+  | "partners"
+  | "legal";
 
 interface WedAndDoneOverlayProps {
   onClose: () => void;
@@ -12,7 +21,18 @@ interface WedAndDoneOverlayProps {
 
 const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
   const [screen, setScreen] = useState<InfoScreen>("intro");
-  const handleNext = (nextScreen: InfoScreen) => setScreen(nextScreen);
+  const navigate = useNavigate(); // ⭐ NEW
+
+  const handleNext = (nextScreen: InfoScreen) => {
+    if (nextScreen === "weddingwisdom") {
+      // 🚪 Jump out to the blog route, then close the overlay
+      navigate("/blog");
+      onClose();
+      return;
+    }
+
+    setScreen(nextScreen);
+  };
 
   const isQuestions = screen === "questions";
 
@@ -80,16 +100,18 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
 
         {/* 🔄 Screen Content */}
         {screen === "intro" && <WDIntro onNext={handleNext} />}
+
         {screen === "ourstory" && (
           <OurStory onClose={() => setScreen("intro")} />
         )}
+
         {screen === "questions" && (
-  <WDQuestions
-    onClose={onClose}
-    onNext={handleNext}    // ⭐ add this
-  />
-)}
+          <WDQuestions onClose={onClose} onNext={handleNext} />
+        )}
+
         {screen === "partners" && <WDPartners onClose={onClose} />}
+
+        {screen === "legal" && <LegalStuff />}
       </div>
     </div>
   );

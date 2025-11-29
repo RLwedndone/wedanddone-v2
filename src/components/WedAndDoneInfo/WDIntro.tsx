@@ -1,8 +1,11 @@
+// src/components/WedAndDoneInfo/WDIntro.tsx
 import React from "react";
 import LazyVimeo from "../common/LazyVimeo";
 
 interface WDIntroProps {
-  onNext: (screen: "intro" | "ourstory" | "questions" | "partners") => void;
+  onNext: (
+    screen: "intro" | "ourstory" | "questions" | "weddingwisdom" | "partners" | "legal"
+  ) => void;
 }
 
 const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
@@ -21,13 +24,13 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
       />
 
       {/* Vimeo Video */}
-<div style={{ marginBottom: "1.5rem" }}>
-  <LazyVimeo
-    videoId="1106994127"
-    title="Wed&Done Intro Video"
-    thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/WDintroThumb.jpg`}
-  />
-</div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <LazyVimeo
+          videoId="1106994127"
+          title="Wed&Done Intro Video"
+          thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/WDintroThumb.jpg`}
+        />
+      </div>
 
       {/* Explainer Text */}
       <p
@@ -66,11 +69,23 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
         <button onClick={() => onNext("ourstory")} style={navButtonStyle}>
           Our Story
         </button>
+
         <button onClick={() => onNext("questions")} style={navButtonStyle}>
-          Q&A
+          Q&amp;A
         </button>
+
+        {/* ⭐ NEW: Wedding Wisdom link */}
+        <button onClick={() => onNext("weddingwisdom")} style={navButtonStyle}>
+          Wedding Wisdom
+        </button>
+
         <button onClick={() => onNext("partners")} style={navButtonStyle}>
           Our Fab Partners
+        </button>
+
+        {/* New Legal Stuff button */}
+        <button onClick={() => onNext("legal")} style={navButtonStyle}>
+          Legal Stuff
         </button>
       </div>
     </div>

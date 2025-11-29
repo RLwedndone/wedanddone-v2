@@ -10,8 +10,15 @@ import {
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "./firebase/firebaseConfig";
-import { doc, onSnapshot, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { sendWelcome } from "./utils/email/email";
+import useAnalytics from "./hooks/useAnalytics";
 
 import "./styles/globals/boutique.master.css";
 
@@ -32,6 +39,9 @@ import { useScrollToTopOnChange } from "./hooks/useScrollToTop";
 
 // 🧾 NEW: global Stripe context
 import StripeProvider from "./components/StripeProvider";
+
+import BlogIndex from "./pages/BlogIndex";
+import BlogPost from "./pages/BlogPost";
 
 /** Mounted once inside AppRoutes to force top on any route/change */
 const ScrollOnRouteChange: React.FC = () => {
@@ -61,8 +71,13 @@ const AppRoutes: React.FC = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route
           path="/venue-ranker"
-          element={<VenueRankerOverlay onClose={() => navigate("/dashboard")} />}
+          element={
+            <VenueRankerOverlay onClose={() => navigate("/dashboard")} />
+          }
         />
+        {/* 📝 Wedding Wisdom blog routes */}
+  <Route path="/blog" element={<BlogIndex />} />
+  <Route path="/blog/:slug" element={<BlogPost />} />
 
         {/* ⭐ Catch-all 404 route – must be last */}
         <Route path="*" element={<NotFound />} />
@@ -99,10 +114,14 @@ const WelcomeEmailWatcher: React.FC = () => {
         await sendWelcome({
           firstName,
           user_email: email,
-          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
         });
 
-        await updateDoc(userRef, { "emails.welcomeSentAt": serverTimestamp() });
+        await updateDoc(userRef, {
+          "emails.welcomeSentAt": serverTimestamp(),
+        });
 
         try {
           sessionStorage.setItem(ssKey, user.uid);
@@ -189,6 +208,9 @@ const WelcomeEmailWatcher: React.FC = () => {
 
 const App: React.FC = () => {
   const [showSignupModal, setShowSignupModal] = useState(false);
+
+  // 🔍 Track route changes for analytics
+  useAnalytics();
 
   useEffect(() => {
     const handleSignupModal = () => setShowSignupModal(true);
