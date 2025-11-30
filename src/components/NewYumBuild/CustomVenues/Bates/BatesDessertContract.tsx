@@ -85,10 +85,8 @@ const [payFull, setPayFull] = useState(true);
 const [weddingYMD, setWeddingYMD] = useState<string | null>(weddingDate || null);
 const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
 
-  // Consider "already signed" only if parent passes a valid data-URL image
-const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
-  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
-);
+
+  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(false);
 
   // ─────────────────────────────────────────────────────────────
   // Boot: subscribe once, capture minimal user fields, pin progress step
@@ -166,6 +164,10 @@ useEffect(() => {
       localStorage.setItem("yumPayPlan", payFull ? "full" : "monthly");
     } catch {}
   }, [payFull]);
+
+  useEffect(() => {
+    setAgreeChecked(false);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────
   // Payment math (25% deposit, final due −35 days)
