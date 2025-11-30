@@ -6,7 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 interface PhotoVIPListProps1 {
   onNext: () => void;
   onBack: () => void;
-  goToTOC?: () => void; // ✅ optional TOC handler
+  goToTOC?: () => void;
 }
 
 type LoveBird = { name?: string; first?: string; last?: string; label?: string };
@@ -28,15 +28,12 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
   useEffect(() => {
     try {
       cardRef.current?.scrollIntoView({ block: "start" });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
-  // 🔁 One definitive list of roles used by the UI
+  // Roles used in UI
   const roleOptions = useMemo(() => {
     const roles = [
-      // Family
       "Mother",
       "Stepmother",
       "Father",
@@ -44,21 +41,15 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
       "Brother",
       "Sister",
       "Grandparent",
-
-      // Wedding party – bride side
       "Maid of Honor",
       "Matron of Honor",
       "Bridesmaid",
       "Junior Bridesmaid",
       "Flower Girl",
-
-      // Wedding party – groom side
       "Best Man",
       "Groomsman",
       "Junior Groomsman",
       "Ring Bearer",
-
-      // Ceremony / misc
       "Officiant",
       "Usher",
       "Reader",
@@ -67,7 +58,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
     return Array.from(new Set(roles));
   }, []);
 
-  // 🔄 Load couple info + list (supports old and new couple shapes)
+  // Load couple info + VIP list
   useEffect(() => {
     const raw = localStorage.getItem("magicBookCoupleInfo");
     if (raw) {
@@ -82,12 +73,9 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
         const label = (lb1?.label && String(lb1.label)) || "";
         setLoveBird1({ first: firstName, label });
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
-    // Load from localStorage first
     try {
       const saved = JSON.parse(localStorage.getItem("magicBookVIPList1") || "[]");
       setVipList(Array.isArray(saved) ? (saved as VIPEntry[]) : []);
@@ -95,7 +83,6 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
       setVipList([]);
     }
 
-    // Then, if logged in, load from Firestore
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
@@ -121,14 +108,12 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
     const name = currentName.trim();
     if (!name || selectedRoles.length === 0) return;
 
-    const finalRoles = selectedRoles.map((r) => r.trim());
-    const newEntry: VIPEntry = { name, role: finalRoles };
-
+    const newEntry: VIPEntry = { name, role: selectedRoles.map((r) => r.trim()) };
     const updatedList = [...vipList, newEntry];
+
     setVipList(updatedList);
     saveVIPList(updatedList);
 
-    // reset
     setCurrentName("");
     setSelectedRoles([]);
     setCustomRoleInput("");
@@ -145,20 +130,14 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
   };
 
   const handleBackToTOC = () => {
-    console.log(
-      "[DBG][VIP1] TOC click – has goToTOC?",
-      typeof goToTOC === "function"
-    );
     if (typeof goToTOC === "function") {
       goToTOC();
       return;
     }
-    // Fallback: set intent + tell overlay to navigate
     localStorage.setItem("magicStep", "toc");
     window.dispatchEvent(new Event("magic:gotoTOC"));
   };
 
-  // ✨ styles
   const headerFont: React.CSSProperties = {
     fontFamily: "'Jenna Sue','Jena Sue',cursive",
     fontSize: "2.2rem",
@@ -178,25 +157,21 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
   };
 
   return (
-    // ✅ Card only — the overlay wrapper comes from MagicBookOverlay
     <div
       ref={cardRef}
       className="pixie-card"
-      style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
+      style={{
+        paddingTop: "1.25rem",
+        paddingBottom: "1.25rem",
+        position: "relative",
+      }}
     >
-      {/* 💗 Pink X close → TOC */}
-      <button
-        className="pixie-card__close"
-        onClick={handleBackToTOC}
-        aria-label="Close"
-      >
-        <img
-          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-          alt="Close"
-        />
+      {/* Pink X */}
+      <button className="pixie-card__close" onClick={handleBackToTOC} aria-label="Close">
+        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
 
-      {/* 🖼 Top image */}
+      {/* Top clipboard image */}
       <div style={{ marginBottom: "0.5rem", textAlign: "center" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/gold_top.png`}
@@ -205,12 +180,12 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
         />
       </div>
 
-      {/* 📝 Dynamic header */}
+      {/* Header */}
       <h2 style={headerFont}>
         {loveBird1.first ? `${loveBird1.first}’s VIP List` : "Your VIP List"}
       </h2>
 
-      {/* ➕ Add VIP */}
+      {/* Add Name */}
       <div style={inputRow}>
         <input
           type="text"
@@ -228,15 +203,9 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
         />
       </div>
 
-      {/* Role checkboxes */}
+      {/* Roles */}
       <div style={{ margin: "0.5rem auto 0.25rem", maxWidth: 680 }}>
-        <div
-          style={{
-            fontWeight: 600,
-            marginBottom: "0.35rem",
-            textAlign: "center",
-          }}
-        >
+        <div style={{ fontWeight: 600, marginBottom: "0.35rem", textAlign: "center" }}>
           Select all roles that apply
         </div>
 
@@ -245,25 +214,19 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
             gap: "0.5rem",
-            justifyItems: "start",
           }}
         >
           {roleOptions.map((role) => {
             const id = `vip1-role-${role.replace(/\s+/g, "-").toLowerCase()}`;
-            const checked = selectedRoles.includes(role);
             return (
-              <label
-                key={role}
-                htmlFor={id}
-                style={{ display: "flex", alignItems: "center", gap: 8 }}
-              >
+              <label key={role} htmlFor={id} style={{ display: "flex", gap: 8 }}>
                 <input
                   id={id}
                   type="checkbox"
-                  checked={checked}
+                  checked={selectedRoles.includes(role)}
                   onChange={() =>
                     setSelectedRoles((prev) =>
-                      checked ? prev.filter((r) => r !== role) : [...prev, role]
+                      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
                     )
                   }
                 />
@@ -273,15 +236,8 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
           })}
         </div>
 
-        {/* Custom role adder */}
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            marginTop: "0.6rem",
-            alignItems: "center",
-          }}
-        >
+        {/* Add custom role */}
+        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.6rem", alignItems: "center" }}>
           <input
             type="text"
             placeholder="Add another role (e.g., Cousin, Godmother)"
@@ -299,9 +255,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
             onClick={() => {
               const val = customRoleInput.trim();
               if (!val) return;
-              setSelectedRoles((prev) =>
-                prev.includes(val) ? prev : [...prev, val]
-              );
+              setSelectedRoles((prev) => (prev.includes(val) ? prev : [...prev, val]));
               setCustomRoleInput("");
             }}
             style={{
@@ -323,6 +277,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
         )}
       </div>
 
+      {/* Add button */}
       <div style={{ textAlign: "center", marginTop: "0.75rem" }}>
         <button
           onClick={handleAddVIP}
@@ -342,45 +297,51 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
 
       {/* List */}
       <hr style={{ margin: "1.25rem 0" }} />
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {vipList.map((entry, index) => (
-          <li
-            key={index}
-            style={{
-              marginBottom: "0.6rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "0.75rem",
-            }}
-          >
-            <span>
-              <strong>{entry.name}</strong> –{" "}
-              {Array.isArray(entry.role) ? entry.role.join(", ") : entry.role}
-            </span>
-            <button
-              onClick={() => {
-                const updated = vipList.filter((_, i) => i !== index);
-                setVipList(updated);
-                saveVIPList(updated);
-              }}
-              title="Remove"
-              type="button"
+
+      <div>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {vipList.map((entry, index) => (
+            <li
+              key={index}
               style={{
-                color: "red",
-                background: "none",
-                border: "none",
-                fontSize: "1rem",
-                cursor: "pointer",
+                marginBottom: "0.6rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "0 1.25rem", // ← ADD SPACING
               }}
             >
-              ❌
-            </button>
-          </li>
-        ))}
-      </ul>
+              <span>
+                <strong>{entry.name}</strong> –{" "}
+                {Array.isArray(entry.role) ? entry.role.join(", ") : entry.role}
+              </span>
 
-      {/* 🖼 Bottom image */}
+              <button
+                onClick={() => {
+                  const updated = vipList.filter((_, i) => i !== index);
+                  setVipList(updated);
+                  saveVIPList(updated);
+                }}
+                title="Remove"
+                type="button"
+                style={{
+                  color: "red",
+                  background: "none",
+                  border: "none",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  marginRight: "0.25rem", // ← MOVE ❌ INWARD
+                }}
+              >
+                ❌
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Bottom clipboard image */}
       <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/gold_bottom.png`}
@@ -389,7 +350,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
         />
       </div>
 
-      {/* Nav */}
+      {/* Nav buttons */}
       <div
         style={{
           textAlign: "center",
@@ -399,8 +360,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
           justifyItems: "center",
         }}
       >
-       {/* Blue Next */}
-       <button
+        <button
           onClick={handleNext}
           style={{
             width: 180,
@@ -416,15 +376,10 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
           Turn the Page →
         </button>
 
-        <button
-          onClick={handleBack}
-          className="boutique-back-btn"
-          style={{ width: 250, padding: "0.75rem 1rem" }}
-        >
+        <button onClick={handleBack} className="boutique-back-btn" style={{ width: 250 }}>
           ⬅ Previous Page
         </button>
 
-        {/* 🪄 Back to TOC (purple) */}
         <button
           onClick={handleBackToTOC}
           style={{
@@ -437,7 +392,6 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
             fontWeight: 600,
             cursor: "pointer",
             width: 180,
-            marginTop: "0.5rem",
           }}
         >
           🪄 Back to TOC

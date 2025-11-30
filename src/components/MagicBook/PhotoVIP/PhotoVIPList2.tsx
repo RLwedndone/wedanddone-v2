@@ -359,40 +359,47 @@ const PhotoVIPList2: React.FC<PhotoVIPListProps2> = ({
       </div>
 
       {/* List */}
-      <hr style={{ margin: "1.25rem 0" }} />
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {vipList.map((entry, index) => (
-          <li
-            key={index}
-            style={{
-              marginBottom: "0.6rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "0.75rem",
-            }}
-          >
-            <span>
-              <strong>{entry.name}</strong> –{" "}
-              {Array.isArray(entry.role) ? entry.role.join(", ") : entry.role}
-            </span>
-            <button
-              onClick={() => handleRemove(index)}
-              title="Remove"
-              style={{
-                color: "red",
-                background: "none",
-                border: "none",
-                fontSize: "1rem",
-                cursor: "pointer",
-              }}
-              type="button"
-            >
-              ❌
-            </button>
-          </li>
-        ))}
-      </ul>
+<hr style={{ margin: "1.25rem 0" }} />
+
+<div style={{ padding: "0 1.5rem" }}>
+  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+    {vipList.map((entry, index) => (
+      <li
+        key={index}
+        style={{
+          marginBottom: "0.6rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "0.75rem",
+        }}
+      >
+        <span>
+          <strong>{entry.name}</strong> –{" "}
+          {Array.isArray(entry.role) ? entry.role.join(", ") : entry.role}
+        </span>
+        <button
+          onClick={() => {
+            const updated = vipList.filter((_, i) => i !== index);
+            setVipList(updated);
+            saveVIPList(updated);
+          }}
+          title="Remove"
+          type="button"
+          style={{
+            color: "red",
+            background: "none",
+            border: "none",
+            fontSize: "1rem",
+            cursor: "pointer",
+          }}
+        >
+          ❌
+        </button>
+      </li>
+    ))}
+  </ul>
+</div>
 
       {/* 🖼 Bottom image (silver) */}
       <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
