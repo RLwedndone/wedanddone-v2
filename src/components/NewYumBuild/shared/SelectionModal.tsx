@@ -143,15 +143,15 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
 
         {/* badge img */}
         <img
-          src={`/assets/images/YumYum/max${max}.png`}
-          alt={`Select up to ${max}`}
-          style={{
-            width: "100%",
-            maxWidth: "320px",
-            margin: "0 auto 1rem",
-            display: "block",
-          }}
-        />
+  src={`${import.meta.env.BASE_URL}assets/images/YumYum/max${max}.png`}
+  alt={`Select up to ${max}`}
+  style={{
+    width: "100%",
+    maxWidth: "320px",
+    margin: "0 auto 1rem",
+    display: "block",
+  }}
+/>
 
         <h3
           style={{
