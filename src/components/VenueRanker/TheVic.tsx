@@ -118,12 +118,13 @@ const TheVic: React.FC<TheVicProps> = ({
           The Vic
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="849617225"
-  title="The Vic"
-  thumbnail={VIDEO_THUMBNAILS.Vic}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="849617225"
+    title="The Vic"
+    thumbnail={VIDEO_THUMBNAILS.Vic}
+  />
+</div>
 
         {/* Prompt */}
 <p

@@ -121,12 +121,13 @@ const Fabric: React.FC<FabricProps> = ({
           Fabric
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829583210"
-  title="Fabric"
-  thumbnail={VIDEO_THUMBNAILS.Fabric}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829583210"
+    title="Fabric"
+    thumbnail={VIDEO_THUMBNAILS.Fabric}
+  />
+</div>
 
         {/* Prompt */}
 <p

@@ -113,12 +113,20 @@ const DesertFoothills: React.FC<DesertFoothillsProps> = ({
           Desert Foothills
         </h2>
 
-{/* 🎥 Venue video */}
-<LazyVimeo
-  videoId="829584056"
-  title="Desert Foothills"
-  thumbnail={VIDEO_THUMBNAILS.DesertFoot}
-/>
+        {/* 🎥 Venue video */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 720,
+            margin: "0 auto 1.25rem",
+          }}
+        >
+          <LazyVimeo
+            videoId="829584056"
+            title="Desert Foothills"
+            thumbnail={VIDEO_THUMBNAILS.DesertFoot}
+          />
+        </div>
 
         {/* Prompt */}
 <p

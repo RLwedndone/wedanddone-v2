@@ -118,12 +118,13 @@ const Tubac: React.FC<TubacProps> = ({
           Tubac Golf Resort and Spa
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829959547"
-  title="Tubac Golf Resort"
-  thumbnail={VIDEO_THUMBNAILS.Tubac}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829959547"
+    title="Tubac Golf Resort"
+    thumbnail={VIDEO_THUMBNAILS.Tubac}
+  />
+</div>
 
         {/* Prompt */}
 <p

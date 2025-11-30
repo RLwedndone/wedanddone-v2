@@ -4,8 +4,6 @@ import { venueCollectionDescriptions } from "../../utils/venueCollectionDescript
 import { saveVenueSelection } from "../../utils/saveVenueSelection";
 import { collectionColors } from "../../utils/venueCollections";
 import LazyVimeo from "../common/LazyVimeo";
-import { VIDEO_THUMBNAILS } from "./videoThumbnails";
-
 
 interface VenueRankerSelections {
   exploreMode: "all" | "vibe";
@@ -47,7 +45,7 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
   const selectedOption = Number(selections.rankings[venueId] ?? 0);
 
   const handleSelect = (value: number) => {
-    setVenueRankerSelections(prev => {
+    setVenueRankerSelections((prev) => {
       const p = safe(prev);
       return {
         ...p,
@@ -55,7 +53,9 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
       };
     });
     setShowError(false);
-    try { saveVenueSelection(venueId, value); } catch {}
+    try {
+      saveVenueSelection(venueId, value);
+    } catch {}
   };
 
   const handleContinue = () => {
@@ -76,124 +76,142 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>
-  
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
-        {/* 🏷️ Collection chip */}
-        <div style={{ marginBottom: "0.75rem" }}>
-          <button
-            type="button"
-            onClick={() => setShowTooltip((v) => !v)}
-            style={{
-              backgroundColor: buttonColor,
-              color: "#fff",
-              border: "none",
-              borderRadius: 20,
-              padding: "6px 14px",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {collection}
-          </button>
-          {showTooltip && (
-            <div
+
+      <div className="pixie-card__body">
+        {/* 🔲 Inner layout matches WDIntro structure */}
+        <div
+          style={{
+            textAlign: "center",
+            width: "100%",
+            maxWidth: 720,
+            margin: "0 auto",
+          }}
+        >
+          {/* 🏷️ Collection chip */}
+          <div style={{ marginBottom: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => setShowTooltip((v) => !v)}
               style={{
-                marginTop: 8,
-                background: "#f9f9f9",
-                border: "1px solid #ddd",
-                borderRadius: 10,
-                padding: "10px 12px",
-                maxWidth: 560,
-                marginInline: "auto",
-                textAlign: "left",
+                backgroundColor: buttonColor,
+                color: "#fff",
+                border: "none",
+                borderRadius: 20,
+                padding: "6px 14px",
+                fontWeight: 700,
+                cursor: "pointer",
               }}
             >
-              {tooltipText}
-            </div>
-          )}
-        </div>
-  
-        {/* Title */}
-        <h2 className="px-title px-title--lg" style={{ marginBottom: 12 }}>
-          Bates Mansion
-        </h2>
-  
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-          videoId="829586701"
-          title="Bates Mansion"
-          thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/BatesThumb.jpg`}
-        />
-  
-        {/* Prompt */}
-        <p
-          className="px-prose-narrow"
-          style={{ marginTop: "1.25rem", marginBottom: 12 }}
-        >
-          How do you feel about this one?
-        </p>
-  
-        {/* Radios */}
-        <div
-          style={{ display: "grid", gap: 10, justifyContent: "center", marginBottom: 12 }}
-        >
-          <label>
-            <input
-              type="radio"
-              name="venue-batesmansion"
-              value={3}
-              checked={selectedOption === 3}
-              onChange={() => handleSelect(3)}
-              style={{ marginRight: 8 }}
+              {collection}
+            </button>
+
+            {showTooltip && (
+              <div
+                style={{
+                  marginTop: 8,
+                  background: "#f9f9f9",
+                  border: "1px solid #ddd",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  maxWidth: 560,
+                  marginInline: "auto",
+                  textAlign: "left",
+                }}
+              >
+                {tooltipText}
+              </div>
+            )}
+          </div>
+
+          {/* Title */}
+          <h2 className="px-title px-title--lg" style={{ marginBottom: 12 }}>
+            Bates Mansion
+          </h2>
+
+          {/* 🎥 Venue video – same structure as WDIntro */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <LazyVimeo
+              videoId="829586701"
+              title="Bates Mansion"
+              thumbnail={`${import.meta.env.BASE_URL}assets/images/VideoThumbnails/BatesThumb.jpg`}
             />
-            a favorite!
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="venue-batesmansion"
-              value={2}
-              checked={selectedOption === 2}
-              onChange={() => handleSelect(2)}
-              style={{ marginRight: 8 }}
-            />
-            this could work
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="venue-batesmansion"
-              value={1}
-              checked={selectedOption === 1}
-              onChange={() => handleSelect(1)}
-              style={{ marginRight: 8 }}
-            />
-            not for me
-          </label>
-        </div>
-  
-        {showError && (
-          <p style={{ color: "#c62828", fontWeight: 600, marginBottom: 12 }}>
-            Please select an option to continue.
-          </p>
-        )}
-  
-        {/* CTAs */}
-        <div className="px-cta-col" style={{ marginTop: 8 }}>
-          <button className="boutique-primary-btn" onClick={handleContinue}>
-            Continue →
-          </button>
-          <button className="boutique-back-btn" onClick={onBack}>
-            ← Back
-          </button>
-          <button
-            type="button"
-            onClick={goToExplore}
-            className="linklike"
-            style={{ marginTop: 6 }}
+          </div>
+
+          {/* Prompt */}
+          <p
+            className="px-prose-narrow"
+            style={{ marginTop: "0.5rem", marginBottom: 12 }}
           >
-            ⟳ Start over
-          </button>
+            How do you feel about this one?
+          </p>
+
+          {/* Radios */}
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+              justifyContent: "center",
+              marginBottom: 12,
+            }}
+          >
+            <label>
+              <input
+                type="radio"
+                name="venue-batesmansion"
+                value={3}
+                checked={selectedOption === 3}
+                onChange={() => handleSelect(3)}
+                style={{ marginRight: 8 }}
+              />
+              a favorite!
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="venue-batesmansion"
+                value={2}
+                checked={selectedOption === 2}
+                onChange={() => handleSelect(2)}
+                style={{ marginRight: 8 }}
+              />
+              this could work
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="venue-batesmansion"
+                value={1}
+                checked={selectedOption === 1}
+                onChange={() => handleSelect(1)}
+                style={{ marginRight: 8 }}
+              />
+              not for me
+            </label>
+          </div>
+
+          {showError && (
+            <p style={{ color: "#c62828", fontWeight: 600, marginBottom: 12 }}>
+              Please select an option to continue.
+            </p>
+          )}
+
+          {/* CTAs – same stacked style but inside the inner container */}
+          <div className="px-cta-col" style={{ marginTop: 8 }}>
+            <button className="boutique-primary-btn" onClick={handleContinue}>
+              Continue →
+            </button>
+            <button className="boutique-back-btn" onClick={onBack}>
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={goToExplore}
+              className="linklike"
+              style={{ marginTop: 6 }}
+            >
+              ⟳ Start over
+            </button>
+          </div>
         </div>
       </div>
     </div>

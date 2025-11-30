@@ -121,12 +121,13 @@ const WindmillBarn: React.FC<WindmillBarnProps> = ({
           Big Red Barn at Windmill Winery
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="849188155"
-  title="Windmill Barn"
-  thumbnail={VIDEO_THUMBNAILS.WindmillBarn}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="849188155"
+    title="Windmill Barn"
+    thumbnail={VIDEO_THUMBNAILS.WindmillBarn}
+  />
+</div>
 
         {/* Prompt */}
 <p

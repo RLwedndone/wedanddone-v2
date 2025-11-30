@@ -118,16 +118,21 @@ const SchnepfBarn: React.FC<SchnepfBarnProps> = ({
           Schnepf’s Big Red Barn
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829959049"
-  title="Schnepf’s Big Red Barn"
-  thumbnail={VIDEO_THUMBNAILS.SchnepfBRB}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829959049"
+    title="Schnepf’s Big Red Barn"
+    thumbnail={VIDEO_THUMBNAILS.SchnepfBRB}
+  />
+</div>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          How do you feel about this one?
-        </p>
+        {/* Prompt */}
+<p
+  className="px-prose-narrow"
+  style={{ marginTop: "1.25rem", marginBottom: 12 }}
+>
+  How do you feel about this one?
+</p>
 
         {/* 🔘 Radio group (unique name) */}
         <div

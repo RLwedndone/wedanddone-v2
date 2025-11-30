@@ -118,12 +118,13 @@ const Soho63: React.FC<Soho63Props> = ({
           Soho63
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829956929"
-  title="Soho63"
-  thumbnail={VIDEO_THUMBNAILS.Soho}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829956929"
+    title="Soho63"
+    thumbnail={VIDEO_THUMBNAILS.Soho}
+  />
+</div>
 
         {/* Prompt */}
 <p

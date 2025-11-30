@@ -570,16 +570,63 @@
    .px-radio input[type="radio"] { pointer-events: auto; }
    .px-radio-block, .px-radio-block * { pointer-events: auto; }
    
-   /* Venue iframe */
-   .px-video-wrap { width: 100%; max-width: 900px; margin: 0 auto 1.25rem; }
-   .px-video-iframe {
-    width: 100%;
-    height: clamp(200px, 34vw, 320px); /* ↓ smaller: 25% lower across range */
-    border: 0;
-    border-radius: 12px;
-    display: block;
-    background: #000;
+/* === Venue video slot ==================================== */
+/* Outer wrapper: width + rounded corners + overflow */
+.px-video-wrap {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 1.25rem;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Inner box: 4:3-ish aspect ratio (taller than 16:9) */
+.px-video-inner {
+  position: relative;
+  width: 100%;
+  padding-bottom: 75%; /* 4:3 ≈ 0.75 – adjust if needed */
+}
+
+/* Slightly less tall on small phones so it doesn’t dominate */
+@media (max-width: 600px) {
+  .px-video-inner {
+    padding-bottom: 68%;
   }
+}
+
+/* Iframe / thumbnail fill the box */
+.px-video-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;  /* radius handled by wrapper */
+  display: block;
+  background: #000;
+}
+
+/* Thumbnail image — force it to show full image instead of cropping */
+.px-video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;       /* <-- full image, no top/bottom crop */
+  object-position: center;
+  display: block;
+  background-color: #000;    /* matches video background */
+}
+
+/* Thumbnail inside LazyVimeo – keep full frame visible */
+.px-video-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;      /* show whole thumbnail, no cropping */
+  object-position: center;
+  display: block;
+  background-color: #000;
+}
+
    
    /* =========================================================
       15) React Calendar (scoped to boutique overlays only)
@@ -773,4 +820,16 @@
     transform: rotateY(0deg) translateX(0);
     opacity: 1;
   }
+}
+
+/* 🌀 Wedding Wisdom + dashboard-style layout wrapper */
+.wd-dashboard-bg {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 16px;
+  box-sizing: border-box;
+  position: relative;
 }

@@ -122,12 +122,13 @@ const VerradoGolfClub: React.FC<VerradoGolfClubProps> = ({
           Verrado Golf Club
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829968623"
-  title="Verrado Golf Club"
-  thumbnail={VIDEO_THUMBNAILS.Verrado}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829968623"
+    title="Verrado Golf Club"
+    thumbnail={VIDEO_THUMBNAILS.Verrado}
+  />
+</div>
 
         {/* Prompt */}
 <p

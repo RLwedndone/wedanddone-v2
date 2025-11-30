@@ -118,12 +118,13 @@ const Ocotillo: React.FC<OcotilloProps> = ({
           The Ocotillo
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829585981"
-  title="The Ocotillo"
-  thumbnail={VIDEO_THUMBNAILS.Ocotillo}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829585981"
+    title="The Ocotillo"
+    thumbnail={VIDEO_THUMBNAILS.Ocotillo}
+  />
+</div>
 
         {/* Prompt */}
 <p

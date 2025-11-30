@@ -118,12 +118,13 @@ const FarmHouse: React.FC<FarmHouseProps> = ({
           The Farmhouse
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829958523"
-  title="The Farmhouse"
-  thumbnail={VIDEO_THUMBNAILS.FarmHouse}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829958523"
+    title="The Farmhouse"
+    thumbnail={VIDEO_THUMBNAILS.FarmHouse}
+  />
+</div>
 
         {/* Prompt */}
 <p

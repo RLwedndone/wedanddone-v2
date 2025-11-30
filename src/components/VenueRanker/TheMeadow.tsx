@@ -118,12 +118,13 @@ const TheMeadow: React.FC<TheMeadowProps> = ({
           Schnepf’s Farm — The Meadow
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829575414"
-  title="The Meadow"
-  thumbnail={VIDEO_THUMBNAILS.Meadow}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829575414"
+    title="The Meadow"
+    thumbnail={VIDEO_THUMBNAILS.Meadow}
+  />
+</div>
 
         {/* Prompt */}
 <p

@@ -118,16 +118,21 @@ const RubiHouse: React.FC<RubiHouseProps> = ({
           The Rubi House
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829596336"
-  title="The Rubi House"
-  thumbnail={VIDEO_THUMBNAILS.Rubi}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829596336"
+    title="The Rubi House"
+    thumbnail={VIDEO_THUMBNAILS.Rubi}
+  />
+</div>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          How do you feel about this one?
-        </p>
+        {/* Prompt */}
+<p
+  className="px-prose-narrow"
+  style={{ marginTop: "1.25rem", marginBottom: 12 }}
+>
+  How do you feel about this one?
+</p>
 
         {/* 🔘 Radio group (unique name) */}
         <div

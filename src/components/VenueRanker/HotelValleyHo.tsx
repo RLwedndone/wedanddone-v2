@@ -118,12 +118,13 @@ const HotelValleyHo: React.FC<HotelValleyHoProps> = ({
           Hotel Valley Ho
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829580336"
-  title="Hotel Valley Ho"
-  thumbnail={VIDEO_THUMBNAILS.ValleyHo}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829580336"
+    title="Hotel Valley Ho"
+    thumbnail={VIDEO_THUMBNAILS.ValleyHo}
+  />
+</div>
 
         {/* Prompt */}
 <p

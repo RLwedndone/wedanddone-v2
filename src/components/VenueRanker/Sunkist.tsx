@@ -118,12 +118,13 @@ const Sunkist: React.FC<SunkistProps> = ({
           The Sunkist Warehouse
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829585100"
-  title="Sunkist"
-  thumbnail={VIDEO_THUMBNAILS.Sunkist}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829585100"
+    title="Sunkist"
+    thumbnail={VIDEO_THUMBNAILS.Sunkist}
+  />
+</div>
 
        {/* Prompt */}
 <p

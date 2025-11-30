@@ -118,12 +118,13 @@ const HaciendaDelSol: React.FC<HaciendaDelSolProps> = ({
           Hacienda Del Sol
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829579059"
-  title="Hacienda Del Sol"
-  thumbnail={VIDEO_THUMBNAILS.Hacienda}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829579059"
+    title="Hacienda Del Sol"
+    thumbnail={VIDEO_THUMBNAILS.Hacienda}
+  />
+</div>
 
        {/* Prompt */}
 <p

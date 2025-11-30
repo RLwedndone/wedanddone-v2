@@ -117,12 +117,13 @@ const LakeHouse: React.FC<LakeHouseProps> = ({
           The Windmill Winery Lake House
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="848914703"
-  title="Windmill Winery Lake House"
-  thumbnail={VIDEO_THUMBNAILS.LakeHouse}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="848914703"
+    title="Windmill Winery Lake House"
+    thumbnail={VIDEO_THUMBNAILS.LakeHouse}
+  />
+</div>
 
         {/* Prompt */}
 <p

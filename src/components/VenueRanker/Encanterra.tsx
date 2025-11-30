@@ -121,12 +121,13 @@ const Encanterra: React.FC<EncanterraProps> = ({
           Encanterra Golf Club
         </h2>
 
-        {/* 🎥 Venue video */}
-        <LazyVimeo
-  videoId="829574455"
-  title="Encanterra"
-  thumbnail={VIDEO_THUMBNAILS.Encanterra}
-/>
+        <div style={{ width: "100%", maxWidth: 720, margin: "0 auto 1.25rem" }}>
+  <LazyVimeo
+    videoId="829574455"
+    title="Encanterra"
+    thumbnail={VIDEO_THUMBNAILS.Encanterra}
+  />
+</div>
        {/* Prompt */}
 <p
   className="px-prose-narrow"
