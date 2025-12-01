@@ -1,12 +1,8 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesOverlay.tsx
 import React, { useEffect, useState, useRef } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
-import { db, app } from "../../../../firebase/firebaseConfig";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// Generators
-import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../../../firebase/firebaseConfig";
 
 // Catering screens
 import BatesIntro from "./BatesIntro";
@@ -116,72 +112,6 @@ const BatesOverlay: React.FC<BatesOverlayProps> = ({ onClose, startAt = "intro" 
     return () => unsub();
   }, []);
 
-  // Build + upload catering PDF, then mark catering booked
-  const finalizeBatesCatering = async ({
-    total,
-    guestCount,
-    weddingDate,
-    lineItems,
-    menuSelections,
-    signatureImage,
-    paymentSummaryText,
-  }: {
-    total: number;
-    guestCount: number;
-    weddingDate: string | null;
-    lineItems: string[];
-    menuSelections: { hors: string[]; salads: string[]; entrees: string[] };
-    signatureImage: string;
-    paymentSummaryText: string;
-  }) => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    // Name on the PDF
-    const userSnap = await getDoc(doc(db, "users", user.uid));
-    const u = userSnap.data() || {};
-    const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim();
-
-    // Generate (reuse existing generator – we just remap to its expected keys)
-    const pdfBlob = await generateYumAgreementPDF({
-      fullName,
-      total,
-      deposit: 0,
-      guestCount,
-      charcuterieCount: 0,
-      weddingDate: weddingDate || "",
-      signatureImageUrl: signatureImage,
-      paymentSummary: paymentSummaryText,
-      lineItems,
-      cuisineType: "Bates Catering",
-      menuSelections: {
-        appetizers: menuSelections.hors,
-        mains: menuSelections.entrees,
-        sides: menuSelections.salads,
-      },
-    });
-
-    // Upload
-    const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
-    const filename = `BatesCateringAgreement_${Date.now()}.pdf`;
-    const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
-    await uploadBytes(fileRef, pdfBlob);
-    const publicUrl = await getDownloadURL(fileRef);
-
-    // Save + mark catering booked
-    const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, {
-      documents: arrayUnion({
-        title: "Bates Catering Agreement",
-        url: publicUrl,
-        uploadedAt: new Date().toISOString(),
-      }),
-      bookings: { catering: true, dessert: !!u?.bookings?.dessert },
-      progress: { yumYum: { step: "cateringThankYou" } },
-    });
-  };
-
   if (loading) return null;
 
  // ── RENDER — single overlay, no inner card; children own their pink X ──────
@@ -251,20 +181,8 @@ return (
           setSignatureSubmitted={setSignatureSubmitted}
           onBack={() => setStep("cateringCart")}
           onComplete={async () => {
-            if (addonsTotal > 0) {
-              setStep("cateringCheckout");
-            } else {
-              await finalizeBatesCatering({
-                total: 0,
-                guestCount: 0,
-                weddingDate: userWeddingDate,
-                lineItems,
-                menuSelections,
-                signatureImage: localStorage.getItem("yumSignature") || "",
-                paymentSummaryText: "No add-ons selected; Bates catering included.",
-              });
-              setStep("batesCateringThankYou");
-            }
+            // Always go through checkout; it now handles both 0 and >0 totals
+            setStep("cateringCheckout");
           }}
           onClose={onClose}
         />

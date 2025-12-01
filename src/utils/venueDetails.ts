@@ -195,6 +195,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "🍽️ Catering <strong>is included</strong> in the venue price",
       "🥂 Alcohol is BYO — you bring it, and Bates’ licensed bartenders must serve it",
       "🏛️ Historic building quirks — rented 'as-is', so expect charm with some character",
+      "📊 Bates uses tiered guest pricing — if your guest count falls between tiers, your booking aligns to the next tier up."
     ],
     videoLink: "https://player.vimeo.com/video/829586701",
     collection: "novel"

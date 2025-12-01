@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesDessertCheckout.tsx
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -95,6 +95,7 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
   lastName,
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
+  const didRunRef = useRef(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
 
   // Plan selections saved on the contract screen / LS
@@ -157,6 +158,12 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
 
   // Success → finalize, upload PDF, route to Bates TY
   const handleSuccess = async (): Promise<void> => {
+    if (didRunRef.current) {
+      console.warn("[BatesDessertCheckout] handleSuccess already ran — ignoring re-entry");
+      return;
+    }
+    didRunRef.current = true;
+    
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -529,29 +536,19 @@ return (
           aria-busy={isGenerating}
         >
           <CheckoutForm
-            total={amountDueToday}
-            onSuccess={handleSuccess}
-            setStepSuccess={handleSuccess}
-            isAddon={false}
-            customerEmail={
-              getAuth().currentUser?.email ||
-              undefined
-            }
-            customerName={`${firstName || "Magic"} ${
-              lastName || "User"
-            }`}
-            customerId={(() => {
-              try {
-                return (
-                  localStorage.getItem(
-                    "stripeCustomerId"
-                  ) || undefined
-                );
-              } catch {
-                return undefined;
-              }
-            })()}
-          />
+  total={amountDueToday}
+  onSuccess={handleSuccess}
+  isAddon={false}
+  customerEmail={getAuth().currentUser?.email || undefined}
+  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+  customerId={(() => {
+    try {
+      return localStorage.getItem("stripeCustomerId") || undefined;
+    } catch {
+      return undefined;
+    }
+  })()}
+/>
         </div>
 
         {/* Back */}

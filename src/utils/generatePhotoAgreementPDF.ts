@@ -9,6 +9,7 @@ interface PDFOptions {
   weddingDate: string;           // ISO (YYYY-MM-DD) or human string
   signatureImageUrl: string;     // data URL (PNG)
   lineItems?: string[];
+  photoStyle?: string;           // NEW: “Light & Airy” / “True to Life”
 }
 
 /* -------------------- helpers -------------------- */
@@ -45,16 +46,30 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
+/** Reset to normal body text style */
+const setBodyFont = (doc: jsPDF) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+};
+
 /* footer */
 const renderFooter = (doc: jsPDF) => {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const lineY = h - 20;
+
+  // footer style
   doc.setDrawColor(200);
   doc.line(20, lineY, w - 20, lineY);
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", w / 2, lineY + 8, { align: "center" });
+  doc.text("Magically booked by Wed&Done", w / 2, lineY + 8, {
+    align: "center",
+  });
+
+  // 🔁 IMPORTANT: restore body style for anything after the footer
+  setBodyFont(doc);
 };
 
 export const generatePhotoAgreementPDF = async ({
@@ -66,6 +81,7 @@ export const generatePhotoAgreementPDF = async ({
   weddingDate,
   signatureImageUrl,
   lineItems = [],
+  photoStyle,
 }: PDFOptions): Promise<Blob> => {
   const doc = new jsPDF();
   const w = doc.internal.pageSize.getWidth();
@@ -83,11 +99,20 @@ export const generatePhotoAgreementPDF = async ({
     if (y + needed <= contentMaxY()) return;
     renderFooter(doc);
     doc.addPage();
-    // optional watermark on subsequent pages
+    // watermark on subsequent pages
     try {
-      doc.addImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`, "JPEG", 40, 60, 130, 130);
+      doc.addImage(
+        `${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`,
+        "JPEG",
+        40,
+        60,
+        130,
+        130
+      );
     } catch {}
     y = TOP;
+    // 🔁 reset text style after new page
+    setBodyFont(doc);
   };
 
   // assets
@@ -103,20 +128,31 @@ export const generatePhotoAgreementPDF = async ({
   }
 
   // header
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(0);
+  setBodyFont(doc);
   doc.setFontSize(16);
-  doc.text("Photography Agreement & Receipt", w / 2, 75, { align: "center" });
+  doc.text("Photography Agreement & Receipt", w / 2, 75, {
+    align: "center",
+  });
 
   // basics
-  doc.setFontSize(12);
+  setBodyFont(doc);
   y = 90;
   const wedPretty = prettyDate(weddingDate);
   doc.text(`Name: ${firstName || ""} ${lastName || ""}`, LEFT, y);
   y += 8;
   doc.text(`Wedding Date: ${wedPretty}`, LEFT, y);
   y += 8;
-  doc.text(`Total Photography Cost: $${total.toFixed(2)}`, LEFT, y);
+  doc.text(
+    `Photo Style: ${photoStyle && photoStyle.trim() ? photoStyle : "Not selected"}`,
+    LEFT,
+    y
+  );
+  y += 8;
+  doc.text(
+    `Total Photography Cost: $${total.toFixed(2)}`,
+    LEFT,
+    y
+  );
   if (deposit > 0 && deposit < total) {
     y += 8;
     doc.text(`Deposit (50%): $${deposit.toFixed(2)}`, LEFT, y);
@@ -129,10 +165,9 @@ export const generatePhotoAgreementPDF = async ({
     doc.setFontSize(14);
     doc.text("Included Items:", LEFT, y);
     y += 10;
-    doc.setFontSize(12);
+    setBodyFont(doc);
     for (const item of lineItems) {
       ensureSpace(8);
-      // wrap long items if needed
       const wrapped = doc.splitTextToSize(`• ${item}`, RIGHT - LEFT - 5);
       doc.text(wrapped, LEFT + 5, y);
       y += 8 + (wrapped.length - 1) * 6;
@@ -147,12 +182,18 @@ export const generatePhotoAgreementPDF = async ({
     day: "numeric",
   });
   const finalDue = finalDueMinusDays(weddingDate, 35);
-  const finalDuePretty = finalDue ? fmtLong(finalDue) : "35 days before your wedding date";
+  const finalDuePretty = finalDue
+    ? fmtLong(finalDue)
+    : "35 days before your wedding date";
 
   ensureSpace(24);
-  doc.setFontSize(12);
+  setBodyFont(doc);
   const paidToday = deposit > 0 && deposit < total ? deposit : total;
-  doc.text(`Paid today: $${paidToday.toFixed(2)} on ${todayPretty}`, LEFT, y);
+  doc.text(
+    `Paid today: $${paidToday.toFixed(2)} on ${todayPretty}`,
+    LEFT,
+    y
+  );
   y += 8;
 
   if (deposit > 0 && deposit < total) {
@@ -174,19 +215,22 @@ export const generatePhotoAgreementPDF = async ({
 
   if (paymentSummary) {
     ensureSpace(8);
-    const summaryWrapped = doc.splitTextToSize(`Payment Plan: ${paymentSummary}`, RIGHT - LEFT);
+    const summaryWrapped = doc.splitTextToSize(
+      `Payment Plan: ${paymentSummary}`,
+      RIGHT - LEFT
+    );
     doc.text(summaryWrapped, LEFT, y);
     y += summaryWrapped.length * 6 + 2;
   }
 
-  // legal terms (same spirit/language as contract + floral)
+  // legal terms
   ensureSpace(14);
   doc.setTextColor(50);
   doc.setFontSize(12);
   doc.text("Terms of Service:", LEFT, y);
   y += 10;
 
-  doc.setTextColor(0);
+  setBodyFont(doc);
   const terms: string[] = [
     "By signing this agreement, you acknowledge that a minimum of 50% of the photography total is non-refundable. If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. If you cancel within 35 days, all payments are non-refundable.",
     "Missed Payments: If any installment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. If payment is not received within 7 days, a $25 late fee will be applied. If payment remains outstanding for more than 14 days, Wed&Done may suspend services and declare this agreement in default. In the event of default, all amounts paid (including the non-refundable deposit) may be retained and the booking may be cancelled.",
@@ -203,28 +247,42 @@ export const generatePhotoAgreementPDF = async ({
     y += wrapped.length * 6 + 2;
   }
 
-  // signature block anchored above footer (no overlap)
+  // signature block anchored above footer
   const sigImageMaxW = 100;
   const sigImageMaxH = 35;
-  const sigBlockNeeded = 5 + sigImageMaxH + 7 + 7 + 6; // label + image + two lines + breathing room
+  const sigBlockNeeded = 5 + sigImageMaxH + 7 + 7 + 6;
 
   const placeSignature = () => {
-    const footerTop = h - FOOTER_GAP + 8; // just above footer text line
+    const footerTop = h - FOOTER_GAP + 8;
     if (y + sigBlockNeeded > footerTop - 10) {
       renderFooter(doc);
       doc.addPage();
       try {
-        doc.addImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`, "JPEG", 40, 60, 130, 130);
+        doc.addImage(
+          `${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`,
+          "JPEG",
+          40,
+          60,
+          130,
+          130
+        );
       } catch {}
       y = TOP;
+      setBodyFont(doc);
     }
 
-    doc.setTextColor(0);
-    doc.setFontSize(12);
+    setBodyFont(doc);
     doc.text("Signature:", LEFT, y);
     y += 5;
     try {
-      doc.addImage(signatureImageUrl, "PNG", LEFT, y, sigImageMaxW, sigImageMaxH);
+      doc.addImage(
+        signatureImageUrl,
+        "PNG",
+        LEFT,
+        y,
+        sigImageMaxW,
+        sigImageMaxH
+      );
     } catch {
       doc.setDrawColor(180);
       doc.rect(LEFT, y, sigImageMaxW, sigImageMaxH);

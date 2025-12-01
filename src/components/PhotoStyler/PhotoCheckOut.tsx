@@ -81,6 +81,7 @@ interface PhotoCheckOutProps {
   lineItems: string[];
   uid: string;
   onBack: () => void;
+  photoStyle?: string;        // ⭐ NEW
 }
 
 const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
@@ -95,6 +96,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   lineItems,
   uid,
   onBack,
+  photoStyle,                // ⭐ NEW
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -152,16 +154,15 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (finishedOnceRef.current) return;
     finishedOnceRef.current = true;
-  
+
     const auth = getAuth();
     const user = auth.currentUser;
-  
+
     setIsGenerating(true);
-  
+
     try {
       const uidToUse = user?.uid || uid;
       const userRef = doc(db, "users", uidToUse);
-      // ...
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? snap.data() : {};
 
@@ -218,8 +219,11 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
       const lastName = (userDoc as any)?.lastName || "User";
       const fullName = `${firstName} ${lastName}`;
 
-      // Dates for plan math: final due = wedding - 35 days
+      const userEmail =
+        (userDoc as any)?.email || user?.email || "";
       const weddingYMD = (userDoc as any)?.weddingDate || null;
+
+      // Dates for plan math: final due = wedding - 35 days
       const wedding = parseLocalYMD(weddingYMD || "");
       const finalDueDate = wedding
         ? new Date(wedding.getTime() - 35 * MS_DAY)
@@ -361,14 +365,18 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             month: "long",
             day: "numeric",
           });
+        
           pdfBlob = await generatePhotoAddOnReceiptPDF({
             fullName,
+            email: userEmail,          // ✅ matches PhotoAddOnPDFOptions
             lineItems,
             total: amountDueToday,
             purchaseDate,
+            weddingDate: weddingYMD || undefined, // generator handles TBD display
           });
         } else {
           const depositForPdf = payFull ? 0 : amountDueToday;
+
           pdfBlob = await generatePhotoAgreementPDF({
             firstName,
             lastName,
@@ -378,6 +386,9 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             weddingDate: (userDoc as any)?.weddingDate || "TBD",
             signatureImageUrl: signatureImage || "",
             lineItems,
+            photoStyle: photoStyle && photoStyle.trim()
+              ? photoStyle
+              : "Not selected",
           });
         }
 
@@ -403,31 +414,71 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         console.warn("⚠️ PDF generate/upload failed—continuing:", pdfErr);
       }
 
-      // 3) Email (best-effort)
+      // 3) Emails (user + admin, VenueCheckOut style, but photo templates)
       try {
-        const service = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const template = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-        if (service && template && publicKey) {
-          await emailjs.send(
-            service,
-            template,
-            {
-              user_name: fullName,
-              to_email:
-                (userDoc as any)?.email ||
-                user?.email ||
-                "admin@wedndone.com",
-              pdf_url: pdfUrl,
-              pdf_title: isAddon
-                ? "Photo Add-On Receipt"
-                : "Photo Agreement",
-            },
-            publicKey
+        const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        const ADMIN_EMAIL = import.meta.env.VITE_EMAILJS_ADMIN_EMAIL;
+
+        // your EmailJS template IDs for photo:
+        // PHOTO_BOOKED_USER: "template_z6xanln"
+        // PHOTO_ADDON_USER:  "template_9fb76zd"
+        // PHOTO_BOOKED_ADMIN:"template_mgm37ce"
+        const USER_TEMPLATE_ID = isAddon
+          ? "template_9fb76zd"
+          : "template_z6xanln";
+        const ADMIN_TEMPLATE_ID = "template_mgm37ce";
+
+        if (SERVICE_ID && PUBLIC_KEY) {
+          const userEmail =
+            (userDoc as any)?.email || user?.email || undefined;
+
+          // buyer email
+          if (USER_TEMPLATE_ID && userEmail) {
+            await emailjs.send(
+              SERVICE_ID,
+              USER_TEMPLATE_ID,
+              {
+                user_email: userEmail,
+                user_name: fullName,
+                pdf_url: pdfUrl,
+                pdf_title: isAddon
+                  ? "Photo Add-On Receipt"
+                  : "Photo Agreement",
+                amount_today: amountDueToday.toFixed(2),
+                total_contract: totalEffective.toFixed(2),
+                is_addon: isAddon ? "Yes" : "No",
+              },
+              PUBLIC_KEY
+            );
+            console.log("📨 Photo buyer email sent");
+          }
+
+          // admin email
+          if (ADMIN_TEMPLATE_ID && ADMIN_EMAIL) {
+            await emailjs.send(
+              SERVICE_ID,
+              ADMIN_TEMPLATE_ID,
+              {
+                admin_email: ADMIN_EMAIL,
+                user_email: userEmail || "",
+                user_name: fullName,
+                pdf_url: pdfUrl,
+                amount_today: amountDueToday.toFixed(2),
+                total_contract: totalEffective.toFixed(2),
+                is_addon: isAddon ? "Yes" : "No",
+              },
+              PUBLIC_KEY
+            );
+            console.log("📨 Photo admin email sent");
+          }
+        } else {
+          console.warn(
+            "⚠️ Photo EmailJS not fully configured (service/public/admin); skipping emails."
           );
         }
       } catch (emailErr) {
-        console.warn("⚠️ EmailJS send failed—continuing:", emailErr);
+        console.warn("⚠️ Photo EmailJS send failed—continuing:", emailErr);
       }
 
       // 4) Fan-out events

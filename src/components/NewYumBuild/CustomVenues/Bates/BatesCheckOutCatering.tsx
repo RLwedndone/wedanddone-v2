@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Bates/BatesCheckOutCatering.tsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import generateBatesCateringAgreementPDF from "../../../../utils/generateBatesCateringAgreementPDF";
@@ -41,27 +41,27 @@ function monthsBetweenInclusive(from: Date, to: Date) {
 
 interface BatesCheckOutProps {
   // 🔹 Overlay / navigation
-  onClose: () => void;            // allows user to exit overlay cleanly
-  onSuccess: () => void;          // advance to thank-you screen
+  onClose: () => void; // allows user to exit overlay cleanly
+  onSuccess: () => void; // advance to thank-you screen
   onBack: () => void;
 
   // 🔹 Payment + display
-  total: number;                  // GRAND total (incl. taxes + fees)
-  payFull: boolean;               // Pay in full vs Deposit + Monthly
-  depositAmount?: number;         // optional override; defaults to 25%
-  paymentSummary?: string;        // optional summary message
-  signatureImage: string;         // captured in contract step
+  total: number; // GRAND total (incl. taxes + fees)
+  payFull: boolean; // Pay in full vs Deposit + Monthly
+  depositAmount?: number; // optional override; defaults to 25%
+  paymentSummary?: string; // optional summary message
+  signatureImage: string; // captured in contract step
 
   // 🔹 User / booking details for PDF + Stripe metadata
   firstName: string;
   lastName: string;
-  weddingDate: string;            // YYYY-MM-DD
+  weddingDate: string; // YYYY-MM-DD
   dayOfWeek?: string | null;
   lineItems: string[];
   uid: string;
 
   // 🔹 Agreement + recordkeeping
-  guestCount: number;             // for "Locked Guest Count" in agreement
+  guestCount: number; // for "Locked Guest Count" in agreement
 }
 
 const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
@@ -85,8 +85,8 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didRunRef = useRef(false);
 
-  const DEPOSIT_PCT = 0.25;     // same policy
-  const FINAL_DUE_DAYS = 35;    // Bates requires 35 days
+  const DEPOSIT_PCT = 0.25; // same policy
+  const FINAL_DUE_DAYS = 35; // Bates requires 35 days
 
   const parsedWedding = weddingDate ? new Date(`${weddingDate}T12:00:00`) : null;
   const finalDueDate = parsedWedding
@@ -111,6 +111,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       })
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
+  // 👉 Detect the “no payment” path (included catering, no add-ons)
+  const isZeroTotal = amountDueToday <= 0;
+
   // Stripe success → persist billing plan + docs (mirrors Floral)
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
@@ -130,10 +133,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     const userDoc = userSnap.data() || {};
 
     const safeFirst = (userDoc as any)?.firstName || firstName || "Magic";
-    const safeLast  = (userDoc as any)?.lastName  || lastName  || "User";
-    const fullName  = `${safeFirst} ${safeLast}`;
+    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const fullName = `${safeFirst} ${safeLast}`;
 
-    // Save/refresh Stripe customer id
+    // Save/refresh Stripe customer id (only relevant when customerId exists)
     try {
       const existing = userDoc?.stripeCustomerId as string | undefined;
       if (customerId && customerId !== existing) {
@@ -188,6 +191,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     }
 
     // Ensure default PM for off-session charges
+    // (harmless in zero-flow; important in add-ons flow)
     try {
       await fetch(
         "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
@@ -204,6 +208,53 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       console.error("❌ ensure-default-payment-method failed:", err);
     }
 
+    // --- FIX: Build safe values so PDF is always correct ---
+
+    // wedding date (try props → Firestore → various LS keys)
+    const storedWeddingDate =
+      weddingDate ||
+      (userDoc as any)?.weddingDate ||
+      (userDoc as any)?.wedding?.date ||
+      (userDoc as any)?.profileData?.weddingDate ||
+      localStorage.getItem("batesWeddingDate") ||
+      localStorage.getItem("yumWeddingDate") ||
+      localStorage.getItem("magicWeddingDate") ||
+      localStorage.getItem("weddingDate") ||
+      "";
+
+    // guest count (props → Firestore → LS)
+    const storedGuestCount =
+      (guestCount && guestCount > 0
+        ? guestCount
+        : Number(
+            (userDoc as any)?.guestCount ||
+              (userDoc as any)?.profileData?.guestCount ||
+              (userDoc as any)?.venueRankerData?.booking?.guestCount ||
+              localStorage.getItem("batesLockedGuestCount") ||
+              localStorage.getItem("magicGuestCount") ||
+              localStorage.getItem("yumGuestCount") ||
+              localStorage.getItem("guestCount") ||
+              "0"
+          )) || 0;
+
+    // signature (contract prop → Firestore → LS)
+    const storedSignature =
+      signatureImage ||
+      (userDoc as any)?.yumSignature ||
+      localStorage.getItem("batesCateringSignature") ||
+      localStorage.getItem("yumSignature") ||
+      "";
+
+    // (optional: temporary debug so we can see what's happening in the console)
+    console.log("[Bates][CateringCheckout] PDF fields", {
+      weddingDateProp: weddingDate,
+      storedWeddingDate,
+      guestCountProp: guestCount,
+      storedGuestCount,
+      hasSignatureProp: !!signatureImage,
+      hasStoredSignature: !!storedSignature,
+    });
+
     // ── Generate + upload Bates Agreement PDF ────────────────────────────────
     // (spinner already ON; do NOT switch it off in this block)
     let agreementUrl: string | null = null;
@@ -212,25 +263,20 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       const sel = await loadBatesSelections(user.uid);
 
       const pdfBlob = await generateBatesCateringAgreementPDF({
-        fullName: `${userDoc?.firstName || firstName || "Magic"} ${
-          userDoc?.lastName || lastName || "User"
-        }`,
-        total,                                   // add-ons grand total
-        deposit: payFull ? 0 : amountDueToday,   // amount paid today if deposit plan
-        guestCount,
-        weddingDate: weddingDate || "",
-        signatureImageUrl: signatureImage || "",
+        fullName: fullName,
+        total,
+        deposit: payFull ? 0 : amountDueToday,
+        guestCount: storedGuestCount,
+        weddingDate: storedWeddingDate,
+        signatureImageUrl: storedSignature,
         paymentSummary:
           paymentSummary ||
           (payFull
-            ? `You’re paying $${total.toFixed(2)} today for Bates add-ons.`
+            ? `You’re paying $${total.toFixed(2)} today for Bates catering.`
             : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
                 2
-              )} today. Remaining $${remainingBalance.toFixed(
-                2
-              )} auto-billed monthly; final payment due ${finalDueDateStr}.`),
+              )}. Remaining balance auto-billed monthly; final payment due ${finalDueDateStr}.`),
         lineItems: lineItems || [],
-        // ✅ include their menu selections on the PDF
         menuSelections: {
           appetizers: sel.hors,
           mains: sel.entrees,
@@ -262,171 +308,171 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     const lastPaymentCents =
       planMonths > 1 ? remainingCentsTotal - perMonthCents * (planMonths - 1) : 0;
 
-        // ── Persist Firestore updates ───────────────────────────────────────────
-        try {
-          // Normalized purchase entry (admin-friendly)
-          const purchaseEntry = {
-            label: "Bates Catering Add-ons",
-            category: "catering",
-            boutique: "catering",
-            source: "W&D",
-    
-            amount: Number(amountDueToday.toFixed(2)),          // hit card today
-            amountChargedToday: Number(amountDueToday.toFixed(2)),
-            contractTotal: Number(total.toFixed(2)),            // full add-ons total
-    
-            payFull: payFull,
-            deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
-            monthlyAmount: payFull ? 0 : perMonthCents / 100,
-            months: payFull ? 0 : planMonths,
-            method: payFull ? "paid_in_full" : "deposit",
-    
-            items: lineItems || [],
-            date: new Date().toISOString(),
-          };
-    
-          await updateDoc(userRef, {
-            // mark catering as booked
-            "bookings.catering": true,
-            "bookings.updatedAt": new Date().toISOString(),
-    
-            // attach the agreement PDF
-            ...(agreementUrl
-              ? {
-                  documents: arrayUnion({
-                    title: "Bates Catering Agreement",
-                    url: agreementUrl,
-                    uploadedAt: new Date().toISOString(),
-                  }),
-                }
-              : {}),
-    
-            // purchase history
-            purchases: arrayUnion(purchaseEntry),
-    
-            // spendTotal reflects what hit the card today
-            spendTotal: increment(Number(amountDueToday.toFixed(2))),
-    
-            // 🔹 Normalized catering totals for Guest Scroll + admin views
-            "totals.catering.contractTotal": Number(total.toFixed(2)),
-            "totals.catering.amountPaid": increment(
-              Number(amountDueToday.toFixed(2))
-            ),
-            "totals.catering.guestCountAtBooking": guestCount,
-            "totals.catering.venueSlug": "batesmansion",
-            "totals.catering.lastUpdatedAt": new Date().toISOString(),
-    
-            // keep existing plan / auto-plan for Stripe autopay
-            paymentPlan: payFull
-              ? {
-                  product: "catering_bates",
-                  type: "full",
-                  total,
-                  paidNow: total,
-                  remainingBalance: 0,
-                  finalDueDate: null,
-                  finalDueAt: null,
-                  depositPercent: 1,
-                  createdAt: new Date().toISOString(),
-                }
-              : {
-                  product: "catering_bates",
-                  type: "deposit",
-                  total,
-                  depositPercent: 0.25,
-                  paidNow: amountDueToday,
-                  remainingBalance,
-                  finalDueDate: finalDueDateStr,
-                  finalDueAt: finalISO,
-                  createdAt: new Date().toISOString(),
-                },
-    
-            paymentPlanAuto: payFull
-              ? {
-                  version: 1,
-                  product: "catering_bates",
-                  status: "complete",
-                  strategy: "paid_in_full",
-                  currency: "usd",
-    
-                  totalCents: Math.round(total * 100),
-                  depositCents: Math.round(total * 100),
-                  remainingCents: 0,
-    
-                  planMonths: 0,
-                  perMonthCents: 0,
-                  lastPaymentCents: 0,
-    
-                  nextChargeAt: null,
-                  finalDueAt: null,
-    
-                  stripeCustomerId:
-                    customerId || localStorage.getItem("stripeCustomerId") || null,
-    
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : {
-                  version: 1,
-                  product: "catering_bates",
-                  status: "active",
-                  strategy: "monthly_until_final",
-                  currency: "usd",
-    
-                  totalCents: Math.round(total * 100),
-                  depositCents: Math.round(amountDueToday * 100),
-                  remainingCents: remainingCentsTotal,
-    
-                  planMonths,
-                  perMonthCents,
-                  lastPaymentCents,
-    
-                  nextChargeAt: firstChargeAtISO, // ~1 month from now
-                  finalDueAt: finalISO,
-    
-                  stripeCustomerId:
-                    customerId || localStorage.getItem("stripeCustomerId") || null,
-    
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-          });
-        } catch (err) {
-          console.error("❌ Firestore update failed:", err);
-        }
+    // ── Persist Firestore updates ───────────────────────────────────────────
+    try {
+      // Normalized purchase entry (admin-friendly)
+      const purchaseEntry = {
+        label: "Bates Catering Add-ons",
+        category: "catering",
+        boutique: "catering",
+        source: "W&D",
+
+        amount: Number(amountDueToday.toFixed(2)), // hit card today
+        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        contractTotal: Number(total.toFixed(2)), // full add-ons total
+
+        payFull: payFull,
+        deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: payFull ? 0 : perMonthCents / 100,
+        months: payFull ? 0 : planMonths,
+        method: payFull ? "paid_in_full" : "deposit",
+
+        items: lineItems || [],
+        date: new Date().toISOString(),
+      };
+
+      await updateDoc(userRef, {
+        // mark catering as booked
+        "bookings.catering": true,
+        "bookings.updatedAt": new Date().toISOString(),
+
+        // attach the agreement PDF
+        ...(agreementUrl
+          ? {
+              documents: arrayUnion({
+                title: "Bates Catering Agreement",
+                url: agreementUrl,
+                uploadedAt: new Date().toISOString(),
+              }),
+            }
+          : {}),
+
+        // purchase history
+        purchases: arrayUnion(purchaseEntry),
+
+        // spendTotal reflects what hit the card today
+        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+
+        // 🔹 Normalized catering totals for Guest Scroll + admin views
+        "totals.catering.contractTotal": Number(total.toFixed(2)),
+        "totals.catering.amountPaid": increment(
+          Number(amountDueToday.toFixed(2))
+        ),
+        "totals.catering.guestCountAtBooking": storedGuestCount,
+        "totals.catering.venueSlug": "batesmansion",
+        "totals.catering.lastUpdatedAt": new Date().toISOString(),
+
+        // keep existing plan / auto-plan for Stripe autopay
+        paymentPlan: payFull
+          ? {
+              product: "catering_bates",
+              type: "full",
+              total,
+              paidNow: total,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              depositPercent: 1,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "catering_bates",
+              type: "deposit",
+              total,
+              depositPercent: 0.25,
+              paidNow: amountDueToday,
+              remainingBalance,
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalISO,
+              createdAt: new Date().toISOString(),
+            },
+
+        paymentPlanAuto: payFull
+          ? {
+              version: 1,
+              product: "catering_bates",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
+
+              totalCents: Math.round(total * 100),
+              depositCents: Math.round(total * 100),
+              remainingCents: 0,
+
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
+
+              nextChargeAt: null,
+              finalDueAt: null,
+
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
+
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              version: 1,
+              product: "catering_bates",
+              status: "active",
+              strategy: "monthly_until_final",
+              currency: "usd",
+
+              totalCents: Math.round(total * 100),
+              depositCents: Math.round(amountDueToday * 100),
+              remainingCents: remainingCentsTotal,
+
+              planMonths,
+              perMonthCents,
+              lastPaymentCents,
+
+              nextChargeAt: firstChargeAtISO, // ~1 month from now
+              finalDueAt: finalISO,
+
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
+
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+      });
+    } catch (err) {
+      console.error("❌ Firestore update failed:", err);
+    }
 
     // ✅ Centralized user+admin email (same system used by Floral/Yum core)
-try {
-  const current = getAuth().currentUser;
-  await notifyBooking("yum_catering", {
-    // who + basics
-    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: safeFirst,
+    try {
+      const current = getAuth().currentUser;
+      await notifyBooking("yum_catering", {
+        // who + basics
+        user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+        user_full_name: fullName,
+        firstName: safeFirst,
 
-    // details
-    wedding_date: weddingDate || "TBD",
-    total: total.toFixed(2),
-    line_items: (lineItems || []).join(", "),
+        // details
+        wedding_date: storedWeddingDate || weddingDate || "TBD",
+        total: total.toFixed(2),
+        line_items: (lineItems || []).join(", "),
 
-    // pdf info
-    pdf_url: agreementUrl || "",
-    pdf_title: "Bates Catering Agreement",
+        // pdf info
+        pdf_url: agreementUrl || "",
+        pdf_title: "Bates Catering Agreement",
 
-    // payment breakdown
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
+        // payment breakdown
+        payment_now: amountDueToday.toFixed(2),
+        remaining_balance: remainingBalance.toFixed(2),
+        final_due: finalDueDateStr,
 
-    // UX link
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+        // UX link
+        dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
 
-    // label used inside the template
-    product_name: "Bates Catering",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking failed:", mailErr);
-}
+        // label used inside the template
+        product_name: "Bates Catering",
+      });
+    } catch (mailErr) {
+      console.error("❌ notifyBooking failed:", mailErr);
+    }
 
     // UI nudges + done
     window.dispatchEvent(new Event("purchaseMade"));
@@ -440,76 +486,101 @@ try {
     onSuccess();
   };
 
-  return isGenerating ? (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "2rem 1rem",
-        boxSizing: "border-box",
-      }}
-    >
+  // 🔁 Zero-payment path: auto-run handleSuccess, no Stripe UI
+  useEffect(() => {
+    if (!isZeroTotal) return;
+    if (didRunRef.current) return;
+
+    // No payment due → just finalize agreement + Firestore + emails
+    handleSuccess();
+  }, [isZeroTotal]);
+
+  // ===================== RENDER =====================
+
+  // For both "generating" and "no payment" paths, show the magic clock card.
+  if (isGenerating || isZeroTotal) {
+    return (
       <div
-        className="pixie-card pixie-card--modal"
-        style={{ maxWidth: 700, position: "relative" }}
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem 1rem",
+          boxSizing: "border-box",
+        }}
       >
-        {/* 🩷 Pink X Close */}
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
-        </button>
-  
         <div
-          className="pixie-card__body"
-          style={{
-            textAlign: "center",
-            padding: "2rem 2.5rem",
-          }}
+          className="pixie-card pixie-card--modal"
+          style={{ maxWidth: 700, position: "relative" }}
         >
-          <video
-            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="px-media"
+          {/* 🩷 Pink X Close */}
+          <button
+            className="pixie-card__close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+              alt="Close"
+            />
+          </button>
+
+          <div
+            className="pixie-card__body"
             style={{
-              width: "100%",
-              maxWidth: 340,
-              borderRadius: 12,
-              margin: "0 auto 14px",
-              display: "block",
+              textAlign: "center",
+              padding: "2rem 2.5rem",
             }}
-          />
-  
-          <h3 className="px-title" style={{ margin: 0 }}>
-            Madge is working her magic… hold tight!
-          </h3>
-  
-          {/* single CTA */}
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
-              disabled
-            >
-              ← Back to Contract
-            </button>
+          >
+            <video
+              src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="px-media"
+              style={{
+                width: "100%",
+                maxWidth: 340,
+                borderRadius: 12,
+                margin: "0 auto 14px",
+                display: "block",
+              }}
+            />
+
+            <h3 className="px-title" style={{ margin: 0 }}>
+              {isZeroTotal
+                ? "Your Bates catering is included — Madge is saving your agreement now."
+                : "Madge is working her magic… hold tight!"}
+            </h3>
+
+            {isZeroTotal && (
+              <p className="px-prose-narrow" style={{ marginTop: 8 }}>
+                No payment is due today.
+              </p>
+            )}
+
+            {/* single CTA */}
+            <div style={{ marginTop: 12 }}>
+              <button
+                className="boutique-back-btn"
+                style={{ width: 250 }}
+                onClick={onBack}
+                disabled
+              >
+                ← Back to Contract
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  ) : (
+    );
+  }
+
+  // Normal paid add-on flow → show Stripe checkout
+  return (
     <div
       style={{
         minHeight: "100vh",
@@ -536,7 +607,7 @@ try {
             alt="Close"
           />
         </button>
-  
+
         <div
           className="pixie-card__body"
           ref={scrollRef}
@@ -557,7 +628,7 @@ try {
               display: "block",
             }}
           />
-  
+
           <h2
             className="px-title"
             style={{
@@ -568,7 +639,7 @@ try {
           >
             Checkout
           </h2>
-  
+
           <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
             {paymentSummary
               ? paymentSummary
@@ -580,7 +651,7 @@ try {
                   2
                 )} — final payment due ${finalDueDateStr}.`}
           </p>
-  
+
           {/* Stripe form */}
           <div className="px-elements" aria-busy={isGenerating}>
             <CheckoutForm
@@ -601,7 +672,7 @@ try {
               })()}
             />
           </div>
-  
+
           {/* single CTA */}
           <div style={{ marginTop: 12 }}>
             <button

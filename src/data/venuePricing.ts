@@ -171,6 +171,7 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     cateringAddOn: 1000,
     pricing: {
       50: 10995,
+      75: 12995,
       100: 15995,
       150: 19995,
       200: 27995,
