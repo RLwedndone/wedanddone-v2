@@ -361,33 +361,74 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
       await updateDoc(userRef, updates);
 
-      // ---------- 4) Admin heads-up
-try {
-  const fullName = `${firstName || "Magic"} ${lastName || "User"}`.trim();
-  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-  if (publicKey) {
-    await emailjs.send(
-      "service_xayel1i",
-      "template_nvsea3z",
-      {
-        user_name: fullName,
-        user_email: userData?.email || "unknown@wedndone.com",
-        wedding_date: weddingDateSafe || "TBD",
-        total: total.toFixed(2),
-        line_items: `Planner Coordination for ${guestCount} guests`,
-        pdf_url: url || "",
-        pdf_title: "Pixie Planner Agreement",
-        payment_now: amountDueToday.toFixed(2),
-        remaining_balance: remainingBalance.toFixed(2),
-        final_due: finalDueDateStr,
-      },
-      publicKey
-    );
-  }
-} catch (mailErr) {
-  console.warn("EmailJS failed:", mailErr);
-}
+            // ---------- 4) Email notifications (user + admin) ----------
+            try {
+              const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+              if (publicKey) {
+                const serviceId = "service_xayel1i";
+      
+                const fullName = `${firstName || data?.firstName || "Magic"} ${
+                  lastName || data?.lastName || "User"
+                }`.trim();
+      
+                const userEmail =
+                  userData?.email ||
+                  getAuth().currentUser?.email ||
+                  "unknown@wedndone.com";
+      
+                // Format wedding date nicely and avoid timezone slip
+                const emailWeddingDate = (() => {
+                  const ymd = weddingDateSafe;
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+                    const d = new Date(`${ymd}T12:00:00`);
+                    return d.toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    });
+                  }
+                  return ymd || "TBD";
+                })();
+      
+                const commonParams = {
+                  user_email: userEmail,
+                  user_full_name: fullName,
+                  firstName: firstName || data?.firstName || "",
+                  wedding_date: emailWeddingDate,
+                  pdf_url: url || "",
+                  pdf_title: "Pixie Planner Agreement",
+                  total: total.toFixed(2),
+                  line_items: `Pixie Planner coordination for ${guestCount} guests`,
+                  payment_now: amountDueToday.toFixed(2),
+                  remaining_balance: remainingBalance.toFixed(2),
+                  final_due: finalDueDateStr,
+                  dashboardUrl: `${window.location.origin}${
+                    import.meta.env.BASE_URL
+                  }dashboard`,
+                  product_name: "Pixie Planner",
+                };
+      
+                // user-facing email
+                const userPromise = emailjs.send(
+                  serviceId,
+                  "template_ima4r4n",
+                  commonParams,
+                  publicKey
+                );
+      
+                // admin notification email
+                const adminPromise = emailjs.send(
+                  serviceId,
+                  "template_4fdximn",
+                  commonParams,
+                  publicKey
+                );
+      
+                await Promise.all([userPromise, adminPromise]);
+              }
+            } catch (mailErr) {
+              console.warn("Planner EmailJS failed:", mailErr);
+            }
 
       // ---------- 5) UI updates
       window.dispatchEvent(new Event("purchaseMade"));

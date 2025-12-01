@@ -295,18 +295,18 @@ const menuData: {
               {(["apps", "mains", "sides"] as const).map((type) => (
                 <div key={type} style={{ textAlign: "center", marginBottom: "2rem" }}>
                   <img
-                    src={`/assets/images/YumYum/${type}.png`}
-                    alt={type}
-                    onClick={() => setShowModal(type)}
-                    onMouseEnter={() => setHovered(type)}
-                    onMouseLeave={() => setHovered(null)}
-                    style={{
-                      width: "260px",
-                      cursor: "pointer",
-                      transition: "transform 0.3s ease",
-                      transform: hovered === type ? "scale(1.05)" : "scale(1)",
-                    }}
-                  />
+  src={`${import.meta.env.BASE_URL}assets/images/YumYum/${type}.png`}
+  alt={type}
+  onClick={() => setShowModal(type)}
+  onMouseEnter={() => setHovered(type)}
+  onMouseLeave={() => setHovered(null)}
+  style={{
+    width: "260px",
+    cursor: "pointer",
+    transition: "transform 0.3s ease",
+    transform: hovered === type ? "scale(1.05)" : "scale(1)",
+  }}
+/>
                   {menuSelections[type === "apps" ? "appetizers" : type].map((item) => (
                     <div
                       key={item}

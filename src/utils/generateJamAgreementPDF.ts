@@ -19,15 +19,33 @@ const ordinal = (n: number) =>
     ? "rd"
     : "th";
 
-const prettyDate = (d: string): string => {
-  const dt = new Date(d);
-  if (!isNaN(dt.getTime())) {
-    const m = dt.toLocaleString("en-US", { month: "long" });
-    const day = dt.getDate();
-    const y = dt.getFullYear();
-    return `${m} ${day}${ordinal(day)}, ${y}`;
+// 🔧 normalize raw input into a safe Date (handles YYYY-MM-DD as local noon)
+const normalizeDate = (input: string | Date): Date | null => {
+  if (input instanceof Date) {
+    return isNaN(input.getTime()) ? null : input;
   }
-  return d;
+
+  if (!input) return null;
+
+  // Handle pure YMD as **local** noon to avoid timezone day-slip
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const d = new Date(`${input}T12:00:00`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const d = new Date(input);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const prettyDate = (d: string | Date): string => {
+  const dt = normalizeDate(d);
+  if (!dt) {
+    return typeof d === "string" ? d : "";
+  }
+  const m = dt.toLocaleString("en-US", { month: "long" });
+  const day = dt.getDate();
+  const y = dt.getFullYear();
+  return `${m} ${day}${ordinal(day)}, ${y}`;
 };
 
 const renderFooter = (doc: jsPDF) => {
@@ -40,6 +58,13 @@ const renderFooter = (doc: jsPDF) => {
   doc.text("Magically booked by Wed&Done", w / 2, h - 17, { align: "center" });
 };
 
+// ✅ Reset back to normal body text after footer/page-break
+const resetBodyTextStyle = (doc: jsPDF, size: number = 11) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(0); // black
+};
+
 // convenience: write a paragraph with auto-wrap + page-breaks
 function writeParagraph(
   doc: jsPDF,
@@ -47,15 +72,24 @@ function writeParagraph(
   x: number,
   y: number,
   maxWidth: number,
-  bottomMargin = 60
+  bottomMargin = 60,
+  lock?: HTMLImageElement
 ) {
   const h = doc.internal.pageSize.getHeight();
   const lines = doc.splitTextToSize(text, maxWidth);
   let cursor = y;
+
   lines.forEach((ln: string) => {
     if (cursor > h - bottomMargin) {
+      // finish page with footer (this sets tiny grey text)
       renderFooter(doc);
       doc.addPage();
+      // re-add watermark if provided
+      if (lock) {
+        doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+      }
+      // 🔥 go back to normal body text on the new page
+      resetBodyTextStyle(doc, 11);
       cursor = 30;
     }
     doc.text(ln, x, cursor);
@@ -68,13 +102,13 @@ function writeParagraph(
 export interface JamPDFOptions {
   fullName: string;
   total: number;
-  deposit: number;               // amount paid today (0 if full)
-  paymentSummary: string;        // e.g. “25% today, balance monthly…”
-  weddingDate: string;           // ISO or already-formatted
+  deposit: number; // amount paid today (0 if full)
+  paymentSummary: string; // e.g. “25% today, balance monthly…”
+  weddingDate: string; // ISO or already-formatted
   signatureImageUrl: string;
   lineItems?: string[];
-  signatureDate?: string;        // OPTIONAL: e.g. "September 2nd, 2025"
-  finalDuePretty?: string;       // OPTIONAL: default "35 days before your wedding date"
+  signatureDate?: string; // OPTIONAL: e.g. "September 2nd, 2025"
+  finalDuePretty?: string; // OPTIONAL: default "35 days before your wedding date"
 }
 
 /** ---------------- main ---------------- */
@@ -107,25 +141,31 @@ export const generateJamAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text("Jam & Groove Agreement & Receipt", w / 2, 75, { align: "center" });
+  doc.text("Jam & Groove Agreement & Receipt", w / 2, 75, {
+    align: "center",
+  });
 
-  // formatted wedding date
+  // formatted wedding date (fixed day-slip)
   const formattedDate = prettyDate(weddingDate);
 
   // header info
   doc.setFontSize(12);
+  resetBodyTextStyle(doc, 12);
   doc.text(`Name: ${fullName}`, 20, 90);
   doc.text(`Wedding Date: ${formattedDate}`, 20, 100);
   doc.text(`Total Jam & Groove Cost: $${total.toFixed(2)}`, 20, 110);
 
   let y = 120;
   const bottomMargin = 60;
+
   const addPageIfNeeded = () => {
     if (y > h - bottomMargin) {
       renderFooter(doc);
       doc.addPage();
       doc.addImage(lock, "JPEG", 40, 60, 130, 130);
       y = 30;
+      // 🔥 reset style after footer
+      resetBodyTextStyle(doc, 12);
     }
   };
 
@@ -143,14 +183,18 @@ export const generateJamAgreementPDF = async ({
   }
 
   // included items
-  const filteredItems = (lineItems || []).filter((it) => it && !it.startsWith("__"));
+  const filteredItems = (lineItems || []).filter(
+    (it) => it && !it.startsWith("__")
+  );
   if (filteredItems.length > 0) {
     addPageIfNeeded();
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", 20, y);
     y += 10;
 
     doc.setFontSize(12);
+    resetBodyTextStyle(doc, 12);
     for (const item of filteredItems) {
       addPageIfNeeded();
       doc.text(`• ${item}`, 25, y);
@@ -159,30 +203,37 @@ export const generateJamAgreementPDF = async ({
   }
 
   // confirmation line (paid today)
-  const todayPretty = prettyDate(new Date().toISOString());
+  const todayPretty = prettyDate(new Date());
   const paidToday = deposit > 0 && deposit !== total ? deposit : total;
 
   y += 10;
   addPageIfNeeded();
   doc.setFontSize(12);
-  doc.text(`Total paid today: $${paidToday.toFixed(2)} on ${todayPretty}`, 20, y);
+  resetBodyTextStyle(doc, 12);
+  doc.text(
+    `Total paid today: $${paidToday.toFixed(2)} on ${todayPretty}`,
+    20,
+    y
+  );
   y += 12;
 
   /** -------- Legal Terms (aligned with other boutiques) -------- */
   doc.setFontSize(14);
+  doc.setTextColor(0);
   doc.text("Booking Terms & Policies", 20, y);
   y += 10;
-  doc.setFontSize(11);
+  resetBodyTextStyle(doc, 11);
 
-  const dueText =
-    finalDuePretty || "35 days before your wedding date";
+  const dueText = finalDuePretty || "35 days before your wedding date";
 
   y = writeParagraph(
     doc,
     "By signing this agreement, your event date is reserved for Jam & Groove services (DJ and/or musicians).",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -193,7 +244,9 @@ export const generateJamAgreementPDF = async ({
       ". Any unpaid balance will be automatically charged on that date to the card on file.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -202,7 +255,9 @@ export const generateJamAgreementPDF = async ({
     "Cancellation & Refunds. If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. If you cancel within 35 days, all payments are non-refundable.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -211,7 +266,9 @@ export const generateJamAgreementPDF = async ({
     "Missed Payments. If an installment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. If payment is not received within 7 days, a $25 late fee applies. After 14 days, services may be suspended and this agreement may be declared in default. In the event of default, all amounts paid (including the non-refundable deposit) will be retained and the booking may be cancelled.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -220,7 +277,9 @@ export const generateJamAgreementPDF = async ({
     "Performance & Logistics. Talent will arrive approximately 60 minutes prior to guest arrival for setup and sound check. Client agrees to provide reasonable power, space, and venue access. Travel outside the Phoenix Metro area may incur additional fees.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -229,7 +288,9 @@ export const generateJamAgreementPDF = async ({
     "Force Majeure. Neither party is liable for failure or delay caused by events beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages). If performance is prevented, the parties will work in good faith to reschedule. If rescheduling is not possible, amounts paid beyond non-recoverable costs will be refunded.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   y += 4;
@@ -238,7 +299,9 @@ export const generateJamAgreementPDF = async ({
     "Limitation of Liability. In all circumstances, Wed&Done's liability is limited to the total amounts paid by Client under this agreement.",
     20,
     y,
-    w - 40
+    w - 40,
+    bottomMargin,
+    lock
   );
 
   // -------- signature pinned to final page bottom --------
@@ -247,6 +310,7 @@ export const generateJamAgreementPDF = async ({
     renderFooter(doc);
     doc.addPage();
     doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+    resetBodyTextStyle(doc, 12);
   }
 
   const sigTop = h - (sigBlockHeight + 28);
@@ -260,7 +324,9 @@ export const generateJamAgreementPDF = async ({
     /* ignore img parse issues */
   }
 
-  const signedPretty = signatureDate ? prettyDate(signatureDate) : todayPretty;
+  const signedPretty = signatureDate
+    ? prettyDate(signatureDate)
+    : todayPretty;
 
   doc.setFontSize(10);
   doc.setTextColor(100);

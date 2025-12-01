@@ -8,39 +8,48 @@ interface PlannerThankYouProps {
 
 const PlannerThankYou: React.FC<PlannerThankYouProps> = ({ onClose }) => {
   useEffect(() => {
-    playMagicSound();
+    try {
+      playMagicSound();
+    } catch {}
+
     window.dispatchEvent(new Event("userPurchaseMade"));
     window.dispatchEvent(new Event("plannerCompletedNow"));
     console.log("🧚 Planner booking complete — events dispatched!");
   }, []);
 
   return (
-    <div className="pixie-card--modal">
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 680 }}
+    >
       {/* Pink Close X */}
       <button
         className="pixie-card__close"
         onClick={onClose}
         aria-label="Close"
       >
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       {/* Body */}
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         {/* ✨ Video */}
-<video
-  src={`${import.meta.env.BASE_URL}assets/videos/venue_thanks.mp4`}
-  autoPlay
-  loop
-  muted
-  playsInline
-  className="px-media--sm"
-  style={{
-    display: "block",
-    margin: "0 auto 1rem", // centers + adds spacing below
-    borderRadius: "12px",  // optional, to match your other thank you screens
-  }}
-/>
+        <video
+          src={`${import.meta.env.BASE_URL}assets/videos/venue_thanks.mp4`}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="px-media--sm"
+          style={{
+            display: "block",
+            margin: "0 auto 1rem",
+            borderRadius: "12px",
+          }}
+        />
 
         {/* 🎉 Message */}
         <h2 className="px-title" style={{ marginBottom: "0.75rem" }}>

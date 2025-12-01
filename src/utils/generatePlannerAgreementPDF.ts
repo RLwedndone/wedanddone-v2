@@ -41,7 +41,9 @@ export const generatePlannerAgreementPDF = async ({
   const FOOTER_GAP = 12;
   const FOOTER_LINE_GAP = 8;
 
-  // Footer + content bounds
+  // ---------- helpers ----------
+
+  // Footer draws the grey small text
   const drawFooter = () => {
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -51,8 +53,21 @@ export const generatePlannerAgreementPDF = async ({
     doc.line(MARGIN_L, footerLineY, pageW - MARGIN_R, footerLineY);
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text("Magically booked by Wed&Done", pageW / 2, footerTextY, { align: "center" });
+    doc.text(
+      "Magically booked by Wed&Done",
+      pageW / 2,
+      footerTextY,
+      { align: "center" }
+    );
   };
+
+  // After a footer / page break, go back to normal body text
+  const resetBodyTextStyle = () => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(0); // black
+  };
+
   const contentMaxY = () => {
     const pageH = doc.internal.pageSize.getHeight();
     return pageH - FOOTER_GAP - FOOTER_LINE_GAP - 10;
@@ -62,8 +77,12 @@ export const generatePlannerAgreementPDF = async ({
 
   const ensureSpace = (needed: number) => {
     if (y + needed <= contentMaxY()) return;
+    // finish current page with footer
     drawFooter();
+    // new page
     doc.addPage();
+    // reset text style for normal body copy
+    resetBodyTextStyle();
     y = TOP_Y;
   };
 
@@ -97,29 +116,47 @@ export const generatePlannerAgreementPDF = async ({
   };
 
   // Date helpers (same style as floral)
+
+  // Parse YYYY-MM-DD as *local* noon to avoid timezone shifting it back a day
+  const parseLocalYMD = (ymd: string): Date | null => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+    return new Date(`${ymd}T12:00:00`);
+  };
+
   const fmtOrdinal = (n: number) => {
     const s = ["th", "st", "nd", "rd"];
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
-  const longDate = (d: Date) =>
-    `${d.toLocaleString("en-US", { month: "long" })} ${fmtOrdinal(d.getDate())}, ${d.getFullYear()}`;
 
-  const prettyWedding = (() => {
-    const d = new Date(weddingDate);
-    return isNaN(d.getTime())
-      ? weddingDate
-      : `${longDate(d)}${dayOfWeek ? ` (${dayOfWeek})` : ""}`;
+  const longDate = (d: Date) =>
+    `${d.toLocaleString("en-US", { month: "long" })} ${fmtOrdinal(
+      d.getDate()
+    )}, ${d.getFullYear()}`;
+
+  // Normalize wedding date with timezone guard
+  const weddingDateObj = (() => {
+    const local = parseLocalYMD(weddingDate);
+    if (local) return local;
+    const raw = new Date(weddingDate);
+    return isNaN(raw.getTime()) ? null : raw;
   })();
 
-  // Final due date: 35 days prior for planner
+  const prettyWedding = weddingDateObj
+    ? `${longDate(weddingDateObj)}${dayOfWeek ? ` (${dayOfWeek})` : ""}`
+    : weddingDate;
+
+  // Final due date: 35 days prior for planner, based on the *local* wedding date
   const finalDueDate = (() => {
-    const d = new Date(weddingDate);
-    if (isNaN(d.getTime())) return null;
+    if (!weddingDateObj) return null;
+    const d = new Date(weddingDateObj.getTime());
     d.setDate(d.getDate() - 35);
     return d;
   })();
-  const finalDueStr = finalDueDate ? longDate(finalDueDate) : "35 days prior to event";
+
+  const finalDueStr = finalDueDate
+    ? longDate(finalDueDate)
+    : "35 days prior to event";
 
   // Infer payFull if not provided
   const isPayFull = payFull ?? (deposit <= 0 || deposit >= total);
@@ -149,17 +186,26 @@ export const generatePlannerAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text("Pixie Planner Agreement & Receipt", doc.internal.pageSize.getWidth() / 2, 75, { align: "center" });
+  doc.text(
+    "Pixie Planner Agreement & Receipt",
+    doc.internal.pageSize.getWidth() / 2,
+    75,
+    { align: "center" }
+  );
+
+  // Switch to normal body style for the rest
+  resetBodyTextStyle();
 
   // ---- Basics ----
-  doc.setFontSize(12);
   y = 90;
   writeText(`Name: ${firstName || ""} ${lastName || ""}`);
   writeText(`Wedding Date: ${prettyWedding}`);
   if (Number.isFinite(guestCount)) writeText(`Guest Count: ${guestCount}`);
 
   writeText(`Total Coordination Cost: $${total.toFixed(2)}`);
-  if (!isPayFull && deposit > 0) writeText(`Deposit (flat $200): $${deposit.toFixed(2)}`);
+  if (!isPayFull && deposit > 0) {
+    writeText(`Deposit (flat $200): $${deposit.toFixed(2)}`);
+  }
 
   // ---- Included Items (optional) ----
   if (lineItems.length) {
@@ -178,7 +224,9 @@ export const generatePlannerAgreementPDF = async ({
   y += 6;
   if (isPayFull) {
     writeText(`Paid today: $${total.toFixed(2)} on ${todayStr}`);
-    writeText(`Final balance due date: ${finalDueStr} (paid in full today).`);
+    writeText(
+      `Final balance due date: ${finalDueStr} (paid in full today).`
+    );
   } else {
     const remaining = Math.max(0, total - deposit);
     writeText(`Deposit paid today: $${deposit.toFixed(2)} on ${todayStr}`);
@@ -194,7 +242,7 @@ export const generatePlannerAgreementPDF = async ({
     writeText(`Payment Plan: ${paymentSummary}`);
   }
 
-  // ---- Terms (mirrors floral style/structure, adapted for planner) ----
+  // ---- Terms (same structure, but using correct styles/page breaks) ----
   y += 8;
   ensureSpace(LINE + GAP);
   doc.setTextColor(50);
@@ -225,11 +273,13 @@ export const generatePlannerAgreementPDF = async ({
     const footerLineY = footerTextY - FOOTER_LINE_GAP;
 
     const sigImgH = 30;
-    const sigBlockH = 5 /*label*/ + sigImgH + 14 /*two lines*/ + 6 /*pad*/;
+    const sigBlockH =
+      5 /*label*/ + sigImgH + 14 /*two lines*/ + 6 /*pad*/;
 
     if (y + 15 + sigBlockH > footerLineY - 10) {
       drawFooter();
       doc.addPage();
+      resetBodyTextStyle();
       y = TOP_Y;
     }
 
@@ -242,7 +292,14 @@ export const generatePlannerAgreementPDF = async ({
 
     try {
       if (signatureImageUrl) {
-        doc.addImage(signatureImageUrl, "PNG", left, sigTop + 5, 80, sigImgH);
+        doc.addImage(
+          signatureImageUrl,
+          "PNG",
+          left,
+          sigTop + 5,
+          80,
+          sigImgH
+        );
       }
     } catch {
       // ignore image failure, keep layout stable
@@ -251,8 +308,16 @@ export const generatePlannerAgreementPDF = async ({
     const signedLineY = sigTop + 5 + sigImgH;
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Signed by: ${firstName || ""} ${lastName || ""}`, left, signedLineY + 7);
-    doc.text(`Signature date: ${todayStr}`, left, signedLineY + 14);
+    doc.text(
+      `Signed by: ${firstName || ""} ${lastName || ""}`,
+      left,
+      signedLineY + 7
+    );
+    doc.text(
+      `Signature date: ${todayStr}`,
+      left,
+      signedLineY + 14
+    );
 
     drawFooter();
   };
