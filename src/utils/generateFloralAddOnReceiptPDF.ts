@@ -1,3 +1,4 @@
+// src/utils/generateFloralAddOnReceiptPDF.ts
 import jsPDF from "jspdf";
 
 // ---------- helpers ----------
@@ -10,18 +11,28 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
-// Format “Month D, YYYY” even if a raw date string is passed
-const prettyDate = (d: string): string => {
-  const dt = new Date(d);
-  if (!isNaN(dt.getTime())) {
-    return dt.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+// Robust pretty date helper with noon guard for YYYY-MM-DD
+const prettyDate = (raw: string | undefined | null): string => {
+  if (!raw) return "TBD";
+
+  const ymd = /^\d{4}-\d{2}-\d{2}$/;
+  let dt: Date | null = null;
+
+  if (ymd.test(raw)) {
+    // Avoid timezone shift by anchoring to noon local
+    dt = new Date(`${raw}T12:00:00`);
+  } else {
+    const tmp = new Date(raw);
+    if (!isNaN(tmp.getTime())) dt = tmp;
   }
-  // already formatted or unknown → return as-is
-  return d;
+
+  if (!dt) return raw;
+
+  return dt.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 };
 
 // Footer draws the grey small text
@@ -44,24 +55,28 @@ const renderFooter = (doc: jsPDF) => {
   );
 };
 
-// ✅ New: after a page break, go back to normal body style
+// ✅ After a page break, go back to normal body style
 const resetBodyTextStyle = (doc: jsPDF) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(0); // black
 };
 
-interface AddOnPDFOptions {
+export interface AddOnPDFOptions {
   fullName: string;
+  email?: string;
+  weddingDate?: string;      // raw YYYY-MM-DD or display string
+  lineItems: string[];
   total: number;
-  lineItems?: string[];
-  purchaseDate: string; // can be raw date string; we’ll pretty-format it
+  purchaseDate: string;      // already formatted or raw, we prettify if we can
 }
 
 export const generateFloralAddOnReceiptPDF = async ({
   fullName,
-  total,
+  email,
+  weddingDate,
   lineItems = [],
+  total,
   purchaseDate,
 }: AddOnPDFOptions): Promise<Blob> => {
   const doc = new jsPDF();
@@ -69,14 +84,18 @@ export const generateFloralAddOnReceiptPDF = async ({
   const pageHeight = doc.internal.pageSize.getHeight();
 
   // assets
-  const [logo, lock] = await Promise.all([
-    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
-    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
-  ]);
+  try {
+    const [logo, lock] = await Promise.all([
+      loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+      loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
+    ]);
 
-  // watermark + logo on first page
-  doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-  doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+    // watermark + logo on first page
+    doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+    doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+  } catch {
+    // non-fatal if art fails
+  }
 
   // header
   doc.setFont("helvetica", "normal");
@@ -84,31 +103,47 @@ export const generateFloralAddOnReceiptPDF = async ({
   doc.setTextColor(0);
   doc.text("Floral Add-On Receipt", pageWidth / 2, 75, { align: "center" });
 
+  const prettyWedding = weddingDate ? prettyDate(weddingDate) : "TBD";
+
   // basics
-  resetBodyTextStyle(doc); // make sure we're in normal text mode
-  doc.text(`Name: ${fullName}`, 20, 90);
-  doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, 20, 100);
+  resetBodyTextStyle(doc);
+  let y = 90;
+
+  doc.text(`Name: ${fullName}`, 20, y);
+  y += 8;
+
+  if (email) {
+    doc.text(`Email: ${email}`, 20, y);
+    y += 8;
+  }
+
+  doc.text(`Wedding Date: ${prettyWedding}`, 20, y);
+  y += 8;
+
+  doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, 20, y);
+  y += 15;
 
   // line items with pagination
-  let y = 115;
   const bottomMargin = 40; // leave room for footer
 
-  // 🔁 updated to restore text style on new pages
   const addPageIfNeeded = () => {
     if (y > pageHeight - bottomMargin) {
-      // finish current page with footer (this sets tiny grey text)
       renderFooter(doc);
-
-      // new page
       doc.addPage();
 
-      // redraw watermark/lock on new page if you want the same look
-      doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+      // optional: repeat watermark on new pages
+      try {
+        // you can skip this if you don't care about watermark after page 1
+        loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`).then(
+          (lock) => {
+            doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+          }
+        );
+      } catch {
+        // ignore
+      }
 
-      // reset cursor for new page
       y = 30;
-
-      // 🔥 IMPORTANT: go back to normal body style for the new page
       resetBodyTextStyle(doc);
     }
   };
@@ -119,7 +154,7 @@ export const generateFloralAddOnReceiptPDF = async ({
     doc.text("Included Items:", 20, y);
     y += 10;
 
-    resetBodyTextStyle(doc); // body bullets
+    resetBodyTextStyle(doc);
     for (const item of lineItems) {
       addPageIfNeeded();
       doc.text(`• ${item}`, 25, y);

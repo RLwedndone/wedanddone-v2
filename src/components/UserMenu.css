@@ -5,20 +5,26 @@
   width: 100vw;
   height: 100vh;
   background: rgba(15, 0, 40, 0.3); /* 🟣 soft magical overlay */
-  z-index: 999;
+  z-index: 1500;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 1rem; /* gives breathing room on small screens */
 }
 
 .user-menu-container {
   background: #ffffff; /* 💡 bright white card */
   width: 90%;
   max-width: 500px;
-  padding: 2.5rem;
+  max-height: 90vh; /* ← don’t exceed viewport */
+  padding: 2.3rem 2rem 2rem;
   border-radius: 2rem;
-  box-shadow: 0 0 35px rgba(255, 255, 255, 0.3), 0 0 25px rgba(255, 215, 0, 0.4); /* ✨ subtle gold glow */
+  box-shadow: 0 0 35px rgba(255, 255, 255, 0.3),
+    0 0 25px rgba(255, 215, 0, 0.4); /* ✨ subtle gold glow */
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* list scrolls inside */
 }
 
 .user-menu-close {
@@ -31,30 +37,57 @@
   cursor: pointer;
 }
 
+/* List of gold menu bars */
 .image-menu-list {
-    list-style: none;
-    padding: 0;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+
+  /* make THIS area scroll, not the whole page */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  /* hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+}
+
+.image-menu-list::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* slightly smaller bars so they fit comfortably */
+.menu-item-img {
+  width: 220px;
+  max-width: 90%;
+  margin: 0.4rem 0;
+  transition: transform 0.2s ease;
+}
+
+.menu-item-img:hover {
+  transform: scale(1.05);
+}
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  .user-menu-container {
+    max-width: 380px;
+    padding: 2rem 1.4rem 1.6rem;
   }
-  
-  .menu-btn {
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-  }
-  
+
   .menu-item-img {
-    width: 240px;
-    max-width: 90%;
-    margin: 1rem 0;
-    transition: transform 0.2s ease;
+    width: 200px;
   }
-  
-  .menu-item-img:hover {
-    transform: scale(1.05);
-  }
+}

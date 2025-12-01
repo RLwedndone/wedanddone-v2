@@ -20,6 +20,29 @@ import { notifyBooking } from "../../utils/email/email";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+// Format YYYY-MM-DD or ISO into "Month D, YYYY" for emails
+const formatWeddingDateForEmail = (raw?: string | null): string => {
+  if (!raw || raw === "TBD") return "TBD";
+
+  const ymd = /^\d{4}-\d{2}-\d{2}$/;
+  let dt: Date | null = null;
+
+  if (ymd.test(raw)) {
+    dt = new Date(`${raw}T12:00:00`); // noon guard to avoid timezone shift
+  } else {
+    const tmp = new Date(raw);
+    if (!isNaN(tmp.getTime())) dt = tmp;
+  }
+
+  if (!dt) return raw;
+
+  return dt.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
 interface FloralCheckOutProps {
   onClose: () => void;
   isAddon?: boolean;
@@ -159,14 +182,28 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       return Math.max(1, months);
     }
 
-    // ---------- Add-on flow ----------
+            // ---------- Add-on flow ----------
     if (isAddon) {
       console.log("💐 Add-on mode — generating floral add-on receipt…");
       setIsGenerating(true);
 
+      // 🔹 Wedding date + email from Firestore as source of truth
+      const safeWeddingDateRaw =
+        (userDoc as any)?.weddingDate ||
+        (weddingDate && weddingDate.trim()) ||
+        "TBD";
+
+      const weddingDateDisplay = formatWeddingDateForEmail(safeWeddingDateRaw);
+
+      const current = getAuth().currentUser;
+      const safeEmail =
+        current?.email || (userDoc as any)?.email || "unknown@wedndone.com";
+
       try {
         const blob = await generateFloralAddOnReceiptPDF({
           fullName,
+          email: safeEmail,
+          weddingDate: safeWeddingDateRaw, // raw used by PDF helper
           lineItems,
           total,
           purchaseDate,
@@ -193,22 +230,19 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           "bookings.updatedAt": new Date().toISOString(),
         });
 
-        // ✅ Send both user + admin for floral add-ons
-        {
-          const current = getAuth().currentUser;
-          await notifyBooking("floral_addon", {
-            user_email: current?.email || userDoc?.email || "unknown@wedndone.com",
-            user_full_name: fullName,
-            firstName: safeFirst,
-            wedding_date: weddingDate || "TBD",
-            pdf_url: url,
-            pdf_title: "Floral Add-On Receipt",
-            total: total.toFixed(2),
-            line_items: (lineItems || []).join(", "),
-            dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-            product_name: "Floral Add-On",
-          });
-        }
+        // ✅ Send both user + admin for floral add-ons, with pretty date
+        await notifyBooking("floral_addon", {
+          user_email: safeEmail,
+          user_full_name: fullName,
+          firstName: safeFirst,
+          wedding_date: weddingDateDisplay, // human readable
+          pdf_url: url,
+          pdf_title: "Floral Add-On Receipt",
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Floral Add-On",
+        });
 
         window.dispatchEvent(new Event("purchaseMade"));
         window.dispatchEvent(new Event("documentsUpdated"));

@@ -21,7 +21,7 @@ const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ onClose }) => {
     if (d.title && d.title.trim()) return d.title;
     // fallback from filename
     const name = (d.url || "").split("/").pop() || "";
-    if (/AddOnReceipt/i.test(name)) return "Floral Add‑On Receipt";
+    if (/AddOnReceipt/i.test(name)) return "Floral Add-On Receipt";
     if (/Agreement/i.test(name)) return "Floral Agreement";
     return `Document ${idx + 1}`;
   };
@@ -34,9 +34,11 @@ const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ onClose }) => {
       setLoading(true);
       const snap = await getDoc(doc(db, "users", user.uid));
       const data = snap.data() || {};
-      const stored: DocumentItem[] = Array.isArray(data.documents) ? data.documents : [];
+      const stored: DocumentItem[] = Array.isArray(data.documents)
+        ? data.documents
+        : [];
 
-      // de‑dupe by url and sort newest first
+      // de-dupe by url and sort newest first
       const unique = Object.values(
         stored.reduce<Record<string, DocumentItem>>((acc, item) => {
           const key = (item.url || "") as string;
@@ -69,30 +71,31 @@ const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ onClose }) => {
     <div
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
+        inset: 0,
         backgroundColor: "rgba(0,0,0,0.5)",
         zIndex: 1000,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        overflow: "auto",
+        padding: "1rem",
       }}
     >
       <div
         style={{
           background: "#fff",
           borderRadius: "24px",
-          padding: "2.5rem",
+          padding: "2.5rem 2rem",
           maxWidth: "600px",
-          width: "90%",
+          width: "100%",
+          maxHeight: "90vh",
           boxShadow: "0 0 20px rgba(0,0,0,0.3)",
           position: "relative",
           textAlign: "center",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
+        {/* ✖ Close */}
         <button
           onClick={onClose}
           style={{
@@ -107,84 +110,127 @@ const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ onClose }) => {
         >
           ✖
         </button>
-
+  
+        {/* Centered Icon */}
         <img
           src={`${import.meta.env.BASE_URL}assets/images/gold_docs.png`}
           alt="Envelope"
-          style={{ width: "175px", marginBottom: "0.2rem", marginTop: "-1rem" }}
+          style={{
+            width: "150px",
+            margin: "0 auto 0.5rem",
+            display: "block",
+          }}
         />
-
+  
         <h2
           style={{
             fontFamily: "'Jenna Sue', cursive",
             fontSize: "2.2rem",
             color: "#2c62ba",
-            marginBottom: "2rem",
+            marginBottom: "1.2rem",
           }}
         >
           Your Docs
         </h2>
-
-        {loading ? (
-          <p style={{ fontSize: "1rem" }}>Fetching your magical paperwork…</p>
-        ) : docs.length === 0 ? (
-          <p style={{ fontSize: "1rem" }}>
-            This is where you'll find all your receipts and other important documents for your big day!
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
-            {docs.map((docItem, index) =>
-              docItem.url ? (
-                <a
-                  key={docItem.url + index}
-                  href={docItem.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    backgroundColor: "#2c62ba",
-                    color: "white",
-                    padding: "0.75rem 1.5rem",
-                    borderRadius: "12px",
-                    textDecoration: "none",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    width: "100%",
-                    maxWidth: "300px",
-                    textAlign: "center",
-                    transition: "background-color 0.2s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#244ea0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#2c62ba")}
-                >
-                  {prettyTitle(docItem, index)}
-                  {docItem.uploadedAt && (
-                    <div style={{ fontSize: "0.8rem", fontWeight: 400, opacity: 0.85, marginTop: 4 }}>
-                      {new Date(docItem.uploadedAt).toLocaleDateString()}
-                    </div>
-                  )}
-                </a>
-              ) : (
-                <div
-                  key={`generating-${index}`}
-                  style={{
-                    backgroundColor: "#ccc",
-                    color: "#444",
-                    padding: "0.75rem 1.5rem",
-                    borderRadius: "12px",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                    width: "100%",
-                    maxWidth: "300px",
-                    textAlign: "center",
-                    fontStyle: "italic",
-                  }}
-                >
-                  {prettyTitle(docItem, index)} (Generating…)
-                </div>
-              )
-            )}
-          </div>
-        )}
+  
+        {/* Scrollable list — scrollbar hidden */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            paddingRight: "0.25rem",
+            scrollbarWidth: "none", // Firefox
+            msOverflowStyle: "none", // IE
+          }}
+        >
+          <style>
+            {`
+              /* Hide scrollbar for Chrome / Safari */
+              div::-webkit-scrollbar { display: none; }
+            `}
+          </style>
+  
+          {loading ? (
+            <p style={{ fontSize: "1rem" }}>Fetching your magical paperwork…</p>
+          ) : docs.length === 0 ? (
+            <p style={{ fontSize: "1rem" }}>
+              This is where you'll find all your receipts and documents!
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+                alignItems: "center",
+                paddingBottom: "0.5rem",
+              }}
+            >
+              {docs.map((docItem, index) =>
+                docItem.url ? (
+                  <a
+                    key={docItem.url + index}
+                    href={docItem.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      backgroundColor: "#2c62ba",
+                      color: "white",
+                      padding: "0.6rem 1.2rem",
+                      borderRadius: "10px",
+                      textDecoration: "none",
+                      fontWeight: "bold",
+                      fontSize: "0.95rem",
+                      width: "100%",
+                      maxWidth: "260px",
+                      textAlign: "center",
+                      transition: "background-color 0.2s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#244ea0")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#2c62ba")
+                    }
+                  >
+                    {prettyTitle(docItem, index)}
+                    {docItem.uploadedAt && (
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 400,
+                          opacity: 0.85,
+                          marginTop: 4,
+                        }}
+                      >
+                        {new Date(docItem.uploadedAt).toLocaleDateString()}
+                      </div>
+                    )}
+                  </a>
+                ) : (
+                  <div
+                    key={`generating-${index}`}
+                    style={{
+                      backgroundColor: "#ccc",
+                      color: "#444",
+                      padding: "0.6rem 1.2rem",
+                      borderRadius: "10px",
+                      fontWeight: "bold",
+                      fontSize: "0.95rem",
+                      width: "100%",
+                      maxWidth: "260px",
+                      textAlign: "center",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {prettyTitle(docItem, index)} (Generating…)
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
