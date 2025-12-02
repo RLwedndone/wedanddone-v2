@@ -36,21 +36,36 @@ const prettyDate = (ymd?: string | null) => {
   const d = new Date(`${ymd}T12:00:00`);
   if (isNaN(d.getTime())) return "35 days before your wedding date";
   d.setTime(d.getTime() - 35 * MS_DAY);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 };
 
-// patch selections for Groove Guide
-const patchJamSelections = (original: JamSelectionsType): GrooveGuideData["selections"] => {
-  const safe = (val: any) => (val === undefined || val === null || val === "" ? "no user input" : val);
+// 🔧 patch selections for Groove Guide
+// NOTE: ceremony order now comes from `customProcessional` (your new screen).
+const patchJamSelections = (
+  original: JamSelectionsType
+): GrooveGuideData["selections"] => {
+  const safe = (val: any) =>
+    val === undefined || val === null || val === "" ? "no user input" : val;
+
+  // Prefer customProcessional (new screen); fall back to any legacy ceremonyOrder
+  const srcOrder: any =
+    (original as any)?.customProcessional ||
+    (original as any)?.ceremonyOrder ||
+    {};
+
   return {
     ceremonyOrder: {
-      first: safe(original?.ceremonyOrder?.first),
-      second: safe(original?.ceremonyOrder?.second),
-      third: safe(original?.ceremonyOrder?.third),
-      fourth: safe(original?.ceremonyOrder?.fourth),
-      fifth: safe(original?.ceremonyOrder?.fifth),
-      sixth: safe(original?.ceremonyOrder?.sixth),
-      additional: safe(original?.ceremonyOrder?.additional),
+      first: safe(srcOrder.first),
+      second: safe(srcOrder.second),
+      third: safe(srcOrder.third),
+      fourth: safe(srcOrder.fourth),
+      fifth: safe(srcOrder.fifth),
+      sixth: safe(srcOrder.sixth),
+      additional: safe(srcOrder.additional),
     },
     ceremonyMusic: {
       brideEntranceSong: {
@@ -79,9 +94,12 @@ const patchJamSelections = (original: JamSelectionsType): GrooveGuideData["selec
       skipMotherSon: original?.familyDances?.skipMotherSon ?? true,
       motherSonSong: safe(original?.familyDances?.motherSonSong),
       motherSonArtist: safe(original?.familyDances?.motherSonArtist),
-      skipFatherDaughter: original?.familyDances?.skipFatherDaughter ?? true,
+      skipFatherDaughter:
+        original?.familyDances?.skipFatherDaughter ?? true,
       fatherDaughterSong: safe(original?.familyDances?.fatherDaughterSong),
-      fatherDaughterArtist: safe(original?.familyDances?.fatherDaughterArtist),
+      fatherDaughterArtist: safe(
+        original?.familyDances?.fatherDaughterArtist
+      ),
     },
     preDinnerWelcome: {
       hasWelcome: original?.preDinnerWelcome?.hasWelcome ?? false,
@@ -92,7 +110,9 @@ const patchJamSelections = (original: JamSelectionsType): GrooveGuideData["selec
       coupleSong: safe(original?.grandEntrances?.coupleSong),
       coupleArtist: safe(original?.grandEntrances?.coupleArtist),
       bridesmaidsSong: safe(original?.grandEntrances?.bridesmaidsSong),
-      bridesmaidsArtist: safe(original?.grandEntrances?.bridesmaidsArtist),
+      bridesmaidsArtist: safe(
+        original?.grandEntrances?.bridesmaidsArtist
+      ),
       groomsmenSong: safe(original?.grandEntrances?.groomsmenSong),
       groomsmenArtist: safe(original?.grandEntrances?.groomsmenArtist),
     },
@@ -102,7 +122,10 @@ const patchJamSelections = (original: JamSelectionsType): GrooveGuideData["selec
       artist: safe(original?.cakeCutting?.artist),
     },
     musicalGenres: Object.fromEntries(
-      Object.entries(original?.musicalGenres ?? {}).map(([k, v]) => [k, safe(v)])
+      Object.entries(original?.musicalGenres ?? {}).map(([k, v]) => [
+        k,
+        safe(v),
+      ])
     ),
   };
 };
@@ -110,8 +133,10 @@ const patchJamSelections = (original: JamSelectionsType): GrooveGuideData["selec
 interface JamCheckOutProps {
   onClose: () => void;
   isAddon?: boolean;
+  /** NEW: true when they’re buying Groove Guide PDF only */
+  isPdfOnly?: boolean;
   total: number;
-  depositAmount: number;   // flat deposit provided by cart (usually 750, capped by total)
+  depositAmount: number; // flat deposit provided by cart (usually 750, capped by total)
   payFull: boolean;
   paymentSummary: string;
   signatureImage: string;
@@ -123,11 +148,13 @@ interface JamCheckOutProps {
   lineItems: string[];
   uid: string;
   jamSelections: JamSelectionsType;
+  skipGrooveGeneration?: boolean;
 }
 
 const JamCheckOut: React.FC<JamCheckOutProps> = ({
   onClose,
   isAddon = false,
+  isPdfOnly = false,
   total,
   depositAmount,
   payFull,
@@ -141,45 +168,49 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   lineItems,
   uid,
   jamSelections,
+  skipGrooveGeneration = false,
 }) => {
   const { userData } = useUser();
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // On mount, read weddingDate/weddingDateLocked so cart/confirm step behaves correctly
-useEffect(() => {
-  const u = getAuth().currentUser;
-  if (!u) return;
+  useEffect(() => {
+    const u = getAuth().currentUser;
+    if (!u) return;
 
-  (async () => {
-    try {
-      const snap = await getDoc(doc(db, "users", u.uid));
-      const data = snap.data() || {};
-      const ymd: string | null =
-        (data as any)?.weddingDate ||
-        (data as any)?.wedding?.date ||
-        localStorage.getItem("weddingDate") ||
-        null;
-
-      const locked =
-        (data as any)?.weddingDateLocked === true || Boolean(ymd);
-
+    (async () => {
       try {
-        if (ymd) localStorage.setItem("weddingDate", ymd);
-        localStorage.setItem("weddingDateLocked", String(locked));
-      } catch {}
-    } catch (e) {
-      console.warn("[JamCheckOut] failed to read wedding date:", e);
-    }
-  })();
-}, []);
+        const snap = await getDoc(doc(db, "users", u.uid));
+        const data = snap.data() || {};
+        const ymd: string | null =
+          (data as any)?.weddingDate ||
+          (data as any)?.wedding?.date ||
+          localStorage.getItem("weddingDate") ||
+          null;
 
-  if (!userData) return <p style={{ textAlign: "center" }}>Loading your info...</p>;
+        const locked =
+          (data as any)?.weddingDateLocked === true || Boolean(ymd);
+
+        try {
+          if (ymd) localStorage.setItem("weddingDate", ymd);
+          localStorage.setItem("weddingDateLocked", String(locked));
+        } catch {}
+      } catch (e) {
+        console.warn("[JamCheckOut] failed to read wedding date:", e);
+      }
+    })();
+  }, []);
+
+  if (!userData)
+    return <p style={{ textAlign: "center" }}>Loading your info...</p>;
 
   // Payment math (prefer provided flat deposit, else LS, else 25%)
   const totalEffective = round2(Number(total) || 0);
   const depositFromProp = Number(depositAmount);
-  const depositFromLS = Number(localStorage.getItem("jamDepositAmount") || "");
+  const depositFromLS = Number(
+    localStorage.getItem("jamDepositAmount") || ""
+  );
   const deposit25 = round2(totalEffective * 0.25);
 
   const depositNow =
@@ -189,171 +220,282 @@ useEffect(() => {
       ? round2(depositFromLS)
       : deposit25;
 
-  const amountDueToday = payFull ? totalEffective : Math.min(totalEffective, depositNow);
+  const amountDueToday = payFull
+    ? totalEffective
+    : Math.min(totalEffective, depositNow);
   const remaining = round2(Math.max(0, totalEffective - amountDueToday));
   const finalDuePretty = prettyDate(weddingDate);
 
-  // Success handler
+    // Prefer the exact text the contract screen showed
+    let effectiveSummary = paymentSummary;
+
+    try {
+      const fromContract = localStorage.getItem("jamPaymentSummaryText");
+      if (fromContract) {
+        effectiveSummary = fromContract;
+      }
+    } catch {
+      // if LS explodes, just fall back to the prop
+    }
+  
+    // For pure PDF-only purchases, override with the simpler copy
+    if (isPdfOnly) {
+      effectiveSummary = `You're paying $${amountDueToday.toFixed(
+        2
+      )} today for your Groove Guide PDF.`;
+    }
+
+  // --------------- PDF-only success branch ---------------
+  const handlePdfOnlySuccess = async () => {
+    const userRef = doc(db, "users", uid);
+    const snap = await getDoc(userRef);
+    const userDoc = snap.exists() ? snap.data() : {};
+
+    const safeFirst =
+      (userDoc as any)?.firstName || firstName || "Magic";
+    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const fullName = `${safeFirst} ${safeLast}`.trim();
+
+    // Build Groove Guide selections (with ceremony order from customProcessional)
+    const selections = patchJamSelections(jamSelections);
+
+    // Generate Groove Guide PDF
+    const grooveBlob = await generateGrooveGuidePDF({
+      fullName,
+      weddingDate,
+      selections,
+    });
+
+    const fileName = `GrooveGuide_${Date.now()}.pdf`;
+    const filePath = `public_docs/${uid}/${fileName}`;
+    const grooveUrl = await uploadPdfBlob(grooveBlob, filePath);
+
+    const purchase = {
+      label: "Groove Guide PDF",
+      category: "jamGroovePdfOnly",
+      amount: amountDueToday,
+      contractTotal: amountDueToday,
+      payFull: true,
+      deposit: amountDueToday,
+      monthlyAmount: 0,
+      months: 0,
+      method: "full",
+      date: new Date().toISOString(),
+      module: "jam",
+    };
+
+    const docItem = {
+      title: "Groove Guide PDF",
+      url: grooveUrl,
+      uploadedAt: new Date().toISOString(),
+      kind: "guide",
+      module: "jam",
+    };
+
+    // ❌ No bookings.jam, no weddingDateLocked — this is NOT a DJ booking
+    await updateDoc(userRef, {
+      documents: arrayUnion(docItem),
+      purchases: arrayUnion(purchase),
+      spendTotal: increment(amountDueToday),
+      lastPurchaseAt: serverTimestamp(),
+    });
+
+    await addDoc(collection(db, "users", uid, "documents"), docItem);
+
+    // ✉️ User email ONLY – using your Groove Guide template
+    await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      "template_w498nvm", // user-facing Groove Guide email
+      {
+        firstName: safeFirst,
+        user_name: fullName, // safe if template still uses this
+        wedding_date: weddingDate || "TBD",
+        pdf_url: grooveUrl,
+        pdf_title: "Groove Guide PDF",
+        dashboardUrl: `${window.location.origin}${
+          import.meta.env.BASE_URL
+        }dashboard`,
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+
+    // UI events
+    window.dispatchEvent(new Event("purchaseMade"));
+    // ❌ Do NOT dispatch jamCompletedNow here
+    onSuccess();
+  };
+
+  // --------------- Full DJ / add-on success branch ---------------
+  const handleFullJamSuccess = async (): Promise<void> => {
+    const userRef = doc(db, "users", uid);
+    const snap = await getDoc(userRef);
+    const userDoc = snap.exists() ? snap.data() : {};
+
+    const safeFirst =
+      (userDoc as any)?.firstName || firstName || "Magic";
+    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const fullName = `${safeFirst} ${safeLast}`.trim();
+
+    const purchase = {
+      label: isAddon ? "Jam & Groove Add-On" : "Jam & Groove Booking",
+      category: "jam",
+      amount: amountDueToday,
+      contractTotal: totalEffective,
+      payFull,
+      deposit: amountDueToday,
+      monthlyAmount: payFull ? 0 : round2(remaining / 3),
+      months: payFull ? 0 : 3,
+      method: payFull ? "full" : "deposit",
+      date: new Date().toISOString(),
+      module: "jam",
+    };
+
+    // PDFs (agreement vs add-on receipt)
+    let pdfUrl = "";
+    if (isAddon) {
+      const purchaseDate = new Date().toLocaleDateString("en-US");
+      const pdfBlob = await generateJamAddOnReceiptPDF({
+        fullName,
+        lineItems,
+        total: amountDueToday,
+        purchaseDate,
+      });
+      const fileName = `JamAddOnReceipt_${Date.now()}.pdf`;
+      const filePath = `public_docs/${uid}/${fileName}`;
+      pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+    } else {
+      const pdfBlob = await generateJamAgreementPDF({
+        fullName,
+        total: totalEffective,
+        deposit: payFull ? totalEffective : amountDueToday,
+        paymentSummary,
+        weddingDate,
+        signatureImageUrl: signatureImage,
+        lineItems,
+      });
+      const fileName = `JamAgreement_${Date.now()}.pdf`;
+      const filePath = `public_docs/${uid}/${fileName}`;
+      pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
+    }
+
+    const docItem = {
+      title: isAddon
+        ? "Jam & Groove Add-On Receipt"
+        : "Jam & Groove Agreement",
+      url: pdfUrl,
+      uploadedAt: new Date().toISOString(),
+      kind: isAddon ? "receipt" : "agreement",
+      module: "jam",
+    };
+
+    await updateDoc(userRef, {
+      documents: arrayUnion(docItem),
+      purchases: arrayUnion(purchase),
+      spendTotal: increment(amountDueToday),
+      "bookings.jam": true, // ✅ full DJ booking
+      "bookings.updatedAt": serverTimestamp(),
+      weddingDateLocked: true,
+      lastPurchaseAt: serverTimestamp(),
+    });
+    await addDoc(collection(db, "users", uid, "documents"), docItem);
+
+    // Cache wedding date lock locally and notify the UI
+    try {
+      if (weddingDate) localStorage.setItem("weddingDate", weddingDate);
+      localStorage.setItem("weddingDateLocked", "true");
+    } catch {}
+    window.dispatchEvent(new Event("dateLockedNow"));
+
+    // ✅ Send both user + admin emails for Jam booking
+    {
+      const auth = getAuth();
+      const current = auth.currentUser;
+
+      await notifyBooking("jam", {
+        user_email:
+          current?.email ||
+          (userDoc as any)?.email ||
+          "unknown@wedndone.com",
+        user_full_name: fullName,
+        firstName: safeFirst,
+        wedding_date: weddingDate || "TBD",
+        pdf_url: pdfUrl,
+        pdf_title: isAddon
+          ? "Jam & Groove Add-On Receipt"
+          : "Jam & Groove Agreement",
+        total: totalEffective.toFixed(2),
+        line_items: (lineItems || []).join(", "),
+        payment_now: amountDueToday.toFixed(2),
+        remaining_balance: (remaining ?? 0).toFixed(2),
+        final_due: prettyDate(weddingDate),
+        dashboardUrl: `${window.location.origin}${
+          import.meta.env.BASE_URL
+        }dashboard`,
+        product_name: "Jam & Groove (DJ)",
+      });
+    }
+
+    // Groove Guide if applicable (DJ booked OR guide purchased as add-on)
+const boughtDJ = lineItems.some((i) =>
+  i.startsWith("DJ Wed&Done Package")
+);
+const boughtGuide = lineItems.some((i) =>
+  i.startsWith("Groove Guide PDF")
+);
+
+// ⛔ Only generate if we are NOT explicitly reusing an existing guide
+if (!skipGrooveGeneration && (boughtDJ || boughtGuide)) {
+  const selections = patchJamSelections(jamSelections);
+  const grooveBlob = await generateGrooveGuidePDF({
+    fullName: `${firstName} ${lastName}`,
+    weddingDate,
+    selections,
+  });
+  const fileName = `GrooveGuide_${Date.now()}.pdf`;
+  const filePath = `public_docs/${uid}/${fileName}`;
+  const grooveUrl = await uploadPdfBlob(grooveBlob, filePath);
+
+  await updateDoc(userRef, {
+    documents: arrayUnion({
+      title: "Groove Guide PDF",
+      url: grooveUrl,
+      uploadedAt: new Date().toISOString(),
+      kind: "guide",
+      module: "jam",
+    }),
+  });
+
+  await emailjs.send(
+    EMAILJS_SERVICE_ID,
+    "template_w498nvm",
+    {
+      firstName,
+      user_name: `${firstName} ${lastName}`,
+      wedding_date: weddingDate,
+      pdf_url: grooveUrl,
+      pdf_title: "Groove Guide PDF",
+      dashboardUrl: `${window.location.origin}${
+        import.meta.env.BASE_URL
+      }dashboard`,
+    },
+    EMAILJS_PUBLIC_KEY
+  );
+}
+
+    window.dispatchEvent(new Event("purchaseMade"));
+    window.dispatchEvent(new Event("jamCompletedNow"));
+    onSuccess();
+  };
+
+  // --------------- Main success handler (branch) ---------------
   const handleSuccess = async (): Promise<void> => {
     setIsGenerating(true);
     try {
-      const userRef = doc(db, "users", uid);
-      const snap = await getDoc(userRef);
-      const userDoc = snap.exists() ? snap.data() : {};
-
-      const safeFirst =
-  (userDoc as any)?.firstName || firstName || "Magic";
-const safeLast =
-  (userDoc as any)?.lastName || lastName || "User";
-const fullName = `${safeFirst} ${safeLast}`.trim();
-
-      const purchase = {
-        label: isAddon ? "Jam & Groove Add-On" : "Jam & Groove Booking",
-        category: "jam",
-        amount: amountDueToday,
-        contractTotal: totalEffective,
-        payFull,
-        deposit: amountDueToday,
-        monthlyAmount: payFull ? 0 : round2(remaining / 3),
-        months: payFull ? 0 : 3,
-        method: payFull ? "full" : "deposit",
-        date: new Date().toISOString(),
-        module: "jam",
-      };
-
-      // PDFs
-let pdfUrl = "";
-if (isAddon) {
-  const purchaseDate = new Date().toLocaleDateString("en-US");
-  const pdfBlob = await generateJamAddOnReceiptPDF({
-    fullName,
-    lineItems,
-    total: amountDueToday,
-    purchaseDate,
-  });
-  const fileName = `JamAddOnReceipt_${Date.now()}.pdf`;
-  const filePath = `public_docs/${uid}/${fileName}`;
-  pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
-} else {
-  const pdfBlob = await generateJamAgreementPDF({
-    fullName,
-    total: totalEffective,
-    deposit: payFull ? totalEffective : amountDueToday,
-    paymentSummary,
-    weddingDate,
-    signatureImageUrl: signatureImage,
-    lineItems,
-  });
-  const fileName = `JamAgreement_${Date.now()}.pdf`;
-  const filePath = `public_docs/${uid}/${fileName}`;
-  pdfUrl = await uploadPdfBlob(pdfBlob, filePath);
-}
-
-      const docItem = {
-        title: isAddon ? "Jam & Groove Add-On Receipt" : "Jam & Groove Agreement",
-        url: pdfUrl,
-        uploadedAt: new Date().toISOString(),
-        kind: isAddon ? "receipt" : "agreement",
-        module: "jam",
-      };
-
-      await updateDoc(userRef, {
-        documents: arrayUnion(docItem),
-        purchases: arrayUnion(purchase),
-        spendTotal: increment(amountDueToday),
-        "bookings.jam": true,                 // ✅ write nested key
-        "bookings.updatedAt": serverTimestamp(),
-        weddingDateLocked: true,
-        lastPurchaseAt: serverTimestamp(),
-      });
-      await addDoc(collection(db, "users", uid, "documents"), docItem);
-
-      // Cache wedding date lock locally and notify the UI
-try {
-  if (weddingDate) localStorage.setItem("weddingDate", weddingDate);
-  localStorage.setItem("weddingDateLocked", "true");
-} catch {}
-window.dispatchEvent(new Event("dateLockedNow"));
-
-      // ✅ Send both user + admin emails for Jam
-{
-  const auth = getAuth();
-  const current = auth.currentUser;
-
-  // Prefer Firestore names if present, then props, then friendly defaults
-  const safeFirst =
-    (userDoc as any)?.firstName || firstName || "Magic";
-  const safeLast =
-    (userDoc as any)?.lastName || lastName || "User";
-  const fullName = `${safeFirst} ${safeLast}`;
-
-  await notifyBooking("jam", {
-    // EmailJS "To:" (user email); admin templates ignore this field
-    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: safeFirst,
-
-    wedding_date: weddingDate || "TBD",
-
-    // Link to the PDF we just uploaded
-    pdf_url: pdfUrl,
-    pdf_title: isAddon ? "Jam & Groove Add-On Receipt" : "Jam & Groove Agreement",
-
-    // Common details
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems || []).join(", "),
-
-    // Optional finance details if you want them to appear in user templates
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: (remaining ?? 0).toFixed(2),
-    final_due: prettyDate(weddingDate),
-
-    // Dashboard CTA
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-
-    // Ensure the admin headline/body shows the right product name
-    product_name: "Jam & Groove (DJ)",
-  });
-}
-
-      // Groove Guide if applicable
-      const boughtDJ = lineItems.some((i) => i.startsWith("DJ Wed&Done Package"));
-      const boughtGuide = lineItems.some((i) => i.startsWith("Groove Guide PDF"));
-      if (boughtDJ || boughtGuide) {
-        const selections = patchJamSelections(jamSelections);
-        const grooveBlob = await generateGrooveGuidePDF({
-          fullName: `${firstName} ${lastName}`,
-          weddingDate,
-          selections,
-        });
-        const fileName = `GrooveGuide_${Date.now()}.pdf`;
-        const filePath = `public_docs/${uid}/${fileName}`;
-        const grooveUrl = await uploadPdfBlob(grooveBlob, filePath);
-        await updateDoc(userRef, {
-          documents: arrayUnion({
-            title: "Groove Guide PDF",
-            url: grooveUrl,
-            uploadedAt: new Date().toISOString(),
-            kind: "guide",
-            module: "jam",
-          }),
-        });
-        await emailjs.send(
-          EMAILJS_SERVICE_ID,
-          "template_w498nvm",
-          {
-            user_name: `${firstName} ${lastName}`,
-            wedding_date: weddingDate,
-            pdf_url: grooveUrl,
-            pdf_title: "Groove Guide PDF",
-          },
-          EMAILJS_PUBLIC_KEY
-        );
+      if (isPdfOnly) {
+        await handlePdfOnlySuccess();
+      } else {
+        await handleFullJamSuccess();
       }
-
-      window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(new Event("jamCompletedNow"));
-      onSuccess();
     } catch (err) {
       console.error("❌ Jam checkout error:", err);
     } finally {
@@ -364,8 +506,15 @@ window.dispatchEvent(new Event("dateLockedNow"));
   return (
     <div className="pixie-card pixie-card--modal" ref={scrollRef}>
       {/* Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -418,34 +567,33 @@ window.dispatchEvent(new Event("dateLockedNow"));
             </h2>
 
             <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-              {paymentSummary
-                ? paymentSummary
-                : payFull
-                ? `You're paying $${totalEffective.toFixed(2)} today.`
-                : `You're paying a $${amountDueToday.toFixed(
-                    2
-                  )} deposit today. Remaining $${remaining.toFixed(
-                    2
-                  )} will be billed monthly, with the final payment due ${finalDuePretty}.`}
+              {effectiveSummary}
             </p>
 
             <div className="px-elements">
-  <CheckoutForm
-    total={amountDueToday}
-    onSuccess={handleSuccess}
-    setStepSuccess={onSuccess}
-    isAddon={false}
-    customerEmail={getAuth().currentUser?.email || undefined}
-    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-    customerId={(() => {
-      try {
-        return localStorage.getItem("stripeCustomerId") || undefined;
-      } catch {
-        return undefined;
-      }
-    })()}
-  />
-</div>
+              <CheckoutForm
+                total={amountDueToday}
+                onSuccess={handleSuccess}
+                setStepSuccess={onSuccess}
+                isAddon={false}
+                customerEmail={
+                  getAuth().currentUser?.email || undefined
+                }
+                customerName={`${firstName || "Magic"} ${
+                  lastName || "User"
+                }`}
+                customerId={(() => {
+                  try {
+                    return (
+                      localStorage.getItem("stripeCustomerId") ||
+                      undefined
+                    );
+                  } catch {
+                    return undefined;
+                  }
+                })()}
+              />
+            </div>
 
             <div className="px-cta-col" style={{ marginTop: 12 }}>
               <button className="boutique-back-btn" onClick={onBack}>

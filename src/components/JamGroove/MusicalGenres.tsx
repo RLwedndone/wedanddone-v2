@@ -239,9 +239,6 @@ const MusicalGenres: React.FC<MusicalGenresProps> = ({
                 >
                   Save
                 </button>
-                <button className="boutique-back-btn" onClick={closeGenreModal}>
-                  Cancel
-                </button>
               </div>
             </div>
           </div>

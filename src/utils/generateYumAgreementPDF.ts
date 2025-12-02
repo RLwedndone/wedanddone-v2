@@ -160,9 +160,9 @@ const generateYumAgreementPDF = async ({
   // Included items
   if (
     (lineItems && lineItems.length > 0) ||
-    (menuSelections.appetizers?.length ||
-      menuSelections.mains?.length ||
-      menuSelections.sides?.length)
+    menuSelections.appetizers?.length ||
+    menuSelections.mains?.length ||
+    menuSelections.sides?.length
   ) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
     doc.setFontSize(14);
@@ -224,168 +224,147 @@ const generateYumAgreementPDF = async ({
     if (dueByPretty) {
       doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y);
       y += LINE_GAP;
+    } else {
+      doc.text(
+        "Remaining balance due 35 days before your wedding date.",
+        MARGIN_X + 5,
+        y
+      );
+      y += LINE_GAP;
     }
   } else {
-    doc.text(`Total Paid in Full Today: $${total.toFixed(2)}`, MARGIN_X + 5, y);
+    doc.text(
+      `Total Paid in Full Today: $${total.toFixed(2)}`,
+      MARGIN_X + 5,
+      y
+    );
     y += LINE_GAP;
   }
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;
 
-  // ---------- New: “Key Terms” bullets ----------
-  const bullets = [
-    `Final balance due by ${dueByPretty || "35 days before your wedding"}.`,
-    `Payment options: pay in full today or 25% deposit + monthly installments until due date.`,
-    `Final guest counts lock 30 days before your wedding (you can increase later, but cannot decrease below the booked count).`,
+  // ---------- Booking Terms (mirror on-screen text) ----------
+  y = ensureSpace(doc, y, LINE_GAP + PARA_GAP);
+  doc.setFont("helvetica", "bold");
+doc.setFontSize(13);
+doc.setTextColor(0); // BLACK
+doc.text("Booking Terms", MARGIN_X, y);
+  y += PARA_GAP;
+
+  doc.setFont("helvetica", "normal");
+doc.setFontSize(12);
+doc.setTextColor(0); // BLACK for bullets
+
+  const bookingBullets: string[] = [
+    // 1) Venue allows outside caterers
+    "By signing, you confirm either (a) your venue allows outside caterers, or (b) you’ll book a venue that does.",
+
+    // 2) Deposit + 35-day payoff
+    "You may pay in full today, or place a 25% non-refundable deposit. Any remaining balance will be split into monthly installments and must be fully paid 35 days before your wedding date.",
+
+    // 3) Buffet style
+    "Your reception will be served buffet-style.",
+
+    // 4) Guest count / 30 + 45 days
+    "Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days before your wedding, but the count cannot be lowered after booking.",
+
+    // 5) Cancellation & Refunds
+    "Cancellation & Refunds: If you cancel more than 35 days prior, amounts paid beyond the non-recoverable portion will be refunded less any non-recoverable costs already incurred. Within 35 days, all payments are non-refundable.",
+
+    // 6) Missed Payments
+    "Missed Payments: We’ll automatically retry your card. After 7 days, a $25 late fee applies; after 14 days, services may be suspended and this agreement may be in default.",
+
+    // 7) Food safety & venue policies
+    "Food Safety & Venue Policies: We’ll follow standard food-safety guidelines and comply with venue rules, which may limit service or display options.",
+
+    // 8) Force Majeure
+    "Force Majeure: Neither party is liable for delays beyond reasonable control. We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.",
+
+    // 9) Liability cap
+    "In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.",
   ];
 
-  const writeBullets = (items: string[]) => {
-    y = ensureSpace(doc, y, LINE_GAP + PARA_GAP);
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text("Key Terms", MARGIN_X, y);
-    doc.setFont("helvetica", "normal");
-    y += PARA_GAP;
-    doc.setFontSize(12);
-
-    for (const b of items) {
-      const lines = doc.splitTextToSize(`• ${b}`, 170);
-      for (const ln of lines) {
-        y = ensureSpace(doc, y, LINE_GAP);
-        doc.text(ln, MARGIN_X, y);
-        y += LINE_GAP;
-      }
-    }
-    y += 2;
-  };
-
-  writeBullets(bullets);
-
-  // ---------- Agreement Terms (section headers + paragraphs) ----------
-  doc.setTextColor(50);
-  const writeHeading = (title: string) => {
-    y = ensureSpace(doc, y, LINE_GAP + PARA_GAP);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(title, MARGIN_X, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    y += 6;
-  };
-
-  const writeParagraph = (text: string) => {
-    const lines = doc.splitTextToSize(text, 170);
+  for (const b of bookingBullets) {
+    const lines = doc.splitTextToSize(`• ${b}`, 170);
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
       doc.text(ln, MARGIN_X, y);
       y += LINE_GAP;
     }
-    y += 4; // small gap between paragraphs
-  };
-
-  // Payments & Schedule
-  writeHeading("Payments & Schedule");
-  {
-    const dueLine = dueByPretty
-      ? `The remaining balance will be charged ${dueByPretty} unless you pay in full today or clear the balance earlier.`
-      : `The remaining balance will be charged 35 days before your wedding date unless you pay in full today or clear the balance earlier.`;
-
-    writeParagraph(
-      `By signing this agreement, you agree that at minimum 25% of the catering total is non-refundable. ${dueLine}`
-    );
-    writeParagraph(
-      `Final guest counts are due 30 days before your wedding date. You may increase your guest count at any time; however, once booked, you cannot decrease the number of guests below the booked count.`
-    );
+    y += 2; // tiny gap between bullets
   }
 
-  // Cancellations & Changes
-  writeHeading("Cancellations & Changes");
-  writeParagraph(
-    `If you cancel more than 30 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable catering costs already incurred. ` +
-      `If you cancel within 30 days, all payments are non-refundable. Reschedules are subject to vendor availability, and any additional fees will be the client’s responsibility.`
-  );
-
-  // Missed Payments / Default
-  writeHeading("Missed Payments / Default");
-  writeParagraph(
-    `If any installment payment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. ` +
-      `If payment is not received within 7 days, a late fee of $25 will be applied. If payment remains outstanding for more than 14 days, ` +
-      `Wed&Done reserves the right to suspend services and declare this agreement in default. In the event of default, all amounts paid ` +
-      `(including the non-refundable deposit) may be retained by Wed&Done and the booking may be cancelled without further obligation.`
-  );
-
-  // Food, Allergies & Substitutions
-  writeHeading("Food, Allergies & Substitutions");
-  writeParagraph(
-    `Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages. Our liability is limited to the amounts you have paid for catering services under this agreement. ` +
-      `Because food ingredients and products are subject to supply conditions, comparable substitutions may be made if certain menu items or ingredients are unavailable.`
-  );
-
-  // Force Majeure
-  writeHeading("Force Majeure");
-  writeParagraph(
-    `Neither party is liable for failure or delay caused by events beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages). ` +
-      `If performance is prevented, we’ll work in good faith to reschedule. If rescheduling isn’t possible, we’ll refund any amounts paid beyond non-recoverable costs already incurred.`
-  );
+  // Reset text color for anything that follows (signature, etc.)
+  doc.setTextColor(0);
 
   // ---------- Signature anchored to the bottom of the FINAL page ----------
-if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
-  addFooter(doc);
-  doc.addPage();
-  y = TOP_Y;
-}
+  if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
+    addFooter(doc);
+    doc.addPage();
+    y = TOP_Y;
+  }
 
-const sigTop = FOOTER_Y - 10 - SIG_BLOCK_H; // 10px breathing room above footer
-doc.setTextColor(0);
-doc.setFontSize(12);
-doc.text("Signature", MARGIN_X, sigTop);
+  const sigTop = FOOTER_Y - 10 - SIG_BLOCK_H; // 10px breathing room above footer
+  doc.setTextColor(0);
+  doc.setFontSize(12);
+  doc.text("Signature", MARGIN_X, sigTop);
 
-// Helper: detect format from data URL
-const detectFormat = (url: string): "PNG" | "JPEG" | undefined => {
-  if (!url) return undefined;
-  if (url.startsWith("data:image/png")) return "PNG";
-  if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/jpg")) return "JPEG";
-  return undefined; // let jsPDF try to infer
-};
+  // Helper: detect format from data URL
+  const detectFormat = (url: string): "PNG" | "JPEG" | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith("data:image/png")) return "PNG";
+    if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/jpg"))
+      return "JPEG";
+    return undefined; // let jsPDF try to infer
+  };
 
-try {
-  if (signatureImageUrl) {
-    const sigW = 100;          // wider so it’s readable
-    const sigH = 40;           // a bit taller than before
+  try {
+    if (signatureImageUrl) {
+      const sigW = 100; // wider so it’s readable
+      const sigH = 40; // a bit taller than before
 
-    const fmt = detectFormat(signatureImageUrl);
+      const fmt = detectFormat(signatureImageUrl);
 
-    if (signatureImageUrl.startsWith("data:")) {
-      // data URL → add directly
-      doc.addImage(signatureImageUrl, fmt as any, MARGIN_X, sigTop + 5, sigW, sigH);
-    } else {
-      // blob:/http(s):/relative → load as HTMLImageElement first
-      const img = await (async () => {
-        try {
-          return await loadImage(signatureImageUrl);
-        } catch {
-          return null;
-        }
-      })();
-      if (img) {
-        doc.addImage(img, "PNG", MARGIN_X, sigTop + 5, sigW, sigH);
+      if (signatureImageUrl.startsWith("data:")) {
+        // data URL → add directly
+        doc.addImage(
+          signatureImageUrl,
+          fmt as any,
+          MARGIN_X,
+          sigTop + 5,
+          sigW,
+          sigH
+        );
       } else {
-        // last resort: do nothing (avoid throwing)
-        console.warn("⚠️ Could not load signature image; leaving signature area blank.");
+        // blob:/http(s):/relative → load as HTMLImageElement first
+        const img = await (async () => {
+          try {
+            return await loadImage(signatureImageUrl);
+          } catch {
+            return null;
+          }
+        })();
+        if (img) {
+          doc.addImage(img, "PNG", MARGIN_X, sigTop + 5, sigW, sigH);
+        } else {
+          // last resort: do nothing (avoid throwing)
+          console.warn(
+            "⚠️ Could not load signature image; leaving signature area blank."
+          );
+        }
       }
     }
+  } catch (err) {
+    console.error("❌ Failed to add signature image:", err);
   }
-} catch (err) {
-  console.error("❌ Failed to add signature image:", err);
-}
 
-doc.setFontSize(10);
-doc.setTextColor(100);
-doc.text(`Signed by: ${fullName}`, MARGIN_X, sigTop + 5 + 40 + 12); // use sigH
-doc.text(`Signature date: ${todayPretty}`, MARGIN_X, sigTop + 5 + 40 + 19);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Signed by: ${fullName}`, MARGIN_X, sigTop + 5 + 40 + 12); // use sigH
+  doc.text(`Signature date: ${todayPretty}`, MARGIN_X, sigTop + 5 + 40 + 19);
 
-// Final footer on the last page
-addFooter(doc);
+  // Final footer on the last page
+  addFooter(doc);
 
   return doc.output("blob");
 };

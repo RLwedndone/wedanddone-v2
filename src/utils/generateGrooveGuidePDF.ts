@@ -76,6 +76,10 @@ export const generateGrooveGuidePDF = async ({
   const doc = new jsPDF();
   let y = 20;
 
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const bottomLimit = pageH - 25; // slightly higher to protect the footer
+
   const addImage = (src: string, x: number, yPos: number, w: number, h: number) =>
     new Promise<void>((resolve, reject) => {
       const img = new Image();
@@ -90,21 +94,22 @@ export const generateGrooveGuidePDF = async ({
       };
     });
 
-  // 🐸 Frog Header (make it larger + centered)
+  // 🐸 Frog Header (larger + centered)
   const frogImage = new Image();
-  frogImage.src = `${window.location.origin}/assets/images/JamPDFIcons/groove_frog_header.png`;
+  frogImage.src =
+    `${window.location.origin}/assets/images/JamPDFIcons/groove_frog_header.png`;
 
   await new Promise<void>((resolve, reject) => {
     frogImage.onload = () => {
-      const naturalW = frogImage.naturalWidth;
-      const naturalH = frogImage.naturalHeight;
+      const naturalW = frogImage.naturalWidth || 1;
+      const naturalH = frogImage.naturalHeight || 1;
 
-      // scale up a bit from the old 0.02
-      const scale = 0.035;
-      const w = naturalW * scale;
+      // Target ~32px wide frog, keep aspect ratio
+      const targetW = 32;
+      const scale = targetW / naturalW;
+      const w = targetW;
       const h = naturalH * scale;
 
-      const pageW = doc.internal.pageSize.getWidth();
       const x = (pageW - w) / 2;
 
       doc.addImage(frogImage, "PNG", x, y, w, h);
@@ -115,7 +120,6 @@ export const generateGrooveGuidePDF = async ({
   });
 
   // ✨ Title
-  const pageW = doc.internal.pageSize.getWidth();
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Your Groove Guide!", pageW / 2, y, { align: "center" });
@@ -133,16 +137,31 @@ export const generateGrooveGuidePDF = async ({
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
-  doc.text(`Wedding Date: ${formattedDate}`, pageW / 2, y, { align: "center" });
-  y += 10;
+  doc.text(`Wedding Date: ${formattedDate || "TBD"}`, pageW / 2, y, {
+    align: "center",
+  });
+  y += 12;
 
   // Shared section helper — icon above, centered, bullets underneath
   const section = async (title: string, icon: string, lines: string[]) => {
-    const iconSize = 20;
+    const iconSize = 28; // bigger icons ✨
+
+    // If we’re too close to the bottom to fit icon + title, bump to next page first
+    if (y + iconSize + 24 > bottomLimit) {
+      doc.addPage();
+      y = 20;
+    }
+
     const iconX = (pageW - iconSize) / 2;
 
     // icon
-    await addImage(`/assets/images/JamPDFIcons/${icon}`, iconX, y, iconSize, iconSize);
+    await addImage(
+      `/assets/images/JamPDFIcons/${icon}`,
+      iconX,
+      y,
+      iconSize,
+      iconSize
+    );
     y += iconSize + 6;
 
     // title
@@ -155,16 +174,14 @@ export const generateGrooveGuidePDF = async ({
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
 
-    const bottomLimit = doc.internal.pageSize.getHeight() - 20;
-
-    lines.forEach((line) => {
+    for (const line of lines) {
       if (y > bottomLimit) {
         doc.addPage();
         y = 20;
       }
       doc.text(`• ${line}`, pageW / 2, y, { align: "center" });
       y += 7;
-    });
+    }
 
     y += 10;
     if (y > bottomLimit) {
@@ -245,11 +262,15 @@ export const generateGrooveGuidePDF = async ({
 
     if (!fd.skipFirstDance)
       lines.push(
-        `First Dance: ${fd.firstDanceSong || "-"} by ${fd.firstDanceArtist || "-"}`
+        `First Dance: ${fd.firstDanceSong || "-"} by ${
+          fd.firstDanceArtist || "-"
+        }`
       );
     if (!fd.skipMotherSon)
       lines.push(
-        `Mother–Son: ${fd.motherSonSong || "-"} by ${fd.motherSonArtist || "-"}`
+        `Mother–Son: ${fd.motherSonSong || "-"} by ${
+          fd.motherSonArtist || "-"
+        }`
       );
     if (!fd.skipFatherDaughter)
       lines.push(
@@ -276,7 +297,9 @@ export const generateGrooveGuidePDF = async ({
         : ["Nothing entered"]
     );
   } else {
-    await section("Pre-Dinner Welcome", "pre_dinner_icon.png", ["Nothing entered"]);
+    await section("Pre-Dinner Welcome", "pre_dinner_icon.png", [
+      "Nothing entered",
+    ]);
   }
 
   if (s.grandEntrances) {
@@ -284,7 +307,9 @@ export const generateGrooveGuidePDF = async ({
     const lines = [`Type: ${ge.selection || "None"}`];
 
     if (ge.selection !== "none") {
-      lines.push(`Couple: ${ge.coupleSong || "-"} by ${ge.coupleArtist || "-"}`);
+      lines.push(
+        `Couple: ${ge.coupleSong || "-"} by ${ge.coupleArtist || "-"}`
+      );
     }
     if (ge.selection === "full") {
       lines.push(
@@ -293,7 +318,9 @@ export const generateGrooveGuidePDF = async ({
         }`
       );
       lines.push(
-        `Groomsmen: ${ge.groomsmenSong || "-"} by ${ge.groomsmenArtist || "-"}`
+        `Groomsmen: ${ge.groomsmenSong || "-"} by ${
+          ge.groomsmenArtist || "-"
+        }`
       );
     }
 
@@ -319,15 +346,15 @@ export const generateGrooveGuidePDF = async ({
     genreLines.length > 0 ? genreLines : ["Nothing entered"]
   );
 
-  // Footer
+  // Footer on the last page
   doc.setDrawColor(200);
-  doc.line(20, doc.internal.pageSize.getHeight() - 17, pageW - 20, doc.internal.pageSize.getHeight() - 17);
+  doc.line(20, pageH - 17, pageW - 20, pageH - 17);
   doc.setFontSize(10);
   doc.setTextColor(120);
   doc.text(
     "Magically crafted by Wed&Done",
     pageW / 2,
-    doc.internal.pageSize.getHeight() - 10,
+    pageH - 10,
     { align: "center" }
   );
 

@@ -32,15 +32,38 @@ import JamIncludedCart from "./JamIncludedCart";
 export type SongModalKey = "bride" | "party" | "recessional" | "other" | null;
 
 export type JamStep =
-  | "intro" | "ceremonyOrder" | "ceremonyMusic" | "cocktail" | "welcome" | "family" | "grandEntrance"
-  | "dinner" | "cake" | "genres" | "cart" | "calendar" | "editdate" | "contract" | "checkout" | "thankyou" | "account";
+  | "intro"
+  | "ceremonyOrder"
+  | "ceremonyMusic"
+  | "cocktail"
+  | "welcome"
+  | "family"
+  | "grandEntrance"
+  | "dinner"
+  | "cake"
+  | "genres"
+  | "cart"
+  | "calendar"
+  | "editdate"
+  | "contract"
+  | "checkout"
+  | "thankyou"
+  | "account";
 
 export type JamSelectionsType = {
   ceremonyMusic?: {
-    bride?: string; brideArtist?: string; brideVersion?: string;
-    party?: string; partyArtist?: string; partyVersion?: string;
-    recessionalSong?: string; recessionalArtist?: string; recessionalVersion?: string;
-    otherSongs?: string; otherSongsArtist?: string; otherSongsVersion?: string;
+    bride?: string;
+    brideArtist?: string;
+    brideVersion?: string;
+    party?: string;
+    partyArtist?: string;
+    partyVersion?: string;
+    recessionalSong?: string;
+    recessionalArtist?: string;
+    recessionalVersion?: string;
+    otherSongs?: string;
+    otherSongsArtist?: string;
+    otherSongsVersion?: string;
   };
   [key: string]: any;
 };
@@ -52,7 +75,12 @@ interface JamOverlayProps {
   startAt?: JamStep;
 }
 
-const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "initial", startAt }) => {
+const JamOverlay: React.FC<JamOverlayProps> = ({
+  onClose,
+  onComplete,
+  mode = "initial",
+  startAt,
+}) => {
   const { userData } = useUser();
   const uid = userData?.uid || "";
   const isGuestUser = !getAuth().currentUser;
@@ -60,6 +88,7 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
   const [hasRubiIncludedDJ, setHasRubiIncludedDJ] = useState(false);
   const defaultStep: JamStep = startAt || (isAddon ? "cart" : "intro");
   const [step, setStepRaw] = useState<JamStep>(defaultStep);
+  const [usedExistingGuide, setUsedExistingGuide] = useState(false);
 
   // ✅ unified setter that stores guest progress
   const setStep = (newStep: JamStep) => {
@@ -80,14 +109,27 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
   const [signatureImage, setSignatureImage] = useState("");
   const [signatureSubmitted, setSignatureSubmitted] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [savedStepBeforeModal, setSavedStepBeforeModal] = useState<JamStep | null>(null);
-  const [bookingData, setBookingData] = useState<any>({ total: 0, depositAmount: 0, paymentSummary: "", lineItems: [] });
+  const [savedStepBeforeModal, setSavedStepBeforeModal] =
+    useState<JamStep | null>(null);
+  const [bookingData, setBookingData] = useState<any>({
+    total: 0,
+    depositAmount: 0,
+    paymentSummary: "",
+    lineItems: [],
+  });
   const [userWeddingDate, setUserWeddingDate] = useState<string | null>(null);
   const [userDayOfWeek, setUserDayOfWeek] = useState<string | null>(null);
   const [dateLocked, setDateLocked] = useState<boolean>(false);
-  const userHasLockedDate = dateLocked || (!!userWeddingDate && !!userDayOfWeek);
-  const [jamAddOnQuantities, setJamAddOnQuantities] = useState<Record<string, number>>({});
+  const userHasLockedDate =
+    dateLocked || (!!userWeddingDate && !!userDayOfWeek);
+  const [jamAddOnQuantities, setJamAddOnQuantities] = useState<
+    Record<string, number>
+  >({});
   const [hasDJBase, setHasDJBase] = useState(false);
+  const [isPdfOnly, setIsPdfOnly] = useState(false);
+  const [nextStepAfterAccount, setNextStepAfterAccount] =
+    useState<JamStep>("cart");
+  const [hasPdfOnlyGuide, setHasPdfOnlyGuide] = useState(false);
 
   // Restore saved step for guests
   useEffect(() => {
@@ -97,116 +139,195 @@ const JamOverlay: React.FC<JamOverlayProps> = ({ onClose, onComplete, mode = "in
     }
   }, []);
 
-  // Load user data
-useEffect(() => {
-  (async () => {
-    const user = getAuth().currentUser;
-    if (!user) return;
-    try {
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (!snap.exists()) return;
-
-      const data: any = snap.data();
-
-      // 🔹 figure out which venue they booked
-      const bookedVenueSlug =
-        data?.venueRankerData?.booking?.venueSlug ||   // Ranker booking object
-        data?.bookings?.venueSlug ||                  // fallback if you stored it here
-        data?.venueSlug ||                            // or legacy field
-        localStorage.getItem("venueSlug");            // last resort
-
-      setHasRubiIncludedDJ(bookedVenueSlug === "rubihouse");
-
-      // existing logic…
-      const fsWeddingDate =
-        data.weddingDate ||
-        data.wedding?.date ||
-        localStorage.getItem("weddingDate") ||
-        null;
-
-      const fsDayOfWeek =
-        data.bookings?.dayOfWeek ||
-        data.dayOfWeek ||
-        (fsWeddingDate
-          ? new Date(`${fsWeddingDate}T12:00:00`).toLocaleDateString("en-US", {
-              weekday: "long",
-            })
-          : null);
-
-      const fsLocked =
-        Boolean(data.weddingDateLocked || data.dateLocked) ||
-        localStorage.getItem("weddingDateLocked") === "true";
-
-      setUserWeddingDate(fsWeddingDate);
-      setUserDayOfWeek(fsDayOfWeek);
-      setDateLocked(fsLocked);
-      setHasDJBase(Boolean(data.bookings?.jam));
-
-      if (data?.jamGrooveSavedStep) {
-        setStepRaw(data.jamGrooveSavedStep as JamStep);
-      }
-    } catch (e) {
-      console.error("❌ Error fetching jam data:", e);
-    }
-  })();
-}, []);
-
-  // 🪩 Check if the user already booked Jam & Groove
-const [alreadyBooked, setAlreadyBooked] = useState(false);
-
-useEffect(() => {
-  const checkBooking = async () => {
-    try {
+  // Restore jamSelections from Firestore / localStorage
+  useEffect(() => {
+    const restore = async () => {
       const user = getAuth().currentUser;
+
       if (user) {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.data();
-        if (data?.bookings?.jam) {
-          setAlreadyBooked(true);
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          const data: any = snap.data() || {};
+
+          if (data.jamSelections) {
+            setJamSelections(data.jamSelections);
+          }
+        } catch (err) {
+          console.error(
+            "❌ Error restoring jamSelections from Firestore:",
+            err
+          );
+        }
+      } else {
+        // guest path
+        try {
+          const raw = localStorage.getItem("jamGrooveProgress");
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+
+          if (parsed.jamSelections) {
+            setJamSelections(parsed.jamSelections);
+          }
+        } catch (err) {
+          console.error(
+            "❌ Error restoring jamSelections from localStorage:",
+            err
+          );
         }
       }
-    } catch (e) {
-      console.error("Error checking Jam booking:", e);
-    }
-  };
-  checkBooking();
-}, []);
+    };
+
+    restore();
+  }, []);
+
+  // Load user data
+  useEffect(() => {
+    (async () => {
+      const user = getAuth().currentUser;
+      if (!user) return;
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (!snap.exists()) return;
+
+        const data: any = snap.data();
+
+        // 🔹 figure out which venue they booked
+        const bookedVenueSlug =
+          data?.venueRankerData?.booking?.venueSlug || // Ranker booking object
+          data?.bookings?.venueSlug || // fallback if you stored it here
+          data?.venueSlug || // or legacy field
+          localStorage.getItem("venueSlug"); // last resort
+
+        setHasRubiIncludedDJ(bookedVenueSlug === "rubihouse");
+
+        // date logic…
+        const fsWeddingDate =
+          data.weddingDate ||
+          data.wedding?.date ||
+          localStorage.getItem("weddingDate") ||
+          null;
+
+        const fsDayOfWeek =
+          data.bookings?.dayOfWeek ||
+          data.dayOfWeek ||
+          (fsWeddingDate
+            ? new Date(`${fsWeddingDate}T12:00:00`).toLocaleDateString(
+                "en-US",
+                {
+                  weekday: "long",
+                }
+              )
+            : null);
+
+        const fsLocked =
+          Boolean(data.weddingDateLocked || data.dateLocked) ||
+          localStorage.getItem("weddingDateLocked") === "true";
+
+        setUserWeddingDate(fsWeddingDate);
+        setUserDayOfWeek(fsDayOfWeek);
+        setDateLocked(fsLocked);
+        setHasDJBase(Boolean(data.bookings?.jam));
+
+        // 🔹 NEW: do they have a Groove Guide but no DJ booking?
+        const docs = (data.documents || []) as any[];
+        const hasGuideDoc = docs.some(
+          (d) => d?.module === "jam" && d?.kind === "guide"
+        );
+        const hasJamBooking = Boolean(data?.bookings?.jam);
+        const pdfOnly = hasGuideDoc && !hasJamBooking;
+
+        setHasPdfOnlyGuide(pdfOnly);
+
+        // restore saved step only if not in pdf-only mode
+        if (data?.jamGrooveSavedStep && !pdfOnly) {
+          setStepRaw(data.jamGrooveSavedStep as JamStep);
+        }
+      } catch (e) {
+        console.error("❌ Error fetching jam data:", e);
+      }
+    })();
+  }, []);
+
+  // 🪩 Check if the user already booked Jam & Groove
+  const [alreadyBooked, setAlreadyBooked] = useState(false);
+
+  useEffect(() => {
+    const checkBooking = async () => {
+      try {
+        const user = getAuth().currentUser;
+        if (user) {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          const data = snap.data();
+          if (data?.bookings?.jam) {
+            setAlreadyBooked(true);
+          }
+        }
+      } catch (e) {
+        console.error("Error checking Jam booking:", e);
+      }
+    };
+    checkBooking();
+  }, []);
 
   // Persist step for logged-in users
   useEffect(() => {
     if (!step) return;
     const allowedSteps: JamStep[] = [
-      "intro","ceremonyOrder","ceremonyMusic","cocktail","welcome","family",
-      "grandEntrance","dinner","cake","genres","cart","calendar","editdate","contract","checkout"
+      "intro",
+      "ceremonyOrder",
+      "ceremonyMusic",
+      "cocktail",
+      "welcome",
+      "family",
+      "grandEntrance",
+      "dinner",
+      "cake",
+      "genres",
+      "cart",
+      "calendar",
+      "editdate",
+      "contract",
+      "checkout",
     ];
     if (allowedSteps.includes(step) && getAuth().currentUser) {
-      updateDoc(doc(db, "users", getAuth().currentUser!.uid), { jamGrooveSavedStep: step })
-        .catch((err) => console.error("❌ Error saving step:", err));
+      updateDoc(doc(db, "users", getAuth().currentUser!.uid), {
+        jamGrooveSavedStep: step,
+      }).catch((err) =>
+        console.error("❌ Error saving step:", err)
+      );
     }
   }, [step]);
 
   // React to dateLockedNow (set by other flows) and LS cache
-useEffect(() => {
-  const handler = () => {
-    const d = localStorage.getItem("weddingDate");
-    const locked = localStorage.getItem("weddingDateLocked") === "true";
-    const dow = d
-      ? new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" })
-      : null;
+  useEffect(() => {
+    const handler = () => {
+      const d = localStorage.getItem("weddingDate");
+      const locked = localStorage.getItem("weddingDateLocked") === "true";
+      const dow = d
+        ? new Date(`${d}T12:00:00`).toLocaleDateString("en-US", {
+            weekday: "long",
+          })
+        : null;
 
-    setUserWeddingDate(d);
-    setUserDayOfWeek(dow);
-    setDateLocked(locked);
-  };
+      setUserWeddingDate(d);
+      setUserDayOfWeek(dow);
+      setDateLocked(locked);
+    };
 
-  window.addEventListener("dateLockedNow", handler);
-  return () => window.removeEventListener("dateLockedNow", handler);
-}, []);
+    window.addEventListener("dateLockedNow", handler);
+    return () => window.removeEventListener("dateLockedNow", handler);
+  }, []);
 
   const handleSuccess = () => {
-    window.dispatchEvent(new Event("jamCompletedNow"));
+    // For full DJ bookings, flip the Jam button to "completed"
+    if (!isPdfOnly) {
+      window.dispatchEvent(new Event("jamCompletedNow"));
+    }
+
+    // PDF-only still counts as a purchase for Budget Wand, etc.
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("userPurchaseMade"));
+
     setStep("thankyou");
   };
 
@@ -215,22 +336,47 @@ useEffect(() => {
     setLineItems(items);
 
     const DEPOSIT_AMOUNT = 750;
-    const depositDue = Math.min(DEPOSIT_AMOUNT, grandTotal);
-    const remaining = Math.max(0, grandTotal - depositDue);
-    const months = 3;
+
+    const includesDJ = items.some((i) =>
+      i.includes("DJ Wed&Done Package")
+    );
+    const includesGrooveGuide = items.some((i) =>
+      i.includes("Groove Guide PDF")
+    );
+
+    // 🎯 PDF-only = Groove Guide selected, no DJ package
+    const pdfOnly = includesGrooveGuide && !includesDJ;
+    setIsPdfOnly(pdfOnly);
+
+    // Deposit logic:
+    // - DJ booking → flat 750 (capped by total)
+    // - PDF-only → pay in full (no monthly plan)
+    const depositForThis = pdfOnly
+      ? grandTotal
+      : Math.min(DEPOSIT_AMOUNT, grandTotal);
+    const remaining = Math.max(0, grandTotal - depositForThis);
+    const months = pdfOnly ? 0 : 3;
     const perMonth = months > 0 ? +(remaining / months).toFixed(2) : 0;
 
-    const includesDJ = items.some((i) => i.includes("DJ Wed&Done Package"));
-    const includesGrooveGuide = items.some((i) => i.includes("Groove Guide PDF"));
-    const shouldDisableMonthly = includesGrooveGuide && !includesDJ;
+    const paymentSummary = pdfOnly
+      ? `You're paying $${grandTotal.toFixed(
+          2
+        )} today for your Groove Guide PDF.`
+      : `You'll pay $${depositForThis.toFixed(2)} today${
+          remaining > 0
+            ? ` and $${perMonth.toFixed(2)} for ${months} months (remaining $${remaining.toFixed(
+                2
+              )}).`
+            : "."
+        }`;
+
+    const shouldDisableMonthly = pdfOnly; // always full pay for PDF-only
 
     setBookingData({
       total: grandTotal,
-      depositAmount: depositDue,
+      depositAmount: depositForThis,
       lineItems: items,
-      paymentSummary:
-        `You'll pay $${depositDue.toFixed(2)} today` +
-        (remaining > 0 ? ` and $${perMonth.toFixed(2)} for ${months} months (remaining $${remaining.toFixed(2)}).` : "."),
+      paymentSummary,
       weddingDate: userWeddingDate ?? undefined,
       dayOfWeek: userDayOfWeek ?? undefined,
     });
@@ -238,29 +384,48 @@ useEffect(() => {
     if (shouldDisableMonthly) setPayFull(true);
 
     const user = getAuth().currentUser;
+
+    // Decide which step we *want* next:
+    // - DJ in cart → calendar
+    // - PDF-only → checkout
+    // - (future) add-on-only → contract
+    const nextStep: JamStep = includesDJ
+      ? "calendar"
+      : pdfOnly
+      ? "checkout"
+      : "contract";
+
     if (!user) {
+      // No account yet → open account modal, then resume at proper step
       setSavedStepBeforeModal("cart");
+      setNextStepAfterAccount(nextStep);
       setShowAccountModal(true);
       return;
     }
 
-    if (includesDJ) {
-      // Always go to the calendar step; it will show Confirm or Edit as appropriate
-      setStep("calendar");
-    } else {
-      setStep("contract");
-    }
+    // Logged-in path: go directly where we decided
+    setStep(nextStep);
   };
 
   if (alreadyBooked) {
     return (
       <div className="pixie-overlay">
         <div className="pixie-card pixie-card--modal">
-          <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-            <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+          <button
+            className="pixie-card__close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+              alt="Close"
+            />
           </button>
 
-          <div className="pixie-card__body" style={{ textAlign: "center" }}>
+          <div
+            className="pixie-card__body"
+            style={{ textAlign: "center" }}
+          >
             <video
               src={`${import.meta.env.BASE_URL}assets/videos/frog_thanks.mp4`}
               autoPlay
@@ -268,19 +433,30 @@ useEffect(() => {
               muted
               playsInline
               className="px-media"
-              style={{ maxWidth: 200, borderRadius: 16, marginBottom: "1rem" }}
+              style={{
+                maxWidth: 200,
+                borderRadius: 16,
+                marginBottom: "1rem",
+              }}
             />
 
             <h2 className="px-title" style={{ marginBottom: 8 }}>
               Your musical magician is all booked and confirmed! 🎶
             </h2>
 
-            <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-              Check out the other Button Boutiques to cross off more wedding to-do list items!
+            <p
+              className="px-prose-narrow"
+              style={{ marginBottom: 16 }}
+            >
+              Check out the other Button Boutiques to cross off more
+              wedding to-do list items!
             </p>
 
             <div className="px-cta-col">
-              <button className="boutique-primary-btn" onClick={onClose}>
+              <button
+                className="boutique-primary-btn"
+                onClick={onClose}
+              >
                 Close
               </button>
             </div>
@@ -289,7 +465,6 @@ useEffect(() => {
       </div>
     );
   }
-
 
   return (
     <>
@@ -323,12 +498,26 @@ useEffect(() => {
           <div ref={cardRef} style={{ width: "100%" }}>
           {step === "intro" && (
   <JamIntro
-    onContinue={() => setStep("ceremonyOrder")}
     onClose={onClose}
-    includedMode={hasRubiIncludedDJ}   // 👈 new prop
+    includedMode={hasRubiIncludedDJ}
+    hasPdfOnlyGuide={hasPdfOnlyGuide}
+    // "Update my Groove Guide" → walk Q&A again → allow new PDF later
+    onContinue={() => {
+      setUsedExistingGuide(false);
+      setStep("ceremonyOrder");
+    }}
+    // "Use Groove Guide on file" → go straight to cart and SKIP regeneration
+    onUseExistingGuide={
+      hasPdfOnlyGuide
+        ? () => {
+            setUsedExistingGuide(true);
+            setStep("cart");
+          }
+        : undefined
+    }
   />
 )}
-  
+
             {step === "ceremonyOrder" && (
               <CeremonyOrder
                 onBack={() => setStep("intro")}
@@ -339,20 +528,20 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
-  {step === "ceremonyMusic" && (
-  <CeremonyMusic
-    currentStep={step}
-    onBack={() => setStep("ceremonyOrder")}
-    onContinue={() => setStep("cocktail")}
-    jamSelections={jamSelections}
-    setJamSelections={setJamSelections}
-    isGuestUser={isGuestUser}
-    onClose={onClose}
-    openSongModal={(key) => setActiveSongModal(key)} 
-  />
-)}
-  
+
+            {step === "ceremonyMusic" && (
+              <CeremonyMusic
+                currentStep={step}
+                onBack={() => setStep("ceremonyOrder")}
+                onContinue={() => setStep("cocktail")}
+                jamSelections={jamSelections}
+                setJamSelections={setJamSelections}
+                isGuestUser={isGuestUser}
+                onClose={onClose}
+                openSongModal={(key) => setActiveSongModal(key)}
+              />
+            )}
+
             {step === "cocktail" && (
               <CocktailMusic
                 onBack={() => setStep("ceremonyMusic")}
@@ -363,7 +552,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "welcome" && (
               <PreDinnerWelcomeScreen
                 onBack={() => setStep("cocktail")}
@@ -374,7 +563,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "family" && (
               <FamilyDances
                 onBack={() => setStep("welcome")}
@@ -385,7 +574,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "grandEntrance" && (
               <GrandEntrances
                 onBack={() => setStep("family")}
@@ -396,7 +585,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "dinner" && (
               <DinnerMusic
                 onBack={() => setStep("grandEntrance")}
@@ -407,7 +596,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "cake" && (
               <CakeCutting
                 onBack={() => setStep("dinner")}
@@ -418,7 +607,7 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
+
             {step === "genres" && (
               <MusicalGenres
                 onBack={() => setStep("cake")}
@@ -429,77 +618,89 @@ useEffect(() => {
                 onClose={onClose}
               />
             )}
-  
-            {/* Cart step – normal paid Jam vs Rubi-included DJ */}
-{step === "cart" && !hasRubiIncludedDJ && (
-  <PixiePurchaseScreenJam
-    onBack={() => setStep("genres")}
-    setTotal={setTotal}
-    setLineItems={setLineItems}
-    setQuantities={setJamAddOnQuantities}
-    onContinue={handleJamCartContinue}
-    onClose={onClose}
-  />
-)}
 
-{step === "cart" && hasRubiIncludedDJ && (
-  <JamIncludedCart
-    onBack={() => setStep("genres")}
-    onClose={onClose}
-    jamSelections={jamSelections}
-    fullName={
-      `${userData?.firstName || ""} ${userData?.lastName || ""}`.trim() ||
-      getAuth().currentUser?.displayName ||
-      ""
-    }
-    weddingDate={userWeddingDate}
-  />
-)}
-  
-  {step === "calendar" && userHasLockedDate && (
-  <WeddingDateConfirmScreen
-    formattedDate={
-      userWeddingDate
-        ? new Date(`${userWeddingDate}T12:00:00`).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
-        : ""
-    }
-    dayOfWeek={userDayOfWeek || ""}
-    userHasDate={!!userWeddingDate}
-    weddingDateLocked={!!dateLocked}
-    onConfirm={() => setStep("contract")}
-    onEditDate={() => setStep("editdate")}
-    onClose={onClose}
-  />
-)}
-  
+            {/* Cart step – normal paid Jam vs Rubi-included DJ */}
+            {step === "cart" && !hasRubiIncludedDJ && (
+              <PixiePurchaseScreenJam
+                onBack={() => setStep("genres")}
+                setTotal={setTotal}
+                setLineItems={setLineItems}
+                setQuantities={setJamAddOnQuantities}
+                onContinue={handleJamCartContinue}
+                onClose={onClose}
+              />
+            )}
+
+            {step === "cart" && hasRubiIncludedDJ && (
+              <JamIncludedCart
+                onBack={() => setStep("genres")}
+                onClose={onClose}
+                jamSelections={jamSelections}
+                fullName={
+                  `${userData?.firstName || ""} ${
+                    userData?.lastName || ""
+                  }`.trim() ||
+                  getAuth().currentUser?.displayName ||
+                  ""
+                }
+                weddingDate={userWeddingDate}
+              />
+            )}
+
+            {step === "calendar" && userHasLockedDate && (
+              <WeddingDateConfirmScreen
+                formattedDate={
+                  userWeddingDate
+                    ? new Date(
+                        `${userWeddingDate}T12:00:00`
+                      ).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : ""
+                }
+                dayOfWeek={userDayOfWeek || ""}
+                userHasDate={!!userWeddingDate}
+                weddingDateLocked={!!dateLocked}
+                onConfirm={() => setStep("contract")}
+                onEditDate={() => setStep("editdate")}
+                onClose={onClose}
+              />
+            )}
+
             {step === "calendar" && !userHasLockedDate && (
               <WeddingDateScreen
                 onContinue={({ weddingDate, dayOfWeek }) => {
                   setUserWeddingDate(weddingDate);
                   setUserDayOfWeek(dayOfWeek);
-                  setBookingData((prev: any) => ({ ...prev, weddingDate, dayOfWeek }));
+                  setBookingData((prev: any) => ({
+                    ...prev,
+                    weddingDate,
+                    dayOfWeek,
+                  }));
                   setStep("contract");
                 }}
                 onClose={onClose}
               />
             )}
-  
+
             {step === "editdate" && (
               <WeddingDateScreen
                 onContinue={({ weddingDate, dayOfWeek }) => {
                   setUserWeddingDate(weddingDate);
                   setUserDayOfWeek(dayOfWeek);
-                  setBookingData((prev: any) => ({ ...prev, weddingDate, dayOfWeek }));
+                  setBookingData((prev: any) => ({
+                    ...prev,
+                    weddingDate,
+                    dayOfWeek,
+                  }));
                   setStep("contract");
                 }}
                 onClose={onClose}
               />
             )}
-  
+
             {step === "contract" && (
               <JamContractScreen
                 bookingData={bookingData}
@@ -514,29 +715,34 @@ useEffect(() => {
                 onSuccess={handleSuccess}
               />
             )}
-  
-            {step === "checkout" && (
-              <JamCheckOut
-                total={bookingData.total!}
-                depositAmount={bookingData.depositAmount!}
-                payFull={payFull}
-                paymentSummary={bookingData.paymentSummary}
-                lineItems={bookingData.lineItems || []}
-                signatureImage={signatureImage}
-                onSuccess={handleSuccess}
-                onBack={() => setStep("contract")}
-                isAddon={isAddon}
-                firstName={userData?.firstName || ""}
-                lastName={userData?.lastName || ""}
-                weddingDate={bookingData.weddingDate || "TBD"}
-                uid={uid}
-                jamSelections={jamSelections}
-                onClose={onClose}
-              />
+
+{step === "checkout" && (
+  <JamCheckOut
+    total={bookingData.total!}
+    depositAmount={bookingData.depositAmount!}
+    payFull={payFull}
+    paymentSummary={bookingData.paymentSummary}
+    lineItems={bookingData.lineItems || []}
+    signatureImage={signatureImage}
+    onSuccess={handleSuccess}
+    onBack={() => setStep("contract")}
+    isAddon={isAddon}
+    isPdfOnly={isPdfOnly}
+    firstName={userData?.firstName || ""}
+    lastName={userData?.lastName || ""}
+    weddingDate={bookingData.weddingDate || "TBD"}
+    uid={uid}
+    jamSelections={jamSelections}
+    onClose={onClose}
+    // 👇 NEW: tells checkout NOT to regenerate Groove Guide
+    skipGrooveGeneration={usedExistingGuide}
+  />
+)}
+
+            {step === "thankyou" && (
+              <JamThankYouInitial onClose={onClose} isPdfOnly={isPdfOnly} />
             )}
-  
-  {step === "thankyou" && <JamThankYouInitial onClose={onClose} />}
-  
+
             {/* Ceremony Song Scroll Modals (separate overlays) */}
             {activeSongModal === "bride" && (
               <BrideEntranceSong
@@ -573,13 +779,13 @@ useEffect(() => {
           </div>
         </div>
       )}
-  
+
       {/* Account modal renders alone when open */}
       {showAccountModal && (
         <JamAccountModal
           onSuccess={() => {
             setShowAccountModal(false);
-            setStep("calendar");
+            setStep(nextStepAfterAccount);
           }}
           onClose={() => setShowAccountModal(false)}
           currentStep={savedStepBeforeModal || step}

@@ -378,6 +378,9 @@ const JamContractScreen: React.FC<JamContractProps> = ({
           localStorage.setItem("jamFinalDueAt", payFull ? "" : finalDueISO);
           localStorage.setItem("jamFinalDuePretty", finalDuePretty);
 
+          // ✅ send the exact string we show here down to checkout
+          localStorage.setItem("jamPaymentSummaryText", paymentSummaryText);
+
           if (bookingData.weddingDate) localStorage.setItem("jamWeddingDate", bookingData.weddingDate);
           if (bookingData.lineItems)  localStorage.setItem("jamLineItems", JSON.stringify(bookingData.lineItems));
         } catch {}
