@@ -61,12 +61,16 @@ const MagIntro: React.FC<MagIntroProps> = ({ onNext, onClose }) => {
             wonderful. Inside you'll find:
             <br />
             <br />
-            🪄 The Detail Wrangler — your secret stash of expert tips,
+            <span className="emoji" role="img" aria-label="magic sparkle">
+              ✨
+            </span>{" "}
+            <strong>The Detail Wrangler</strong> — your secret stash of expert tips,
             timelines, and planning spells.
             <br />
             <br />
-            📸 The VIP & Photos chapter — create your VIP list and build a
-            custom shot list for your photographer (with adorable Polaroids!).
+            📸 <strong>The VIP & Photos Chapter</strong> — create your VIP list and
+            build a custom shot list for your photographer (with adorable
+            Polaroids!).
           </p>
 
           <button

@@ -1,3 +1,4 @@
+// src/components/Account/AccountScreen.tsx
 import React, { useState, useEffect } from "react";
 import { db } from "../../firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
@@ -71,6 +72,11 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   const [lastName, setLastName] = useState("User");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [fianceFirst, setFianceFirst] = useState("");
   const [fianceLast, setFianceLast] = useState("");
   const [phone, setPhone] = useState("");
@@ -93,7 +99,18 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
   // NEW: final lock + increase request (from user doc)
   const [finalLocked, setFinalLocked] = useState<boolean>(false);
-  const [increaseRequested, setIncreaseRequested] = useState<number | null>(null);
+  const [increaseRequested, setIncreaseRequested] = useState<number | null>(
+    null
+  );
+
+  // Inline validation errors (for guest sign-up fields)
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+    firstName?: string;
+    lastName?: string;
+  }>({});
 
   // ─────────────────────────────────────────────────────────────
   // Load profile (names, contact, date, etc.)
@@ -219,9 +236,53 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   };
 
   const handleGuestSignup = async () => {
+    // clear old errors
+    setFieldErrors({});
+    setBannerMsg(null);
+
     // 🚫 prevent saving a past wedding date
     if (weddingDate && isPastYMD(weddingDate)) {
       setDateError("Please choose a future date.");
+      return;
+    }
+
+    // Basic field validation
+    const errors: {
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+      firstName?: string;
+      lastName?: string;
+    } = {};
+
+    if (!firstName.trim()) {
+      errors.firstName = "First name is required.";
+    }
+
+    if (!lastName.trim()) {
+      errors.lastName = "Last name is required.";
+    }
+
+    if (!email.trim()) {
+      errors.email = "Email is required.";
+    } else if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      errors.email = "Please enter a valid email address.";
+    }
+
+    if (!password) {
+      errors.password = "Password is required.";
+    } else if (password.length < 6) {
+      errors.password = "Password must be at least 6 characters.";
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = "Please confirm your password.";
+    } else if (password && confirmPassword !== password) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -229,19 +290,19 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     try {
       const userCred = await createUserWithEmailAndPassword(
         auth,
-        email,
+        email.trim(),
         password
       );
 
       await updateProfile(userCred.user, {
-        displayName: `${firstName} ${lastName}`,
+        displayName: `${firstName.trim()} ${lastName.trim()}`,
       });
 
       await saveUserProfile({
         uid: userCred.user.uid,
-        firstName,
-        lastName,
-        email,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
         profileImage,
         fianceFirst,
         fianceLast,
@@ -257,6 +318,8 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
       setIsGuest(false);
       setAccountCreated(true);
+      setPassword("");
+      setConfirmPassword("");
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       console.error("❌ Failed to create account:", err);
@@ -486,20 +549,47 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
 
         {/* Fields */}
         <div style={{ textAlign: "left" }}>
+          {/* First Name */}
           <label>First Name</label>
           <input
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             style={inputStyle}
           />
+          {fieldErrors.firstName && (
+            <p
+              style={{
+                color: "#d33",
+                fontSize: "0.8rem",
+                marginTop: "-0.5rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              {fieldErrors.firstName}
+            </p>
+          )}
 
+          {/* Last Name */}
           <label>Last Name</label>
           <input
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             style={inputStyle}
           />
+          {fieldErrors.lastName && (
+            <p
+              style={{
+                color: "#d33",
+                fontSize: "0.8rem",
+                marginTop: "-0.5rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              {fieldErrors.lastName}
+            </p>
+          )}
 
+          {/* Email */}
           <label>Email</label>
           <input
             value={email}
@@ -507,16 +597,101 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
             style={inputStyle}
             disabled={!isGuest}
           />
+          {fieldErrors.email && (
+            <p
+              style={{
+                color: "#d33",
+                fontSize: "0.8rem",
+                marginTop: "-0.5rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              {fieldErrors.email}
+            </p>
+          )}
 
+          {/* Guest sign-up only: password + confirm password */}
           {isGuest && (
             <>
+              {/* Password */}
               <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={inputStyle}
-              />
+              <div style={{ position: "relative", marginBottom: "0.5rem" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 0, paddingRight: "3rem" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: "0.75rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "none",
+                    fontSize: "0.8rem",
+                    color: "#2c62ba",
+                    cursor: "pointer",
+                  }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <p
+                  style={{
+                    color: "#d33",
+                    fontSize: "0.8rem",
+                    marginTop: "0.25rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  {fieldErrors.password}
+                </p>
+              )}
+
+              {/* Confirm Password */}
+              <label>Confirm Password</label>
+              <div style={{ position: "relative", marginBottom: "0.5rem" }}>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 0, paddingRight: "3rem" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: "0.75rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "none",
+                    fontSize: "0.8rem",
+                    color: "#2c62ba",
+                    cursor: "pointer",
+                  }}
+                >
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              {fieldErrors.confirmPassword && (
+                <p
+                  style={{
+                    color: "#d33",
+                    fontSize: "0.8rem",
+                    marginTop: "0.25rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  {fieldErrors.confirmPassword}
+                </p>
+              )}
             </>
           )}
 
@@ -693,8 +868,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                     <strong>{increaseRequested}</strong> guests
                   </div>
                 )}
-
-                {/* no change buttons when locked */}
               </>
             ) : (
               <>
@@ -777,7 +950,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           </p>
         )}
 
-        {/* Logged-in: Save + (maybe) Save GC Only + Reset Password */}
+        {/* Logged-in: Save + Reset Password */}
         {!isGuest && (
           <div
             style={{

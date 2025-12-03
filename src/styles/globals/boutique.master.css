@@ -219,15 +219,54 @@
    }
    
    /* =========================================================
-      6) Scrollbar Hiding (overlay + cards)
-      ========================================================= */
-   .pixie-overlay,
-   .pixie-card,
-   .pixie-card__body { scrollbar-width: none; -ms-overflow-style: none; }
-   .pixie-overlay::-webkit-scrollbar,
-   .pixie-card::-webkit-scrollbar,
-   .pixie-card__body::-webkit-scrollbar { display: none; }
-   
+   6) Scrollbars – Wed&Done styled
+   ========================================================= */
+
+/* Main scroll area inside cards */
+.pixie-card__body {
+  scrollbar-width: thin; 
+  scrollbar-color: rgba(44, 98, 186, 0.55) transparent; /* Wed&Done blue */
+}
+
+/* Modals + castle modal share the same look */
+.pixie-card--modal .pixie-card__body,
+.castle-modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 98, 186, 0.55) transparent;
+}
+
+/* Chrome / Edge / Safari */
+.pixie-card__body::-webkit-scrollbar,
+.pixie-card--modal .pixie-card__body::-webkit-scrollbar,
+.castle-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Track (background rail) */
+.pixie-card__body::-webkit-scrollbar-track,
+.pixie-card--modal .pixie-card__body::-webkit-scrollbar-track,
+.castle-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Thumb (draggable bar) */
+.pixie-card__body::-webkit-scrollbar-thumb,
+.pixie-card--modal .pixie-card__body::-webkit-scrollbar-thumb,
+.castle-modal::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(44, 98, 186, 0.7),
+    rgba(44, 98, 186, 0.4)
+  );
+  border-radius: 999px;
+}
+
+/* Hover */
+.pixie-card__body::-webkit-scrollbar-thumb:hover,
+.pixie-card--modal .pixie-card__body::-webkit-scrollbar-thumb:hover,
+.castle-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(44, 98, 186, 0.9);
+}
 
    /* === Fonts ================================================== */
 :root {
@@ -272,8 +311,6 @@
      z-index: 1200;               /* above scroll card, under account modals */
      pointer-events: auto;
    }
-   .castle-modal-overlay { scrollbar-width: none; }
-   .castle-modal-overlay::-webkit-scrollbar { display: none; }
    
    .castle-modal {
      position: relative;
@@ -286,8 +323,6 @@
      overflow: auto;
      overscroll-behavior: contain;
    }
-   .castle-modal { scrollbar-width: none; }
-   .castle-modal::-webkit-scrollbar { width: 0; height: 0; display: none; }
    
    .modal-close {
      position: absolute;

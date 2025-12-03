@@ -27,6 +27,7 @@ import CreateAccount from "./pages/CreateAccount";
 import Login from "./pages/LoginModal";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import ForgotPassword from "./pages/ForgotPassword";
 
 // 🧙‍♀️ Venue Ranker Overlay
 import VenueRankerOverlay from "./components/VenueRanker/VenueRankerOverlay";
@@ -67,6 +68,7 @@ const AppRoutes: React.FC = () => {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/create-account" element={<CreateAccount />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route

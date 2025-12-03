@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "../firebase/firebaseConfig";
 
@@ -14,9 +15,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setResetMessage(null);
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       onClose?.(); // ✅ safe optional call
@@ -27,11 +32,33 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
 
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
+    setError(null);
+    setResetMessage(null);
+
     try {
       await signInWithPopup(auth, provider);
       onClose?.(); // ✅ safe optional call
     } catch (err) {
       setError("Google login failed.");
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setResetMessage(null);
+
+    if (!email.trim()) {
+      setError("Please enter your email first so we know where to send the reset link.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setError(null);
+      setResetMessage(
+        "📩 Your password reset link is on its way! If you don’t see it soon, check your spam or junk folder — sometimes magic lands there first."
+      );
+    } catch (err: any) {
+      setError("Unable to send reset email. Please check the email entered.");
     }
   };
 
@@ -108,7 +135,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError(null);
+              setResetMessage(null);
+            }}
             style={{
               padding: "0.75rem 1rem",
               borderRadius: "12px",
@@ -121,7 +152,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError(null);
+            }}
             style={{
               padding: "0.75rem 1rem",
               borderRadius: "12px",
@@ -130,9 +164,42 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
               boxShadow: "inset 0 1px 4px rgba(0,0,0,0.1)",
             }}
           />
+
+          {/* Forgot password link */}
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            style={{
+              alignSelf: "flex-end",
+              marginTop: "-0.5rem",
+              marginBottom: "0.25rem",
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: "#2c62ba",
+              fontSize: "0.9rem",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Forgot password?
+          </button>
+
           {error && (
             <p style={{ color: "red", fontSize: "0.85rem", textAlign: "center" }}>
               {error}
+            </p>
+          )}
+          {resetMessage && (
+            <p
+              style={{
+                color: "#2c62ba",
+                fontSize: "0.85rem",
+                textAlign: "center",
+                marginTop: "-0.25rem",
+              }}
+            >
+              {resetMessage}
             </p>
           )}
 
@@ -153,6 +220,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
+              marginTop: "0.5rem",
             }}
           >
             Log In
