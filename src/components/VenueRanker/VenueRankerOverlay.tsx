@@ -17,6 +17,7 @@ import VenueRankerContract from "./VenueRankerContract";
 import VenueThankYou from "./VenueThankYou";
 import ScrollofPossibilities from "./ScrollofPossibilities";
 import VenueCheckOut from "./VenueCheckOut";
+import VenueVibeIntro from "./VenueVibeIntro";
 
 
 // Venues
@@ -284,38 +285,31 @@ const rebuildListFromSaved = () => {
   }
 };
 
-  // Explore mode handler
-  const handleSelectExploreMode = (mode: "all" | "vibe") => {
-    setVenueRankerSelections((prev) => ({
-      ...prev,
-      exploreMode: mode,
-      vibeSelections: mode === "all" ? [] : prev.vibeSelections,
-    }));
+  /// Explore mode handler
+const handleSelectExploreMode = (mode: "all" | "vibe") => {
+  setVenueRankerSelections((prev) => ({
+    ...prev,
+    exploreMode: mode,
+    vibeSelections: prev.vibeSelections, // don't wipe them here
+  }));
 
-    if (mode === "vibe") {
-      setScreenList([]);
-      setCurrentIndex(0);
-      setCurrentScreen("vibe");
-      return;
-    }
-
-    // mode === "all" → show every active venue immediately
-    const baseList = ALL_VENUE_SCREENS;
-    const filtered = filterActive(baseList);
-    const list = (Array.isArray(filtered) && filtered.length > 0) ? filtered : baseList;
-
-    if (!list || list.length === 0) {
-      console.warn("[Explore] No venue screens available.");
-      setScreenList([]);
-      setCurrentIndex(0);
-      setCurrentScreen("explore");
-      return;
-    }
-
-    setScreenList(list);
+  // ⭐ If user chooses "vibe", go to the NEW vibe intro screen
+  if (mode === "vibe") {
+    setScreenList([]);
     setCurrentIndex(0);
-    setCurrentScreen(list[0]);
-  };
+    setCurrentScreen("vibeIntro");
+    return;
+  }
+
+  // ⭐ If user chooses "all", build the full venue list
+  const baseList = ALL_VENUE_SCREENS;
+  const filtered = filterActive(baseList);
+  const list = filtered.length > 0 ? filtered : baseList;
+
+  setScreenList(list);
+  setCurrentIndex(0);
+  setCurrentScreen(list[0]);
+};
 
   const handleNextScreen = () => {
     const nextIndex = currentIndex + 1;
@@ -330,10 +324,21 @@ const rebuildListFromSaved = () => {
 
   const handleBackScreen = () => {
     const prevIndex = currentIndex - 1;
+  
     if (prevIndex >= 0) {
+      // Go to the previous venue in the list
       setCurrentIndex(prevIndex);
       setCurrentScreen(screenList[prevIndex]);
+      return;
+    }
+  
+    // We were on the *first* venue in the list.
+    // Send them back based on how they started the Ranker:
+    if (venueRankerSelections.exploreMode === "all") {
+      // Came from “Show me everything” → go back to the explore mode selector
+      setCurrentScreen("explore");
     } else {
+      // Came from “Help me pick my vibe” → go back to the vibe screen
       setCurrentScreen("vibe");
     }
   };
@@ -416,6 +421,15 @@ const rebuildListFromSaved = () => {
         {currentScreen === "explore" && (
           <VenueExploreSelector onSelectExploreMode={handleSelectExploreMode} onClose={onClose} />
         )}
+
+        {/* Vibe intro */}
+{currentScreen === "vibeIntro" && (
+  <VenueVibeIntro
+    onContinue={() => setCurrentScreen("vibe")}
+    onBack={() => setCurrentScreen("explore")}
+    onClose={onClose}
+  />
+)}
 
         {/* Vibe */}
         {currentScreen === "vibe" && (

@@ -1,6 +1,6 @@
 // src/components/WedAndDoneInfo/WedAndDoneOverlay.tsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ⭐ NEW
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import WDIntro from "./WDIntro";
 import OurStory from "./OurStory";
 import WDQuestions from "./WDQuestions";
@@ -11,7 +11,7 @@ type InfoScreen =
   | "intro"
   | "ourstory"
   | "questions"
-  | "weddingwisdom" // ⭐ NEW
+  | "weddingwisdom"
   | "partners"
   | "legal";
 
@@ -21,20 +21,29 @@ interface WedAndDoneOverlayProps {
 
 const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
   const [screen, setScreen] = useState<InfoScreen>("intro");
-  const navigate = useNavigate(); // ⭐ NEW
+  const navigate = useNavigate();
+  const goBackToIntro = () => setScreen("intro");
+
+  // 👉 ref to the scrollable white card
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const handleNext = (nextScreen: InfoScreen) => {
     if (nextScreen === "weddingwisdom") {
-      // 🚪 Jump out to the blog route, then close the overlay
       navigate("/blog");
       onClose();
       return;
     }
-
     setScreen(nextScreen);
   };
 
   const isQuestions = screen === "questions";
+
+  // ✅ whenever the overlay screen changes, reset the card’s scroll
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [screen]);
 
   return (
     <div
@@ -45,16 +54,16 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
         width: "100vw",
         height: "100vh",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        zIndex: 3000, // ⬆️ make sure it sits above everything
+        zIndex: 3000,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        overflow: "hidden", // only the card scrolls
+        overflow: "hidden",
       }}
     >
       <div
+        ref={scrollRef}
         style={{
-          // ⭐ Starry background only on the Questions screen
           background: isQuestions ? "transparent" : "#fff",
           backgroundImage: isQuestions
             ? `url(${import.meta.env.BASE_URL}assets/images/Starry_Night.png)`
@@ -62,20 +71,17 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
           backgroundRepeat: isQuestions ? "repeat-y" : undefined,
           backgroundSize: isQuestions ? "100% auto" : undefined,
           backgroundPosition: isQuestions ? "center top" : undefined,
-
           padding: isQuestions ? "0" : "2rem",
           borderRadius: "18px",
           maxWidth: "600px",
           width: "90%",
           maxHeight: "90vh",
-
-          overflowY: "auto",
-
+          overflowY: "auto",        // the scroller we reset
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
           position: "relative",
         }}
       >
-        {/* 🩷 Branded Pink X Close Button */}
+        {/* 🩷 Pink X */}
         <button
           onClick={onClose}
           className="pixie-card__close"
@@ -99,19 +105,27 @@ const WedAndDoneOverlay: React.FC<WedAndDoneOverlayProps> = ({ onClose }) => {
         </button>
 
         {/* 🔄 Screen Content */}
-        {screen === "intro" && <WDIntro onNext={handleNext} />}
+{screen === "intro" && <WDIntro onNext={handleNext} />}
 
-        {screen === "ourstory" && (
-          <OurStory onClose={() => setScreen("intro")} />
-        )}
+{screen === "ourstory" && (
+  <OurStory onBack={goBackToIntro} />
+)}
 
-        {screen === "questions" && (
-          <WDQuestions onClose={onClose} onNext={handleNext} />
-        )}
+{screen === "questions" && (
+  <WDQuestions
+    onClose={onClose}        // pink X closes overlay
+    onNext={handleNext}
+    onBack={goBackToIntro}   // new back button
+  />
+)}
 
-        {screen === "partners" && <WDPartners onClose={onClose} />}
+{screen === "partners" && (
+  <WDPartners onBack={goBackToIntro} />
+)}
 
-        {screen === "legal" && <LegalStuff />}
+{screen === "legal" && (
+  <LegalStuff onBack={goBackToIntro} />
+)}
       </div>
     </div>
   );

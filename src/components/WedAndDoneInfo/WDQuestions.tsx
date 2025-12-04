@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 interface WDQuestionsProps {
+  onBack: () => void;
   onClose: () => void;
   onNext: (screen: "intro" | "ourstory" | "questions" | "partners") => void;
 }
@@ -26,7 +27,7 @@ const SKY_BG = `${import.meta.env.BASE_URL}assets/images/Starry_Night.png`;
 // ✅ new constant for Madge bubble art
 const MADGE_BUBBLE = `${import.meta.env.BASE_URL}assets/images/madge_bubble.png`;
 
-const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose, onNext }) => {
+const WDQuestions: React.FC<WDQuestionsProps> = ({ onBack, onClose, onNext }) => {
   const [active, setActive] = useState<FaqItem | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 600;
 
@@ -198,6 +199,13 @@ const WDQuestions: React.FC<WDQuestionsProps> = ({ onClose, onNext }) => {
             </span>
           </button>
         ))}
+      </div>
+
+      {/* Back Button */}
+      <div style={{ textAlign: "center", margin: "1.5rem 0 2.5rem" }}>
+        <button onClick={onBack} className="boutique-back-btn">
+          ← Back
+        </button>
       </div>
 
       {/* Modal */}

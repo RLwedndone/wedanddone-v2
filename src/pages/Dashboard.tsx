@@ -4,7 +4,7 @@ import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import VenueAvailabilityAdmin from "../components/admin/VenueAvailabilityAdmin"; // adjust path
 import AdminPixiePurchasePanel from "../components/admin/AdminPixiePurchasePanel";
-
+import { useLocation } from "react-router-dom";
 import { getGuestState } from "../utils/guestCountStore";
 
 import GuestCountReminderModal from "../components/common/GuestCountReminderModal";
@@ -58,6 +58,7 @@ const DevPresetLoader: React.FC = () => {
   const handleLoadPreset = async () => {
     if (preset === "none") return;
     setLoading(true);
+    
 
     const authObj = getAuth();
     const currentUser = authObj.currentUser;
@@ -456,6 +457,7 @@ function shouldShowGuestScroll(opts: {
 
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const location = useLocation() as { state?: any };
 
   const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
   const [showPixieAdmin, setShowPixieAdmin] = useState(false);
@@ -606,6 +608,17 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
     _setActiveOverlay(ov);
     setOverlayProps(props || null);
   };
+
+    // If we navigated here from Wedding Wisdom with a request
+  // to reopen the Wed&Done info overlay, do that now.
+  useEffect(() => {
+    if (location.state?.openWedAndDoneInfo) {
+      setActiveOverlay("wedanddoneinfo");
+
+      // optional: clear the history state so refresh doesn't keep re-triggering
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location.state]);
 
   // resize listener for isMobile
   useEffect(() => {

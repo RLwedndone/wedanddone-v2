@@ -219,53 +219,34 @@
    }
    
    /* =========================================================
-   6) Scrollbars – Wed&Done styled
+   6) Scrollbars – Wed&Done global theme (light blue)
    ========================================================= */
 
-/* Main scroll area inside cards */
-.pixie-card__body {
-  scrollbar-width: thin; 
-  scrollbar-color: rgba(44, 98, 186, 0.55) transparent; /* Wed&Done blue */
-}
-
-/* Modals + castle modal share the same look */
-.pixie-card--modal .pixie-card__body,
-.castle-modal {
+/* Firefox + generic (applies everywhere) */
+* {
   scrollbar-width: thin;
-  scrollbar-color: rgba(44, 98, 186, 0.55) transparent;
+  scrollbar-color: #9bb7f2 #e6efff; /* light blue thumb on lighter track */
 }
 
 /* Chrome / Edge / Safari */
-.pixie-card__body::-webkit-scrollbar,
-.pixie-card--modal .pixie-card__body::-webkit-scrollbar,
-.castle-modal::-webkit-scrollbar {
-  width: 6px;
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Track (background rail) */
-.pixie-card__body::-webkit-scrollbar-track,
-.pixie-card--modal .pixie-card__body::-webkit-scrollbar-track,
-.castle-modal::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Thumb (draggable bar) */
-.pixie-card__body::-webkit-scrollbar-thumb,
-.pixie-card--modal .pixie-card__body::-webkit-scrollbar-thumb,
-.castle-modal::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    rgba(44, 98, 186, 0.7),
-    rgba(44, 98, 186, 0.4)
-  );
+::-webkit-scrollbar-track {
+  background: #e6efff;          /* light track */
   border-radius: 999px;
 }
 
-/* Hover */
-.pixie-card__body::-webkit-scrollbar-thumb:hover,
-.pixie-card--modal .pixie-card__body::-webkit-scrollbar-thumb:hover,
-.castle-modal::-webkit-scrollbar-thumb:hover {
-  background: rgba(44, 98, 186, 0.9);
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #9bb7f2, #6b8fe0); /* soft blue */
+  border-radius: 999px;
+  border: 2px solid #e6efff;    /* keeps it light */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b8fe0;          /* slightly stronger on hover */
 }
 
    /* === Fonts ================================================== */

@@ -72,6 +72,12 @@ type PaymentPlan = {
   payInFullRequired?: boolean;
 };
 
+const formatMoney = (value: number) =>
+  Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 function toValidDate(value: unknown): Date | null {
   if (!value) return null;
   if (value instanceof Date) return isValidDate(value) ? value : null;
@@ -101,13 +107,17 @@ function formatPaymentSchedule(plan: PaymentPlan): string {
   const middleCount = Math.max(0, plan.months - 1); // monthly installments before the final
   const parts: string[] = [];
 
-  parts.push(`$${plan.deposit.toFixed(2)} deposit`);
+  parts.push(`$${formatMoney(plan.deposit)} deposit`);
   if (middleCount > 0) {
     parts.push(
-      `${middleCount} monthly payment${middleCount > 1 ? "s" : ""} of $${plan.monthly.toFixed(2)}`
+      `${middleCount} monthly payment${middleCount > 1 ? "s" : ""} of $${formatMoney(
+        plan.monthly
+      )}`
     );
   }
-  parts.push(`final payment of $${plan.lastInstallment.toFixed(2)} due ${dueStr}`);
+  parts.push(
+    `final payment of $${formatMoney(plan.lastInstallment)} due ${dueStr}`
+  );
 
   // Join nicely
   return parts.join(" + ");
@@ -430,9 +440,9 @@ const formattedWeekday = weddingDateObj
               <strong>{formattedFullDate}</strong> ({formattedWeekday}).
             </p>
             <p>
-              The total venue cost is{" "}
-              <strong>${Number(plan.total || 0).toLocaleString()}</strong>.
-            </p>
+  The total venue cost is{" "}
+  <strong>${formatMoney(plan.total || 0)}</strong>.
+</p>
           </div>
   
           {/* ---- Venue Specific Details ---- */}

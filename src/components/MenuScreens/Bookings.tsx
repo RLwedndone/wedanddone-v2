@@ -143,6 +143,82 @@ const Bookings: React.FC<BookingsScreenProps> = ({
   const [bookings, setBookings] = useState<BookingsFirestore>({});
   const [modalKey, setModalKey] = useState<BoutiqueKey | null>(null);
 
+  // Normalize “desserts” UI key to Firestore “dessert” and only
+  // use LS fallbacks for Catering/Desserts (not other stones).
+  const isBooked = (key: BoutiqueKey) => {
+    // Firestore truth
+    const fsKey = key === "desserts" ? "dessert" : key; // FS uses singular "dessert"
+    const fromFS = Boolean((bookings as any)?.[fsKey]);
+
+    // LocalStorage fallbacks ONLY for catering/desserts
+    if (key === "catering") {
+      const fromLS =
+        localStorage.getItem("yumCateringBooked") === "true" ||
+        localStorage.getItem("yumBookedCatering") === "true" ||
+        localStorage.getItem("schnepfCateringBooked") === "true" ||
+        localStorage.getItem("vvCateringBooked") === "true" ||
+        localStorage.getItem("batesCateringBooked") === "true" ||
+        // generic catch-all like "*CateringBooked"
+        (() => {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i) || "";
+            if (
+              /cateringBooked$/i.test(k) &&
+              localStorage.getItem(k) === "true"
+            )
+              return true;
+          }
+          return false;
+        })();
+
+      return fromFS || fromLS;
+    }
+
+    if (key === "desserts") {
+      const fromLS =
+        localStorage.getItem("yumDessertBooked") === "true" ||
+        localStorage.getItem("yumBookedDessert") === "true" ||
+        localStorage.getItem("schnepfDessertBooked") === "true" ||
+        localStorage.getItem("vvDessertBooked") === "true" ||
+        localStorage.getItem("batesDessertBooked") === "true" ||
+        // generic catch-all like "*DessertBooked"
+        (() => {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i) || "";
+            if (
+              /dessertBooked$/i.test(k) &&
+              localStorage.getItem(k) === "true"
+            )
+              return true;
+          }
+          return false;
+        })();
+
+      return fromFS || fromLS;
+    }
+
+    // All other stones: rely on Firestore only (unchanged behavior)
+    return fromFS;
+  };
+
+  const cateringBooked = isBooked("catering");
+  const dessertsBooked = isBooked("desserts");
+
+  const isYumModal = modalKey === "catering" || modalKey === "desserts";
+  const otherYumBooked =
+    modalKey === "catering"
+      ? dessertsBooked
+      : modalKey === "desserts"
+      ? cateringBooked
+      : false;
+
+  const bookedLabel = modalKey === "catering" ? "desserts" : "catering";
+
+  const actionLabel =
+    modalKey === "catering"
+      ? "add your catering menu"
+      : "finish your dessert menu";
+
   // Load bookings from Firestore and keep fresh via window events
   useEffect(() => {
     const load = async () => {
@@ -172,56 +248,6 @@ const Bookings: React.FC<BookingsScreenProps> = ({
       evts.forEach((e) => window.removeEventListener(e, refresh));
     };
   }, []);
-
-  // Normalize “desserts” UI key to Firestore “dessert” and only
-// use LS fallbacks for Catering/Desserts (not other stones).
-const isBooked = (key: BoutiqueKey) => {
-  // Firestore truth
-  const fsKey = key === "desserts" ? "dessert" : key; // FS uses singular "dessert"
-  const fromFS = Boolean((bookings as any)?.[fsKey]);
-
-  // LocalStorage fallbacks ONLY for catering/desserts
-  if (key === "catering") {
-    const fromLS =
-      localStorage.getItem("yumCateringBooked") === "true" ||
-      localStorage.getItem("yumBookedCatering") === "true" ||
-      localStorage.getItem("schnepfCateringBooked") === "true" ||
-      localStorage.getItem("vvCateringBooked") === "true" ||
-      localStorage.getItem("batesCateringBooked") === "true" ||
-      // generic catch-all like "*CateringBooked"
-      (() => {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i) || "";
-          if (/cateringBooked$/i.test(k) && localStorage.getItem(k) === "true") return true;
-        }
-        return false;
-      })();
-
-    return fromFS || fromLS;
-  }
-
-  if (key === "desserts") {
-    const fromLS =
-      localStorage.getItem("yumDessertBooked") === "true" ||
-      localStorage.getItem("yumBookedDessert") === "true" ||
-      localStorage.getItem("schnepfDessertBooked") === "true" ||
-      localStorage.getItem("vvDessertBooked") === "true" ||
-      localStorage.getItem("batesDessertBooked") === "true" ||
-      // generic catch-all like "*DessertBooked"
-      (() => {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i) || "";
-          if (/dessertBooked$/i.test(k) && localStorage.getItem(k) === "true") return true;
-        }
-        return false;
-      })();
-
-    return fromFS || fromLS;
-  }
-
-  // All other stones: rely on Firestore only (unchanged behavior)
-  return fromFS;
-};
 
   const openModal = (key: BoutiqueKey) => setModalKey(key);
   const closeModal = () => setModalKey(null);
@@ -479,8 +505,7 @@ const isBooked = (key: BoutiqueKey) => {
 
               <p
                 style={{
-                  margin:
-                    "0.25rem 0 1rem",
+                  margin: "0.25rem 0 1rem",
                   color: "#444",
                   lineHeight: 1.5,
                 }}
@@ -488,14 +513,27 @@ const isBooked = (key: BoutiqueKey) => {
                 {EXPLAINER[modalKey]}
               </p>
 
-              <button
-                onClick={() => goToOverlay(modalKey)}
-                className="boutique-primary-btn"
-                style={{ minWidth: 220 }}
-              >
-                Go to the{" "}
-                {BOUTIQUE_NAME[modalKey]}
-              </button>
+              {isYumModal && otherYumBooked ? (
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    color: "#444",
+                    lineHeight: 1.5,
+                    fontWeight: 500,
+                  }}
+                >
+                  You’ve already booked {bookedLabel} in the Yum Yum Guide.{" "}
+                  Head back to your dashboard and open Yum Yum to {actionLabel}.
+                </p>
+              ) : (
+                <button
+                  onClick={() => goToOverlay(modalKey)}
+                  className="boutique-primary-btn"
+                  style={{ minWidth: 220 }}
+                >
+                  Go to the {BOUTIQUE_NAME[modalKey]}
+                </button>
+              )}
             </div>
           </div>
         )}

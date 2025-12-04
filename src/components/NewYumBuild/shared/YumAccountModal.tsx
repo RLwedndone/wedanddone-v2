@@ -15,7 +15,10 @@ interface YumAccountModalProps {
   onComplete?: () => void;
 }
 
-const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }) => {
+const YumAccountModal: React.FC<YumAccountModalProps> = ({
+  onClose,
+  onComplete,
+}) => {
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
   const [email,     setEmail]     = useState("");
@@ -29,14 +32,37 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
       setError("Please fill in all fields.");
       return;
     }
+
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
-      await saveUserProfile({ firstName, lastName, email, uid: userCred.user.uid });
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await updateProfile(userCred.user, {
+        displayName: `${firstName} ${lastName}`,
+      });
+
+      await saveUserProfile({
+        firstName,
+        lastName,
+        email,
+        uid: userCred.user.uid,
+      });
+
       onComplete?.();
     } catch (err: any) {
       console.error("❌ Signup or Firestore error:", err);
-      setError(err.message || "An unexpected error occurred.");
+
+      let message = "Something went wrong creating your account. Please try again.";
+
+      if (err?.code === "auth/email-already-in-use") {
+        message =
+          "Looks like you already have an account with this email. Try logging in from the dashboard or resetting your password.";
+      }
+
+      setError(message);
     }
   };
 
@@ -55,7 +81,12 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
     try {
       await setDoc(
         doc(db, "users", uid),
-        { firstName: fn, lastName: ln, email: em, createdAt: new Date().toISOString() },
+        {
+          firstName: fn,
+          lastName: ln,
+          email: em,
+          createdAt: new Date().toISOString(),
+        },
         { merge: true }
       );
       onComplete?.();
@@ -77,8 +108,15 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
       {/* Standard white card; stop propagation so clicks inside don’t close */}
       <div className="pixie-card" onClick={(e) => e.stopPropagation()}>
         {/* Pink X in the top-right */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -99,7 +137,13 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
           </p>
 
           {/* Inputs */}
-          <div style={{ width: "100%", maxWidth: 440, margin: "0 auto 1.25rem" }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              margin: "0 auto 1.25rem",
+            }}
+          >
             <div style={{ display: "grid", gap: 12 }}>
               <input
                 className="px-input"
@@ -133,7 +177,13 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
           </div>
 
           {error && (
-            <p style={{ color: "#e53935", marginBottom: "1rem", fontWeight: 600 }}>
+            <p
+              style={{
+                color: "#e53935",
+                marginBottom: "1rem",
+                fontWeight: 600,
+              }}
+            >
               {error}
             </p>
           )}
@@ -148,45 +198,47 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({ onClose, onComplete }
           </button>
 
           {/* Divider + Google */}
-          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-  <button
-    onClick={handleGoogleSignup}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "10px",
-      width: "80%",
-      maxWidth: 300,
-      minHeight: 44,
-      backgroundColor: "#fff",
-      border: "1px solid #dadce0",
-      borderRadius: "6px",
-      boxShadow:
-        "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-      fontSize: "15px",
-      fontWeight: 500,
-      color: "#3c4043",
-      lineHeight: 1.2,
-      cursor: "pointer",
-      padding: "0 16px",
-      boxSizing: "border-box",
-      backgroundClip: "padding-box",
-    }}
-  >
-    <img
-      src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-      alt="Google icon"
-      style={{
-        width: 20,
-        height: 20,
-        objectFit: "contain",
-        flexShrink: 0,
-      }}
-    />
-    <span>Sign in with Google</span>
-  </button>
-</div>
+          <div
+            style={{ display: "flex", justifyContent: "center", width: "100%" }}
+          >
+            <button
+              onClick={handleGoogleSignup}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                width: "80%",
+                maxWidth: 300,
+                minHeight: 44,
+                backgroundColor: "#fff",
+                border: "1px solid #dadce0",
+                borderRadius: "6px",
+                boxShadow:
+                  "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "#3c4043",
+                lineHeight: 1.2,
+                cursor: "pointer",
+                padding: "0 16px",
+                boxSizing: "border-box",
+                backgroundClip: "padding-box",
+              }}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                alt="Google icon"
+                style={{
+                  width: 20,
+                  height: 20,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <span>Sign in with Google</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

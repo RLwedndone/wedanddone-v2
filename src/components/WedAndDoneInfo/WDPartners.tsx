@@ -1,7 +1,7 @@
 import React from "react";
 
 interface WDPartnersProps {
-  onClose: () => void; // kept for API parity, not used here
+  onBack: () => void; // renamed for correct intent
 }
 
 // 🔧 Partners (no external links)
@@ -38,10 +38,9 @@ const CATERERS: string[] = ["Santis Catering"];
 
 const DJS_MCS: string[] = ["Arizona DJs"];
 
-const WDPartners: React.FC<WDPartnersProps> = () => {
+const WDPartners: React.FC<WDPartnersProps> = ({ onBack }) => {
   return (
-    // CONTENT-ONLY: parent overlay/card supplies the scroll container
-    <div style={{ padding: "0 0 1rem" }}>
+    <div style={{ padding: "0 0 2rem" }}>
       {/* Title */}
       <h2
         style={{
@@ -54,7 +53,7 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
         The Magic Hall of Partners
       </h2>
 
-      {/* 🎥 9:16 looping video (rounded corners, responsive) */}
+      {/* 🎥 Video */}
       <div style={{ margin: "0 auto 1.25rem", maxWidth: 420, width: "100%" }}>
         <div
           style={{
@@ -85,7 +84,7 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
         </div>
       </div>
 
-      {/* Intro (below video) */}
+      {/* Intro */}
       <p
         style={{
           fontSize: "1rem",
@@ -96,12 +95,12 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
           opacity: 0.95,
         }}
       >
-        Step inside and meet the extraordinary pros who help bring your wedding to life.
-        This is our ever‑growing list of trusted partners — handpicked for style, quality,
-        and stellar service.
+        Step inside and meet the extraordinary pros who help bring your wedding to
+        life. This is our ever-growing list of trusted partners — handpicked for
+        style, quality, and stellar service.
       </p>
 
-      {/* Vertical sections (headers in dark blue, plain text items) */}
+      {/* Partner Groups */}
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 0.5rem 0.5rem" }}>
         {/* Venues */}
         <div style={{ marginBottom: "2rem" }}>
@@ -187,7 +186,7 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
           </ul>
         </div>
 
-        {/* DJs & MCs */}
+        {/* DJs */}
         <div style={{ marginBottom: "2rem" }}>
           <h3
             style={{
@@ -215,6 +214,13 @@ const WDPartners: React.FC<WDPartnersProps> = () => {
           Interested in becoming a partner?{" "}
           <a href="mailto:hello@wedanddone.com">partners@wedanddone.com</a>
         </p>
+      </div>
+
+      {/* Back Button */}
+      <div style={{ textAlign: "center", marginTop: "2.5rem" }}>
+        <button onClick={onBack} className="boutique-back-btn">
+          ← Back
+        </button>
       </div>
     </div>
   );

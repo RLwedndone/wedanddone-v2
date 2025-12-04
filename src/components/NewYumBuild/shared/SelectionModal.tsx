@@ -53,6 +53,10 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
   liveSelections,
   onLiveChange,
 }) => {
+  // 🧹 Strip accents from title for display
+  const displayTitle = title
+    ? title.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    : title;
   // internal working list of checked boxes
   const [localSelections, setLocalSelections] = useState<string[]>(
     liveSelections ?? selected
@@ -153,60 +157,65 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
   }}
 />
 
-        <h3
-          style={{
-            fontSize: "2rem",
-            fontWeight: "bold",
-            textAlign: "center",
-            color: "#2c62ba",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {title}
-        </h3>
+<h3
+  style={{
+    fontSize: "2rem",
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#2c62ba",
+    marginBottom: "1.5rem",
+  }}
+>
+  {displayTitle}
+</h3>
 
         {/* OPTIONS LIST */}
         <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
-          {options.map((item) => {
-            const disabled = isDisabled?.(item, localSelections) ?? false;
+        {options.map((item) => {
+  const disabled = isDisabled?.(item, localSelections) ?? false;
 
-            if (renderOption) {
-              const node = renderOption({
-                option: item,
-                selected: localSelections,
-                disabled,
-                setSelected: (next) => setBoth(next),
-              });
-              if (node) {
-                return (
-                  <div key={item} style={{ marginBottom: "0.5rem" }}>
-                    {node}
-                  </div>
-                );
-              }
-            }
+  // 🧹 Strip accents for display only
+  const labelText = item
+    ? item.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    : item;
 
-            return (
-              <label
-                key={item}
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  opacity: disabled ? 0.5 : 1,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={localSelections.includes(item)}
-                  disabled={disabled}
-                  onChange={() => toggleOption(item)}
-                  style={{ marginRight: "0.5rem" }}
-                />
-                {item}
-              </label>
-            );
-          })}
+  if (renderOption) {
+    const node = renderOption({
+      option: item,
+      selected: localSelections,
+      disabled,
+      setSelected: (next) => setBoth(next),
+    });
+    if (node) {
+      return (
+        <div key={item} style={{ marginBottom: "0.5rem" }}>
+          {node}
+        </div>
+      );
+    }
+  }
+
+  return (
+    <label
+      key={item}
+      style={{
+        display: "block",
+        marginBottom: "0.5rem",
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={localSelections.includes(item)}
+        disabled={disabled}
+        onChange={() => toggleOption(item)}
+        style={{ marginRight: "0.5rem" }}
+      />
+      {labelText}
+    </label>
+  );
+})}
         </div>
 
         {/* CHILD CONTENT (like Taco Fillings) */}

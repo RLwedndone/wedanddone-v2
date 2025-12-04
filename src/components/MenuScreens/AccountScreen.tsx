@@ -323,7 +323,15 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       console.error("❌ Failed to create account:", err);
-      alert(err?.message || "Account creation failed. Please try again.");
+    
+      let message = "Account creation failed. Please try again.";
+    
+      if (err?.code === "auth/email-already-in-use") {
+        message =
+          "Looks like you already have an account with this email. Try logging in or resetting your password.";
+      }
+    
+      setBannerMsg(message);
     }
   };
 
@@ -365,14 +373,16 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user") return;
+    
+      let message = "Google sign-up failed. Please try again.";
+    
       if (err?.code === "auth/account-exists-with-different-credential") {
-        alert(
-          "An account with this email exists with a different sign-in method. Try email/password."
-        );
-        return;
+        message =
+          "An account with this email already exists under a different sign-in method. Try signing in with email and password instead.";
       }
+    
       console.error("❌ Google sign-up failed:", err);
-      alert("Google sign-up failed. Please try again.");
+      setBannerMsg(message);
     }
   };
 

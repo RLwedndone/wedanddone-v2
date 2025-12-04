@@ -10,6 +10,9 @@ interface YumCuisineSelectorCateringProps {
   onNext: () => void;
   onBack: () => void;
   onClose?: () => void;
+
+  // 👇 new
+  tier: "signature" | "chef";
 }
 
 const cuisines = [
@@ -18,28 +21,28 @@ const cuisines = [
     label: "Italian Bounty",
     image: `${import.meta.env.BASE_URL}assets/images/YumYum/ItalianIcon.png`,
     description:
-      "Delights from Italy! With options like Salami Caprese appetizers, Tuscan grilled chicken and fettuccine alfredo.",
+      "Rustic pastas, grilled proteins, fresh salads, and comforting Italian-inspired sides.",
   },
   {
     key: "american",
     label: "Classic American",
     image: `${import.meta.env.BASE_URL}assets/images/YumYum/americanIcon.png`,
     description:
-      "Hearty Americana dishes such as sirloin skewers, BBQ glazed pork chops, lemon glazed salmon, and roasted red potatoes.",
+      "Comfort-driven American favorites featuring hearty mains, crisp salads, and timeless sides.",
   },
   {
     key: "mexican",
     label: "Mexican Fiesta",
     image: `${import.meta.env.BASE_URL}assets/images/YumYum/mexicanIcon.png`,
     description:
-      "Decadence from south of the border! Options include shrimp ceviche, mini chicken tinga tacos and baked Mahi Mahi Veracruz style.",
+      "A vibrant spread with tacos, flavorful entrées, fresh greens, and bold, spice-forward sides.",
   },
   {
     key: "taco",
     label: "Taco Bar",
     image: `${import.meta.env.BASE_URL}assets/images/YumYum/tacoBar.png`,
     description:
-      "Your choice of 3 appetizers, 3 meats, and 2 sides — fully customizable taco deliciousness!",
+      "A customizable taco experience with meats, toppings, salads, and sides for the perfect build-your-own feast.",
   },
 ];
 
@@ -49,6 +52,7 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
   onNext,
   onBack,
   onClose,
+  tier,
 }) => {
   const auth = getAuth();
 
@@ -100,7 +104,7 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
   // ✅ Clear previous menu picks when switching cuisines, then set the cuisine
   const handleSelectCuisine = async (key: string) => {
     if (selectedCuisine !== key) {
-      // nuke prior menuSelections so it doesn't carry forward appetizers/mains/sides
+      // nuke prior menuSelections so it doesn't carry forward
       try {
         localStorage.removeItem("yumMenuSelections");
       } catch {
@@ -119,14 +123,16 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
           );
           await setDoc(
             ref,
-            { appetizers: [], mains: [], sides: [] },
+            {
+              // 🔄 match new shape: mains / sides / salads only
+              mains: [],
+              sides: [],
+              salads: [],
+            },
             { merge: true }
           );
         } catch (e) {
-          console.warn(
-            "Could not clear menuSelections in Firestore:",
-            e
-          );
+          console.warn("Could not clear menuSelections in Firestore:", e);
         }
       }
     }
@@ -138,6 +144,11 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
       /* ignore */
     }
   };
+
+  // 🔎 Filter cuisines based on tier
+  const visibleCuisines = cuisines.filter((c) =>
+    tier === "signature" ? true : c.key !== "taco"
+  );
 
   return (
     <div
@@ -168,12 +179,12 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
           Choose Your Cuisine
         </h2>
 
+        {/* If you want to kill this helper copy, just delete this <p> */}
         <p
           className="px-prose-narrow"
           style={{ marginBottom: "1.5rem" }}
         >
-          Select one of our delicious menu cuisines below — next
-          you can customize your menu!
+          Select one of our delicious menu cuisines below — next you can customize your menu!
         </p>
 
         {/* Vertical stack of cuisine cards */}
@@ -188,7 +199,7 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
             margin: "0 auto",
           }}
         >
-          {cuisines.map((c) => {
+          {visibleCuisines.map((c) => {
             const isActive = selectedCuisine === c.key;
             return (
               <div
@@ -199,7 +210,7 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
                   background: "#fff",
                   borderRadius: "14px",
                   boxShadow: isActive
-                    ? "0 0 28px 10px rgba(70, 140, 255, 0.65)" // blue glow when active
+                    ? "0 0 28px 10px rgba(70, 140, 255, 0.65)"
                     : "0 2px 8px rgba(0,0,0,0.08)",
                   cursor: "pointer",
                   transition:

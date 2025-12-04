@@ -1,3 +1,4 @@
+// src/components/NewYumBuild/catering/YumContractCatering.tsx
 import React, { useState, useRef, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import type SignatureCanvasType from "react-signature-canvas";
@@ -12,6 +13,9 @@ import {
   EMAILJS_PUBLIC_KEY,
 } from "../../../config/emailjsConfig";
 import { YumStep } from "../yumTypes";
+
+// 🔹 Santi types
+import type { SantiCuisineKey } from "./santisMenuConfig";
 
 /* -------------------- date + money helpers -------------------- */
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -38,6 +42,13 @@ function monthsBetweenInclusive(from: Date, to: Date) {
   return Math.max(1, months);
 }
 
+function formatCurrency(amount: number) {
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /* -------------------- props -------------------- */
 interface YumContractCateringProps {
   total: number;
@@ -46,8 +57,16 @@ interface YumContractCateringProps {
   weddingDate: string | null;
   dayOfWeek: string | null;
   lineItems: string[];
-  selectedCuisine: string | null;
-  menuSelections: { appetizers: string[]; mains: string[]; sides: string[] };
+
+  // 👇 now Santi cuisine keys
+  selectedCuisine: SantiCuisineKey | null;
+
+  // 👇 mains / sides / salads only
+  menuSelections: {
+    mains: string[];
+    sides: string[];
+    salads: string[];
+  };
 
   signatureImage: string | null;
   setSignatureImage: (value: string) => void;
@@ -59,7 +78,6 @@ interface YumContractCateringProps {
   onComplete: () => void;
 
   // ✅ NEW: tells us this couple already booked a venue that uses this flow
-  // (e.g. Desert Foothills running off the shared catering flow instead of its own)
   isSharedFlowBookedVenue?: boolean;
   bookedVenueName?: string;
 }
@@ -80,8 +98,6 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   setStep,
   onClose,
   onComplete,
-
-  // ✅ NEW
   isSharedFlowBookedVenue,
   bookedVenueName,
 }) => {
@@ -117,20 +133,21 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   const lastPaymentCents =
     balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
-  const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
-    : `You’re paying $${depositAmount.toFixed(
-        2
-      )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
+    const paymentSummaryText = payFull
+    ? `You’re paying $${formatCurrency(total)} today.`
+    : `You’re paying $${formatCurrency(
+        depositAmount
+      )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${formatCurrency(
         perMonthCents / 100
-      ).toFixed(2)}${
+      )}${
         planMonths > 1
-          ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})`
+          ? ` (last ≈ $${formatCurrency(lastPaymentCents / 100)})`
           : ""
       }`;
 
   useEffect(() => {
-    localStorage.setItem("yumStep", "contract");
+    // 🔹 step key now catering-specific
+    localStorage.setItem("yumStep", "cateringContract");
     if (menuSelections)
       localStorage.setItem("yumMenuSelections", JSON.stringify(menuSelections));
     if (selectedCuisine)
@@ -151,10 +168,13 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           setLastName(data.lastName || "");
         }
 
-        await updateDoc(userRef, { "progress.yumYum.step": "contract" });
+        // 🔹 progress step now catering-specific
+        await updateDoc(userRef, { "progress.yumYum.step": "cateringContract" });
+
+        // 🔹 save menu selections flat, to match builder/cart
         await setDoc(
           doc(userRef, "yumYumData", "menuSelections"),
-          { menuSelections },
+          menuSelections,
           { merge: true }
         );
         await setDoc(
@@ -173,6 +193,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     });
 
     return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -203,7 +224,6 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   };
 
   /* -------------------- signature helpers -------------------- */
-  // Trim transparent margins off a canvas (no external deps)
   function trimTransparent(canvas: HTMLCanvasElement): HTMLCanvasElement {
     const ctx = canvas.getContext("2d");
     if (!ctx) return canvas;
@@ -278,11 +298,9 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
       }
 
       try {
-        // always use our own trimming (avoid trim-canvas path)
         const base = sc.getCanvas();
         const trimmed = trimTransparent(base);
 
-        // paint onto opaque white canvas so PNG isn't transparent
         const out = document.createElement("canvas");
         out.width = trimmed.width;
         out.height = trimmed.height;
@@ -325,7 +343,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     }
   };
 
-  /* -------------------- (optional) PDF gen after success) -------------------- */
+  /* -------------------- PDF gen after success -------------------- */
   const handleSuccess = async () => {
     if (!userId) return;
     try {
@@ -342,6 +360,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         paymentSummary: paymentSummaryText,
         lineItems,
         cuisineType: selectedCuisine || undefined,
+        // 👇 now mains / sides / salads
         menuSelections,
       });
 
@@ -367,7 +386,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           user_email: auth.currentUser?.email || "Unknown",
           user_full_name: `${firstName} ${lastName}`,
           wedding_date: prettyWedding || "Unknown",
-          total: total.toFixed(2),
+          total: formatCurrency(total),
           line_items:
             "Catering Booking - " +
             (menuSelections?.mains?.join(", ") || "N/A"),
@@ -410,7 +429,6 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           Catering Agreement
         </h2>
 
-        {/* intro blurb above the terms */}
         <p className="px-prose-narrow" style={{ marginBottom: 8 }}>
           You’re booking catering for <strong>{prettyWedding}</strong>
           {dayOfWeek ? ` (${dayOfWeek})` : ""}.
@@ -423,14 +441,14 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           </p>
         ) : (
           <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-            The total catering cost is{" "}
-            <strong>${total.toFixed(2)}</strong>. If you haven’t booked a venue
+  The total catering cost is{" "}
+  <strong>${formatCurrency(total)}</strong>. If you haven’t booked a venue
             (or your venue requires approval for outside catering), just make
             sure they allow outside caterers before serving this menu onsite.
           </p>
         )}
 
-        {/* Booking Terms — blue Jenna Sue */}
+        {/* Booking Terms */}
         <div
           className="px-section"
           style={{ maxWidth: 620, margin: "0 auto 16px" }}
@@ -452,12 +470,12 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             }}
           >
             {/* 🔁 CONDITIONAL FIRST BULLET */}
-{!isSharedFlowBookedVenue && (
-  <li>
-    By signing, you confirm either (a) your venue allows outside caterers, or (b)
-    you’ll book a venue that does.
-  </li>
-)}
+            {!isSharedFlowBookedVenue && (
+              <li>
+                By signing, you confirm either (a) your venue allows outside
+                caterers, or (b) you’ll book a venue that does.
+              </li>
+            )}
 
             <li>
               You may pay in full today, or place a{" "}
@@ -465,6 +483,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
               balance will be split into monthly installments and must be fully
               paid <strong>35 days before your wedding date</strong>.
             </li>
+            <li>Your reception will be served buffet-style.</li>
             <li>
               Final guest count is due <strong>30 days before</strong> your
               wedding. You may increase your guest count starting 45 days
@@ -553,30 +572,30 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
 
         {/* Summary */}
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
-          {payFull ? (
-            <>
-              You’re paying <strong>${total.toFixed(2)}</strong> today.
-            </>
-          ) : (
-            <>
-              You’re paying <strong>${depositAmount.toFixed(2)}</strong> today,
-              then about{" "}
-              <strong>${(perMonthCents / 100).toFixed(2)}</strong> monthly
-              until <strong>{prettyDueBy}</strong>
-              {planMonths > 1 ? (
-                <>
-                  {" "}
-                  (last ≈{" "}
-                  <strong>
-                    ${(lastPaymentCents / 100).toFixed(2)}
-                  </strong>
-                  )
-                </>
-              ) : null}
-              .
-            </>
-          )}
-        </p>
+  {payFull ? (
+    <>
+      You’re paying <strong>${formatCurrency(total)}</strong> today.
+    </>
+  ) : (
+    <>
+      You’re paying <strong>${formatCurrency(depositAmount)}</strong> today,
+      then about{" "}
+      <strong>${formatCurrency(perMonthCents / 100)}</strong> monthly
+      until <strong>{prettyDueBy}</strong>
+      {planMonths > 1 ? (
+        <>
+          {" "}
+          (last ≈{" "}
+          <strong>
+            ${formatCurrency(lastPaymentCents / 100)}
+          </strong>
+          )
+        </>
+      ) : null}
+      .
+    </>
+  )}
+</p>
 
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>

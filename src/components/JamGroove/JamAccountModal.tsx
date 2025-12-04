@@ -17,12 +17,48 @@ interface JamAccountModalProps {
   currentStep: string;
 }
 
-const JamAccountModal: React.FC<JamAccountModalProps> = ({ onSuccess, onClose, currentStep }) => {
+// 🔹 Human-friendly Firebase auth error mapper
+function getFriendlyAuthError(err: any, contextLabel?: string): string {
+  const code = err?.code || "";
+
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "Looks like there’s already an account with this email. Try logging in instead, or use a different email address.";
+
+    case "auth/invalid-email":
+      return "That email doesn’t look quite right. Double-check the spelling and try again.";
+
+    case "auth/weak-password":
+      return "For security, your password needs to be at least 6 characters. Try something a bit stronger.";
+
+    case "auth/operation-not-allowed":
+      return "Email/password sign-in isn’t available at the moment. Please try again later or use another sign-in option.";
+
+    case "auth/popup-blocked":
+    case "auth/popup-closed-by-user":
+      return "The sign-in popup was closed before we could finish. Try again when you’re ready.";
+
+    case "auth/account-exists-with-different-credential":
+      return "There’s already an account with this email using a different sign-in method. Try logging in with email + password.";
+
+    default:
+      return (
+        "We ran into a hiccup creating your account. " +
+        "Double-check your details and try again in a moment."
+      );
+  }
+}
+
+const JamAccountModal: React.FC<JamAccountModalProps> = ({
+  onSuccess,
+  onClose,
+  currentStep,
+}) => {
   const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [email,     setEmail]     = useState("");
-  const [password,  setPassword]  = useState("");
-  const [error,     setError]     = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const auth = getAuth();
 
@@ -31,9 +67,9 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({ onSuccess, onClose, c
     const userRef = doc(db, "users", uid);
     const jamGrooveData: any = {};
 
-    const guestProgress   = localStorage.getItem("jamGrooveProgress");
-    const cocktailMusic   = localStorage.getItem("cocktailMusic");
-    const processional    = localStorage.getItem("ceremonyOrder");
+    const guestProgress = localStorage.getItem("jamGrooveProgress");
+    const cocktailMusic = localStorage.getItem("cocktailMusic");
+    const processional = localStorage.getItem("ceremonyOrder");
 
     if (guestProgress) {
       jamGrooveData.progress = JSON.parse(guestProgress);
@@ -54,56 +90,69 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({ onSuccess, onClose, c
   };
 
   // Checks Firestore for an existing (and/or locked) wedding date and
-// stores lightweight flags for the Jam flow to react to.
-const cacheExistingWeddingDateFlags = async (uid: string) => {
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-  const data = snap.exists() ? snap.data() : {};
-  const locked = Boolean((data as any)?.weddingDateLocked);
-  const ymd =
-    (data as any)?.weddingDate ||
-    (data as any)?.wedding?.date ||
-    null;
+  // stores lightweight flags for the Jam flow to react to.
+  const cacheExistingWeddingDateFlags = async (uid: string) => {
+    const ref = doc(db, "users", uid);
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? snap.data() : {};
+    const locked = Boolean((data as any)?.weddingDateLocked);
+    const ymd =
+      (data as any)?.weddingDate ||
+      (data as any)?.wedding?.date ||
+      null;
 
-  try {
-    if (ymd) {
-      localStorage.setItem("weddingDate", ymd);
-      // Use this to skip date entry and show confirm immediately
-      localStorage.setItem("jamSkipDateCapture", "true");
+    try {
+      if (ymd) {
+        localStorage.setItem("weddingDate", ymd);
+        // Use this to skip date entry and show confirm immediately
+        localStorage.setItem("jamSkipDateCapture", "true");
+      }
+      if (locked && ymd) {
+        // Optional: a stronger flag if you need to treat "locked" differently
+        localStorage.setItem("jamHasLockedWeddingDate", "true");
+      }
+    } catch {
+      // swallow localStorage errors
     }
-    if (locked && ymd) {
-      // Optional: a stronger flag if you need to treat "locked" differently
-      localStorage.setItem("jamHasLockedWeddingDate", "true");
+  };
+
+  const handleSignup = async () => {
+    try {
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await updateProfile(userCred.user, {
+        displayName: `${firstName} ${lastName}`,
+      });
+
+      await saveUserProfile({
+        firstName,
+        lastName,
+        email,
+        uid: userCred.user.uid,
+      });
+
+      await setDoc(
+        doc(db, "users", userCred.user.uid),
+        { jamGrooveSavedStep: currentStep || "intro" },
+        { merge: true }
+      );
+
+      // carry over any guest Jam data after signup
+      await migrateGuestJamGrooveData(userCred.user.uid);
+
+      // cache Firestore wedding date flags for Jam flow
+      await cacheExistingWeddingDateFlags(userCred.user.uid);
+
+      onSuccess();
+    } catch (err: any) {
+      console.error("[JamAccountModal] Email signup error:", err);
+      setError(getFriendlyAuthError(err, "jam-email"));
     }
-  } catch {}
-};
-
-  // make sure cacheExistingWeddingDateFlags(uid: string) is defined above this
-
-const handleSignup = async () => {
-  try {
-    const userCred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
-
-    await saveUserProfile({ firstName, lastName, email, uid: userCred.user.uid });
-
-    await setDoc(
-      doc(db, "users", userCred.user.uid),
-      { jamGrooveSavedStep: currentStep || "intro" },
-      { merge: true }
-    );
-
-    // carry over any guest Jam data after signup
-    await migrateGuestJamGrooveData(userCred.user.uid);
-
-    // ⬇️ new: cache Firestore wedding date flags for Jam flow
-    await cacheExistingWeddingDateFlags(userCred.user.uid);
-
-    onSuccess();
-  } catch (err: any) {
-    setError(err.message);
-  }
-};
+  };
 
   const handleGoogleSignup = async () => {
     try {
@@ -124,16 +173,18 @@ const handleSignup = async () => {
       );
 
       await migrateGuestJamGrooveData(result.user.uid);
+      await cacheExistingWeddingDateFlags(result.user.uid);
 
-      await migrateGuestJamGrooveData(result.user.uid);
-
-// ⬇️ add this
-await cacheExistingWeddingDateFlags(result.user.uid);
-
-onSuccess();
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[JamAccountModal] Google signup error:", err);
+
+      // Silent no-op if they just closed the popup
+      if (err?.code === "auth/popup-closed-by-user") {
+        return;
+      }
+
+      setError(getFriendlyAuthError(err, "jam-google"));
     }
   };
 
@@ -147,10 +198,20 @@ onSuccess();
       aria-modal="true"
     >
       {/* Card */}
-      <div className="pixie-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="pixie-card"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Pink X */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -171,7 +232,13 @@ onSuccess();
           </p>
 
           {/* Inputs */}
-          <div style={{ width: "100%", maxWidth: 440, margin: "0 auto 1.25rem" }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              margin: "0 auto 1.25rem",
+            }}
+          >
             <div style={{ display: "grid", gap: 12 }}>
               <input
                 className="px-input"
@@ -205,7 +272,13 @@ onSuccess();
           </div>
 
           {error && (
-            <p style={{ color: "#e53935", marginBottom: "1rem", fontWeight: 600 }}>
+            <p
+              style={{
+                color: "#e53935",
+                marginBottom: "1rem",
+                fontWeight: 600,
+              }}
+            >
               {error}
             </p>
           )}
@@ -214,55 +287,65 @@ onSuccess();
           <button
             className="boutique-primary-btn"
             onClick={handleSignup}
-            style={{ width: "80%", maxWidth: 300, marginBottom: "1rem" }}
+            style={{
+              width: "80%",
+              maxWidth: 300,
+              marginBottom: "1rem",
+            }}
           >
             Create Account
           </button>
 
-          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-  <button
-    onClick={handleGoogleSignup}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <button
+  onClick={handleGoogleSignup}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+
+    width: "80%",
+    maxWidth: 300,
+    minHeight: 44,
+
+    backgroundColor: "#fff",
+    border: "1px solid #dadce0",
+    borderRadius: "6px",
+    boxShadow:
+      "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+
+    fontSize: "15px",
+    fontWeight: 500,
+    color: "#3c4043",
+    lineHeight: 1.2,
+    cursor: "pointer",
+
+    // kill any weird inherited stuff:
+    padding: "0 16px",
+    boxSizing: "border-box",
+    backgroundClip: "padding-box",
+  }}
+>
+  <img
+    src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+    alt="Google icon"
     style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "10px",
-
-      width: "80%",
-      maxWidth: 300,
-      minHeight: 44,
-
-      backgroundColor: "#fff",
-      border: "1px solid #dadce0",
-      borderRadius: "6px",
-      boxShadow:
-        "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-
-      fontSize: "15px",
-      fontWeight: 500,
-      color: "#3c4043",
-      lineHeight: 1.2,
-      cursor: "pointer",
-
-      // kill any weird inherited stuff:
-      padding: "0 16px",
-      boxSizing: "border-box",
-      backgroundClip: "padding-box",
+      width: 20,
+      height: 20,
+      objectFit: "contain",
+      flexShrink: 0,
     }}
-  >
-    <img
-      src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-      alt="Google icon"
-      style={{
-        width: 20,
-        height: 20,
-        objectFit: "contain",
-        flexShrink: 0,
-      }}
-    />
-    <span>Sign in with Google</span>
-  </button>
-</div>
+  />
+  <span>Sign in with Google</span>
+</button>
+          </div>
         </div>
       </div>
     </div>

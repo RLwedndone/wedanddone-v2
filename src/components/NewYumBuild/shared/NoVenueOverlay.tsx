@@ -4,8 +4,8 @@ import YumIntro from "./YumIntro";
 import YumCuisineSelector from "../catering/YumCuisineSelectorCatering";
 import YumMenuBuilder from "../catering/YumMenuBuilderCatering";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
-import { auth, db } from "../../../firebase/firebaseConfig";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "../../../firebase/firebaseConfig";
 import YumCart from "../catering/YumCartCatering";
 import WeddingDateScreen from "../../common/WeddingDateScreen";
 import WeddingDateConfirmScreen from "../../common/WeddingDateConfirmScreen";
@@ -25,7 +25,9 @@ import YumReturnNoCatering from "../dessert/YumReturnNoCatering";
 import YumReturnNoDessert from "../catering/YumReturnNoDessert";
 import YumReturnBothBooked from "./YumReturnBothBooked";
 import GuestCountUpdateCart from "./GuestCountUpdateCart";
+import SantisTierSelector from "../catering/SantisTierSelector";
 import "../../../styles/globals/boutique.master.css";
+import { SantiCuisineKey } from "../catering/santisMenuConfig";
 
 // hooks
 import { useOverlayOpen } from "../../../hooks/useOverlayOpen";
@@ -72,16 +74,40 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
   const [bookingsReady, setBookingsReady] = useState(false);
 
   // ── Menu + dessert state ───────────────────────────────────
-  const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
+  const [selectedCuisine, setSelectedCuisine] =
+  useState<SantiCuisineKey | null>(null);
   const [menuSelections, setMenuSelections] = useState<{
-    appetizers: string[];
     mains: string[];
     sides: string[];
+    salads: string[];
   }>({
-    appetizers: [],
     mains: [],
     sides: [],
+    salads: [],
   });
+
+  // 🔄 Clear menu selections when backing up to cuisine / tier
+  const clearMenuSelections = () => {
+    const empty = { mains: [], sides: [], salads: [] };
+
+    // React state
+    setMenuSelections(empty);
+
+    // LocalStorage
+    try {
+      localStorage.removeItem("yumMenuSelections");
+    } catch {}
+
+    // Firestore (best-effort)
+    const user = getAuth().currentUser;
+    if (user) {
+      setDoc(
+        doc(db, "users", user.uid, "yumYumData", "menuSelections"),
+        empty,
+        { merge: true }
+      ).catch(() => {});
+    }
+  };
 
   const savedDessert = localStorage.getItem("yumDessertSelections");
   const parsed = savedDessert
@@ -138,6 +164,12 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
     return "cateringContract";
   };
 
+  const isSantiCuisineKey = (value: any): value is SantiCuisineKey =>
+    value === "italian" ||
+    value === "mexican" ||
+    value === "american" ||
+    value === "taco";
+
   // derived flags
   const hasDate = Boolean(userWeddingDate);
   const hasAnyBooking =
@@ -155,6 +187,18 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
 
   const weddingDateLocked =
     hasAnyBooking || localStorage.getItem("weddingDateLocked") === "true";
+
+
+    type CateringTier = "signature" | "chef";
+
+const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
+  try {
+    const stored = localStorage.getItem("yumCateringTier");
+    return stored === "chef" ? "chef" : "signature";
+  } catch {
+    return "signature";
+  }
+});
 
   // seed type
   useEffect(() => {
@@ -197,42 +241,46 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
     return () => unsubscribe();
   }, [isEditingDate]);
 
-  // restore step + cuisine; background restore from Firestore
-  useEffect(() => {
-    const auth = getAuth();
-
-    const localStep = localStorage.getItem("yumStep") as YumStep;
-    const localCuisine = localStorage.getItem("yumSelectedCuisine");
-
-    const tryLocalStorage = () => {
-      if (localCuisine) setSelectedCuisine(localCuisine);
-      const validSteps: YumStep[] = [
-        "intro",
-        "cateringCuisine",
-        "cateringMenu",
-        "cateringCart",
-        "cateringContract",
-        "cateringCheckout",
-        "dessertStyle",
-        "dessertMenu",
-        "dessertCart",
-        "dessertContract",
-        "dessertCheckout",
-        "calendar",
-        "confirm",
-        "thankyouCateringOnly",
-        "thankyouDessertOnly",
-        "thankyouBoth",
-        "returnNoCatering",
-        "returnNoDessert",
-        "returnBothBooked",
-        "updateGuests",
-      ];
-      setStep(
-        localStep && validSteps.includes(localStep) ? localStep : "intro"
-      );
-      setLoading(false);
-    };
+    // restore step + cuisine; background restore from Firestore
+    useEffect(() => {
+      const auth = getAuth();
+  
+      const localStep = localStorage.getItem("yumStep") as YumStep;
+      const localCuisine = localStorage.getItem("yumSelectedCuisine");
+  
+      const tryLocalStorage = () => {
+        if (localCuisine && isSantiCuisineKey(localCuisine)) {
+          setSelectedCuisine(localCuisine);
+        }
+  
+        const validSteps: YumStep[] = [
+          "intro",
+          "cateringTier",
+          "cateringCuisine",
+          "cateringMenu",
+          "cateringCart",
+          "cateringContract",
+          "cateringCheckout",
+          "dessertStyle",
+          "dessertMenu",
+          "dessertCart",
+          "dessertContract",
+          "dessertCheckout",
+          "calendar",
+          "confirm",
+          "thankyouCateringOnly",
+          "thankyouDessertOnly",
+          "thankyouBoth",
+          "returnNoCatering",
+          "returnNoDessert",
+          "returnBothBooked",
+          "updateGuests",
+        ];
+        setStep(
+          localStep && validSteps.includes(localStep) ? localStep : "intro"
+        );
+        setLoading(false);
+      };
 
     if (
       !["returnNoDessert", "returnNoCatering", "returnBothBooked"].includes(
@@ -260,14 +308,16 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
         const cuisineDoc = await getDoc(
           doc(db, "users", user.uid, "yumYumData", "cuisineSelection")
         );
-        const savedCuisine = cuisineDoc.data()?.selectedCuisine;
+        const savedCuisine = cuisineDoc.data()?.selectedCuisine as
+        | string
+        | undefined;
 
-        let updated = false;
-        if (!localCuisine && savedCuisine) {
-          localStorage.setItem("yumSelectedCuisine", savedCuisine);
-          setSelectedCuisine(savedCuisine);
-          updated = true;
-        }
+      let updated = false;
+      if (!localCuisine && savedCuisine && isSantiCuisineKey(savedCuisine)) {
+        localStorage.setItem("yumSelectedCuisine", savedCuisine);
+        setSelectedCuisine(savedCuisine);
+        updated = true;
+      }
         if (!localStep && savedStep) {
           localStorage.setItem("yumStep", savedStep);
           setStep(savedStep);
@@ -460,12 +510,13 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
           <div ref={cardRef} style={{ width: "100%" }}>
             {step === "intro" && (
               <YumIntro
-                onCateringNext={() => {
-                  setActiveBookingType("catering");
-                  localStorage.setItem("yumBookingType", "catering");
-                  localStorage.setItem("yumStep", "cateringCuisine");
-                  setStep("cateringCuisine");
-                }}
+                
+  onCateringNext={() => {
+    setActiveBookingType("catering");
+    localStorage.setItem("yumBookingType", "catering");
+    localStorage.setItem("yumStep", "cateringTier");   // was "cateringCuisine"
+    setStep("cateringTier");                           // was "cateringCuisine"
+  }}
                 onDessertNext={() => {
                   setActiveBookingType("dessert");
                   localStorage.setItem("yumBookingType", "dessert");
@@ -479,35 +530,75 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
               />
             )}
 
-            {step === "cateringCuisine" && (
-              <YumCuisineSelector
-                selectedCuisine={selectedCuisine}
-                setSelectedCuisine={setSelectedCuisine}
-                onNext={() => setStep("cateringMenu")}
-                onBack={() => setStep("intro")}
-                onClose={onClose}
-              />
-            )}
+{step === "cateringTier" && (
+  <SantisTierSelector
+    // whatever props you defined earlier:
+    onSelect={(selection) => {
+      // if your selector hands back just "signature" | "chef",
+      // change this accordingly
+      const tierId = selection.id ?? selection; // adjust to your type
+      const normalized =
+        tierId === "chef" || tierId === "signature" ? tierId : "signature";
 
-            {step === "cateringMenu" && selectedCuisine && (
-              <YumMenuBuilder
-                selectedCuisine={selectedCuisine}
-                menuSelections={menuSelections}
-                setMenuSelections={setMenuSelections}
-                onContinue={() => setStep("cateringCart")}
-                onBack={() => setStep("cateringCuisine")}
-                onClose={onClose}
-              />
-            )}
+      setCateringTier(normalized);
+      try {
+        localStorage.setItem("yumCateringTier", normalized);
+      } catch {}
+    }}
+    onContinue={() => {
+      if (!cateringTier) return;
+      localStorage.setItem("yumStep", "cateringCuisine");
+      setStep("cateringCuisine");
+    }}
+    onBack={() => {
+      localStorage.setItem("yumStep", "intro");
+      setStep("intro");
+    }}
+    onClose={onClose}
+    // if your selector supports a default/current id:
+    // defaultSelectedId={cateringTier ?? undefined}
+  />
+)}
 
-            {step === "cateringCart" && (
+{step === "cateringCuisine" && (
+  <YumCuisineSelector
+    tier={cateringTier || "signature"}
+    selectedCuisine={selectedCuisine}
+    setSelectedCuisine={(val) => setSelectedCuisine(val as SantiCuisineKey)}
+    onNext={() => setStep("cateringMenu")}
+    onBack={() => {
+      clearMenuSelections();
+      localStorage.setItem("yumStep", "cateringTier");
+      setStep("cateringTier");
+    }}
+    onClose={onClose}
+  />
+)}
+
+{step === "cateringMenu" && selectedCuisine && (
+  <YumMenuBuilder
+    tier={cateringTier || "signature"}
+    selectedCuisine={selectedCuisine as SantiCuisineKey}
+    menuSelections={menuSelections}
+    setMenuSelections={setMenuSelections}
+    onContinue={() => setStep("cateringCart")}
+    onBack={() => {
+      clearMenuSelections();
+      localStorage.setItem("yumStep", "cateringCuisine");
+      setStep("cateringCuisine");
+    }}
+    onClose={onClose}
+  />
+)}
+
+{step === "cateringCart" && (
               <YumCart
                 guestCount={guestCount}
                 onGuestCountChange={setGuestCount}
                 addCharcuterie={addCharcuterie}
                 setAddCharcuterie={setAddCharcuterie}
                 selectedCuisine={selectedCuisine}
-                menuSelections={menuSelections}
+                menuSelections={menuSelections} // { mains, sides, salads }
                 setMenuSelections={setMenuSelections}
                 weddingDate={userWeddingDate}
                 setTotal={setTotal}
@@ -516,6 +607,7 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
                 onContinueToCheckout={handleCartContinue}
                 onStartOver={() => setStep("cateringMenu")}
                 onClose={onClose}
+                tier={cateringTier}
               />
             )}
 
@@ -759,15 +851,15 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
               />
             )}
 
-            {step === "returnNoCatering" && (
-              <YumReturnNoCatering
-                onBookCatering={() => {
-                  localStorage.setItem("yumStep", "cateringCuisine");
-                  setStep("cateringCuisine");
-                }}
-                onClose={onClose}
-              />
-            )}
+{step === "returnNoCatering" && (
+  <YumReturnNoCatering
+    onBookCatering={() => {
+      localStorage.setItem("yumStep", "cateringTier"); // was "cateringCuisine"
+      setStep("cateringTier");
+    }}
+    onClose={onClose}
+  />
+)}
 
             {step === "returnBothBooked" && (
               <YumReturnBothBooked onClose={onClose} />

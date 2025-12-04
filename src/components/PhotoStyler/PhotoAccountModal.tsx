@@ -14,7 +14,10 @@ interface PhotoAccountModalProps {
   onClose: () => void;
 }
 
-const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClose }) => {
+const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({
+  onSuccess,
+  onClose,
+}) => {
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
   const [email,     setEmail]     = useState("");
@@ -25,8 +28,15 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
 
   const handleSignup = async () => {
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await updateProfile(userCred.user, {
+        displayName: `${firstName} ${lastName}`,
+      });
 
       await saveUserProfile({
         firstName,
@@ -37,7 +47,17 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
 
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[PhotoAccountModal] Email signup failed:", err);
+
+      let message =
+        "Something went wrong creating your account. Please try again.";
+
+      if (err?.code === "auth/email-already-in-use") {
+        message =
+          "Looks like you already have an account with this email. Try logging in from the dashboard or resetting your password.";
+      }
+
+      setError(message);
     }
   };
 
@@ -55,7 +75,23 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
 
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[PhotoAccountModal] Google signup failed:", err);
+
+      // handle common Google errors nicely
+      if (err?.code === "auth/popup-closed-by-user") {
+        // user cancelled, don't show an error banner
+        return;
+      }
+
+      let message =
+        "Google sign-in failed. Please try again or use email and password.";
+
+      if (err?.code === "auth/account-exists-with-different-credential") {
+        message =
+          "An account with this email already exists under a different sign-in method. Try logging in from the dashboard or resetting your password.";
+      }
+
+      setError(message);
     }
   };
 
@@ -71,8 +107,15 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
       {/* Standard card; stop propagation so clicks inside don’t close */}
       <div className="pixie-card" onClick={(e) => e.stopPropagation()}>
         {/* Pink X */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -93,7 +136,13 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
           </p>
 
           {/* Inputs */}
-          <div style={{ width: "100%", maxWidth: 440, margin: "0 auto 1.25rem" }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              margin: "0 auto 1.25rem",
+            }}
+          >
             <div style={{ display: "grid", gap: "12px" }}>
               <input
                 className="px-input"
@@ -128,7 +177,13 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
 
           {/* Error */}
           {error && (
-            <p style={{ color: "#e53935", marginBottom: "1rem", fontWeight: 600 }}>
+            <p
+              style={{
+                color: "#e53935",
+                marginBottom: "1rem",
+                fontWeight: 600,
+              }}
+            >
               {error}
             </p>
           )}
@@ -143,45 +198,47 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({ onSuccess, onClos
           </button>
 
           {/* Divider + Google */}
-          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-  <button
-    onClick={handleGoogleSignup}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "10px",
-      width: "80%",
-      maxWidth: 300,
-      minHeight: 44,
-      backgroundColor: "#fff",
-      border: "1px solid #dadce0",
-      borderRadius: "6px",
-      boxShadow:
-        "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-      fontSize: "15px",
-      fontWeight: 500,
-      color: "#3c4043",
-      lineHeight: 1.2,
-      cursor: "pointer",
-      padding: "0 16px",
-      boxSizing: "border-box",
-      backgroundClip: "padding-box",
-    }}
-  >
-    <img
-      src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-      alt="Google icon"
-      style={{
-        width: 20,
-        height: 20,
-        objectFit: "contain",
-        flexShrink: 0,
-      }}
-    />
-    <span>Sign in with Google</span>
-  </button>
-</div>
+          <div
+            style={{ display: "flex", justifyContent: "center", width: "100%" }}
+          >
+            <button
+              onClick={handleGoogleSignup}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                width: "80%",
+                maxWidth: 300,
+                minHeight: 44,
+                backgroundColor: "#fff",
+                border: "1px solid #dadce0",
+                borderRadius: "6px",
+                boxShadow:
+                  "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "#3c4043",
+                lineHeight: 1.2,
+                cursor: "pointer",
+                padding: "0 16px",
+                boxSizing: "border-box",
+                backgroundClip: "padding-box",
+              }}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                alt="Google icon"
+                style={{
+                  width: 20,
+                  height: 20,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <span>Sign in with Google</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -291,27 +291,43 @@ const handleSave = async () => {
           </>
         ) : (
           <>
-            {/* 💸 Summary */}
-            <div style={{ marginBottom: "1.25rem", textAlign: "center" }}>
-              <p style={{ fontSize: "1.6rem", fontWeight: 700, color: "#2c62ba", margin: 0 }}>
-                {(savedBudget || customBudget)
-                  ? `$${(savedBudget || customBudget).toLocaleString()}`
-                  : "$0"}
-              </p>
-              <p style={{ fontSize: "1.35rem", margin: "0.35rem 0" }}>
-                Total Spent: {formatDollars(totalSpent)}
-              </p>
-              <p
+            {/* 💸 Summary (light blue bar) */}
+<div
   style={{
-    fontSize: "1.2rem",
-    color: remaining >= 0 ? "#27ae60" : "#c0392b", // green if under, red if over
-    fontWeight: 600,
-    margin: 0,
+    marginBottom: "1.25rem",
+    textAlign: "center",
+    background: "#f8f9ff",           // light blue
+    border: "1px solid #e1e6ff",
+    borderRadius: 12,
+    padding: "10px 14px",
   }}
 >
-  💰 Remaining: {formatDollars(remaining)}
-</p>
-            </div>
+  <p
+    style={{
+      fontSize: "1.6rem",
+      fontWeight: 700,
+      color: "#2c62ba",
+      margin: 0,
+    }}
+  >
+    {(savedBudget || customBudget)
+      ? `$${(savedBudget || customBudget).toLocaleString()}`
+      : "$0"}
+  </p>
+  <p style={{ fontSize: "1.35rem", margin: "0.35rem 0" }}>
+    Total Spent: {formatDollars(totalSpent)}
+  </p>
+  <p
+    style={{
+      fontSize: "1.2rem",
+      color: remaining >= 0 ? "#27ae60" : "#c0392b",
+      fontWeight: 600,
+      margin: 0,
+    }}
+  >
+    💰 Remaining: {formatDollars(remaining)}
+  </p>
+</div>
 
             {/* 🧾 Wed&Done Purchases (itemized) */}
             <div
@@ -381,14 +397,21 @@ const handleSave = async () => {
 <div
   style={{
     textAlign: "left",
-    background: "#fffaf7",
-    border: "1px solid #f5d3b8",
+    background: "#fff0f6",            // light pink block
+    border: "1px solid #f5b6d5",      // pink border
     borderRadius: 12,
     padding: "12px 14px",
     marginBottom: "1.25rem",
   }}
 >
-  <h4 style={{ margin: "0 0 8px", color: "#c76a2b" }}>Outside Purchases</h4>
+  <h4
+    style={{
+      margin: "0 0 8px",
+      color: "#e0529c",               // darker pink title
+    }}
+  >
+    Outside Purchases
+  </h4>
 
   {outsideItems.length === 0 ? (
     <p style={{ margin: 0, color: "#666" }}>
@@ -399,7 +422,7 @@ const handleSave = async () => {
       <div
         key={`${p.label}-${idx}`}
         style={{
-          borderTop: idx === 0 ? "none" : "1px dashed #f0c9a5",
+          borderTop: idx === 0 ? "none" : "1px dashed #f2bfd8",
           paddingTop: idx === 0 ? 0 : 10,
           marginTop: idx === 0 ? 0 : 10,
         }}

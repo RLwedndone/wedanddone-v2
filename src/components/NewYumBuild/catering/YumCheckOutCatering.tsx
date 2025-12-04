@@ -22,6 +22,8 @@ import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
 import { notifyBooking } from "../../../utils/email/email";
 import { setAndLockGuestCount } from "../../../utils/guestCountStore";
 
+// 🔹 Santi types
+import type { SantiCuisineKey } from "./santisMenuConfig";
 
 // ⏱️ helpers
 const round2 = (n: number) =>
@@ -57,12 +59,12 @@ interface YumCheckOutCateringProps {
   guestCount: number;
   charcuterieCount: number;
   lineItems: string[];
-  selectedCuisine: string | null;
+  selectedCuisine: SantiCuisineKey | null;
   addCharcuterie: boolean;
   menuSelections: {
-    appetizers: string[];
     mains: string[];
     sides: string[];
+    salads: string[];
   };
   onBack: () => void;
   onComplete: () => void;
@@ -94,9 +96,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
     : rawPlan) as "full" | "monthly";
 
   // 📅 wedding date loading (Firestore → localStorage)
-  const [weddingDate, setWeddingDate] = useState<string | null>(
-    null
-  );
+  const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string>("Magic");
   const [lastName, setLastName] = useState<string>("User");
 
@@ -124,10 +124,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
           setFirstName(data.firstName || firstName);
           setLastName(data.lastName || lastName);
         } catch (e) {
-          console.warn(
-            "⚠️ Could not fetch user wedding date:",
-            e
-          );
+          console.warn("⚠️ Could not fetch user wedding date:", e);
         }
       }
     })();
@@ -161,11 +158,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
     localStorage.getItem("yumSignature") || "";
 
   // ✅ success handler
-  const handleSuccess = async ({
-    customerId,
-  }: {
-    customerId?: string;
-  } = {}) => {
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -179,19 +172,13 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
 
       // store Stripe customer id if new
       try {
-        if (
-          customerId &&
-          customerId !== userDoc?.stripeCustomerId
-        ) {
+        if (customerId && customerId !== userDoc?.stripeCustomerId) {
           await updateDoc(userRef, {
             stripeCustomerId: customerId,
             "stripe.updatedAt": serverTimestamp(),
           });
           try {
-            localStorage.setItem(
-              "stripeCustomerId",
-              customerId
-            );
+            localStorage.setItem("stripeCustomerId", customerId);
           } catch {}
 
           // 🔑 Ensure a default payment method is attached
@@ -201,8 +188,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               {
                 method: "POST",
                 headers: {
-                  "Content-Type":
-                    "application/json",
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   customerId,
@@ -222,21 +208,13 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
           }
         }
       } catch (e) {
-        console.warn(
-          "⚠️ Could not save stripeCustomerId:",
-          e
-        );
+        console.warn("⚠️ Could not save stripeCustomerId:", e);
       }
 
-      const safeFirst =
-        userDoc?.firstName || firstName || "Magic";
-      const safeLast =
-        userDoc?.lastName || lastName || "User";
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
       const fullName = `${safeFirst} ${safeLast}`;
-      const wedding =
-        weddingDate ||
-        userDoc?.weddingDate ||
-        "TBD";
+      const wedding = weddingDate || userDoc?.weddingDate || "TBD";
       const purchaseDate = new Date().toISOString();
 
       // 🧾 Generate agreement PDF
@@ -245,9 +223,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
         total,
         deposit,
         guestCount,
-        charcuterieCount: addCharcuterie
-          ? guestCount
-          : 0,
+        charcuterieCount: addCharcuterie ? guestCount : 0,
         weddingDate: wedding,
         signatureImageUrl,
         paymentSummary:
@@ -257,13 +233,12 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               )}. Remaining $${remainingBalance.toFixed(
                 2
               )} due by ${finalDueDateStr}.`
-            : `Paid in full today: $${amountDueToday.toFixed(
-                2
-              )}.`,
+            : `Paid in full today: $${amountDueToday.toFixed(2)}.`,
         lineItems,
+        // 🔹 mains / sides / salads now
         menuSelections,
-        cuisineType:
-          selectedCuisine || "N/A",
+        // 🔹 optional cuisine type
+        cuisineType: selectedCuisine || undefined,
       });
 
       const storage = getStorage(
@@ -286,26 +261,16 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
         {
           booked: true,
           guestCountAtBooking: guestCount,
-          perGuest:
-            CATERING_BASE_PER_GUEST,
-          charcuterieSelected:
-            !!addCharcuterie,
-          charcuteriePerGuest:
-            CATERING_CHARCUTERIE_PER_GUEST,
-          salesTaxRate:
-            SALES_TAX_RATE,
-          stripeRate:
-            STRIPE_RATE,
-          stripeFlatFee:
-            STRIPE_FLAT_FEE,
-          cuisine:
-            selectedCuisine ||
-            null,
-          lineItems:
-            lineItems || [],
+          perGuest: CATERING_BASE_PER_GUEST,
+          charcuterieSelected: !!addCharcuterie,
+          charcuteriePerGuest: CATERING_CHARCUTERIE_PER_GUEST,
+          salesTaxRate: SALES_TAX_RATE,
+          stripeRate: STRIPE_RATE,
+          stripeFlatFee: STRIPE_FLAT_FEE,
+          cuisine: selectedCuisine ?? null,
+          lineItems: lineItems || [],
           totalBooked: total,
-          paymentPlan:
-            paymentPlan,
+          paymentPlan,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -319,9 +284,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
 
       const finalDueAtDate = (() => {
         if (!weddingDate) return null;
-        const d = new Date(
-          `${weddingDate}T12:00:00`
-        );
+        const d = new Date(`${weddingDate}T12:00:00`);
         d.setDate(d.getDate() - 35);
         return d;
       })();
@@ -329,227 +292,134 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
       let planMonths = 1;
       let perMonthCents = 0;
       let lastPaymentCents = 0;
-      if (
-        paymentPlan === "monthly" &&
-        finalDueAtDate
-      ) {
-        const months =
-          monthsBetweenInclusive(
-            now,
-            finalDueAtDate
-          );
-        const remainingCents = Math.round(
-          remainingBalance * 100
-        );
-        const base = Math.floor(
-          remainingCents / months
-        );
-        const tail =
-          remainingCents -
-          base *
-            Math.max(0, months - 1);
+      if (paymentPlan === "monthly" && finalDueAtDate) {
+        const months = monthsBetweenInclusive(now, finalDueAtDate);
+        const remainingCents = Math.round(remainingBalance * 100);
+        const base = Math.floor(remainingCents / months);
+        const tail = remainingCents - base * Math.max(0, months - 1);
         planMonths = months;
         perMonthCents = base;
         lastPaymentCents = tail;
       }
 
-      // Helper: first day of the next month at 00:00:01 UTC
-      function firstOfNextMonthUTC(
-        from = new Date()
-      ): string {
+      function firstOfNextMonthUTC(from = new Date()): string {
         const y = from.getUTCFullYear();
         const m = from.getUTCMonth();
-        const d = new Date(
-          Date.UTC(
-            y,
-            m + 1,
-            1,
-            0,
-            0,
-            1
-          )
-        );
+        const d = new Date(Date.UTC(y, m + 1, 1, 0, 0, 1));
         return d.toISOString();
       }
 
       const nextChargeAt =
-        paymentPlan === "monthly"
-          ? firstOfNextMonthUTC(now)
-          : null;
+        paymentPlan === "monthly" ? firstOfNextMonthUTC(now) : null;
 
-      // 🧾 Enriched purchase entry for Budget Wand
       const purchaseEntry = {
         label: "Yum Yum Catering",
         category: "catering",
         boutique: "catering",
         source: "W&D",
-        amount: Number(
-          amountDueToday.toFixed(2)
-        ), // charged now
-        amountChargedToday: Number(
-          amountDueToday.toFixed(2)
-        ),
-        contractTotal: Number(
-          total.toFixed(2)
-        ), // full commitment
-        payFull:
-          paymentPlan !== "monthly",
+        amount: Number(amountDueToday.toFixed(2)), // charged now
+        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        contractTotal: Number(total.toFixed(2)), // full commitment
+        payFull: paymentPlan !== "monthly",
         deposit:
           paymentPlan === "monthly"
-            ? Number(
-                amountDueToday.toFixed(
-                  2
-                )
-              )
-            : Number(
-                total.toFixed(2)
-              ),
+            ? Number(amountDueToday.toFixed(2))
+            : Number(total.toFixed(2)),
         monthlyAmount:
           paymentPlan === "monthly"
-            ? Number(
-                (
-                  perMonthCents /
-                  100
-                ).toFixed(2)
-              )
+            ? Number((perMonthCents / 100).toFixed(2))
             : 0,
-        months:
-          paymentPlan === "monthly"
-            ? planMonths
-            : 0,
-        method:
-          paymentPlan === "monthly"
-            ? "deposit"
-            : "full",
-        items:
-          lineItems ||
-          [],
+        months: paymentPlan === "monthly" ? planMonths : 0,
+        method: paymentPlan === "monthly" ? "deposit" : "full",
+        items: lineItems || [],
         date: purchaseDate,
       };
 
-      // 🧾 Persist to Firestore
       await updateDoc(userRef, {
         documents: arrayUnion({
           title: "Yum Yum Catering Agreement",
           url: publicUrl,
-          uploadedAt:
-            new Date().toISOString(),
+          uploadedAt: new Date().toISOString(),
         }),
 
         "bookings.catering": true,
         weddingDateLocked: true,
 
-        purchases: arrayUnion(
-          purchaseEntry
-        ),
+        purchases: arrayUnion(purchaseEntry),
 
         spendTotal: increment(
-          Number(
-            amountDueToday.toFixed(
-              2
-            )
-          )
+          Number(amountDueToday.toFixed(2))
         ),
 
         // (A) UI snapshot
         paymentPlan:
-          paymentPlan ===
-          "monthly"
+          paymentPlan === "monthly"
             ? {
                 product: "yum",
                 type: "deposit",
                 total,
-                depositPercent:
-                  DEPOSIT_PCT,
-                paidNow:
-                  amountDueToday,
+                depositPercent: DEPOSIT_PCT,
+                paidNow: amountDueToday,
                 remainingBalance,
-                finalDueDate:
-                  finalDueDateStr,
-                finalDueAt:
-                  finalDueAtDate
-                    ? finalDueAtDate.toISOString()
-                    : null,
-                createdAt:
-                  new Date().toISOString(),
+                finalDueDate: finalDueDateStr,
+                finalDueAt: finalDueAtDate
+                  ? finalDueAtDate.toISOString()
+                  : null,
+                createdAt: new Date().toISOString(),
               }
             : {
                 product: "yum",
                 type: "full",
                 total,
-                paidNow:
-                  total,
+                paidNow: total,
                 remainingBalance: 0,
                 finalDueDate: null,
                 finalDueAt: null,
                 depositPercent: 1,
-                createdAt:
-                  new Date().toISOString(),
+                createdAt: new Date().toISOString(),
               },
 
         // (B) snapshot for billing robot
         paymentPlanAuto:
-          paymentPlan ===
-          "monthly"
+          paymentPlan === "monthly"
             ? {
                 version: 1,
                 product: "yum",
                 status: "active",
-                strategy:
-                  "monthly_until_final",
+                strategy: "monthly_until_final",
                 currency: "usd",
 
-                totalCents: Math.round(
-                  total * 100
+                totalCents: Math.round(total * 100),
+                depositCents: Math.round(amountDueToday * 100),
+                remainingCents: Math.round(
+                  remainingBalance * 100
                 ),
-                depositCents:
-                  Math.round(
-                    amountDueToday *
-                      100
-                  ),
-                remainingCents:
-                  Math.round(
-                    remainingBalance *
-                      100
-                  ),
 
                 planMonths,
                 perMonthCents,
                 lastPaymentCents,
                 nextChargeAt,
-                finalDueAt:
-                  finalDueAtDate
-                    ? finalDueAtDate.toISOString()
-                    : null,
+                finalDueAt: finalDueAtDate
+                  ? finalDueAtDate.toISOString()
+                  : null,
 
                 stripeCustomerId:
                   customerId ||
-                  localStorage.getItem(
-                    "stripeCustomerId"
-                  ) ||
+                  localStorage.getItem("stripeCustomerId") ||
                   null,
 
-                createdAt:
-                  new Date().toISOString(),
-                updatedAt:
-                  new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
               }
             : {
                 version: 1,
                 product: "yum",
-                status:
-                  "complete",
-                strategy:
-                  "paid_in_full",
+                status: "complete",
+                strategy: "paid_in_full",
                 currency: "usd",
 
-                totalCents: Math.round(
-                  total * 100
-                ),
-                depositCents:
-                  Math.round(
-                    total * 100
-                  ),
+                totalCents: Math.round(total * 100),
+                depositCents: Math.round(total * 100),
                 remainingCents: 0,
 
                 planMonths: 0,
@@ -560,221 +430,201 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
 
                 stripeCustomerId:
                   customerId ||
-                  localStorage.getItem(
-                    "stripeCustomerId"
-                  ) ||
+                  localStorage.getItem("stripeCustomerId") ||
                   null,
 
-                createdAt:
-                  new Date().toISOString(),
-                updatedAt:
-                  new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
               },
       });
 
-
-
       // ✅ guest fallback + live UI refresh
       try {
-        localStorage.setItem(
-          "yumBookedCatering",
-          "true"
-        );
+        localStorage.setItem("yumBookedCatering", "true");
       } catch {}
-      window.dispatchEvent(
-        new Event("cateringCompletedNow")
-      );
-      window.dispatchEvent(
-        new Event("purchaseMade")
-      );
+      window.dispatchEvent(new Event("cateringCompletedNow"));
+      window.dispatchEvent(new Event("purchaseMade"));
 
       // 🔒 Lock guest count for Yum Catering (NoVenue support)
-try {
-  await setAndLockGuestCount(guestCount || 0, "yum:catering");
-} catch (e) {
-  console.warn("⚠️ Could not lock guest count for catering:", e);
-}
+      try {
+        await setAndLockGuestCount(guestCount || 0, "yum:catering");
+      } catch (e) {
+        console.warn("⚠️ Could not lock guest count for catering:", e);
+      }
 
       // 📧 Email receipt / alert (centralized)
-try {
-  const current = getAuth().currentUser;
-  await notifyBooking("yum_catering", {
-    // who + basics
-    user_email: current?.email || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: safeFirst,
-    wedding_date: wedding,
+      try {
+        const current = getAuth().currentUser;
+        await notifyBooking("yum_catering", {
+          user_email: current?.email || "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: safeFirst,
+          wedding_date: wedding,
 
-    // PDF
-    pdf_url: publicUrl,
-    pdf_title: "Yum Yum Catering Agreement",
+          pdf_url: publicUrl,
+          pdf_title: "Yum Yum Catering Agreement",
 
-    // order summary
-    total: total.toFixed(2),
-    line_items: (lineItems || []).join(", "),
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
 
-    // nice-to-have for the user template button
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-
-    // makes sure the admin subject/body shows the right product name
-    product_name: "Yum Yum Catering",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking failed:", mailErr);
-}
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Yum Yum Catering",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking failed:", mailErr);
+      }
 
       onComplete();
     } catch (err) {
-      console.error(
-        "❌ Catering finalize error:",
-        err
-      );
+      console.error("❌ Catering finalize error:", err);
       setLocalGenerating(false);
     }
   };
 
   const summaryText =
-  paymentPlan === "monthly"
-    ? `Deposit due today: $${amountDueToday.toFixed(2)} (25%). Remaining $${remainingBalance.toFixed(
-        2
-      )} due ${finalDueDateStr}.`
-    : `Total due today: $${amountDueToday.toFixed(2)}.`;
+    paymentPlan === "monthly"
+      ? `Deposit due today: $${amountDueToday.toFixed(
+          2
+        )} (25%). Remaining $${remainingBalance.toFixed(
+          2
+        )} due ${finalDueDateStr}.`
+      : `Total due today: $${amountDueToday.toFixed(2)}.`;
 
   // 🔮 MAGIC-IN-PROGRESS / CHECKOUT CARD
-return (
-  <div
-    className="pixie-card pixie-card--modal"
-    style={{
-      ["--pixie-card-w" as any]: isGenerating ? "520px" : "680px",
-      ["--pixie-card-min-h" as any]: isGenerating ? "360px" : "520px",
-    }}
-  >
-    {/* 🩷 Pink X Close */}
-    <button
-      className="pixie-card__close"
-      onClick={onClose}
-      aria-label="Close"
+  return (
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{
+        ["--pixie-card-w" as any]: isGenerating ? "520px" : "680px",
+        ["--pixie-card-min-h" as any]: isGenerating ? "360px" : "520px",
+      }}
     >
-      <img
-        src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-        alt="Close"
-      />
-    </button>
+      {/* 🩷 Pink X Close */}
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
 
-    {/* Body */}
-    <div className="pixie-card__body">
-      {isGenerating ? (
-        <div
-          className="px-center"
-          style={{
-            marginTop: 10,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          <video
-            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
-            autoPlay
-            loop
-            muted
-            playsInline
+      {/* Body */}
+      <div className="pixie-card__body">
+        {isGenerating ? (
+          <div
+            className="px-center"
             style={{
-              width: "100%",
-              maxWidth: 300,
-              borderRadius: 12,
-              margin: "0 auto 14px",
-              display: "block",
-              objectFit: "contain",
-            }}
-          />
-          <h3
-            className="px-title"
-            style={{
-              fontFamily: "'Jenna Sue', cursive",
-              color: "#2c62ba",
-              fontSize: "1.6rem",
-              textAlign: "center",
-              margin: 0,
+              marginTop: 10,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
             }}
           >
-            Madge is working her magic… hold tight!
-          </h3>
-        </div>
-      ) : (
-        <>
-          <video
-            src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              width: 160,
-              maxWidth: "90%",
-              borderRadius: 12,
-              margin: "0 auto 16px",
-              display: "block",
-            }}
-          />
-
-          <h2
-            className="px-title"
-            style={{
-              fontFamily: "'Jenna Sue', cursive",
-              fontSize: "1.9rem",
-              marginBottom: 8,
-            }}
-          >
-            Checkout
-          </h2>
-
-          <p
-            className="px-prose-narrow"
-            style={{
-              marginBottom: 16,
-              textAlign: "center",
-            }}
-          >
-            {summaryText}
-          </p>
-
-          <div className="px-elements">
-            <CheckoutForm
-              total={amountDueToday}
-              onSuccess={handleSuccess}
-              setStepSuccess={onComplete}
-              isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-              customerId={(() => {
-                try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
-                } catch {
-                  return undefined;
-                }
-              })()}
+            <video
+              src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: "100%",
+                maxWidth: 300,
+                borderRadius: 12,
+                margin: "0 auto 14px",
+                display: "block",
+                objectFit: "contain",
+              }}
             />
-          </div>
-
-          {/* Back button (standard width) */}
-          <div style={{ marginTop: "1rem", textAlign: "center" }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
+            <h3
+              className="px-title"
+              style={{
+                fontFamily: "'Jenna Sue', cursive",
+                color: "#2c62ba",
+                fontSize: "1.6rem",
+                textAlign: "center",
+                margin: 0,
+              }}
             >
-              ← Back
-            </button>
+              Madge is working her magic… hold tight!
+            </h3>
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            <video
+              src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                width: 160,
+                maxWidth: "90%",
+                borderRadius: 12,
+                margin: "0 auto 16px",
+                display: "block",
+              }}
+            />
+
+            <h2
+              className="px-title"
+              style={{
+                fontFamily: "'Jenna Sue', cursive",
+                fontSize: "1.9rem",
+                marginBottom: 8,
+              }}
+            >
+              Checkout
+            </h2>
+
+            <p
+              className="px-prose-narrow"
+              style={{
+                marginBottom: 16,
+                textAlign: "center",
+              }}
+            >
+              {summaryText}
+            </p>
+
+            <div className="px-elements">
+              <CheckoutForm
+                total={amountDueToday}
+                onSuccess={handleSuccess}
+                setStepSuccess={onComplete}
+                isAddon={false}
+                customerEmail={getAuth().currentUser?.email || undefined}
+                customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                customerId={(() => {
+                  try {
+                    return localStorage.getItem("stripeCustomerId") || undefined;
+                  } catch {
+                    return undefined;
+                  }
+                })()}
+              />
+            </div>
+
+            {/* Back button (standard width) */}
+            <div style={{ marginTop: "1rem", textAlign: "center" }}>
+              <button
+                className="boutique-back-btn"
+                style={{ width: 250 }}
+                onClick={onBack}
+              >
+                ← Back
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default YumCheckOutCatering;

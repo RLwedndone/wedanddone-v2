@@ -4,6 +4,7 @@ export type YumStep =
   | "intro" // 🍽️ Initial split: catering vs. dessert
   // 🥘 Catering Flow
   | "cateringCuisine"
+  | "cateringTier"
   | "cateringMenu"
   | "cateringCart"
   | "cateringContract"

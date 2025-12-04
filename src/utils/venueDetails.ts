@@ -48,7 +48,8 @@ export const venueDetails: Record<string, VenueDetails> = {
   windmillbarn: {
     title: "The Big Red Barn at Windmill Winery",
     castleConsiderations: [
-      "The Windmill Winery is located in Florence, Arizona and is about an hour drive from Phoenix Sky Harbor Airport"
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
+      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport.",
     ],
     videoLink: "https://player.vimeo.com/video/849188155",
     collection: "novel"
@@ -57,7 +58,8 @@ export const venueDetails: Record<string, VenueDetails> = {
   lakehouse: {
     title: "The Windmill Winery Lake House",
     castleConsiderations: [
-      "The Windmill Winery is located in Florence, Arizona and is about an hour drive from Phoenix Sky Harbor Airport"
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
+      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport.",
     ],
     videoLink: "https://player.vimeo.com/video/848914703",
     collection: "novel"
@@ -66,7 +68,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   sunkist: {
     title: "The Sunkist Warehouse",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
       "Historic warehouse space with vintage charm",
       "Air conditioning is present but not airtight—space may be warmer than expected",
       "No discounts or refunds for temperature-related concerns",
@@ -79,7 +81,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   soho63: {
     title: "Soho63",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
       "📍 Located in Tempe — business distric"
     ],
     videoLink: "https://player.vimeo.com/video/829956929",
@@ -89,7 +91,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   farmhouse: {
     title: "Schnepf's Farmhouse",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from the Schnepf's Farm catering options",
       "💵 Food & bev minimum: <strong>$1,000</strong>",
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
@@ -100,7 +102,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   schnepfbarn: {
     title: "Schnepf's Big Red Barn",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from the Schnepf's Farm catering options",
       "💵 Food & bev minimum: <strong>$1,000</strong>",
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
@@ -111,7 +113,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   themeadow: {
     title: "Schnepf's Meadow",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from the Schnepf's Farm catering options",
       "💵 Food & bev minimum: <strong>$1,000</strong>",
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
@@ -122,7 +124,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   ocotillo: {
     title: "The Ocotillo",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from Ocotillo's catering options",
       "💵 Food & bev minimum: <strong>$8K</strong> (before service charge and tax)",
       "All-outdoor venue with optional tenting or indoor move available at added cost",
       "Amplified sound must end by 9PM due to City of Phoenix noise ordinance",
@@ -135,7 +137,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   valleyho: {
     title: "Hotel Valley Ho",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from Hotel Valley Ho's catering options",
       "💵 Food & bev minimum: <strong>$15K</strong> (before service charge and tax)",
       "Hotel accommodations for the couple are included in the cost"
     ],
@@ -146,7 +148,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   haciendadelsol: {
     title: "Hacienda Del Sol",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price - you'll create your menu from Hacienda Del Sol's catering options",
       "💵 Food & bev minimum: <strong>$10K (Mon–Thu), $22.5K (Fri/Sun), $25K (Sat)</strong> (before service charge and tax)",
       "📍 Located in Tucson — about <strong>110 miles</strong> / <strong>1 hour 45 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
@@ -157,7 +159,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   fabric: {
     title: "Fabric",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
       "📍 Located in downtown Tempe — large, industrial blank space often used for fashion shows"
     ],
     videoLink: "https://player.vimeo.com/video/829583210",
@@ -167,7 +169,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   encanterra: {
     title: "Encanterra Country Club",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Encanterra's catering options",
       "💵 Food & bev minimum: <strong>$8,000</strong> (before service charge and tax)",
       "📍 Located in Queen Creak — about <strong>40 miles</strong> / <strong>45 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
@@ -178,7 +180,7 @@ export const venueDetails: Record<string, VenueDetails> = {
   desertfoothills: {
     title: "Desert Foothills",
     castleConsiderations: [
-      "🍽️ ❌ Catering <strong>is not included</strong> in the venue price",
+      "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
       "☀️🌧️ Rain or shine venue — indoor space and patio are sufficient for full event",
       "🌵 Located in the wide-open desert — private and self-contained, but the drive feels rustic and remote",
       "⛺ Tent rental available at client's cost",

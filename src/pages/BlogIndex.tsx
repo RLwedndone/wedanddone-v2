@@ -1,11 +1,12 @@
 // src/pages/BlogIndex.tsx
 import React, { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { blogPosts } from "../data/blogPosts";
 
 const BlogIndex: React.FC = () => {
   const now = new Date();
+  const navigate = useNavigate();
 
   const visiblePosts = blogPosts
     .filter((post) => new Date(post.date) <= now)
@@ -53,6 +54,15 @@ const BlogIndex: React.FC = () => {
     transition: "opacity 300ms ease-out, transform 300ms ease-out",
   };
 
+  const handleBackToCloud = () => {
+    navigate("/dashboard", {
+      state: {
+        openWedAndDoneInfo: true,
+        wedAndDoneStartScreen: "intro",
+      },
+    });
+  };
+
   return (
     <div
       className="wd-dashboard-bg"
@@ -81,9 +91,9 @@ const BlogIndex: React.FC = () => {
 
       {/* White card */}
       <div className="pixie-card" style={cardStyle}>
-        {/* Pink X inside card */}
-        <Link
-          to="/dashboard"
+        {/* Pink X = always returns to Dashboard */}
+        <button
+          onClick={() => navigate("/dashboard")}
           className="pixie-card__close"
           style={{
             position: "absolute",
@@ -102,24 +112,24 @@ const BlogIndex: React.FC = () => {
             alt="Close"
             style={{ width: 32, height: 32, display: "block" }}
           />
-        </Link>
+        </button>
 
         <div className="pixie-card__body">
-          {/* ⭐ NEW: Looping Wedding Wisdom Video */}
+          {/* Wedding Wisdom Video */}
           <video
-  src={`${import.meta.env.BASE_URL}assets/videos/weddingwisdom.mp4`}
-  autoPlay
-  loop
-  muted
-  playsInline
-  style={{
-    width: "100%",        // scales responsively
-    maxWidth: "520px",    // 🔥 adjust this number to control size
-    borderRadius: "16px",
-    margin: "0 auto 20px",
-    display: "block",
-  }}
-/>
+            src={`${import.meta.env.BASE_URL}assets/videos/weddingwisdom.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              borderRadius: "16px",
+              margin: "0 auto 20px",
+              display: "block",
+            }}
+          />
 
           {/* Title */}
           <h1
@@ -142,93 +152,112 @@ const BlogIndex: React.FC = () => {
 
           {/* Posts */}
           <div>
-          {visiblePosts.map((post) => {
-  const thumbSrc =
-    post.thumbnail ||
-    post.heroImage ||
-    (post.sections && post.sections.length > 0
-      ? post.sections[0].image
-      : undefined);
+            {visiblePosts.map((post) => {
+              const thumbSrc =
+                post.thumbnail ||
+                post.heroImage ||
+                (post.sections && post.sections.length > 0
+                  ? post.sections[0].image
+                  : undefined);
 
-  return (
-    <article
-  key={post.slug}
+              return (
+                <article
+                  key={post.slug}
+                  style={{
+                    borderBottom: "1px solid #eee",
+                    paddingBottom: 24,
+                    marginBottom: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 24,
+                    }}
+                  >
+                    {/* LEFT: Text content */}
+                    <div style={{ flex: "1 1 auto" }}>
+                      <h2
+                        className="px-title-md"
+                        style={{ marginBottom: 4, lineHeight: 1.25 }}
+                      >
+                        <Link
+                          to={`/blog/${post.slug}`}
+                          style={{ textDecoration: "none", color: "#333" }}
+                        >
+                          {post.title}
+                        </Link>
+                      </h2>
+
+                      <small
+                        style={{
+                          display: "block",
+                          marginBottom: 8,
+                          color: "#888",
+                        }}
+                      >
+                        {new Date(post.date).toLocaleDateString()}
+                      </small>
+
+                      <p style={{ marginBottom: 12, color: "#444" }}>
+                        {post.excerpt}
+                      </p>
+
+                      <Link
+                        to={`/blog/${post.slug}`}
+                        className="pixie-button pixie-button--primary"
+                      >
+                        Read this guide
+                      </Link>
+                    </div>
+
+                    {/* RIGHT: THUMBNAIL */}
+                    {thumbSrc && (
+                      <Link
+                        to={`/blog/${post.slug}`}
+                        style={{
+                          flex: "0 0 200px",
+                          display: "block",
+                          borderRadius: 16,
+                          overflow: "hidden",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+                        }}
+                      >
+                        <img
+                          src={thumbSrc}
+                          alt={post.title}
+                          style={{
+                            width: "100%",
+                            height: "140px",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      </Link>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+         
+          <div style={{ textAlign: "center", marginTop: 32 }}>
+            {/* Pink “Back” button (matches logo-cloud screens) */}
+<button
+  onClick={handleBackToCloud}
+  className="boutique-back-btn"
   style={{
-    borderBottom: "1px solid #eee",
-    paddingBottom: 24,
-    marginBottom: 24,
+    marginTop: "24px",
+    display: "block",
+    marginLeft: "auto",
+    marginRight: "auto",
   }}
 >
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: 24,
-    }}
-  >
-    {/* LEFT: Text content */}
-    <div style={{ flex: "1 1 auto" }}>
-      <h2
-        className="px-title-md"
-        style={{ marginBottom: 4, lineHeight: 1.25 }}
-      >
-        <Link
-          to={`/blog/${post.slug}`}
-          style={{ textDecoration: "none", color: "#333" }}
-        >
-          {post.title}
-        </Link>
-      </h2>
-
-      <small
-        style={{
-          display: "block",
-          marginBottom: 8,
-          color: "#888",
-        }}
-      >
-        {new Date(post.date).toLocaleDateString()}
-      </small>
-
-      <p style={{ marginBottom: 12, color: "#444" }}>{post.excerpt}</p>
-
-      <Link
-        to={`/blog/${post.slug}`}
-        className="pixie-button pixie-button--primary"
-      >
-        Read this guide
-      </Link>
-    </div>
-
-    {/* RIGHT: THUMBNAIL */}
-    {thumbSrc && (
-      <Link
-        to={`/blog/${post.slug}`}
-        style={{
-          flex: "0 0 200px",
-          display: "block",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
-        }}
-      >
-        <img
-          src={thumbSrc}
-          alt={post.title}
-          style={{
-            width: "100%",
-            height: "140px",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
-      </Link>
-    )}
-  </div>
-</article>
-  );
-})}
+  ← Back
+</button>
           </div>
         </div>
       </div>

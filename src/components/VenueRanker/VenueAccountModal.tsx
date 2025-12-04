@@ -25,12 +25,55 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
 
   const handleSignup = async () => {
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCred.user, { displayName: `${firstName} ${lastName}` });
-      await saveUserProfile({ firstName, lastName, email, uid: userCred.user.uid });
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await updateProfile(userCred.user, {
+        displayName: `${firstName} ${lastName}`,
+      });
+
+      await saveUserProfile({
+        firstName,
+        lastName,
+        email,
+        uid: userCred.user.uid,
+      });
+
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[VenueAccountModal] signup failed:", err);
+
+      let message =
+        "We couldn’t create your account just yet. Please check your details and try again.";
+
+      switch (err?.code) {
+        case "auth/email-already-in-use":
+          message =
+            "Looks like you already have a Wed&Done account with this email. Try logging in from the main cloud instead.";
+          break;
+        case "auth/weak-password":
+          message =
+            "For security, your password needs at least 6 characters. Try adding a bit more oomph.";
+          break;
+        case "auth/invalid-email":
+          message =
+            "That doesn’t look like a valid email yet. Give it a quick typo check.";
+          break;
+        case "auth/network-request-failed":
+          message =
+            "We’re having trouble reaching our servers. Check your connection and try again.";
+          break;
+        default:
+          // keep the soft fallback
+          message =
+            "Something went sideways while creating your account. Please try again.";
+          break;
+      }
+
+      setError(message);
     }
   };
 
@@ -38,15 +81,42 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+
       await saveUserProfile({
         firstName,
         lastName,
         email: result.user.email || "",
         uid: result.user.uid,
       });
+
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[VenueAccountModal] Google signup failed:", err);
+
+      if (err?.code === "auth/popup-closed-by-user") {
+        // user bailed on the popup — no need to show an error
+        return;
+      }
+
+      let message =
+        "Google sign-in didn’t quite work. Please try again.";
+
+      switch (err?.code) {
+        case "auth/account-exists-with-different-credential":
+          message =
+            "You already have a Wed&Done account with this email using a different sign-in method. Try logging in with email and password instead.";
+          break;
+        case "auth/network-request-failed":
+          message =
+            "We couldn’t reach Google just now. Check your connection and try again.";
+          break;
+        default:
+          message =
+            "Google sign-in ran into a snag. Please try again.";
+          break;
+      }
+
+      setError(message);
     }
   };
 

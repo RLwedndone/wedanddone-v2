@@ -33,32 +33,61 @@ const FloralAccountModal: React.FC<FloralAccountModalProps> = ({
   const auth = getAuth();
 
   // ---------------------------
-  // Email/password create
-  // ---------------------------
-  const handleSignup = async () => {
-    try {
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+// Email/password create
+// ---------------------------
+const handleSignup = async () => {
+  try {
+    const userCred = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
-      await updateProfile(userCred.user, {
-        displayName: `${firstName} ${lastName}`,
-      });
+    await updateProfile(userCred.user, {
+      displayName: `${firstName} ${lastName}`,
+    });
 
-      await saveUserProfile({
-        firstName,
-        lastName,
-        email,
-        uid: userCred.user.uid,
-      });
+    await saveUserProfile({
+      firstName,
+      lastName,
+      email,
+      uid: userCred.user.uid,
+    });
 
-      onSuccess();
-    } catch (err: any) {
-      setError(err.message || "Signup failed.");
+    onSuccess();
+  } catch (err: any) {
+    console.error("[FloralAccountModal] signup failed:", err);
+
+    let message =
+      "Hmm, something went wrong while creating your account. Please try again.";
+
+    switch (err?.code) {
+      case "auth/email-already-in-use":
+        message =
+          "Looks like you already have a Wed&Done account with this email. Try logging in instead.";
+        break;
+      case "auth/weak-password":
+        message =
+          "For security, your password needs at least 6 characters. Try adding a bit more sparkle.";
+        break;
+      case "auth/invalid-email":
+        message =
+          "That doesn’t look like a valid email address yet. Double-check for typos.";
+        break;
+      case "auth/network-request-failed":
+        message =
+          "We’re having trouble reaching the server. Check your connection and try again.";
+        break;
+      default:
+        // keep a soft fallback
+        message =
+          "We couldn’t create your account just yet. Please check your details and try again.";
+        break;
     }
-  };
+
+    setError(message);
+  }
+};
 
   // ---------------------------
   // Google signup with fallback for missing names
