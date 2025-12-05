@@ -29,6 +29,22 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const DEPOSIT_PCT = 0.5;
 const FINAL_DUE_DAYS_BEFORE = 35;
 
+
+// 👇 NEW: parse YYYY-MM-DD as local noon so it doesn't roll back a day
+const parseWeddingDate = (raw?: string) => {
+  if (!raw) return null;
+  const isoNoTime = /^\d{4}-\d{2}-\d{2}$/;
+  let d: Date;
+
+  if (isoNoTime.test(raw)) {
+    d = new Date(raw + "T12:00:00");
+  } else {
+    d = new Date(raw);
+  }
+
+  return isNaN(d.getTime()) ? null : d;
+};
+
 const PhotoContract: React.FC<PhotoContractProps> = ({
   bookingData,
   payFull,
@@ -48,11 +64,28 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
   const depositAmount = round2(total * DEPOSIT_PCT);
   const remainingBalance = round2(Math.max(0, total - depositAmount));
 
-  const weddingISO = bookingData.weddingDate || "";
-  const weddingDateObj = weddingISO ? new Date(weddingISO + "T12:00:00") : null;
+  // Parse YYYY-MM-DD as local noon to avoid timezone drift
+  const parseWeddingDate = (raw?: string) => {
+    if (!raw) return null;
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    let d: Date;
+
+    if (iso.test(raw)) {
+      d = new Date(raw + "T12:00:00");
+    } else {
+      d = new Date(raw);
+    }
+
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const weddingDateObj = parseWeddingDate(bookingData.weddingDate);
 
   const finalDue = weddingDateObj
-    ? new Date(weddingDateObj.getTime() - FINAL_DUE_DAYS_BEFORE * 24 * 60 * 60 * 1000)
+    ? new Date(
+        weddingDateObj.getTime() -
+          FINAL_DUE_DAYS_BEFORE * 24 * 60 * 60 * 1000
+      )
     : null;
 
   // simple month count (charge approx monthly through final due)
@@ -66,7 +99,8 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
   }
 
   const today = new Date();
-  const installmentCount = !weddingDateObj || !finalDue ? 1 : monthsBetween(today, finalDue);
+  const installmentCount =
+    !weddingDateObj || !finalDue ? 1 : monthsBetween(today, finalDue);
   const perInstallment = round2(
     installmentCount > 0 ? remainingBalance / installmentCount : remainingBalance
   );
@@ -76,15 +110,24 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
+
   const formatLongDate = (d: Date | null) =>
-    d ? `${d.toLocaleString("en-US", { month: "long" })} ${formatOrdinal(d.getDate())}, ${d.getFullYear()}` : "";
+    d
+      ? `${d.toLocaleString("en-US", { month: "long" })} ${formatOrdinal(
+          d.getDate()
+        )}, ${d.getFullYear()}`
+      : "";
 
   const finalDuePretty = formatLongDate(finalDue);
-  const formattedDate = hasDate
-    ? new Date(bookingData.weddingDate as string).toLocaleDateString("en-US", {
-        year: "numeric", month: "long", day: "numeric",
+
+  const formattedDate = weddingDateObj
+    ? weddingDateObj.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       })
     : "your wedding date";
+
   const dayOfWeek = bookingData.dayOfWeek || "";
 
   // ───────────────────────────────
@@ -229,54 +272,59 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
             Booking Terms
           </h3>
           <ul
-            style={{
-              textAlign: "left",
-              margin: "0 auto 1rem",
-              maxWidth: 560,
-              lineHeight: 1.6,
-              fontSize: ".98rem",
-              paddingLeft: "1.25rem",
-            }}
-          >
-            <li>
-              <strong>Payment Options:</strong> Pay in full today, or place a{" "}
-              <strong>50% non-refundable deposit</strong> and pay the remaining
-              balance monthly. All installments must be completed no later than{" "}
-              <strong>{FINAL_DUE_DAYS_BEFORE} days before your wedding date</strong>.
-              Any unpaid balance will be auto-charged on that date.
-            </li>
-            <br />
-            <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more than{" "}
-              {FINAL_DUE_DAYS_BEFORE} days prior, amounts paid beyond the non-refundable
-              deposit will be refunded <em>less any non-recoverable costs already incurred</em>.
-              If you cancel within {FINAL_DUE_DAYS_BEFORE} days, all payments are non-refundable.
-            </li>
-            <br />
-            <li>
-              <strong>Missed Payments:</strong> We will retry your card automatically. If
-              payment isn’t received within 7 days, a $25 late fee applies; after 14 days,
-              services may be suspended and the agreement may be declared in default (amounts
-              paid—including the deposit—may be retained and the booking cancelled).
-            </li>
-            <br />
-            <li>
-              <strong>Delivery &amp; Usage:</strong> Final edited images are delivered via
-              Dropbox within 90 days of the wedding date. You receive a limited copyright
-              license for personal use (sharing/printing). The photographer may showcase
-              select images for portfolio/promotional purposes. Venue/officiant rules may
-              limit opportunities; we’ll comply accordingly.
-            </li>
-            <br />
-            <li>
-              <strong>Force Majeure:</strong> Neither party is liable for failure or delay
-              caused by events beyond reasonable control (including natural disasters, acts
-              of government, war, terrorism, labor disputes, epidemics/pandemics, or utility
-              outages). If performance is prevented, we’ll work in good faith to reschedule.
-              If rescheduling isn’t possible, we’ll refund amounts paid beyond non-recoverable
-              costs already incurred. Liability is otherwise limited to a refund of payments made.
-            </li>
-          </ul>
+  style={{
+    textAlign: "left",
+    margin: "0 auto 1rem",
+    maxWidth: 560,
+    lineHeight: 1.6,
+    fontSize: ".98rem",
+    paddingLeft: "1.25rem",
+  }}
+>
+  <li>
+    <strong>Payment Options:</strong> You may pay in full today, or place a{" "}
+    <strong>50% non-refundable deposit</strong> and pay the remaining balance monthly.
+    All installments must be completed no later than{" "}
+    <strong>{FINAL_DUE_DAYS_BEFORE} days before your wedding date</strong>, and any
+    unpaid balance will be auto-charged on that date.
+  </li>
+  <br />
+
+  <li>
+    <strong>Cancellations &amp; Refunds:</strong> If you cancel more than{" "}
+    {FINAL_DUE_DAYS_BEFORE} days prior to your wedding, amounts paid beyond the
+    non-refundable deposit will be refunded{" "}
+    <em>less any non-recoverable costs already incurred</em>. If you cancel within{" "}
+    {FINAL_DUE_DAYS_BEFORE} days, all payments are non-refundable.
+  </li>
+  <br />
+
+  <li>
+    <strong>Missed Payments:</strong> We will retry your card automatically. If payment
+    is not received within 7 days, a $25 late fee may apply; after 14 days, services may
+    be suspended and the agreement may be declared in default (amounts paid—including the
+    deposit—may be retained and the booking cancelled).
+  </li>
+  <br />
+
+  <li>
+    <strong>Delivery &amp; Usage:</strong> Final edited images are delivered via Dropbox
+    within 90 days of the wedding date. You receive a limited copyright license for
+    personal use (sharing/printing). The photographer may showcase select images for
+    portfolio or promotional use. <strong>Venue and officiant rules may limit certain
+    photographs; we will comply with all restrictions.</strong>
+  </li>
+  <br />
+
+  <li>
+    <strong>Force Majeure:</strong> Neither party is liable for delays caused by events
+    beyond reasonable control (including natural disasters, acts of government, war,
+    terrorism, labor disputes, epidemics/pandemics, or utility outages). If performance
+    is prevented, we’ll work in good faith to reschedule; if rescheduling isn’t possible,
+    amounts paid beyond non-recoverable costs already incurred will be refunded. Liability
+    is otherwise limited to a refund of payments made.
+  </li>
+</ul>
         </div>
 
         {/* Pay plan toggle */}

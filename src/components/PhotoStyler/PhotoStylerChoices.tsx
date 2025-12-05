@@ -73,9 +73,16 @@ const PhotoStylerChoices: React.FC<PhotoStylerChoicesProps> = ({
   return (
     <div className="pixie-card">
       {/* Pink close X */}
-      <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-      </button>
+      <button
+  className="pixie-card__close"
+  onClick={onClose}       // ✅ fully closes Photo Styler overlay
+  aria-label="Close"
+>
+  <img
+    src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+    alt="Close"
+  />
+</button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
         <h2 className="px-title" style={{ marginBottom: 12 }}>
