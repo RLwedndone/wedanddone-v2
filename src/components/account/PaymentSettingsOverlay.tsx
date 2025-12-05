@@ -77,8 +77,8 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
       const url = data?.url;
       if (!url) throw new Error("No portal URL returned.");
 
-      // Open in current window (simple redirect)
-      window.location.href = url;
+      // ✅ Open Stripe in a new tab instead of replacing Wed&Done
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       console.error("[UI] billing-portal error:", e);
       setError(e?.message || "Could not open billing portal.");

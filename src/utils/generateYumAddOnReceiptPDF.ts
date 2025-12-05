@@ -94,7 +94,7 @@ export const generateYumAddOnReceiptPDF = async ({
   y += 10;
   y = ensureSpace(doc, y, LINE_GAP);
   doc.setFont("helvetica", "bold");
-  doc.text(`Total Add-On Amount Paid: $${total.toFixed(2)}`, MARGIN_X + 10, y);
+  doc.text(`Total Add-On Amount Paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 10, y);
 
   // 📅 Purchase Date (pretty)
   y += LINE_GAP;

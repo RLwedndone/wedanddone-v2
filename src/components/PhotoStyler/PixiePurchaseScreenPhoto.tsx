@@ -96,12 +96,12 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
       .filter((item) => (localQuantities[item.name] || 0) > 0)
       .map(
         (item) =>
-          `${localQuantities[item.name]} x ${item.name} ($${item.basePrice.toFixed(2)} each)`
+          `${localQuantities[item.name]} x ${item.name} ($${Number(item.basePrice).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} each)`
       );
 
     const lineItems = hideBasePackage
       ? [...selectedItems]
-      : [`Wedding Photography Package - $${BASE_PACKAGE_PRICE.toFixed(2)}`, ...selectedItems];
+      : [`Wedding Photography Package - $${Number(BASE_PACKAGE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, ...selectedItems];
 
     setTotal(grandTotal);
     setLineItems(lineItems);
@@ -167,7 +167,7 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
               <li>Online digital gallery</li>
             </ul>
             <p style={{ marginTop: 10, fontWeight: 700 }}>
-              ${BASE_PACKAGE_PRICE.toFixed(2)}
+              ${Number(BASE_PACKAGE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
             </p>
           </div>
         )}
@@ -219,7 +219,7 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
 
         {/* Totals */}
         <div className="px-totals" style={{ marginBottom: 10 }}>
-          Total (includes taxes &amp; fees): ${grandTotal.toFixed(2)}
+          Total (includes taxes &amp; fees): ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
 
         {/* CTAs */}

@@ -156,20 +156,20 @@ const generateSchnepfAgreementPDF = async ({
   if (typeof perGuest === "number" && guestCount) {
     const foodSubtotal = perGuest * guestCount;
     doc.text(
-      `Food subtotal (${guestCount} @ $${perGuest.toFixed(2)}/guest): $${foodSubtotal.toFixed(2)}`,
+      `Food subtotal (${guestCount} @ $${Number(perGuest).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}/guest): $${Number(foodSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
       MARGIN_X,
       y
     );
     y += LINE_GAP;
   }
   if (chefFee > 0) {
-    doc.text(`Chef fee: $${chefFee.toFixed(2)}`, MARGIN_X, y); y += LINE_GAP;
+    doc.text(`Chef fee: $${Number(chefFee).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X, y); y += LINE_GAP;
   }
   if (taxesAndFees > 0) {
-    doc.text(`Taxes & fees (incl. service/processing): $${taxesAndFees.toFixed(2)}`, MARGIN_X, y);
+    doc.text(`Taxes & fees (incl. service/processing): $${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X, y);
     y += LINE_GAP;
   }
-  doc.text(`Total: $${total.toFixed(2)}`, MARGIN_X, y); y += LINE_GAP + 2;
+  doc.text(`Total: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X, y); y += LINE_GAP + 2;
 
   // payment summary
   doc.setFontSize(12);
@@ -180,13 +180,13 @@ const generateSchnepfAgreementPDF = async ({
     y += LINE_GAP;
   }
   if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
     if (dueByPretty) {
       doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y);
       y += LINE_GAP;
     }
   } else {
-    doc.text(`Total Paid in Full Today: $${total.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(`Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
   }
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y); y += PARA_GAP;
 
@@ -207,16 +207,16 @@ const generateSchnepfAgreementPDF = async ({
       doc.text(`Cuisine: ${cuisineName}`, MARGIN_X + 5, y); y += LINE_GAP;
     }
     if (typeof perGuest !== "undefined") {
-      doc.text(`Per-guest price used: $${perGuest.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+      doc.text(`Per-guest price used: $${Number(perGuest).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
     }
     if (typeof chefFee !== "undefined" && chefFee > 0) {
-      doc.text(`Chef fee applied: $${chefFee.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+      doc.text(`Chef fee applied: $${Number(chefFee).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
     }
     if (typeof serviceFeePct !== "undefined") {
       doc.text(`Service fee: ${(serviceFeePct * 100).toFixed(0)}%`, MARGIN_X + 5, y); y += LINE_GAP;
     }
     if (typeof taxesAndFees !== "undefined") {
-      doc.text(`Taxes & fees (combined): $${taxesAndFees.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+      doc.text(`Taxes & fees (combined): $${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
     }
   }
 

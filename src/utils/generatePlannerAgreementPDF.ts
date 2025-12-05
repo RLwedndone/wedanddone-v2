@@ -202,9 +202,9 @@ export const generatePlannerAgreementPDF = async ({
   writeText(`Wedding Date: ${prettyWedding}`);
   if (Number.isFinite(guestCount)) writeText(`Guest Count: ${guestCount}`);
 
-  writeText(`Total Coordination Cost: $${total.toFixed(2)}`);
+  writeText(`Total Coordination Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   if (!isPayFull && deposit > 0) {
-    writeText(`Deposit (flat $200): $${deposit.toFixed(2)}`);
+    writeText(`Deposit (flat $200): $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   }
 
   // ---- Included Items (optional) ----
@@ -223,13 +223,13 @@ export const generatePlannerAgreementPDF = async ({
 
   y += 6;
   if (isPayFull) {
-    writeText(`Paid today: $${total.toFixed(2)} on ${todayStr}`);
+    writeText(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
     writeText(
       `Final balance due date: ${finalDueStr} (paid in full today).`
     );
   } else {
     const remaining = Math.max(0, total - deposit);
-    writeText(`Deposit paid today: $${deposit.toFixed(2)} on ${todayStr}`);
+    writeText(`Deposit paid today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
     writeText(
       `Remaining balance: $${remaining.toFixed(
         2

@@ -277,19 +277,19 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
               />
             )}
 
-            {step === "contract" && (
-              <PhotoContract
-                bookingData={{ ...bookingData, total }}
-                onBack={() => setStep("editdate")}
-                onContinue={() => setStep("checkout")}
-                payFull={payFull}
-                setPayFull={setPayFull}
-                setSignatureImage={setSignatureImage}
-                signatureSubmitted={signatureSubmitted}
-                setSignatureSubmitted={setSignatureSubmitted}
-                onClose={onClose}
-              />
-            )}
+{step === "contract" && (
+  <PhotoContract
+    bookingData={{ ...bookingData, total }}
+    onBack={() => setStep("cart")}          // 👈 CHANGE THIS
+    onContinue={() => setStep("checkout")}
+    payFull={payFull}
+    setPayFull={setPayFull}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    onClose={onClose}
+  />
+)}
 
 {step === "checkout" && (
   <PhotoCheckOut
@@ -306,7 +306,7 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
     payFull={payFull}
     paymentSummary={
       payFull
-        ? `You're paying $${(bookingData.total || 0).toFixed(2)} today.`
+        ? `You're paying $${Number((bookingData.total || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
         : `You're paying a $${bookingData.total
             ? Math.round(
                 (bookingData.total * 0.25 + Number.EPSILON) * 100

@@ -266,7 +266,7 @@ useEffect(() => {
   };
 
   const paymentSummaryText = payFull
-    ? `You’ll pay $${totalSafe.toFixed(2)} today for your desserts.`
+    ? `You’ll pay $${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for your desserts.`
     : `You’ll pay a $${depositDollars.toFixed(
         2
       )} deposit today and the remaining $${remainingBalance.toFixed(
@@ -314,7 +314,7 @@ useEffect(() => {
         </p>
         <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
           Total dessert cost:{" "}
-          <strong>${totalSafe.toFixed(2)}</strong>
+          <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </p>
 
         {/* Booking Terms — blue Jenna Sue section */}
@@ -455,13 +455,13 @@ useEffect(() => {
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
             <>
-              You’ll pay <strong>${totalSafe.toFixed(2)}</strong> today.
+              You’ll pay <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.
             </>
           ) : (
             <>
-              <strong>${depositDollars.toFixed(2)}</strong> deposit + {planMonths}{" "}
+              <strong>${Number(depositDollars).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> deposit + {planMonths}{" "}
               monthly payments of about{" "}
-              <strong>${monthlyAmount.toFixed(2)}</strong>; final payment due{" "}
+              <strong>${Number(monthlyAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>; final payment due{" "}
               <strong>{finalDuePretty}</strong>.
             </>
           )}

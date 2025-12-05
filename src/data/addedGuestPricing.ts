@@ -330,9 +330,9 @@ export function computeAddedGuestDelta(
   // Build notes (string[])
   const notes: string[] = [];
   if (rules.notes) notes.push(rules.notes);
-  if (plannerDelta > 0) notes.push(`Planner tier increase included: +$${plannerDelta.toFixed(2)}`);
+  if (plannerDelta > 0) notes.push(`Planner tier increase included: +$${Number(plannerDelta).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   if (taxable > 0) {
-    notes.push(`Tax @ ${(taxRate * 100).toFixed(2)}% applied to venue + catering.`);
+    notes.push(`Tax @ ${Number((taxRate * 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}% applied to venue + catering.`);
   } else {
     notes.push("No taxable venue/catering delta.");
   }

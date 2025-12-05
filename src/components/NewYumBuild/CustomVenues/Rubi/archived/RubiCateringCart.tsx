@@ -151,7 +151,7 @@ const RubiCateringCart: React.FC<Props> = ({
     // NEW (extras): show an explicit line when there are menu upcharges
     if (extrasCents > 0 && lockedGuestCount > 0) {
       items.push(
-        `Menu Upcharges — +$${(extrasCents / 100).toFixed(2)} per guest × ${lockedGuestCount} = ${money(
+        `Menu Upcharges — +$${Number((extrasCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} per guest × ${lockedGuestCount} = ${money(
           (extrasCents / 100) * lockedGuestCount
         )}`
       );

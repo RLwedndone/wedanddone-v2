@@ -227,8 +227,22 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
           <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
             Ready to rock the perfect soundtrack?
           </h2>
-          <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
+
+          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
             Create an account to save your groove and pick up anytime.
+          </p>
+
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            🎵 Quick heads-up: all of our DJs and music magic are based in
+            Arizona. Wed&amp;Done is currently booking Arizona weddings only,
+            but we&apos;ll be jamming into more states soon!
           </p>
 
           {/* Inputs */}

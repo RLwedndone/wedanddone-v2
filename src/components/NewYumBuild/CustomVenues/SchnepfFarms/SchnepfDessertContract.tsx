@@ -272,7 +272,7 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
             You’re booking desserts for <strong>{formattedDate}</strong> ({dayOfWeek || "TBD"}).
           </p>
           <p>
-            Total dessert cost: <strong>${round2(total).toFixed(2)}</strong>
+            Total dessert cost: <strong>${Number(round2(total)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
           </p>
         </div>
   
@@ -366,12 +366,12 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
         <div className="px-prose-narrow" style={{ margin: "0 auto 14px", maxWidth: 560 }}>
           {payFull ? (
             <p>
-              You’ll pay <strong>${totalSafe.toFixed(2)}</strong> today for your desserts.
+              You’ll pay <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today for your desserts.
             </p>
           ) : (
             <p>
-              <strong>${depositDollars.toFixed(2)}</strong> deposit + {planMonths} monthly payments of about{" "}
-              <strong>${monthlyAmount.toFixed(2)}</strong>; final payment due <strong>{finalDuePretty}</strong>.
+              <strong>${Number(depositDollars).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> deposit + {planMonths} monthly payments of about{" "}
+              <strong>${Number(monthlyAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>; final payment due <strong>{finalDuePretty}</strong>.
             </p>
           )}
   

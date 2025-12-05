@@ -198,9 +198,22 @@ const handleSignup = async () => {
 
           <p
             className="px-prose-narrow"
-            style={{ marginBottom: "1.25rem" }}
+            style={{ marginBottom: "0.5rem" }}
           >
             Great! Just fill out the form below to create an account.
+          </p>
+
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            🌵 Just a little note: all of our floral magic happens in Arizona.
+            Wed&amp;Done is currently booking Arizona weddings only, but
+            we&apos;ll be blooming in more places soon!
           </p>
 
           {/* Inputs */}

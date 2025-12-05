@@ -120,7 +120,7 @@ export const generateFloralAddOnReceiptPDF = async ({
   doc.text(`Wedding Date: ${prettyWedding}`, 20, y);
   y += 8;
 
-  doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, 20, y);
+  doc.text(`Total Add-On Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, y);
   y += 15;
 
   // line items with pagination
@@ -167,7 +167,7 @@ export const generateFloralAddOnReceiptPDF = async ({
   addPageIfNeeded();
   resetBodyTextStyle(doc);
   doc.text(
-    `Total paid: $${total.toFixed(2)} on ${prettyDate(purchaseDate)}`,
+    `Total paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${prettyDate(purchaseDate)}`,
     20,
     y
   );

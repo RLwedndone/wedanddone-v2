@@ -441,10 +441,11 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           </p>
         ) : (
           <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-  The total catering cost is{" "}
-  <strong>${formatCurrency(total)}</strong>. If you haven’t booked a venue
-            (or your venue requires approval for outside catering), just make
-            sure they allow outside caterers before serving this menu onsite.
+            The total catering cost is{" "}
+            <strong>${formatCurrency(total)}</strong>. If you haven’t booked a
+            venue (or your venue requires approval for outside catering), just
+            make sure they allow outside caterers before serving this menu
+            onsite.
           </p>
         )}
 
@@ -479,16 +480,15 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
 
             <li>
               You may pay in full today, or place a{" "}
-              <strong>25% non-refundable deposit</strong>. Any remaining
-              balance will be split into monthly installments and must be fully
-              paid <strong>35 days before your wedding date</strong>.
+              <strong>25% non-refundable deposit</strong>. Any remaining balance
+              will be split into monthly installments and must be fully paid{" "}
+              <strong>35 days before your wedding date</strong>.
             </li>
             <li>Your reception will be served buffet-style.</li>
             <li>
               Final guest count is due <strong>30 days before</strong> your
-              wedding. You may increase your guest count starting 45 days
-              before your wedding, but the count cannot be lowered after
-              booking.
+              wedding. You may increase your guest count starting 45 days before
+              your wedding, but the count cannot be lowered after booking.
             </li>
             <li>
               <strong>Cancellation &amp; Refunds:</strong> If you cancel more
@@ -503,14 +503,14 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             </li>
             <li>
               <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
-              standard food-safety guidelines and comply with venue rules,
-              which may limit service or display options.
+              standard food-safety guidelines and comply with venue rules, which
+              may limit service or display options.
             </li>
             <li>
-              <strong>Force Majeure:</strong> Neither party is liable for
-              delays beyond reasonable control. We’ll work in good faith to
-              reschedule; if not possible, we’ll refund amounts paid beyond
-              non-recoverable costs already incurred.
+              <strong>Force Majeure:</strong> Neither party is liable for delays
+              beyond reasonable control. We’ll work in good faith to reschedule;
+              if not possible, we’ll refund amounts paid beyond non-recoverable
+              costs already incurred.
             </li>
             <li>
               In the unlikely event of our cancellation or issue, liability is
@@ -572,30 +572,31 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
 
         {/* Summary */}
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
-  {payFull ? (
-    <>
-      You’re paying <strong>${formatCurrency(total)}</strong> today.
-    </>
-  ) : (
-    <>
-      You’re paying <strong>${formatCurrency(depositAmount)}</strong> today,
-      then about{" "}
-      <strong>${formatCurrency(perMonthCents / 100)}</strong> monthly
-      until <strong>{prettyDueBy}</strong>
-      {planMonths > 1 ? (
-        <>
-          {" "}
-          (last ≈{" "}
-          <strong>
-            ${formatCurrency(lastPaymentCents / 100)}
-          </strong>
-          )
-        </>
-      ) : null}
-      .
-    </>
-  )}
-</p>
+          {payFull ? (
+            <>
+              You’re paying <strong>${formatCurrency(total)}</strong> today.
+            </>
+          ) : (
+            <>
+              You’re paying{" "}
+              <strong>${formatCurrency(depositAmount)}</strong> today, then
+              about{" "}
+              <strong>${formatCurrency(perMonthCents / 100)}</strong> monthly
+              until <strong>{prettyDueBy}</strong>
+              {planMonths > 1 ? (
+                <>
+                  {" "}
+                  (last ≈{" "}
+                  <strong>
+                    ${formatCurrency(lastPaymentCents / 100)}
+                  </strong>
+                  )
+                </>
+              ) : null}
+              .
+            </>
+          )}
+        </p>
 
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>
@@ -617,15 +618,27 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         </div>
 
         {!signatureSubmitted ? (
-          <button
-            className="boutique-primary-btn"
-            onClick={handleSignClick}
-            disabled={!agreeChecked}
-            style={{ width: 250, marginTop: 8 }}
-          >
-            Sign Contract
-          </button>
+          /* BEFORE signature: Sign + Back */
+          <div className="px-cta-col" style={{ marginTop: 8 }}>
+            <button
+              className="boutique-primary-btn"
+              onClick={handleSignClick}
+              disabled={!agreeChecked}
+              style={{ width: 250 }}
+            >
+              Sign Contract
+            </button>
+
+            <button
+              className="boutique-back-btn"
+              onClick={() => setStep("cateringCart")}
+              style={{ width: 250, marginTop: 10 }}
+            >
+              ← Back to Cart
+            </button>
+          </div>
         ) : (
+          /* AFTER signature: Continue + Back */
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             <img
               src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
@@ -639,7 +652,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
               onClick={() => {
                 if (!signatureSubmitted) return;
 
-                const totalCents = Math.round(total * 100);
+                const totalCentsLocal = Math.round(total * 100);
                 const amountDueToday = payFull ? total : depositAmount;
                 const amountDueTodayCents = Math.round(
                   amountDueToday * 100
@@ -665,7 +678,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
                   );
                   localStorage.setItem(
                     "yumCateringTotalCents",
-                    String(totalCents)
+                    String(totalCentsLocal)
                   );
                   localStorage.setItem(
                     "yumCateringAmountDueTodayCents",
@@ -698,7 +711,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             <button
               className="boutique-back-btn"
               onClick={() => setStep("cateringCart")}
-              style={{ width: 250 }}
+              style={{ width: 250, marginTop: 10 }}
             >
               ← Back to Cart
             </button>
@@ -740,10 +753,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
               />
             </button>
 
-            <div
-              className="pixie-card__body"
-              style={{ textAlign: "center" }}
-            >
+            <div className="pixie-card__body" style={{ textAlign: "center" }}>
               <h3
                 className="px-title-lg"
                 style={{ fontSize: "1.8rem", marginBottom: 12 }}

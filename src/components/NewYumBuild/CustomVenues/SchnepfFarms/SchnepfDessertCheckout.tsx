@@ -143,7 +143,7 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
   const amountDueToday = usingFull ? totalEffective : depositAmount;
 
   const paymentMessage = usingFull
-    ? `You're paying $${amountDueToday.toFixed(2)} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
@@ -310,7 +310,7 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${amountDueToday.toFixed(2)} today.`
+            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(

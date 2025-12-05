@@ -362,9 +362,9 @@ const JamOverlay: React.FC<JamOverlayProps> = ({
       ? `You're paying $${grandTotal.toFixed(
           2
         )} today for your Groove Guide PDF.`
-      : `You'll pay $${depositForThis.toFixed(2)} today${
+      : `You'll pay $${Number(depositForThis).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today${
           remaining > 0
-            ? ` and $${perMonth.toFixed(2)} for ${months} months (remaining $${remaining.toFixed(
+            ? ` and $${Number(perMonth).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} for ${months} months (remaining $${remaining.toFixed(
                 2
               )}).`
             : "."

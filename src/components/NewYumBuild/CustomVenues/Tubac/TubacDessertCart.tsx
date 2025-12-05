@@ -354,7 +354,7 @@ const TubacDessertCart: React.FC<Props> = ({
 
     if (dessertStyle === "smallCakeTreats" || dessertStyle === "treatsOnly") {
       if (dessertStyle === "smallCakeTreats") {
-        items.push(`Small Cutting Cake = $${SMALL_CAKE_PRICE.toFixed(2)}`);
+        items.push(`Small Cutting Cake = $${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
         if (flavorFilling.length) items.push(`Flavor combo: ${flavorFilling.join(" + ")}`);
         if (cakeStyle) items.push(`Cake style: ${cakeStyle}`);
       }
@@ -382,7 +382,7 @@ const TubacDessertCart: React.FC<Props> = ({
 
     // concise summary string for downstream use (not shown in cart)
     setPaymentSummaryText(
-      `Total $${grandTotal.toFixed(2)} (incl. taxes & fees). Optional ${Math.round(
+      `Total $${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (incl. taxes & fees). Optional ${Math.round(
         DEPOSIT_PCT * 100
       )}% deposit available; final due ${finalDuePretty}.`
     );
@@ -560,7 +560,7 @@ const TubacDessertCart: React.FC<Props> = ({
 
           {dessertStyle === "tieredCake" && gc > 0 && (
             <div className="px-prose-narrow" style={{ marginTop: 6 }}>
-              ${PER_GUEST_TIERED}/guest × {gc} guests = ${(gc * PER_GUEST_TIERED).toFixed(2)}
+              ${PER_GUEST_TIERED}/guest × {gc} guests = ${Number((gc * PER_GUEST_TIERED)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
             </div>
           )}
         </div>
@@ -592,7 +592,7 @@ const TubacDessertCart: React.FC<Props> = ({
                 <>
                   <h3 className="px-title" style={{ marginTop: 10 }}>Included:</h3>
                   <p className="px-prose-narrow">
-                    Small cutting cake — <strong>${SMALL_CAKE_PRICE.toFixed(2)}</strong>
+                    Small cutting cake — <strong>${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
                   </p>
                 </>
               )}
@@ -806,7 +806,7 @@ const TubacDessertCart: React.FC<Props> = ({
                   </div>
 
                   <div style={{ textAlign: "right", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    ${extended.toFixed(2)}
+                    ${Number(extended).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                   </div>
                 </div>
               );
@@ -817,13 +817,13 @@ const TubacDessertCart: React.FC<Props> = ({
         {/* Price summary */}
         <div className="px-prose-narrow" style={{ marginTop: 4 }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>
-            Subtotal: ${baseSubtotal.toFixed(2)}
+            Subtotal: ${Number(baseSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
           </div>
           <div style={{ marginBottom: 4, color: "#444" }}>
-            Taxes & fees: ${taxesAndFees.toFixed(2)}
+            Taxes & fees: ${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
           </div>
           <div style={{ marginBottom: 10, fontWeight: 800 }}>
-            Total: ${grandTotal.toFixed(2)}
+            Total: ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
           </div>
         </div>
 

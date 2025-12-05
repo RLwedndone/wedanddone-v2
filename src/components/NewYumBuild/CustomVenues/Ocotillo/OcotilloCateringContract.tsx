@@ -181,13 +181,13 @@ const OcotilloCateringContract: React.FC<Props> = ({
   const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
+    ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You’re paying $${depositAmount.toFixed(
         2
       )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
         perMonthCents / 100
       ).toFixed(2)}${
-        planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""
+        planMonths > 1 ? ` (last ≈ $${Number((lastPaymentCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})})` : ""
       }`;
 
   /* ---------- init + persist step ---------- */
@@ -459,7 +459,7 @@ const OcotilloCateringContract: React.FC<Props> = ({
 
           <p style={{ marginBottom: "0.5rem" }}>
             Total catering cost:{" "}
-            <strong>${total.toFixed(2)}</strong>{" "}
+            <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>{" "}
             for {lockedGuestCount} guest
             {lockedGuestCount === 1 ? "" : "s"}.
           </p>

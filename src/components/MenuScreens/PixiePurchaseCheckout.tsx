@@ -293,7 +293,7 @@ const PixiePurchaseCheckout: React.FC<Props> = ({
         )}
 
         <p style={{ ...styles.body, fontWeight: 700, marginBottom: 8 }}>
-          Amount due: ${purchase.amount.toFixed(2)}
+          Amount due: ${Number(purchase.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </p>
 
         <p style={{ ...styles.body, fontSize: "0.9rem", marginBottom: 18 }}>

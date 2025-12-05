@@ -354,6 +354,7 @@ return (
               setSignatureSubmitted={setSignatureSubmitted}
               onContinue={() => setStep("checkout")}
               onBack={() => setStep("guestcount")}
+              onClose={onClose} 
               // If your PlannerContract accepts onClose, pass it:
               // onClose={onClose}
             />

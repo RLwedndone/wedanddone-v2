@@ -231,8 +231,8 @@ const OcotilloCateringCart: React.FC<Props> = ({
     setTotal(finalTotal);
     setLineItems([
       `Ocotillo catering for ${gc} guests @ $${perGuest}/guest (${TIER_LABEL[selectedTier]})`,
-      `25% service charge: $${serviceCharge.toFixed(2)}`,
-      `Taxes & fees (tax + card): $${(salesTax + cardFee).toFixed(2)}`,
+      `25% service charge: $${Number(serviceCharge).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+      `Taxes & fees (tax + card): $${Number((salesTax + cardFee)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
     ]);
     setPaymentSummaryText(
       `You're paying $${finalTotal.toFixed(
@@ -441,7 +441,7 @@ const OcotilloCateringCart: React.FC<Props> = ({
         >
           <strong>Food Subtotal</strong>
           <br />
-          ${foodSubtotal.toFixed(2)} ({gc} guests @ ${perGuest}/guest)
+          ${Number(foodSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} ({gc} guests @ ${perGuest}/guest)
         </div>
 
         {/* Service charge */}
@@ -454,7 +454,7 @@ const OcotilloCateringCart: React.FC<Props> = ({
         >
           <strong>25% Service Charge</strong>
           <br />
-          ${serviceCharge.toFixed(2)}
+          ${Number(serviceCharge).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
 
         {/* Taxes & Fees */}
@@ -467,7 +467,7 @@ const OcotilloCateringCart: React.FC<Props> = ({
         >
           <strong>Taxes &amp; Fees</strong>
           <br />
-          ${(salesTax + cardFee).toFixed(2)} sales tax + card processing
+          ${Number((salesTax + cardFee)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} sales tax + card processing
         </div>
 
         {/* Total Due */}
@@ -481,7 +481,7 @@ const OcotilloCateringCart: React.FC<Props> = ({
         >
           Total
           <br />
-          ${finalTotal.toFixed(2)}
+          ${Number(finalTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
       </div>
 

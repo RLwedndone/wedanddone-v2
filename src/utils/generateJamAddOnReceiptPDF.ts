@@ -68,7 +68,7 @@ export const generateJamAddOnReceiptPDF = async ({
   // basics
   doc.setFontSize(12);
   doc.text(`Name: ${fullName}`, 20, 90);
-  doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, 20, 100);
+  doc.text(`Total Add-On Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 100);
 
   // content flow with pagination
   let y = 115;
@@ -102,7 +102,7 @@ export const generateJamAddOnReceiptPDF = async ({
   y += 10;
   addPageIfNeeded();
   doc.setFontSize(12);
-  doc.text(`Total paid: $${total.toFixed(2)} on ${prettyDate(purchaseDate)}`, 20, y);
+  doc.text(`Total paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${prettyDate(purchaseDate)}`, 20, y);
 
   // footer on last page
   renderFooter(doc);

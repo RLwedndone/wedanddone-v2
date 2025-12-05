@@ -354,7 +354,7 @@ const SchnepfDessertCart: React.FC<Props> = ({
 
     if (dessertStyle === "smallCakeTreats" || dessertStyle === "treatsOnly") {
       if (dessertStyle === "smallCakeTreats") {
-        items.push(`Small Cutting Cake = $${SMALL_CAKE_PRICE.toFixed(2)}`);
+        items.push(`Small Cutting Cake = $${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
         if (flavorFilling.length) items.push(`Flavor combo: ${flavorFilling.join(" + ")}`);
         if (cakeStyle) items.push(`Cake style: ${cakeStyle}`);
       }
@@ -382,7 +382,7 @@ const SchnepfDessertCart: React.FC<Props> = ({
 
     // concise summary string for downstream use (not shown in cart)
     setPaymentSummaryText(
-      `Total $${grandTotal.toFixed(2)} (incl. taxes & fees). Optional ${Math.round(
+      `Total $${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (incl. taxes & fees). Optional ${Math.round(
         DEPOSIT_PCT * 100
       )}% deposit available; final due ${finalDuePretty}.`
     );
@@ -567,7 +567,7 @@ const SchnepfDessertCart: React.FC<Props> = ({
   
           {dessertStyle === "tieredCake" && gc > 0 && (
             <div className="px-prose-narrow" style={{ marginTop: 6, color: "#444" }}>
-              ${PER_GUEST_TIERED}/guest × {gc} guests = ${(gc * PER_GUEST_TIERED).toFixed(2)}
+              ${PER_GUEST_TIERED}/guest × {gc} guests = ${Number((gc * PER_GUEST_TIERED)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
             </div>
           )}
         </div>
@@ -632,7 +632,7 @@ const SchnepfDessertCart: React.FC<Props> = ({
                     Included:
                   </h3>
                   <p style={{ marginTop: 0 }}>
-                    Small cutting cake — <strong>${SMALL_CAKE_PRICE.toFixed(2)}</strong>
+                    Small cutting cake — <strong>${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
                   </p>
                 </>
               )}
@@ -845,7 +845,7 @@ const SchnepfDessertCart: React.FC<Props> = ({
                     </button>
                   </div>
   
-                  <div style={{ textAlign: "right", fontWeight: 600 }}>${extended.toFixed(2)}</div>
+                  <div style={{ textAlign: "right", fontWeight: 600 }}>${Number(extended).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                 </div>
               );
             })}
@@ -854,9 +854,9 @@ const SchnepfDessertCart: React.FC<Props> = ({
   
         {/* Price summary */}
         <div className="px-prose-narrow" style={{ margin: "0 auto 16px" }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Subtotal: ${baseSubtotal.toFixed(2)}</div>
-          <div style={{ marginBottom: 4, color: "#444" }}>Taxes &amp; fees: ${taxesAndFees.toFixed(2)}</div>
-          <div style={{ marginBottom: 8, fontWeight: 800 }}>Total: ${grandTotal.toFixed(2)}</div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>Subtotal: ${Number(baseSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div style={{ marginBottom: 4, color: "#444" }}>Taxes &amp; fees: ${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div style={{ marginBottom: 8, fontWeight: 800 }}>Total: ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         </div>
   
         <div className="px-cta-col" style={{ gap: 12 }}>

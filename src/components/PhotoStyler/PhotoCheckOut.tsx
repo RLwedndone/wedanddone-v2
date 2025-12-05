@@ -539,7 +539,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
     "35 days before your wedding date";
 
   const checkoutSummary = payFull
-    ? `You're paying $${totalEffective.toFixed(2)} today.`
+    ? `You're paying $${Number(totalEffective).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You're paying a $${amountDueToday.toFixed(
         2
       )} deposit today. Remaining $${remainingBalance.toFixed(

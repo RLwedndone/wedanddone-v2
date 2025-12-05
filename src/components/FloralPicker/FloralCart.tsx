@@ -26,7 +26,11 @@ const SALES_TAX_RATE = 0.086;
 const STRIPE_RATE = 0.029;
 const STRIPE_FLAT_FEE = 0.3;
 
-const fmt = (n: number) => n.toFixed(2);
+const fmt = (n: number) =>
+  n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 const unitPrice = (base: number) => base * (1 + MARGIN_RATE);
 
 const floralItems: FloralItem[] = [
@@ -102,8 +106,8 @@ const FloralCart: React.FC<FloralCartProps> = ({
 
     if (setPaymentSummary) {
       setPaymentSummary(
-        `You'll choose at checkout to pay in full ($${grandTotal.toFixed(
-          2
+        `You'll choose at checkout to pay in full ($${fmt(
+          grandTotal
         )}) or pay a 25% deposit today.`
       );
     }
@@ -215,8 +219,8 @@ const FloralCart: React.FC<FloralCartProps> = ({
         </div>
 
         <div className="px-totals">
-          Total (includes taxes &amp; fees): ${grandTotal.toFixed(2)}
-        </div>
+  Total (includes taxes &amp; fees): ${fmt(grandTotal)}
+</div>
 
         <div className="px-cta-col">
           <button className="boutique-primary-btn" onClick={handleContinue}>

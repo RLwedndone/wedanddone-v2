@@ -981,7 +981,7 @@ const BatesDessertCart: React.FC<Props> = ({
                       </h3>
                       <p className="px-prose-narrow">
                         Small cutting cake —{" "}
-                        <strong>${SMALL_CAKE_PRICE.toFixed(2)}</strong>
+                        <strong>${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
                       </p>
                     </>
                   )}
@@ -1351,7 +1351,7 @@ const BatesDessertCart: React.FC<Props> = ({
                           whiteSpace: "nowrap",
                         }}
                       >
-                        ${extended.toFixed(2)}
+                        ${Number(extended).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                       </div>
                     </div>
                   );
@@ -1370,7 +1370,7 @@ const BatesDessertCart: React.FC<Props> = ({
                   marginBottom: 4,
                 }}
               >
-                Subtotal: ${dessertSubtotal.toFixed(2)}
+                Subtotal: ${Number(dessertSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
               </div>
   
               {DELIVERY_FEE > 0 && (
@@ -1380,7 +1380,7 @@ const BatesDessertCart: React.FC<Props> = ({
                     color: "#444",
                   }}
                 >
-                  Delivery Fee: ${DELIVERY_FEE.toFixed(2)}
+                  Delivery Fee: ${Number(DELIVERY_FEE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                 </div>
               )}
   
@@ -1390,7 +1390,7 @@ const BatesDessertCart: React.FC<Props> = ({
                   color: "#444",
                 }}
               >
-                Taxes & Fees: ${taxesAndFees.toFixed(2)}
+                Taxes & Fees: ${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
               </div>
   
               <div
@@ -1399,7 +1399,7 @@ const BatesDessertCart: React.FC<Props> = ({
                   fontWeight: 800,
                 }}
               >
-                Total: ${grandTotalFinal.toFixed(2)}
+                Total: ${Number(grandTotalFinal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
               </div>
             </div>
   

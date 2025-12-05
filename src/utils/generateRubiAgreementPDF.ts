@@ -250,8 +250,8 @@ export default async function generateRubiAgreementPDF(
   const safeDeposit = !isNaN(depositPaidToday) ? depositPaidToday : 0;
   const safeTotal = !isNaN(totalDueOverall) ? totalDueOverall : 0;
 
-  doc.text(`Amount Paid Today: $${safeDeposit.toFixed(2)}`, MARGIN_X + 5, (y += LINE_GAP));
-  doc.text(`Total Contract Amount: $${safeTotal.toFixed(2)}`, MARGIN_X + 5, (y += LINE_GAP));
+  doc.text(`Amount Paid Today: $${Number(safeDeposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, (y += LINE_GAP));
+  doc.text(`Total Contract Amount: $${Number(safeTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, (y += LINE_GAP));
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, (y += LINE_GAP));
   y += PARA_GAP;
 

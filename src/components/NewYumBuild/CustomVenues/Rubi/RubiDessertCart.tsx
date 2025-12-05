@@ -798,7 +798,7 @@ const RubiDessertCart: React.FC<Props> = ({
                  <>
                    <h3 className="px-title" style={{ marginTop: 10 }}>Included:</h3>
                    <p className="px-prose-narrow">
-                     Small cutting cake — <strong>${SMALL_CAKE_PRICE.toFixed(2)}</strong>
+                     Small cutting cake — <strong>${Number(SMALL_CAKE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
                    </p>
                  </>
                )}
@@ -1012,7 +1012,7 @@ const RubiDessertCart: React.FC<Props> = ({
                    </div>
  
                    <div style={{ textAlign: "right", fontWeight: 600, whiteSpace: "nowrap" }}>
-                     ${extended.toFixed(2)}
+                     ${Number(extended).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                    </div>
                  </div>
                );
@@ -1023,13 +1023,13 @@ const RubiDessertCart: React.FC<Props> = ({
          {/* Price summary */}
          <div className="px-prose-narrow" style={{ marginTop: 4 }}>
            <div style={{ fontWeight: 700, marginBottom: 4 }}>
-             Subtotal: ${baseSubtotal.toFixed(2)}
+             Subtotal: ${Number(baseSubtotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
            </div>
            <div style={{ marginBottom: 4, color: "#444" }}>
-             Taxes & fees: ${taxesAndFees.toFixed(2)}
+             Taxes & fees: ${Number(taxesAndFees).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
            </div>
            <div style={{ marginBottom: 10, fontWeight: 800 }}>
-             Total: ${grandTotal.toFixed(2)}
+             Total: ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
            </div>
          </div>
  

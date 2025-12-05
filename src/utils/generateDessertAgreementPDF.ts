@@ -198,7 +198,7 @@ const generateDessertAgreementPDF = async ({
     // Fallback wording (no assumptions about number of installments)
     if (deposit > 0 && deposit < total) {
       const remaining = Math.max(0, total - deposit);
-      doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, 25, y2);
+      doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 25, y2);
       y2 += 8;
 
       if (dueByPretty) {
@@ -220,7 +220,7 @@ const generateDessertAgreementPDF = async ({
       }
       y2 += 8;
     } else {
-      doc.text(`Total Paid in Full: $${total.toFixed(2)}`, 25, y2);
+      doc.text(`Total Paid in Full: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 25, y2);
       y2 += 8;
     }
   }

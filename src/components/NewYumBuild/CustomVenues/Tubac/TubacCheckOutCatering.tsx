@@ -117,7 +117,7 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 
   // 🔹 explainer text above card box
   const summaryText = payFull
-    ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
+    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(
@@ -193,7 +193,7 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
         weddingDate: userDoc?.weddingDate || "Your wedding date",
         signatureImageUrl: signatureImageUrl || "",
         paymentSummary: payFull
-          ? `Paid in full today: $${amountDueToday.toFixed(2)}.`
+          ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
           : `Deposit today: $${amountDueToday.toFixed(
               2
             )}. Remaining $${remainingBalance.toFixed(

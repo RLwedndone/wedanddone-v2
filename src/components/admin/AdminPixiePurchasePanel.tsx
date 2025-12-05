@@ -535,7 +535,7 @@ const AdminPixiePurchasePanel: React.FC<AdminPixiePurchasePanelProps> = ({
                   <div>
                     <div style={{ fontWeight: 600 }}>{p.label}</div>
                     <div>
-                      ${p.amount.toFixed(2)} ·{" "}
+                      ${Number(p.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} ·{" "}
                       <span
                         style={{
                           textTransform: "capitalize",

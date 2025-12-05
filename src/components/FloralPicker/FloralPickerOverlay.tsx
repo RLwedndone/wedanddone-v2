@@ -357,8 +357,8 @@ const FloralPickerOverlay: React.FC<FloralPickerOverlayProps> = ({
       Math.round((totalForCheckout * 0.25 + Number.EPSILON) * 100) / 100;
 
     const summary = payFull
-      ? `You're paying $${totalForCheckout.toFixed(2)} today.`
-      : `You're paying a $${depositForCheckout.toFixed(2)} deposit today.`;
+      ? `You're paying $${Number(totalForCheckout).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+      : `You're paying a $${Number(depositForCheckout).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} deposit today.`;
 
     return (
       <FloralCheckOut

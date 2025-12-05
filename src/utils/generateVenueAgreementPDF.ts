@@ -162,9 +162,9 @@ export const generateVenueAgreementPDF = async ({
   doc.text(`Name: ${sanitizeText(firstName)} ${sanitizeText(lastName)}`, 20, 90);
   doc.text(`Wedding Date: ${weddingPretty}`, 20, 98);
   doc.text(`Venue Booked: ${venueLine}`, 20, 106);
-  doc.text(`Total Venue Cost: $${totalNum.toFixed(2)}`, 20, 114);
+  doc.text(`Total Venue Cost: $${Number(totalNum).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 114);
   if (depositNum > 0 && depositNum !== totalNum) {
-    doc.text(`Deposit Paid: $${depositNum.toFixed(2)}`, 20, 122);
+    doc.text(`Deposit Paid: $${Number(depositNum).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 122);
   }
 
   let y = depositNum > 0 && depositNum !== totalNum ? 136 : 130;
@@ -190,7 +190,7 @@ export const generateVenueAgreementPDF = async ({
 
   setBodyFont(doc, 12, 0);
   const paidToday = depositNum > 0 && depositNum !== totalNum ? depositNum : totalNum;
-  doc.text(`Paid today: $${(Number(paidToday) || 0).toFixed(2)} on ${todayPretty}`, 20, y);
+  doc.text(`Paid today: $${Number((Number(paidToday) || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayPretty}`, 20, y);
   y += 8;
 
   if (paymentSummary) {

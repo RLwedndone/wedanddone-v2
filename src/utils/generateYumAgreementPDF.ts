@@ -219,7 +219,7 @@ const generateYumAgreementPDF = async ({
 
   // Also show machine-calculated basics
   if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, MARGIN_X + 5, y);
+    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y);
     y += LINE_GAP;
     if (dueByPretty) {
       doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y);
@@ -234,7 +234,7 @@ const generateYumAgreementPDF = async ({
     }
   } else {
     doc.text(
-      `Total Paid in Full Today: $${total.toFixed(2)}`,
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
       MARGIN_X + 5,
       y
     );

@@ -185,7 +185,7 @@ const ALLOWANCES: Record<CuisineId, { salads: number; entrees: number; sides: nu
 };
 
 const keyFor = (cuisineId: CuisineId) => `schnepfMenuSelections:${cuisineId}`;
-const money = (n: number) => `$${n.toFixed(2)}/pp`;
+const money = (n: number) => `$${Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}/pp`;
 
 /* =========================
    Component
@@ -471,7 +471,7 @@ const SchnepfMenuBuilderCatering: React.FC<Props> = ({
                         fontSize: "1.5rem",
                       }}
                     >
-                      Chef fee for {gc} guests: ${chefFeeFor(gc).toFixed(2)}
+                      Chef fee for {gc} guests: ${Number(chefFeeFor(gc)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                     </div>
                   )}
                 </>
@@ -486,7 +486,7 @@ const SchnepfMenuBuilderCatering: React.FC<Props> = ({
                         fontSize: "1.5rem",
                       }}
                     >
-                      Chef fee for {gc} guests: ${chefFeeFor(gc).toFixed(2)}
+                      Chef fee for {gc} guests: ${Number(chefFeeFor(gc)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                     </div>
                   )}
 

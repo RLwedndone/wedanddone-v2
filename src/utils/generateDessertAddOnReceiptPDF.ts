@@ -121,7 +121,7 @@ export const generateDessertAddOnReceiptPDF = async ({
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0);
   ensureSpace(8);
-  pdf.text(`Total Add‑On Amount Paid: $${total.toFixed(2)}`, 30, y);
+  pdf.text(`Total Add‑On Amount Paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 30, y);
   y += 10;
 
   // 📅 Date

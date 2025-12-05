@@ -76,7 +76,7 @@ const PixiePurchaseScreenPhotoAddOn: React.FC<PixiePurchaseScreenPhotoAddOnProps
       .filter((item) => (localQuantities[item.name] || 0) > 0)
       .map(
         (item) =>
-          `${localQuantities[item.name]} x ${item.name} ($${item.basePrice.toFixed(2)} each)`
+          `${localQuantities[item.name]} x ${item.name} ($${Number(item.basePrice).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} each)`
       );
 
     setTotal(grandTotal);
@@ -168,7 +168,7 @@ const PixiePurchaseScreenPhotoAddOn: React.FC<PixiePurchaseScreenPhotoAddOnProps
 
         {/* Totals */}
         <div className="px-totals">
-          Total (includes taxes &amp; fees): ${grandTotal.toFixed(2)}
+          Total (includes taxes &amp; fees): ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
 
         {/* CTAs */}

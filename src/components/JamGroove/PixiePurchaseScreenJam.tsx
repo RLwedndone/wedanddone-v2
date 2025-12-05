@@ -81,6 +81,12 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
     setQuantities?.(updated);
   };
 
+  const fmt = (n: number) =>
+    n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const hasDJPackage = quantities["djBase"] > 0;
 
   // ── Totals (margin → taxes/fees) ──
@@ -231,7 +237,7 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
               >
                 <div className="px-item__label">
                   {item.name}{" "}
-                  <span style={{ opacity: 0.7 }}>(${item.price.toFixed(2)})</span>
+                  <span style={{ opacity: 0.7 }}>(${Number(item.price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})})</span>
                 </div>
   
                 {/* Qty controls */}
@@ -362,8 +368,8 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
   
         {/* Totals */}
         <div className="px-totals">
-          Total (includes taxes &amp; fees): ${grandTotal.toFixed(2)}
-        </div>
+  Total (includes taxes &amp; fees): ${fmt(grandTotal)}
+</div>
   
         {/* CTAs */}
         <div className="px-cta-col">

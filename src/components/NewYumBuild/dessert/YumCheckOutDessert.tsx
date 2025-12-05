@@ -172,7 +172,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
 
   // One clear, plan-specific line for the UI
   const paymentMessage = usingFull
-    ? `You're paying $${amountDueToday.toFixed(2)} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
@@ -371,7 +371,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${amountDueToday.toFixed(2)} today.`
+            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(

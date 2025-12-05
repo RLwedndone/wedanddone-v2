@@ -177,7 +177,7 @@ const dayOfWeek = bookingData.dayOfWeek || "";
           <p className="px-prose-narrow" style={{ marginBottom: hasDate ? "1rem" : 8 }}>
             You’re booking floral services for <strong>{formattedDate}</strong>
             {dayOfWeek ? ` (${dayOfWeek})` : ""}. The total is{" "}
-            <strong>${total.toFixed(2)}</strong>.
+            <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>.
           </p>
 
           {!hasDate && (
@@ -272,11 +272,11 @@ const dayOfWeek = bookingData.dayOfWeek || "";
           {/* Summary line */}
           <p className="px-prose-narrow" style={{ marginTop: 4 }}>
             {payFull ? (
-              <>You’re paying <strong>${total.toFixed(2)}</strong> today.</>
+              <>You’re paying <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.</>
             ) : (
               <>
-                You’re paying <strong>${depositAmount.toFixed(2)}</strong> today, then about{" "}
-                <strong>${perInstallment.toFixed(2)}</strong> monthly{finalDuePretty ? (
+                You’re paying <strong>${Number(depositAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today, then about{" "}
+                <strong>${Number(perInstallment).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> monthly{finalDuePretty ? (
                   <> until <strong>{finalDuePretty}</strong>.</>
                 ) : (
                   <> until 30 days before your wedding date.</>
@@ -285,8 +285,8 @@ const dayOfWeek = bookingData.dayOfWeek || "";
             )}
           </p>
 
-          {/* Agree & sign */}
-          <div style={{ margin: "0.75rem 0 0.5rem" }}>
+                    {/* Agree & sign */}
+                    <div style={{ margin: "0.75rem 0 0.5rem" }}>
             <label>
               <input
                 type="checkbox"
@@ -299,14 +299,27 @@ const dayOfWeek = bookingData.dayOfWeek || "";
           </div>
 
           {!signatureSubmitted ? (
-            <button
-              className="boutique-primary-btn"
-              onClick={() => agreeChecked && setShowSignatureModal(true)}
-              disabled={!agreeChecked}
-            >
-              Sign Contract
-            </button>
+            // BEFORE signature: Sign + Back
+            <div className="px-cta-col" style={{ marginTop: 8 }}>
+              <button
+                className="boutique-primary-btn"
+                onClick={() => agreeChecked && setShowSignatureModal(true)}
+                disabled={!agreeChecked}
+                style={{ width: 250 }}
+              >
+                Sign Contract
+              </button>
+
+              <button
+                className="boutique-back-btn"
+                onClick={onBack}
+                style={{ width: 250, marginTop: 10 }}
+              >
+                ⬅ Back to Cart
+              </button>
+            </div>
           ) : (
+            // AFTER signature: Continue + Back (existing behavior)
             <div className="px-cta-col" style={{ marginTop: 8 }}>
               <img
                 src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
@@ -317,18 +330,35 @@ const dayOfWeek = bookingData.dayOfWeek || "";
                 className="boutique-primary-btn"
                 onClick={() => {
                   try {
-                    localStorage.setItem("floralPaymentPlan", payFull ? "full" : "monthly");
+                    localStorage.setItem(
+                      "floralPaymentPlan",
+                      payFull ? "full" : "monthly"
+                    );
                     localStorage.setItem("floralTotal", String(total));
-                    localStorage.setItem("floralDepositAmount", String(depositAmount));
-                    localStorage.setItem("floralRemainingBalance", String(remainingBalance));
-                    localStorage.setItem("floralFinalDueDate", finalDue ? finalDue.toISOString() : "");
+                    localStorage.setItem(
+                      "floralDepositAmount",
+                      String(depositAmount)
+                    );
+                    localStorage.setItem(
+                      "floralRemainingBalance",
+                      String(remainingBalance)
+                    );
+                    localStorage.setItem(
+                      "floralFinalDueDate",
+                      finalDue ? finalDue.toISOString() : ""
+                    );
                   } catch {}
                   onContinue();
                 }}
+                style={{ width: 250 }}
               >
                 Continue to Checkout
               </button>
-              <button className="boutique-back-btn" onClick={onBack}>
+              <button
+                className="boutique-back-btn"
+                onClick={onBack}
+                style={{ width: 250, marginTop: 10 }}
+              >
                 ⬅ Back to Cart
               </button>
             </div>

@@ -149,13 +149,13 @@ export const generatePhotoAgreementPDF = async ({
   );
   y += 8;
   doc.text(
-    `Total Photography Cost: $${total.toFixed(2)}`,
+    `Total Photography Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
     LEFT,
     y
   );
   if (deposit > 0 && deposit < total) {
     y += 8;
-    doc.text(`Deposit (50%): $${deposit.toFixed(2)}`, LEFT, y);
+    doc.text(`Deposit (50%): $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, LEFT, y);
   }
   y += 12;
 
@@ -190,7 +190,7 @@ export const generatePhotoAgreementPDF = async ({
   setBodyFont(doc);
   const paidToday = deposit > 0 && deposit < total ? deposit : total;
   doc.text(
-    `Paid today: $${paidToday.toFixed(2)} on ${todayPretty}`,
+    `Paid today: $${Number(paidToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayPretty}`,
     LEFT,
     y
   );

@@ -117,7 +117,7 @@ const PlannerCart: React.FC<PlannerCartProps> = ({ onContinue, onClose }) => {
 
         {/* Totals */}
         <div className="px-totals" style={{ marginBottom: "1rem" }}>
-         Total (includes taxes &amp; fees): ${total.toFixed(2)}
+         Total (includes taxes &amp; fees): ${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
 
         {/* Buttons */}

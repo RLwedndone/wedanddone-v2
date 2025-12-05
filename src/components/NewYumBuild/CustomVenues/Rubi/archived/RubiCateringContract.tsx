@@ -132,12 +132,12 @@ const RubiCateringContract: React.FC<Props> = ({
   const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
+    ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You’re paying $${depositAmount.toFixed(
         2
       )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
         perMonthCents / 100
-      ).toFixed(2)}${planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""}`;
+      ).toFixed(2)}${Number(planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})})` : ""}`;
 
   // boot/persist progress
   useEffect(() => {
@@ -261,7 +261,7 @@ const RubiCateringContract: React.FC<Props> = ({
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-          Total catering cost: <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest(s).
+          Total catering cost: <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> for {lockedGuestCount} guest(s).
         </p>
 
         {/* Booking Terms */}

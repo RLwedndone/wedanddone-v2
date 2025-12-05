@@ -480,7 +480,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               {paymentSummary
                 ? paymentSummary
                 : payFull
-                ? `You're paying $${total.toFixed(2)} today.`
+                ? `You're paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
                 : `You're paying a $${amountDueToday.toFixed(
                     2
                   )} deposit today. Remaining $${remainingBalance.toFixed(

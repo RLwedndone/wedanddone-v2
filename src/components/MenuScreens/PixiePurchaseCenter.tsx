@@ -92,7 +92,7 @@ const PixiePurchaseCenter: React.FC<Props> = ({ onClose, onOpenCheckout }) => {
                 onClick={() => onOpenCheckout(p)}
               >
                 <div style={styles.itemTitle}>{p.label}</div>
-                <div style={styles.itemAmt}>${p.amount.toFixed(2)}</div>
+                <div style={styles.itemAmt}>${Number(p.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                 <div style={styles.itemHint}>Tap to review &amp; pay</div>
               </div>
             ))}

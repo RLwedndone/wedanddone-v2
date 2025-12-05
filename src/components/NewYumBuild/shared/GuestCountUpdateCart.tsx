@@ -122,7 +122,7 @@ const GuestCountUpdateCart: React.FC = () => {
               <br />
             </>
           )}
-          <strong>Total Due Today: ${totalDue.toFixed(2)}</strong>
+          <strong>Total Due Today: ${Number(totalDue).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </p>
 
         <div style={{ marginBottom: "1.5rem" }}>

@@ -257,7 +257,7 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
           You’re booking desserts for <strong>{formattedDate}</strong> ({dayOfWeek || "TBD"}).
         </p>
         <p style={{ marginBottom: "1.75rem" }}>
-          Total dessert cost: <strong>${round2(total).toFixed(2)}</strong>
+          Total dessert cost: <strong>${Number(round2(total)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         </p>
 
         {/* Booking Terms (mirrors YumContractDessert) */}
@@ -361,12 +361,12 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
         <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
           {payFull ? (
             <p style={{ marginBottom: "0.75rem" }}>
-              You’ll pay <strong>${totalSafe.toFixed(2)}</strong> today for your desserts.
+              You’ll pay <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today for your desserts.
             </p>
           ) : (
             <p style={{ marginBottom: "0.75rem" }}>
-              <strong>${depositDollars.toFixed(2)}</strong> deposit + {planMonths} monthly payments of about{" "}
-              <strong>${monthlyAmount.toFixed(2)}</strong>; final payment due <strong>{finalDuePretty}</strong>.
+              <strong>${Number(depositDollars).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> deposit + {planMonths} monthly payments of about{" "}
+              <strong>${Number(monthlyAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>; final payment due <strong>{finalDuePretty}</strong>.
             </p>
           )}
 

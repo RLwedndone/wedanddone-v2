@@ -315,7 +315,7 @@ const RubiCateringContract: React.FC<Props> = ({
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
           Total catering cost today:{" "}
-          <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest
+          <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> for {lockedGuestCount} guest
           {lockedGuestCount === 1 ? "" : "s"}.
         </p>
 

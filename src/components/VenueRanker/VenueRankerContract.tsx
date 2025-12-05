@@ -333,13 +333,13 @@ const handleContinueToCheckout = () => {
     `Venue: ${venueName}`,
     `${guestCount} guests`,
     `Wedding Date: ${currentWeddingDateISO || venueWeddingDate}`,
-    `Total: $${(plan.total || 0).toFixed(2)}`
+    `Total: $${Number((plan.total || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
   ]);
 
   setPaymentSummary(
     payFull || plan.payInFullRequired
-      ? `Venue Booking Total: $${(plan.total || 0).toFixed(2)}`
-      : `Deposit: $${(plan.deposit || 0).toFixed(2)} then ${plan.months - 1}× $${(plan.monthly || 0).toFixed(2)} + final $${(plan.lastInstallment || 0).toFixed(2)}`
+      ? `Venue Booking Total: $${Number((plan.total || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
+      : `Deposit: $${Number((plan.deposit || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} then ${plan.months - 1}× $${Number((plan.monthly || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} + final $${Number((plan.lastInstallment || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
   );
 
   setFinalVenuePrice(plan.total || 0);

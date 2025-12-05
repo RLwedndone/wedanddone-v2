@@ -225,7 +225,7 @@ const generateOcotilloAgreementPDF = async ({
 
   if (deposit > 0 && deposit < total) {
     doc.text(
-      `Deposit Paid Today: $${deposit.toFixed(2)}`,
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
       MARGIN_X + 5,
       y
     );
@@ -240,7 +240,7 @@ const generateOcotilloAgreementPDF = async ({
     }
   } else {
     doc.text(
-      `Total Paid in Full Today: $${total.toFixed(2)}`,
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
       MARGIN_X + 5,
       y
     );

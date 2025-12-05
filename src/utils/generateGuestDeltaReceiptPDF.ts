@@ -199,25 +199,25 @@ export default async function generateGuestDeltaReceiptPDF({
 
   // ---- Per-guest rates ----
   writeSectionTitle("Per-Guest Rates (if applicable)");
-  writeRow("Venue (per guest)", `$${(perGuest.venue || 0).toFixed(2)}`);
-  writeRow("Catering (per guest)", `$${(perGuest.catering || 0).toFixed(2)}`);
-  writeRow("Dessert (per guest)", `$${(perGuest.dessert || 0).toFixed(2)}`);
+  writeRow("Venue (per guest)", `$${Number((perGuest.venue || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeRow("Catering (per guest)", `$${Number((perGuest.catering || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeRow("Dessert (per guest)", `$${Number((perGuest.dessert || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   writeRow(
     "Planner (tier difference)",
-    `$${(perGuest.planner || 0).toFixed(2)}`
+    `$${Number((perGuest.planner || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
   );
   divider();
 
   // ---- Amounts Due ----
   writeSectionTitle("Amounts Due Now");
-  writeRow("Venue subtotal", `$${(amounts.venue || 0).toFixed(2)}`);
-  writeRow("Catering subtotal", `$${(amounts.catering || 0).toFixed(2)}`);
-  writeRow("Dessert subtotal", `$${(amounts.dessert || 0).toFixed(2)}`);
+  writeRow("Venue subtotal", `$${Number((amounts.venue || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeRow("Catering subtotal", `$${Number((amounts.catering || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeRow("Dessert subtotal", `$${Number((amounts.dessert || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   writeRow(
     "Planner tier difference",
-    `$${(amounts.planner || 0).toFixed(2)}`
+    `$${Number((amounts.planner || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
   );
-  writeRow("Subtotal", `$${(amounts.subtotal || 0).toFixed(2)}`);
+  writeRow("Subtotal", `$${Number((amounts.subtotal || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
   writeRow(
     "Taxes & fees",
     `$${(
@@ -227,7 +227,7 @@ export default async function generateGuestDeltaReceiptPDF({
   );
   writeRow(
     "Total due now",
-    `$${(amounts.total || 0).toFixed(2)}`,
+    `$${Number((amounts.total || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
     { boldValue: true }
   );
   divider();

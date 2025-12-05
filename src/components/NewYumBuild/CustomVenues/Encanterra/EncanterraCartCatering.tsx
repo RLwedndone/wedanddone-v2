@@ -406,7 +406,7 @@ const EncanterraCartCatering: React.FC<Props> = ({
 
       {/* Totals */}
       <div style={{ fontWeight: 800, marginBottom: 6 }}>
-        Total: ${grandTotal.toFixed(2)}
+        Total: ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
       </div>
       <div
         style={{

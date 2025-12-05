@@ -149,7 +149,7 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
 
   // UI copy
   const paymentMessage = usingFull
-    ? `You're paying $${amountDueToday.toFixed(2)} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(

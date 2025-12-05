@@ -272,7 +272,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         paymentSummary:
           paymentSummary ||
           (payFull
-            ? `You’re paying $${total.toFixed(2)} today for Bates catering.`
+            ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for Bates catering.`
             : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
                 2
               )}. Remaining balance auto-billed monthly; final payment due ${finalDueDateStr}.`),
@@ -644,7 +644,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             {paymentSummary
               ? paymentSummary
               : payFull
-              ? `Total due today: $${total.toFixed(2)}.`
+              ? `Total due today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
               : `Deposit due today: $${amountDueToday.toFixed(
                   2
                 )} (25%). Remaining $${remainingBalance.toFixed(

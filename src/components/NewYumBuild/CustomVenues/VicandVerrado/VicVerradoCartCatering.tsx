@@ -197,7 +197,7 @@ const fnbProgress = showFnbProgress
       `Catering for ${gc} guests @ $${perGuest}/guest (${TIER_LABEL[selectedTier]})`,
     ]);
     setPaymentSummaryText(
-      `You're paying $${grandTotal.toFixed(2)} today for your ${TIER_LABEL[selectedTier]} menu.`
+      `You're paying $${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for your ${TIER_LABEL[selectedTier]} menu.`
     );
   }, [
     gc,
@@ -310,7 +310,7 @@ const fnbProgress = showFnbProgress
   >
     Progress toward the ${fnbMinimumDollars.toLocaleString()} food & beverage minimum:
     {" "}
-    ${(subtotal).toFixed(2)} ({Math.round(fnbProgress * 100)}%)
+    ${Number((subtotal)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} ({Math.round(fnbProgress * 100)}%)
     <div
       style={{
         height: 8,
@@ -363,7 +363,7 @@ const fnbProgress = showFnbProgress
 
         {/* Totals */}
         <div style={{ fontWeight: 800, marginBottom: 6 }}>
-          Total: ${grandTotal.toFixed(2)}
+          Total: ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
         <div style={{ fontSize: ".95rem", opacity: 0.8, marginBottom: "1.25rem" }}>
           Includes taxes &amp; fees.

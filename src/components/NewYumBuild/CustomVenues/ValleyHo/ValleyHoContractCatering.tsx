@@ -104,12 +104,26 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
   const lastPaymentCents = balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
-    : `You’re paying $${depositAmount.toFixed(
-        2
-      )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
-        perMonthCents / 100
-      ).toFixed(2)}${planMonths > 1 ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})` : ""}`;
+  ? `You’re paying $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} today.`
+  : `You’re paying $${Number(depositAmount).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${Number(
+      perMonthCents / 100
+    ).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}${
+      planMonths > 1
+        ? ` (last ≈ $${Number(lastPaymentCents / 100).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })})`
+        : ""
+    }`;
 
   // ---------- hydrate user + persist progress ----------
   useEffect(() => {
@@ -397,7 +411,15 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
           {dayOfWeek ? ` (${dayOfWeek})` : ""}.
         </p>
         <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
-          Your total today is <strong>${total.toFixed(2)}</strong> (includes 22% service charge, taxes & card fees).
+          Your total today is{" "}
+          <strong>
+            $
+            {Number(total).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </strong>{" "}
+          (includes 22% service charge, taxes &amp; card fees).
         </p>
 
         {/* Booking Terms */}
@@ -469,12 +491,51 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
         {/* Summary */}
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
-            <>You’re paying <strong>${total.toFixed(2)}</strong> today.</>
+            <>
+              You’re paying{" "}
+              <strong>
+                $
+                {Number(total).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>{" "}
+              today.
+            </>
           ) : (
             <>
-              You’re paying <strong>${depositAmount.toFixed(2)}</strong> today, then about{" "}
-              <strong>${(perMonthCents / 100).toFixed(2)}</strong> monthly until <strong>{prettyDueBy}</strong>
-              {planMonths > 1 ? <> (last ≈ <strong>${(lastPaymentCents / 100).toFixed(2)}</strong>)</> : null}.
+              You’re paying{" "}
+              <strong>
+                $
+                {Number(depositAmount).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>{" "}
+              today, then about{" "}
+              <strong>
+                $
+                {Number(perMonthCents / 100).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>{" "}
+              monthly until <strong>{prettyDueBy}</strong>
+              {planMonths > 1 ? (
+                <>
+                  {" "}
+                  (last ≈{" "}
+                  <strong>
+                    $
+                    {Number(lastPaymentCents / 100).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
+                  )
+                </>
+              ) : null}
+              .
             </>
           )}
         </p>

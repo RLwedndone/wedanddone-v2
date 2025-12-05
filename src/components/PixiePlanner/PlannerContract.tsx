@@ -19,6 +19,7 @@ interface PlannerContractProps {
   setSignatureSubmitted: (val: boolean) => void;
   onContinue: () => void;
   onBack: () => void;
+  onClose: () => void; 
 }
 
 const FINAL_DUE_DAYS = 35;
@@ -33,6 +34,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
   setSignatureSubmitted,
   onContinue,
   onBack,
+  onClose,
 }) => {
   const { guestCount: guestCountFromProps, weddingDate, dayOfWeek } = bookingData;
 
@@ -78,7 +80,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     : "your wedding date";
 
   // ---- money math in cents (no float bleed) ----
-  const fmtUSD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const fmtUSD = (cents: number) => `$${Number((cents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
   const grandTotalCents = Math.max(0, Math.round((bookingData.total || 0) * 100));
   const depositCents = Math.min(grandTotalCents, DEPOSIT_DOLLARS * 100);
@@ -188,10 +190,10 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
 
   return (
     <div className="pixie-card">
-      {/* 🩷 Pink X (use Back to exit to cart like Floral/Jam) */}
-      <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-      </button>
+      {/* 🩷 Pink X — closes the planner overlay */}
+<button className="pixie-card__close" onClick={onClose} aria-label="Close">
+  <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+</button>
 
       <div className="pixie-card__body">
         <div className="px-center">
@@ -330,63 +332,79 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
           </p>
 
           {/* Agree + Sign/Continue */}
-          <div style={{ margin: "0.75rem 0 0.5rem" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={agreeChecked}
-                onChange={(e) => setAgreeChecked(e.target.checked)}
-                style={{ marginRight: 8 }}
-              />
-              I agree to the terms above
-            </label>
-          </div>
+<div style={{ margin: "0.75rem 0 0.5rem" }}>
+  <label>
+    <input
+      type="checkbox"
+      checked={agreeChecked}
+      onChange={(e) => setAgreeChecked(e.target.checked)}
+      style={{ marginRight: 8 }}
+    />
+    I agree to the terms above
+  </label>
+</div>
 
-          {!signatureSubmitted ? (
-            <button
-              className="boutique-primary-btn"
-              onClick={() => agreeChecked && setShowSignatureModal(true)}
-              disabled={!agreeChecked}
-            >
-              Sign Contract
-            </button>
-          ) : (
-            <div className="px-cta-col" style={{ marginTop: 8 }}>
-              <img
-                src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-                alt="Signed"
-                style={{ width: 120, marginBottom: 4 }}
-              />
-              <button
-                className="boutique-primary-btn"
-                onClick={() => {
-                  try {
-                    localStorage.setItem("plannerPaymentPlan", payFull ? "full" : "monthly");
-                    localStorage.setItem("plannerTotalCents", String(grandTotalCents));
-                    localStorage.setItem("plannerDepositCents", String(depositCents));
-                    localStorage.setItem("plannerRemainingCents", String(remainingCents));
-                    localStorage.setItem(
-                      "plannerFinalDueAt",
-                      finalDue
-                        ? new Date(
-                            Date.UTC(finalDue.getUTCFullYear(), finalDue.getUTCMonth(), finalDue.getUTCDate(), 0, 0, 1)
-                          ).toISOString()
-                        : ""
-                    );
-                    localStorage.setItem("plannerPlanMonths", String(planMonths));
-                    localStorage.setItem("plannerPerMonthCents", String(perMonthCents));
-                    localStorage.setItem("plannerLastPaymentCents", String(lastPaymentCents));
-                  } catch {}
-                  onContinue();
-                }}
-              >
-                Continue to Checkout
-              </button>
-              <button className="boutique-back-btn" onClick={onBack}>
-                ⬅ Back to Cart
-              </button>
-            </div>
-          )}
+<div className="px-cta-col" style={{ marginTop: 8 }}>
+  {/* SIGN OR CONTINUE BUTTON */}
+  {!signatureSubmitted ? (
+    <button
+      className="boutique-primary-btn"
+      onClick={() => agreeChecked && setShowSignatureModal(true)}
+      disabled={!agreeChecked}
+      style={{ width: 260 }}
+    >
+      Sign Contract
+    </button>
+  ) : (
+    <>
+      <img
+        src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
+        alt="Signed"
+        style={{ width: 120, marginBottom: 4 }}
+      />
+      <button
+        className="boutique-primary-btn"
+        onClick={() => {
+          try {
+            localStorage.setItem("plannerPaymentPlan", payFull ? "full" : "monthly");
+            localStorage.setItem("plannerTotalCents", String(grandTotalCents));
+            localStorage.setItem("plannerDepositCents", String(depositCents));
+            localStorage.setItem("plannerRemainingCents", String(remainingCents));
+            localStorage.setItem(
+              "plannerFinalDueAt",
+              finalDue
+                ? new Date(
+                    Date.UTC(
+                      finalDue.getUTCFullYear(),
+                      finalDue.getUTCMonth(),
+                      finalDue.getUTCDate(),
+                      0, 0, 1
+                    )
+                  ).toISOString()
+                : ""
+            );
+            localStorage.setItem("plannerPlanMonths", String(planMonths));
+            localStorage.setItem("plannerPerMonthCents", String(perMonthCents));
+            localStorage.setItem("plannerLastPaymentCents", String(lastPaymentCents));
+          } catch {}
+          onContinue();
+        }}
+        style={{ width: 260 }}
+      >
+        Continue to Checkout
+      </button>
+    </>
+  )}
+
+  {/* ALWAYS-VISIBLE BACK BUTTON, STACKED BELOW */}
+  <button
+    className="boutique-back-btn"
+    onClick={onBack}
+    style={{ width: 260, marginTop: 10 }}
+  >
+    ⬅ Back to Cart
+  </button>
+</div>
 
           {/* Signature modal (Floral-style mini overlay) */}
           {showSignatureModal && (

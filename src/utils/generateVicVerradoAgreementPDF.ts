@@ -222,12 +222,12 @@ const generateVicVerradoAgreementPDF = async ({
   }
 
   if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
     if (dueByPretty) {
       doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y); y += LINE_GAP;
     }
   } else {
-    doc.text(`Total Paid in Full Today: $${total.toFixed(2)}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(`Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
   }
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;

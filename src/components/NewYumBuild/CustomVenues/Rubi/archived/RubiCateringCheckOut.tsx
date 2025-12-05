@@ -151,7 +151,7 @@ const RubiCateringCheckOut: React.FC<Props> = ({
 
   // summary line we show in UI AND store in PDF
   const summaryText = payFull
-    ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
+    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(

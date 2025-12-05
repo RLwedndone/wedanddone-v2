@@ -173,8 +173,8 @@ const finalDueDate = (() => {
   y = 90;
   writeText(`Name: ${firstName || ""} ${lastName || ""}`);
   writeText(`Wedding Date: ${prettyWedding}`);
-  writeText(`Total Floral Cost: $${total.toFixed(2)}`);
-  if (!payFull && deposit > 0) writeText(`Deposit (25%): $${deposit.toFixed(2)}`);
+  writeText(`Total Floral Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  if (!payFull && deposit > 0) writeText(`Deposit (25%): $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
 
   // ---- Included Items ----
   if (lineItems.length) {
@@ -191,12 +191,12 @@ const finalDueDate = (() => {
   const todayStr = longDate(new Date());
   y += 6;
   if (payFull) {
-    writeText(`Paid today: $${total.toFixed(2)} on ${todayStr}`);
+    writeText(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
     writeText(`Final balance due date: ${finalDueStr} (paid in full today).`);
   } else {
     const remaining = Math.max(0, total - deposit);
-    writeText(`Deposit paid today: $${deposit.toFixed(2)} on ${todayStr}`);
-    writeText(`Remaining balance: $${remaining.toFixed(2)} to be billed automatically in monthly installments.`);
+    writeText(`Deposit paid today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
+    writeText(`Remaining balance: $${Number(remaining).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} to be billed automatically in monthly installments.`);
     writeText(`Final installment must be completed by: ${finalDueStr}.`);
   }
 

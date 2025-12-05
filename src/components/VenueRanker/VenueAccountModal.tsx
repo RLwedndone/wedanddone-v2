@@ -169,11 +169,26 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
 
           {/* Title + copy */}
           <h2 className="px-title" style={{ fontSize: "1.6rem", marginBottom: "0.5rem" }}>
-            Ready to say yes to your perfect venue?
-          </h2>
-          <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
-            Just a few quick details and we’ll unlock your scroll of possibilities.
-          </p>
+  Ready to say yes to your perfect venue?
+</h2>
+
+<p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+  Just a few quick details and we’ll unlock your scroll of possibilities.
+</p>
+
+<p
+  className="px-prose-narrow"
+  style={{
+    marginBottom: "1.5rem",
+    fontSize: "0.9rem",
+    color: "#666",
+  }}
+>
+  🏰 A little heads-up: all of our castles and venue partners are located
+  right here in Arizona. Wed&amp;Done currently books Arizona weddings
+  only — but our kingdom is growing, and we’ll be opening magical doors in
+  more states soon!
+</p>
 
           {/* Inputs */}
           <div style={{ width: "100%", maxWidth: 420, margin: "0 auto 1.25rem" }}>

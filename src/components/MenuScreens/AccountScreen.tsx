@@ -1020,6 +1020,8 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               Create Account
             </button>
 
+            
+
             <div style={{ marginTop: "1rem" }}>
               <img
                 src={`${import.meta.env.BASE_URL}assets/images/google_signup.png`}
@@ -1033,6 +1035,38 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   cursor: "pointer",
                 }}
               />
+
+                      {/* Arizona-only notice */}
+        <div
+          style={{
+            marginTop: "2rem",
+            textAlign: "center",
+          }}
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/images/AZLogo.png`}
+            alt="Wed&Done Arizona logo"
+            style={{
+              width: "140px",
+              maxWidth: "60%",
+              display: "block",
+              margin: "0 auto 0.5rem",
+            }}
+          />
+          <p
+            style={{
+              fontSize: "0.85rem",
+              lineHeight: 1.4,
+              color: "#666",
+              maxWidth: "360px",
+              margin: "0 auto",
+            }}
+          >
+            ✨ Just a note: Wed&Done is currently all about Arizona weddings.
+            We&apos;re growing our magic, but for now, we&apos;re sprinkling
+            fairy dust only in Arizona! ✨
+          </p>
+        </div>
             </div>
           </>
         )}

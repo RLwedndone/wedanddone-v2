@@ -539,7 +539,7 @@ useEffect(() => {
       const qty = appQtys[key] != null ? appQtys[key] : suggested;
   
       const price = cfg.price;
-      const rhs = `$${(qty * price).toFixed(2)}`;
+      const rhs = `$${Number((qty * price)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   
       const helper =
   cfg.unit === "platter"
@@ -589,7 +589,7 @@ useEffect(() => {
 
   // === cart export snapshot (only changes when real inputs change) ===
 const computed = React.useMemo(() => {
-  const money = (n: number) => `$${(n ?? 0).toFixed(2)}`;
+  const money = (n: number) => `$${Number((n ?? 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
   const appetizerLines = appRows.map(
     (r) =>
@@ -746,7 +746,7 @@ useEffect(() => {
   };
 
   /* ---------- UI ---------- */
-const entreeLine = `${selections.entrees[0] || "Entrée"} — $${perGuest.toFixed(2)}/guest`;
+const entreeLine = `${selections.entrees[0] || "Entrée"} — $${Number(perGuest).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}/guest`;
 
 return (
   <div
@@ -843,7 +843,7 @@ return (
     <div style={{ marginTop: "1rem", textAlign: "left" }}>
       <div style={{ maxWidth: 440, margin: "0 auto" }}>
         {(() => {
-          const fmt = (n: number) => `$${Number(n || 0).toFixed(2)}`;
+          const fmt = (n: number) => `$${Number(Number(n || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
           return (
             <>
@@ -1056,13 +1056,13 @@ return (
         </div>
 
         {/* Line total */}
-        <div style={{ fontWeight: 800 }}>${line.toFixed(2)}</div>
+        <div style={{ fontWeight: 800 }}>${Number(line).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
       </div>
 
       {/* Breakdown line */}
       <div style={{ marginTop: 6, color: "#64748b", fontSize: ".92rem" }}>
-        {qty} @ ${u.price.toFixed(2)} / guest ={" "}
-        <strong>${line.toFixed(2)}</strong>
+        {qty} @ ${Number(u.price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} / guest ={" "}
+        <strong>${Number(line).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
         {Number(gc) > 0 && qty !== Number(gc) && (
           <span style={{ marginLeft: 8, opacity: 0.75 }}>
             (suggested: {gc})

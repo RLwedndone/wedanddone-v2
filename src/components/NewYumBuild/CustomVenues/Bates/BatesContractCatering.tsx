@@ -135,7 +135,7 @@ const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || n
     total <= 0
       ? "No add-ons selected. Your Bates catering is included."
       : payFull
-      ? `You’re paying $${total.toFixed(2)} today for Bates add-ons.`
+      ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for Bates add-ons.`
       : `You’re paying a ${Math.round(DEPOSIT_PCT * 100)}% deposit of $${depositAmount.toFixed(
           2
         )} today. The remaining balance will be auto-billed monthly with the final payment due ${FINAL_DUE_DAYS} days before your wedding date.`;
@@ -331,7 +331,7 @@ window.dispatchEvent(new CustomEvent("billingPlanSelected", { detail: billingRob
         </div>
   
         <div className="px-prose-narrow" style={{ marginBottom: 8, fontWeight: 700 }}>
-          Total due for add-ons: <span style={{ color: "#2c62ba" }}>${total.toFixed(2)}</span>
+          Total due for add-ons: <span style={{ color: "#2c62ba" }}>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
         </div>
   
         {/* Terms */}

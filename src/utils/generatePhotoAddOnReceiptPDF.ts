@@ -110,7 +110,7 @@ export const generatePhotoAddOnReceiptPDF = async ({
 
   doc.text(`Wedding Date: ${prettyWedding}`, MARGIN_X, y);
   y += LINE_GAP;
-  doc.text(`Total Add-On Cost: $${total.toFixed(2)}`, MARGIN_X, y);
+  doc.text(`Total Add-On Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X, y);
   y += LINE_GAP + PARA_GAP;
 
   // line items
@@ -135,7 +135,7 @@ export const generatePhotoAddOnReceiptPDF = async ({
   // payment summary
   y = ensureSpace(doc, y, LINE_GAP * 3 + PARA_GAP);
   doc.setFontSize(12);
-  doc.text(`Paid today: $${total.toFixed(2)} on ${purchaseDate}`, MARGIN_X, y);
+  doc.text(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${purchaseDate}`, MARGIN_X, y);
   y += LINE_GAP * 2;
 
   doc.text(

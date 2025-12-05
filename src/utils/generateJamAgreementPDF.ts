@@ -153,7 +153,7 @@ export const generateJamAgreementPDF = async ({
   resetBodyTextStyle(doc, 12);
   doc.text(`Name: ${fullName}`, 20, 90);
   doc.text(`Wedding Date: ${formattedDate}`, 20, 100);
-  doc.text(`Total Jam & Groove Cost: $${total.toFixed(2)}`, 20, 110);
+  doc.text(`Total Jam & Groove Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 110);
 
   let y = 120;
   const bottomMargin = 60;
@@ -171,7 +171,7 @@ export const generateJamAgreementPDF = async ({
 
   // deposit line
   if (deposit > 0 && deposit !== total) {
-    doc.text(`Deposit Paid Today: $${deposit.toFixed(2)}`, 20, y);
+    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, y);
     y += 10;
   }
 
@@ -211,7 +211,7 @@ export const generateJamAgreementPDF = async ({
   doc.setFontSize(12);
   resetBodyTextStyle(doc, 12);
   doc.text(
-    `Total paid today: $${paidToday.toFixed(2)} on ${todayPretty}`,
+    `Total paid today: $${Number(paidToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayPretty}`,
     20,
     y
   );

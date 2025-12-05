@@ -135,7 +135,7 @@ export async function generatePixiePurchaseReceiptPDF(
   writeText(`Billed To: ${fullName}`);
   writeText(`Purchase Date: ${purchaseDate}`);
   writeText(
-    `Amount: ${currency.toUpperCase()} $${amount.toFixed(2)}`
+    `Amount: ${currency.toUpperCase()} $${Number(amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
   );
 
   y += 4;

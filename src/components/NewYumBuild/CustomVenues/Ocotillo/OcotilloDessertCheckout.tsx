@@ -408,7 +408,7 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${amountDueToday.toFixed(2)} today.`
+            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
@@ -588,13 +588,13 @@ try {
           <p style={{ margin: 0 }}>
             {usingFull ? (
               <>
-                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today.
+                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.
               </>
             ) : (
               <>
-                You're paying <strong>${amountDueToday.toFixed(2)}</strong> today, then{" "}
+                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today, then{" "}
                 {planMonths} monthly payments of about{" "}
-                <strong>${perMonth.toFixed(2)}</strong> (final due {finalDuePretty}).
+                <strong>${Number(perMonth).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> (final due {finalDuePretty}).
               </>
             )}
           </p>

@@ -233,7 +233,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               )}. Remaining $${remainingBalance.toFixed(
                 2
               )} due by ${finalDueDateStr}.`
-            : `Paid in full today: $${amountDueToday.toFixed(2)}.`,
+            : `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`,
         lineItems,
         // 🔹 mains / sides / salads now
         menuSelections,
@@ -491,7 +491,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
         )} (25%). Remaining $${remainingBalance.toFixed(
           2
         )} due ${finalDueDateStr}.`
-      : `Total due today: $${amountDueToday.toFixed(2)}.`;
+      : `Total due today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`;
 
   // 🔮 MAGIC-IN-PROGRESS / CHECKOUT CARD
   return (

@@ -253,7 +253,7 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (payFull
-            ? `Paid in full today: $${amountDueToday.toFixed(2)}.`
+            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
             : `Deposit today: $${amountDueToday.toFixed(
                 2
               )}. Remaining $${remainingBalance.toFixed(
@@ -522,10 +522,10 @@ try {
 
   // UI copy for above the form
   const summaryText = payFull
-    ? `Total due today: $${(amountDueTodayCents / 100).toFixed(2)}.`
+    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
-      )} (25%). Remaining $${remainingBalance.toFixed(2)} due by ${finalDueDateStr}.`;
+      )} (25%). Remaining $${Number(remainingBalance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} due by ${finalDueDateStr}.`;
 
   // ========== Main checkout card ==========
   return (

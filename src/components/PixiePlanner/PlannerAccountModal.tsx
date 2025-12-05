@@ -127,11 +127,27 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({
           />
 
           {/* Title + copy */}
-          <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
+                    {/* Title + copy */}
+                    <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
             Ready to book your magical planner?
           </h2>
-          <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
+
+          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
             Great! Just fill out the form below to create an account.
+          </p>
+
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            ✨ Quick heads-up: our planning pixies are currently focused on
+            Arizona weddings. Wed&amp;Done is booking Arizona celebrations
+            only for now — but we&apos;ll be waving our wands in more states
+            soon!
           </p>
 
           {/* Inputs */}

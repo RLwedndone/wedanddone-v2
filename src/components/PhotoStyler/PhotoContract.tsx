@@ -165,7 +165,7 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
   if (!hasDate) {
     return (
       <div className="pixie-card">
-        <button className="pixie-card__close" onClick={onBack} aria-label="Close">
+        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
         <div className="pixie-card__body px-center">
@@ -195,9 +195,9 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
   return (
     <div className="pixie-card">
       {/* Pink X inside the card */}
-      <button className="pixie-card__close" onClick={onBack} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-      </button>
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+  <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+</button>
 
       {/* Scrollable body */}
       <div className="pixie-card__body px-center">
@@ -215,7 +215,7 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
         <p className="px-prose-narrow" style={{ marginBottom: "1rem" }}>
           You’re booking photography for <strong>{formattedDate}</strong>
           {dayOfWeek ? ` (${dayOfWeek})` : ""}. The total is{" "}
-          <strong>${total.toFixed(2)}</strong>
+          <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
           {bookingData.styleChoice ? (
             <> — preferred style: <em>{bookingData.styleChoice}</em>.</>
           ) : (
@@ -313,11 +313,11 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
         {/* One-line summary */}
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
-            <>You’re paying <strong>${total.toFixed(2)}</strong> today.</>
+            <>You’re paying <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.</>
           ) : (
             <>
-              You’re paying <strong>${depositAmount.toFixed(2)}</strong> today, then about{" "}
-              <strong>${perInstallment.toFixed(2)}</strong> monthly until{" "}
+              You’re paying <strong>${Number(depositAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today, then about{" "}
+              <strong>${Number(perInstallment).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> monthly until{" "}
               <strong>{finalDuePretty || "your due date"}</strong>.
             </>
           )}
@@ -336,8 +336,8 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
           </label>
         </div>
 
-        {/* Sign or Continue */}
-        {!signatureSubmitted ? (
+                {/* Sign or Continue */}
+                {!signatureSubmitted ? (
           <button
             className="boutique-primary-btn"
             onClick={() => agreeChecked && setShowSignatureModal(true)}
@@ -374,11 +374,17 @@ const PhotoContract: React.FC<PhotoContractProps> = ({
             >
               Continue to Checkout
             </button>
-            <button className="boutique-back-btn" onClick={onBack}>
-              ⬅ Back to Cart
-            </button>
           </div>
         )}
+
+        {/* Always-visible Back to Cart */}
+        <button
+          className="boutique-back-btn"
+          onClick={onBack}
+          style={{ marginTop: 8 }}
+        >
+          ⬅ Back to Cart
+        </button>
 
         {/* Signature Modal */}
         {showSignatureModal && (

@@ -142,14 +142,14 @@ const EncanterraContractCatering: React.FC<Props> = ({
     balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
   const paymentSummaryText = payFull
-    ? `You’re paying $${total.toFixed(2)} today.`
+    ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
     : `You’re paying $${depositAmount.toFixed(
         2
       )} today, then monthly through ${prettyDueBy}. Est. ${planMonths} payments of $${(
         perMonthCents / 100
       ).toFixed(2)}${
         planMonths > 1
-          ? ` (last ≈ $${(lastPaymentCents / 100).toFixed(2)})`
+          ? ` (last ≈ $${Number((lastPaymentCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})})`
           : ""
       }`;
 
@@ -336,7 +336,7 @@ const EncanterraContractCatering: React.FC<Props> = ({
 
         <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
           Total catering cost:{" "}
-          <strong>${total.toFixed(2)}</strong> for {lockedGuestCount} guest
+          <strong>${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> for {lockedGuestCount} guest
           {lockedGuestCount === 1 ? "" : "s"}. This amount includes venue service
           fees, applicable taxes, and card processing fees.
         </p>

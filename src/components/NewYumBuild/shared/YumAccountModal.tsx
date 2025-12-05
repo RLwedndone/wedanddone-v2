@@ -130,11 +130,25 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({
 
           {/* Title + copy */}
           <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
-            Ready to dial in deliciousness?
-          </h2>
-          <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
-            To save your selections, create an account below.
-          </p>
+  Ready to dial in deliciousness?
+</h2>
+
+<p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+  To save your selections, create an account below.
+</p>
+
+<p
+  className="px-prose-narrow"
+  style={{
+    marginBottom: "1.5rem",
+    fontSize: "0.9rem",
+    color: "#666",
+  }}
+>
+  🍽️ Just a quick note: all of our catering and dessert magic is
+  currently served in Arizona. Wed&amp;Done is booking Arizona weddings
+  only for now — but we&apos;ll be feeding celebrations nationwide soon!
+</p>
 
           {/* Inputs */}
           <div
