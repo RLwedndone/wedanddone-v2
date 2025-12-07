@@ -234,12 +234,15 @@ export const generatePhotoAgreementPDF = async ({
   ensureSpace(14);
   doc.setTextColor(50);
   doc.setFontSize(12);
-  doc.text("Terms of Service:", LEFT, y);
+  // 🔹 Match on-screen heading
+  doc.text("Booking Terms:", LEFT, y);
   y += 10;
 
   setBodyFont(doc);
+
+  // 🔹 First bullet matches the PhotoContract “Payment Options & Card Authorization”
   const terms: string[] = [
-    "Payment Options: You may pay in full today, or place a 50% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date.",
+    "Payment Options & Card Authorization: You may pay in full today, or place a 50% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) photography installment payments and any final balance due under this agreement, and (b) future Wed&Done purchases you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account. If you pay in full today, your card will only be stored if you choose that option at checkout.",
     "Cancellations & Refunds: If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable deposit will be refunded less any non-recoverable costs already incurred. If you cancel within 35 days, all payments are non-refundable.",
     "Missed Payments: We will retry your card automatically. If payment is not received within 7 days, a $25 late fee may apply; after 14 days, services may be suspended and the agreement may be declared in default, in which case all amounts paid (including the deposit) may be retained and the booking cancelled.",
     "Image Delivery & Usage: Final edited images are delivered via Dropbox within 90 days of the wedding date. You receive a limited copyright license for personal use (sharing and printing). The photographer may display select images for portfolio or promotional use. Venue and officiant rules may limit certain photographs; we will comply with all restrictions.",

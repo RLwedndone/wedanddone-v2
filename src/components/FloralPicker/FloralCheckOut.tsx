@@ -4,7 +4,7 @@ import CheckoutForm from "../../CheckoutForm";
 import { generateFloralAgreementPDF } from "../../utils/generateFloralAgreementPDF";
 import { generateFloralAddOnReceiptPDF } from "../../utils/generateFloralAddOnReceiptPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -18,7 +18,11 @@ import { db } from "../../firebase/firebaseConfig";
 // ✅ centralized email helper (sends user + admin from template map)
 import { notifyBooking } from "../../utils/email/email";
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
+
+const round2 = (n: number) =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Format YYYY-MM-DD or ISO into "Month D, YYYY" for emails
 const formatWeddingDateForEmail = (raw?: string | null): string => {
@@ -28,7 +32,7 @@ const formatWeddingDateForEmail = (raw?: string | null): string => {
   let dt: Date | null = null;
 
   if (ymd.test(raw)) {
-    dt = new Date(`${raw}T12:00:00`); // noon guard to avoid timezone shift
+    dt = new Date(`${raw}T12:00:00`);
   } else {
     const tmp = new Date(raw);
     if (!isNaN(tmp.getTime())) dt = tmp;
@@ -79,11 +83,69 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // 🔐 Payment mode + saved card summary
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<{
+      brand: string;
+      last4: string;
+      exp_month: number;
+      exp_year: number;
+    } | null>(null);
+
+  const hasSavedCard = !!savedCardSummary;
+
+  // 🔍 Load saved card summary once auth is ready
+  React.useEffect(() => {
+    const auth = getAuth();
+
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (user) => {
+        try {
+          const effectiveUid = user?.uid || uid;
+          if (!effectiveUid) return;
+
+          const res = await fetch(
+            `${API_BASE}/payments/get-default`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uid: effectiveUid }),
+            }
+          );
+
+          const data = await res.json();
+
+          if (data?.card) {
+            setSavedCardSummary(data.card);
+            setMode("saved");
+          }
+        } catch (err) {
+          console.warn("No saved card found:", err);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // If this is a monthly plan (not addon + not payFull), card on file is REQUIRED.
+  const requiresCardOnFile = !isAddon && !payFull;
+
+  const [saveCardOnFile, setSaveCardOnFile] =
+    useState<boolean>(requiresCardOnFile);
+
   const DEPOSIT_PCT = 0.25;
 
-  const parsedWedding = weddingDate ? new Date(`${weddingDate}T12:00:00`) : null;
+  const parsedWedding = weddingDate
+    ? new Date(`${weddingDate}T12:00:00`)
+    : null;
   const finalDueDate = parsedWedding
-    ? new Date(parsedWedding.getTime() - 30 * 24 * 60 * 60 * 1000)
+    ? new Date(
+        parsedWedding.getTime() -
+          30 * 24 * 60 * 60 * 1000
+      )
     : null;
 
   const computedDeposit = Math.min(
@@ -110,7 +172,13 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       })
     : "30 days before your wedding date";
 
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+    const handleSuccess = async ({
+      customerId,
+      paymentMethodId,
+    }: {
+      customerId?: string;
+      paymentMethodId?: string;
+    } = {}) => {
     console.log("💳 Payment successful!");
 
     const auth = getAuth();
@@ -121,60 +189,130 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     const userSnap = await getDoc(userRef);
     const userDoc = userSnap.data() || {};
 
+    // ✅ Save stripeCustomerId (if new)
     try {
-      const existingId = userDoc?.stripeCustomerId as string | undefined;
+      const existingId =
+        userDoc?.stripeCustomerId as string | undefined;
       if (customerId && customerId !== existingId) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
           "stripe.updatedAt": serverTimestamp(),
         });
         try {
-          localStorage.setItem("stripeCustomerId", customerId);
+          localStorage.setItem(
+            "stripeCustomerId",
+            customerId
+          );
         } catch {}
-        console.log("✅ Saved stripeCustomerId to Firestore.");
+        console.log(
+          "✅ Saved stripeCustomerId to Firestore."
+        );
       }
     } catch (e) {
-      console.warn("⚠️ Could not save stripeCustomerId:", e);
-    }
-
-    try {
-      await fetch(
-        "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customerId: customerId || localStorage.getItem("stripeCustomerId"),
-            firebaseUid: user.uid,
-          }),
-        }
+      console.warn(
+        "⚠️ Could not save stripeCustomerId:",
+        e
       );
-      console.log("✅ Ensured default payment method for floral customer");
-    } catch (err) {
-      console.error("❌ Failed to ensure default payment method:", err);
     }
 
-    const safeFirst = userDoc?.firstName || firstName || "Magic";
-    const safeLast = userDoc?.lastName || lastName || "User";
+     // ✅ Store the specific card used for this floral payment plan
+    // Only for main floral contract flow (not add-ons) and only if it's a monthly plan.
+    if (!isAddon && !payFull && paymentMethodId) {
+      try {
+        await updateDoc(userRef, {
+          "paymentPlan.paymentMethodId": paymentMethodId,
+        });
+        console.log(
+          "✅ Stored paymentPlan.paymentMethodId:",
+          paymentMethodId
+        );
+      } catch (err) {
+        console.error(
+          "❌ Failed to store paymentMethodId on paymentPlan:",
+          err
+        );
+      }
+    }
+
+    // ✅ Decide whether to store card
+    const shouldStoreCard =
+      requiresCardOnFile || saveCardOnFile;
+
+    if (shouldStoreCard) {
+      try {
+        await fetch(
+          `${API_BASE}/ensure-default-payment-method`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              customerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          }
+        );
+        console.log(
+          "✅ Ensured default payment method for floral customer"
+        );
+      } catch (err) {
+        console.error(
+          "❌ Failed to ensure default payment method:",
+          err
+        );
+      }
+    } else {
+      console.log(
+        "ℹ️ Skipping card-on-file setup (no consent / pay-in-full without opt-in)."
+      );
+    }
+
+    const safeFirst =
+      userDoc?.firstName || firstName || "Magic";
+    const safeLast =
+      userDoc?.lastName || lastName || "User";
     const fullName = `${safeFirst} ${safeLast}`;
-    const purchaseDate = new Date().toLocaleDateString("en-US");
+    const purchaseDate =
+      new Date().toLocaleDateString("en-US");
 
     const asStartOfDayUTC = (d: Date) =>
-      new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+      new Date(
+        Date.UTC(
+          d.getUTCFullYear(),
+          d.getUTCMonth(),
+          d.getUTCDate(),
+          0,
+          0,
+          1
+        )
+      );
 
     function nextApproxMonthUTC(from: Date): string {
       const y = from.getUTCFullYear();
       const m = from.getUTCMonth();
       const d = from.getUTCDate();
-      const target = new Date(Date.UTC(y, m + 1, 1, 0, 0, 1));
-      const lastDayNextMonth = new Date(Date.UTC(y, m + 2, 0)).getUTCDate();
-      target.setUTCDate(Math.min(d, lastDayNextMonth));
+      const target = new Date(
+        Date.UTC(y, m + 1, 1, 0, 0, 1)
+      );
+      const lastDayNextMonth = new Date(
+        Date.UTC(y, m + 2, 0)
+      ).getUTCDate();
+      target.setUTCDate(
+        Math.min(d, lastDayNextMonth)
+      );
       return target.toISOString();
     }
 
     function monthsBetweenInclusive(from: Date, to: Date) {
-      const a = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
-      const b = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+      const a = new Date(
+        Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1)
+      );
+      const b = new Date(
+        Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1)
+      );
       let months =
         (b.getUTCFullYear() - a.getUTCFullYear()) * 12 +
         (b.getUTCMonth() - a.getUTCMonth());
@@ -182,37 +320,48 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       return Math.max(1, months);
     }
 
-            // ---------- Add-on flow ----------
+    // ---------- Add-on flow ----------
     if (isAddon) {
-      console.log("💐 Add-on mode — generating floral add-on receipt…");
+      console.log(
+        "💐 Add-on mode — generating floral add-on receipt…"
+      );
       setIsGenerating(true);
 
-      // 🔹 Wedding date + email from Firestore as source of truth
       const safeWeddingDateRaw =
         (userDoc as any)?.weddingDate ||
         (weddingDate && weddingDate.trim()) ||
         "TBD";
 
-      const weddingDateDisplay = formatWeddingDateForEmail(safeWeddingDateRaw);
+      const weddingDateDisplay =
+        formatWeddingDateForEmail(safeWeddingDateRaw);
 
       const current = getAuth().currentUser;
       const safeEmail =
-        current?.email || (userDoc as any)?.email || "unknown@wedndone.com";
+        current?.email ||
+        (userDoc as any)?.email ||
+        "unknown@wedndone.com";
 
       try {
-        const blob = await generateFloralAddOnReceiptPDF({
-          fullName,
-          email: safeEmail,
-          weddingDate: safeWeddingDateRaw, // raw used by PDF helper
-          lineItems,
-          total,
-          purchaseDate,
-        });
+        const blob =
+          await generateFloralAddOnReceiptPDF({
+            fullName,
+            email: safeEmail,
+            weddingDate: safeWeddingDateRaw,
+            lineItems,
+            total,
+            purchaseDate,
+          });
 
         const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
         const filePath = `public_docs/${user.uid}/${fileName}`;
-        const url = await uploadPdfBlob(blob, filePath);
-        console.log("✅ Add-on receipt uploaded:", url);
+        const url = await uploadPdfBlob(
+          blob,
+          filePath
+        );
+        console.log(
+          "✅ Add-on receipt uploaded:",
+          url
+        );
 
         await updateDoc(userRef, {
           documents: arrayUnion({
@@ -225,47 +374,63 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             amount: Number(total.toFixed(2)),
             date: new Date().toISOString(),
           }),
-          spendTotal: increment(Number(total.toFixed(2))),
+          spendTotal: increment(
+            Number(total.toFixed(2))
+          ),
           "bookings.floral": true,
           "bookings.updatedAt": new Date().toISOString(),
         });
 
-        // ✅ Send both user + admin for floral add-ons, with pretty date
         await notifyBooking("floral_addon", {
           user_email: safeEmail,
           user_full_name: fullName,
           firstName: safeFirst,
-          wedding_date: weddingDateDisplay, // human readable
+          wedding_date: weddingDateDisplay,
           pdf_url: url,
           pdf_title: "Floral Add-On Receipt",
           total: total.toFixed(2),
           line_items: (lineItems || []).join(", "),
-          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          dashboardUrl: `${
+            window.location.origin
+          }${
+            import.meta.env.BASE_URL
+          }dashboard`,
           product_name: "Floral Add-On",
         });
 
         window.dispatchEvent(new Event("purchaseMade"));
-        window.dispatchEvent(new Event("documentsUpdated"));
-        window.dispatchEvent(new Event("floralCompletedNow"));
+        window.dispatchEvent(
+          new Event("documentsUpdated")
+        );
+        window.dispatchEvent(
+          new Event("floralCompletedNow")
+        );
 
         setIsGenerating(false);
         onSuccess();
         return;
       } catch (err) {
-        console.error("❌ Error during floral add-on receipt:", err);
+        console.error(
+          "❌ Error during floral add-on receipt:",
+          err
+        );
         setIsGenerating(false);
         return;
       }
     }
 
     // ---------- Full contract flow ----------
-    console.log("📝 Generating Floral Agreement PDF…");
+    console.log(
+      "📝 Generating Floral Agreement PDF…"
+    );
     setIsGenerating(true);
 
     try {
       const blob = await generateFloralAgreementPDF({
-        firstName: userDoc?.firstName || firstName || "Magic",
-        lastName: userDoc?.lastName || lastName || "User",
+        firstName:
+          userDoc?.firstName || firstName || "Magic",
+        lastName:
+          userDoc?.lastName || lastName || "User",
         total,
         deposit: payFull ? 0 : amountDueToday,
         payFull,
@@ -278,18 +443,27 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
 
       const fileName = `FloralAgreement_${Date.now()}.pdf`;
       const filePath = `public_docs/${user.uid}/${fileName}`;
-      const url = await uploadPdfBlob(blob, filePath);
+      const url = await uploadPdfBlob(
+        blob,
+        filePath
+      );
 
       const purchaseTotalRow = {
         label: "floral",
         category: "floral",
         type: "contract_meta",
-        fullContractAmount: Number(total.toFixed(2)),
+        fullContractAmount: Number(
+          total.toFixed(2)
+        ),
         contractTotal: Number(total.toFixed(2)),
         total: Number(total.toFixed(2)),
         payFull: !!payFull,
-        deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: payFull ? 0 : Number(remainingBalance.toFixed(2)),
+        deposit: payFull
+          ? 0
+          : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: payFull
+          ? 0
+          : Number(remainingBalance.toFixed(2)),
         months: payFull ? 0 : 1,
         date: new Date().toISOString(),
       };
@@ -305,7 +479,9 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           uploadedAt: new Date().toISOString(),
         }),
         purchases: arrayUnion(purchaseTotalRow),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(
+          Number(amountDueToday.toFixed(2))
+        ),
         paymentPlan: payFull
           ? {
               product: "floral",
@@ -326,7 +502,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               paidNow: amountDueToday,
               remainingBalance,
               finalDueDate: finalDueDateStr,
-              finalDueAt: finalDueDate?.toISOString() ?? null,
+              finalDueAt:
+                finalDueDate?.toISOString() ?? null,
               createdAt: new Date().toISOString(),
             },
         paymentPlanAuto: payFull
@@ -345,24 +522,42 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               nextChargeAt: null,
               finalDueAt: null,
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem(
+                  "stripeCustomerId"
+                ) ||
+                null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             }
           : (() => {
               const nowUTC = new Date();
-              const firstChargeAtISO = nextApproxMonthUTC(nowUTC);
-              const firstChargeAt = new Date(firstChargeAtISO);
+              const firstChargeAtISO =
+                nextApproxMonthUTC(nowUTC);
+              const firstChargeAt = new Date(
+                firstChargeAtISO
+              );
               const finalISO = finalDueDate
-                ? asStartOfDayUTC(finalDueDate).toISOString()
+                ? asStartOfDayUTC(
+                    finalDueDate
+                  ).toISOString()
                 : null;
               const planMonths = finalDueDate
-                ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
+                ? monthsBetweenInclusive(
+                    firstChargeAt,
+                    finalDueDate
+                  )
                 : 1;
-              const remainingCentsTotal = Math.round(remainingBalance * 100);
-              const perMonthCents = Math.floor(remainingCentsTotal / planMonths);
+              const remainingCentsTotal = Math.round(
+                remainingBalance * 100
+              );
+              const perMonthCents = Math.floor(
+                remainingCentsTotal / planMonths
+              );
               const lastPaymentCents =
-                remainingCentsTotal - perMonthCents * Math.max(0, planMonths - 1);
+                remainingCentsTotal -
+                perMonthCents *
+                  Math.max(0, planMonths - 1);
 
               return {
                 version: 1,
@@ -371,7 +566,9 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 strategy: "monthly_until_final",
                 currency: "usd",
                 totalCents: Math.round(total * 100),
-                depositCents: Math.round(amountDueToday * 100),
+                depositCents: Math.round(
+                  amountDueToday * 100
+                ),
                 remainingCents: remainingCentsTotal,
                 planMonths,
                 perMonthCents,
@@ -379,60 +576,85 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 nextChargeAt: firstChargeAtISO,
                 finalDueAt: finalISO,
                 stripeCustomerId:
-                  customerId || localStorage.getItem("stripeCustomerId") || null,
+                  customerId ||
+                  localStorage.getItem(
+                    "stripeCustomerId"
+                  ) ||
+                  null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               };
             })(),
       });
 
-      // ⭐ NEW: send floral booking emails (user + admin)
       {
         const current = getAuth().currentUser;
 
         await notifyBooking("floral", {
-          user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+          user_email:
+            current?.email ||
+            (userDoc as any)?.email ||
+            "unknown@wedndone.com",
           user_full_name: fullName,
           firstName: safeFirst,
-
           wedding_date: weddingDate || "TBD",
-
           pdf_url: url,
           pdf_title: "Floral Agreement",
-
           total: total.toFixed(2),
           line_items: (lineItems || []).join(", "),
-
           payment_now: amountDueToday.toFixed(2),
-          remaining_balance: remainingBalance.toFixed(2),
+          remaining_balance:
+            remainingBalance.toFixed(2),
           final_due: finalDueDateStr,
-
-          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          dashboardUrl: `${
+            window.location.origin
+          }${
+            import.meta.env.BASE_URL
+          }dashboard`,
         });
       }
 
       window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(new Event("floralCompletedNow"));
+      window.dispatchEvent(
+        new Event("floralCompletedNow")
+      );
 
       setIsGenerating(false);
       onSuccess();
     } catch (error) {
-      console.error("❌ Error during floral contract upload:", error);
+      console.error(
+        "❌ Error during floral contract upload:",
+        error
+      );
       setIsGenerating(false);
     }
   };
 
   return (
     <div className="pixie-card pixie-card--modal">
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${
+            import.meta.env.BASE_URL
+          }assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body">
         {isGenerating ? (
-          <div className="px-center" style={{ marginTop: "10px" }}>
+          <div
+            className="px-center"
+            style={{ marginTop: "10px" }}
+          >
             <video
-              src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+              src={`${
+                import.meta.env.BASE_URL
+              }assets/videos/magic_clock.mp4`}
               autoPlay
               loop
               muted
@@ -445,14 +667,19 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 display: "block",
               }}
             />
-            <h3 className="px-title" style={{ margin: 0 }}>
+            <h3
+              className="px-title"
+              style={{ margin: 0 }}
+            >
               Madge is working her magic… hold tight!
             </h3>
           </div>
         ) : (
           <>
             <video
-              src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
+              src={`${
+                import.meta.env.BASE_URL
+              }assets/videos/lock.mp4`}
               autoPlay
               loop
               muted
@@ -476,11 +703,19 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               Floral Checkout
             </h2>
 
-            <p className="px-prose-narrow" style={{ marginBottom: "16px" }}>
+            <p
+              className="px-prose-narrow"
+              style={{ marginBottom: "16px" }}
+            >
               {paymentSummary
                 ? paymentSummary
                 : payFull
-                ? `You're paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+                ? `You're paying $${Number(
+                    total
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} today.`
                 : `You're paying a $${amountDueToday.toFixed(
                     2
                   )} deposit today. Remaining $${remainingBalance.toFixed(
@@ -488,17 +723,113 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                   )} due ${finalDueDateStr}.`}
             </p>
 
+            {/* Payment Method Selection */}
+            <div
+              style={{
+                marginTop: "12px",
+                marginBottom: "20px",
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                maxWidth: 520,
+                marginInline: "auto",
+              }}
+            >
+              {hasSavedCard ? (
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "saved"}
+                      onChange={() => setMode("saved")}
+                    />
+                    <span>
+                      Saved card on file —{" "}
+                      <strong>
+                        {savedCardSummary!.brand.toUpperCase()}
+                      </strong>{" "}
+                      •••• {savedCardSummary!.last4} (exp{" "}
+                      {
+                        savedCardSummary!.exp_month
+                      }
+                      /
+                      {
+                        savedCardSummary!.exp_year
+                      }
+                      )
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "new"}
+                      onChange={() => setMode("new")}
+                    />
+                    <span>Pay with a different card</span>
+                  </label>
+                </>
+              ) : (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    checked
+                    readOnly
+                  />
+                  <span>Enter your card details</span>
+                </label>
+              )}
+            </div>
+
             <div className="px-elements">
               <CheckoutForm
                 total={amountDueToday}
+                useSavedCard={mode === "saved"}
                 onSuccess={handleSuccess}
                 setStepSuccess={onSuccess}
                 isAddon={false}
-                customerEmail={getAuth().currentUser?.email || undefined}
-                customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                customerEmail={
+                  getAuth().currentUser?.email ||
+                  undefined
+                }
+                customerName={`${firstName || "Magic"} ${
+                  lastName || "User"
+                }`}
                 customerId={(() => {
                   try {
-                    return localStorage.getItem("stripeCustomerId") || undefined;
+                    return (
+                      localStorage.getItem(
+                        "stripeCustomerId"
+                      ) || undefined
+                    );
                   } catch {
                     return undefined;
                   }

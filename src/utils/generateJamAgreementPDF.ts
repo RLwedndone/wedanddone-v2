@@ -217,92 +217,92 @@ export const generateJamAgreementPDF = async ({
   );
   y += 12;
 
-  /** -------- Legal Terms (aligned with other boutiques) -------- */
-  doc.setFontSize(14);
-  doc.setTextColor(0);
-  doc.text("Booking Terms & Policies", 20, y);
-  y += 10;
-  resetBodyTextStyle(doc, 11);
+  /** -------- Legal Terms (aligned with contract screen) -------- */
+doc.setFontSize(14);
+doc.setTextColor(0);
+doc.text("Booking Terms & Policies", 20, y);
+y += 10;
+resetBodyTextStyle(doc, 11);
 
-  const dueText = finalDuePretty || "35 days before your wedding date";
+const dueText = finalDuePretty || "35 days before your wedding date";
 
-  y = writeParagraph(
-    doc,
-    "By signing this agreement, your event date is reserved for Jam & Groove services (DJ and/or musicians).",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y = writeParagraph(
+  doc,
+  "By signing this agreement, your event date is reserved for Jam & Groove services (DJ and/or musicians).",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Payment Options. You may pay in full today, or pay a 25% non-refundable deposit today and the remaining balance in monthly installments. All installments must be completed no later than " +
-      dueText +
-      ". Any unpaid balance will be automatically charged on that date to the card on file.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Payment Options. You may either pay in full today, or place a non-refundable $750 deposit today with the remaining balance billed in monthly installments. All installments must be completed no later than " +
+    dueText +
+    ". Any remaining balance at that time will be automatically charged to the card on file.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Cancellation & Refunds. If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. If you cancel within 35 days, all payments are non-refundable.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Cancellation & Refunds. If you cancel more than 35 days before your event, amounts you have paid beyond the non-refundable portion are refundable, less any non-recoverable costs already incurred. If you cancel 35 days or fewer before the event, all payments made are non-refundable.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Missed Payments. If an installment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. If payment is not received within 7 days, a $25 late fee applies. After 14 days, services may be suspended and this agreement may be declared in default. In the event of default, all amounts paid (including the non-refundable deposit) will be retained and the booking may be cancelled.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Missed Payments. If a payment attempt fails, we will automatically re-attempt your card. After 7 days, a $25 late fee may apply. After 14 days of non-payment, services may be suspended and this agreement may be considered in default.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Performance & Logistics. Talent will arrive approximately 60 minutes prior to guest arrival for setup and sound check. Client agrees to provide reasonable power, space, and venue access. Travel outside the Phoenix Metro area may incur additional fees.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Performance & Logistics. Your DJ / music team will typically arrive approximately 1 hour before guest arrival for setup and sound check. You agree to provide safe power, appropriate coverage or shade if outdoors, and any venue access needed. Travel outside the Phoenix Metro area or to certain locations may incur additional fees as discussed in your package.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Force Majeure. Neither party is liable for failure or delay caused by events beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages). If performance is prevented, the parties will work in good faith to reschedule. If rescheduling is not possible, amounts paid beyond non-recoverable costs will be refunded.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Force Majeure. If events beyond anyone’s reasonable control (including but not limited to extreme weather, natural disasters, government restrictions, serious illness, or utility outages) prevent performance, the parties will work in good faith to reschedule. If rescheduling is not possible, amounts you have paid beyond non-recoverable costs will be refunded. If Jam & Groove must cancel for reasons within our control and a suitable replacement cannot be arranged, liability is limited to a refund of payments made.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
-  y += 4;
-  y = writeParagraph(
-    doc,
-    "Limitation of Liability. In all circumstances, Wed&Done's liability is limited to the total amounts paid by Client under this agreement.",
-    20,
-    y,
-    w - 40,
-    bottomMargin,
-    lock
-  );
+y += 4;
+y = writeParagraph(
+  doc,
+  "Limitation of Liability. In all circumstances, Wed&Done’s liability related to this agreement is limited to the total amounts paid by Client under this agreement.",
+  20,
+  y,
+  w - 40,
+  bottomMargin,
+  lock
+);
 
   // -------- signature pinned to final page bottom --------
   const sigBlockHeight = 55;

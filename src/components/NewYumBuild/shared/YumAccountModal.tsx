@@ -5,10 +5,13 @@ import {
   updateProfile,
   getAuth,
 } from "firebase/auth";
-import { handleGoogleSignIn } from "../../../utils/authHelpers";
-import { saveUserProfile } from "../../../utils/saveUserProfile";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../../firebase/firebaseConfig";
+import { saveUserProfile } from "../../../utils/saveUserProfile";
+
+// ✅ Shared Google helper + name capture, same as Floral/Photo/Jam
+import { signInWithGoogleAndEnsureUser } from "../../../utils/signInWithGoogleAndEnsureUser";
+import NameCapture from "../../NameCapture";
 
 interface YumAccountModalProps {
   onClose: () => void;
@@ -24,6 +27,11 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [error,     setError]     = useState("");
+
+  // 🔁 Google “missing name” flow
+  const [needNameCapture, setNeedNameCapture] = useState(false);
+  const [pendingFirst, setPendingFirst] = useState("");
+  const [pendingLast,  setPendingLast]  = useState("");
 
   const auth = getAuth();
 
@@ -55,7 +63,8 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({
     } catch (err: any) {
       console.error("❌ Signup or Firestore error:", err);
 
-      let message = "Something went wrong creating your account. Please try again.";
+      let message =
+        "Something went wrong creating your account. Please try again.";
 
       if (err?.code === "auth/email-already-in-use") {
         message =
@@ -67,34 +76,72 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({
   };
 
   const handleGoogleSignup = async () => {
-    const result = await handleGoogleSignIn();
-    if (!result?.success) return;
-
-    const user = getAuth().currentUser;
-    if (!user) return;
-
-    const displayName = user.displayName || "";
-    const [fn = "", ln = ""] = displayName.split(" ");
-    const em = user.email || "";
-    const uid = user.uid;
-
     try {
-      await setDoc(
-        doc(db, "users", uid),
-        {
-          firstName: fn,
-          lastName: ln,
-          email: em,
-          createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      const result = await signInWithGoogleAndEnsureUser();
+      // result = { uid, email, firstName, lastName, missingName }
+
+      const uid = result.uid || "";
+      const em  = result.email || "";
+      const fn  = result.firstName || "";
+      const ln  = result.lastName || "";
+
+      // Keep everything flowing through the same profile helper
+      await saveUserProfile({
+        uid,
+        firstName: fn,
+        lastName: ln,
+        email: em,
+      });
+
+      // Optional: ensure a user doc exists with createdAt
+      if (uid) {
+        await setDoc(
+          doc(db, "users", uid),
+          {
+            firstName: fn,
+            lastName: ln,
+            email: em,
+            createdAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
+
+      // If Google didn’t give us full name, flip to NameCapture
+      if (result.missingName) {
+        setPendingFirst(fn);
+        setPendingLast(ln);
+        setNeedNameCapture(true);
+        return;
+      }
+
       onComplete?.();
-    } catch (err) {
-      console.error("❌ Firestore error during Google signup:", err);
-      setError("Could not save your info. Please try again.");
+    } catch (err: any) {
+      console.error("❌ Google signup error (Yum):", err);
+
+      if (err?.code === "auth/popup-closed-by-user") {
+        // user bailed, no need to yell
+        return;
+      }
+
+      setError(
+        err?.message ||
+          "Google sign-in failed. Please try again or use email + password."
+      );
     }
   };
+
+  // If we still need names after Google, show NameCapture instead of the normal body
+  if (needNameCapture) {
+    return (
+      <NameCapture
+        initialFirst={pendingFirst}
+        initialLast={pendingLast}
+        onDone={() => onComplete?.()}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     // Floral-standard overlay
@@ -130,25 +177,25 @@ const YumAccountModal: React.FC<YumAccountModalProps> = ({
 
           {/* Title + copy */}
           <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
-  Ready to dial in deliciousness?
-</h2>
+            Ready to dial in deliciousness?
+          </h2>
 
-<p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
-  To save your selections, create an account below.
-</p>
+          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+            To save your selections, create an account below.
+          </p>
 
-<p
-  className="px-prose-narrow"
-  style={{
-    marginBottom: "1.5rem",
-    fontSize: "0.9rem",
-    color: "#666",
-  }}
->
-  🍽️ Just a quick note: all of our catering and dessert magic is
-  currently served in Arizona. Wed&amp;Done is booking Arizona weddings
-  only for now — but we&apos;ll be feeding celebrations nationwide soon!
-</p>
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            🍽️ Just a quick note: all of our catering and dessert magic is
+            currently served in Arizona. Wed&amp;Done is booking Arizona weddings
+            only for now — but we&apos;ll be feeding celebrations nationwide soon!
+          </p>
 
           {/* Inputs */}
           <div

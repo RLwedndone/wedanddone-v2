@@ -4,10 +4,12 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
 } from "firebase/auth";
 import { saveUserProfile } from "../../utils/saveUserProfile";
+
+// Shared Google signup helper + name gate
+import { signInWithGoogleAndEnsureUser } from "../../utils/signInWithGoogleAndEnsureUser";
+import NameCapture from "../NameCapture";
 
 interface PhotoAccountModalProps {
   onSuccess: () => void;
@@ -19,13 +21,21 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({
   onClose,
 }) => {
   const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [email,     setEmail]     = useState("");
-  const [password,  setPassword]  = useState("");
-  const [error,     setError]     = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  // If Google login didn't give us names, we flip this on
+  const [needNameCapture, setNeedNameCapture] = useState(false);
+  const [pendingFirst, setPendingFirst] = useState("");
+  const [pendingLast, setPendingLast] = useState("");
 
   const auth = getAuth();
 
+  // ---------------------------
+  // Email/password create
+  // ---------------------------
   const handleSignup = async () => {
     try {
       const userCred = await createUserWithEmailAndPassword(
@@ -55,46 +65,82 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({
       if (err?.code === "auth/email-already-in-use") {
         message =
           "Looks like you already have an account with this email. Try logging in from the dashboard or resetting your password.";
+      } else if (err?.code === "auth/weak-password") {
+        message =
+          "For security, your password needs at least 6 characters. Try adding a bit more sparkle.";
+      } else if (err?.code === "auth/invalid-email") {
+        message =
+          "That doesn’t look like a valid email address yet. Double-check for typos.";
       }
 
       setError(message);
     }
   };
 
+  // ---------------------------
+  // Google signup with fallback for missing names
+  // ---------------------------
   const handleGoogleSignup = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithGoogleAndEnsureUser();
+      // result = { uid, email, firstName, lastName, missingName }
 
       await saveUserProfile({
-        firstName,
-        lastName,
-        email: result.user.email || "",
-        uid: result.user.uid,
+        firstName: result.firstName || "",
+        lastName: result.lastName || "",
+        email: result.email || "",
+        uid: result.uid || "",
       });
+
+      if (result.missingName) {
+        // we don't have both names yet → show NameCapture next
+        setPendingFirst(result.firstName || "");
+        setPendingLast(result.lastName || "");
+        setNeedNameCapture(true);
+        return;
+      }
 
       onSuccess();
     } catch (err: any) {
       console.error("[PhotoAccountModal] Google signup failed:", err);
 
-      // handle common Google errors nicely
       if (err?.code === "auth/popup-closed-by-user") {
-        // user cancelled, don't show an error banner
+        // user cancelled, no scary red banner
         return;
       }
 
-      let message =
-        "Google sign-in failed. Please try again or use email and password.";
-
       if (err?.code === "auth/account-exists-with-different-credential") {
-        message =
-          "An account with this email already exists under a different sign-in method. Try logging in from the dashboard or resetting your password.";
+        setError(
+          "An account with this email already exists under a different sign-in method. Try logging in from the dashboard or resetting your password."
+        );
+        return;
       }
 
-      setError(message);
+      setError(
+        err?.message ||
+          "Google sign-in failed. Please try again or use email and password."
+      );
     }
   };
 
+  // ---------------------------
+  // If we need to collect first/last after Google,
+  // temporarily swap the body to NameCapture.
+  // ---------------------------
+  if (needNameCapture) {
+    return (
+      <NameCapture
+        initialFirst={pendingFirst}
+        initialLast={pendingLast}
+        onDone={onSuccess}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // ---------------------------
+  // Normal modal render
+  // ---------------------------
   return (
     // Dimmed backdrop using shared overlay
     <div
@@ -129,25 +175,26 @@ const PhotoAccountModal: React.FC<PhotoAccountModalProps> = ({
 
           {/* Title + copy */}
           <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
-  Let’s style your wedding photos!
-</h2>
+            Let’s style your wedding photos!
+          </h2>
 
-<p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
-  Create an account to save your style results and book your photographer.
-</p>
+          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+            Create an account to save your style results and book your
+            photographer.
+          </p>
 
-<p
-  className="px-prose-narrow"
-  style={{
-    marginBottom: "1.5rem",
-    fontSize: "0.9rem",
-    color: "#666",
-  }}
->
-  📸 Quick note: all of our photographers and photo magic are based in
-  Arizona. Wed&amp;Done is currently booking Arizona weddings only — but
-  we&apos;ll be capturing love stories in more states soon!
-</p>
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            📸 Quick note: all of our photographers and photo magic are based in
+            Arizona. Wed&amp;Done is currently booking Arizona weddings only —
+            but we&apos;ll be capturing love stories in more states soon!
+          </p>
 
           {/* Inputs */}
           <div

@@ -1,7 +1,7 @@
 // src/components/photo/PhotoCheckOut.tsx
 import React, { useRef, useState } from "react";
 import CheckoutForm from "../../CheckoutForm";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -19,6 +19,10 @@ import { generatePhotoAddOnReceiptPDF } from "../../utils/generatePhotoAddOnRece
 import { generatePhotoAgreementPDF } from "../../utils/generatePhotoAgreementPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
 import emailjs from "@emailjs/browser";
+
+// 🔗 Central Stripe API base (matches FloralCheckOut)
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
 // ───────── helpers (dates & math) ─────────
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -80,8 +84,8 @@ interface PhotoCheckOutProps {
   onSuccess: () => void;
   lineItems: string[];
   uid: string;
-  onBack: () => void;
-  photoStyle?: string;        // ⭐ NEW
+  onBack: () => void; // still accepted but no Back button in UI
+  photoStyle?: string;
 }
 
 const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
@@ -95,12 +99,57 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   onSuccess,
   lineItems,
   uid,
-  onBack,
-  photoStyle,                // ⭐ NEW
+  onBack, // eslint can whine, but overlay still passes it
+  photoStyle,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [completed, setCompleted] = useState(false);
   const finishedOnceRef = useRef(false);
+
+  // 🔐 Payment mode + saved card summary (same pattern as Floral)
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<{
+      brand: string;
+      last4: string;
+      exp_month: number;
+      exp_year: number;
+    } | null>(null);
+
+  const hasSavedCard = !!savedCardSummary;
+
+  // Load saved card summary when auth is ready
+  React.useEffect(() => {
+    const auth = getAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        const effectiveUid = user?.uid || uid;
+        if (!effectiveUid) return;
+
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: effectiveUid }),
+        });
+
+        const data = await res.json();
+
+        if (data?.card) {
+          setSavedCardSummary(data.card);
+          setMode("saved");
+        }
+      } catch (err) {
+        console.warn("No saved card found (photo):", err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // If this is a monthly plan (not addon + not payFull), card on file is REQUIRED.
+  const requiresCardOnFile = !isAddon && !payFull;
+  const [saveCardOnFile] = useState<boolean>(requiresCardOnFile);
 
   // ───────── amounts per policy ─────────
   // For add-ons: never use LS; full add-on amount is due now
@@ -151,7 +200,13 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
     amountDueToday
   );
 
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+    paymentMethodId,
+  }: {
+    customerId?: string;
+    paymentMethodId?: string;
+  } = {}) => {
     if (finishedOnceRef.current) return;
     finishedOnceRef.current = true;
 
@@ -179,7 +234,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         );
       }
 
-      // Save Stripe customerId (and default PM) if we got one
+      // Save Stripe customerId (and optionally paymentMethodId) if we got one
       try {
         const existingId = (userDoc as any)?.stripeCustomerId as
           | string
@@ -194,10 +249,30 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           } catch {}
         }
 
-        try {
-          await fetch(
-            "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
-            {
+        // If we ever want to store the specific PM for this plan, we can use this:
+        if (!isAddon && !payFull && paymentMethodId) {
+          try {
+            await updateDoc(userRef, {
+              "paymentPlan.paymentMethodId": paymentMethodId,
+            });
+            console.log(
+              "✅ Stored paymentPlan.paymentMethodId (photo):",
+              paymentMethodId
+            );
+          } catch (err) {
+            console.error(
+              "❌ Failed to store paymentMethodId on paymentPlan (photo):",
+              err
+            );
+          }
+        }
+
+        // Decide whether to store card-on-file
+        const shouldStoreCard = requiresCardOnFile || saveCardOnFile;
+
+        if (shouldStoreCard) {
+          try {
+            await fetch(`${API_BASE}/ensure-default-payment-method`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -205,22 +280,28 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                   customerId || localStorage.getItem("stripeCustomerId"),
                 firebaseUid: uidToUse,
               }),
-            }
+            });
+            console.log("✅ Ensured default payment method for photo customer");
+          } catch (err) {
+            console.error(
+              "❌ Failed to ensure default payment method (photo):",
+              err
+            );
+          }
+        } else {
+          console.log(
+            "ℹ️ Skipping card-on-file setup for photo (no consent / pay-in-full without opt-in)."
           );
-          console.log("✅ Ensured default payment method for photo customer");
-        } catch (err) {
-          console.error("❌ Failed to ensure default payment method:", err);
         }
       } catch (e) {
-        console.warn("⚠️ Could not save stripeCustomerId:", e);
+        console.warn("⚠️ Could not save stripeCustomerId (photo):", e);
       }
 
       const firstName = (userDoc as any)?.firstName || "Magic";
       const lastName = (userDoc as any)?.lastName || "User";
       const fullName = `${firstName} ${lastName}`;
 
-      const userEmail =
-        (userDoc as any)?.email || user?.email || "";
+      const userEmail = (userDoc as any)?.email || user?.email || "";
       const weddingYMD = (userDoc as any)?.weddingDate || null;
 
       // Dates for plan math: final due = wedding - 35 days
@@ -236,7 +317,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
       let planMonths = 0;
       let perMonthCents = 0;
       let lastPaymentCents = 0;
-      if (!payFull && finalDueDate && remainingBalance > 0) {
+      if (!isAddon && !payFull && finalDueDate && remainingBalance > 0) {
         const months = monthsBetweenInclusive(new Date(), finalDueDate);
         const remainingCents = Math.round(remainingBalance * 100);
         const base = Math.floor(remainingCents / months);
@@ -246,11 +327,12 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         lastPaymentCents = tail;
       }
 
-      const months = payFull ? 0 : planMonths;
-      const monthlyAmount = payFull ? 0 : +(perMonthCents / 100).toFixed(2);
+      const months = payFull || isAddon ? 0 : planMonths;
+      const monthlyAmount =
+        payFull || isAddon ? 0 : +(perMonthCents / 100).toFixed(2);
 
       // 1) Record purchase & booking flags
-      await updateDoc(userRef, {
+      const updates: Record<string, any> = {
         "bookings.photography": true,
         weddingDateLocked: true,
 
@@ -260,12 +342,13 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           amount: Number(amountDueToday.toFixed(2)),
           contractTotal: Number(totalEffective.toFixed(2)),
           payFull: Boolean(payFull),
-          deposit: payFull
-            ? Number(totalEffective.toFixed(2))
-            : Number(amountDueToday.toFixed(2)),
+          deposit:
+            payFull || isAddon
+              ? Number(totalEffective.toFixed(2))
+              : Number(amountDueToday.toFixed(2)),
           monthlyAmount,
           months,
-          method: payFull ? "full" : "deposit",
+          method: payFull || isAddon ? "full" : "deposit",
           date: new Date().toISOString(),
           source: "PhotoCheckOut",
           module: "photography",
@@ -273,7 +356,13 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
 
         spendTotal: increment(Number(amountDueToday.toFixed(2))),
 
-        paymentPlan: payFull
+        lastPurchaseAt: serverTimestamp(),
+      };
+
+      // Only maintain paymentPlan/paymentPlanAuto for the main booking,
+      // not for add-ons.
+      if (!isAddon) {
+        updates.paymentPlan = payFull
           ? {
               product: "photo",
               type: "full",
@@ -301,9 +390,9 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                 : "35 days before your wedding date",
               finalDueAt: finalDueISO,
               createdAt: new Date().toISOString(),
-            },
+            };
 
-        paymentPlanAuto: payFull
+        updates.paymentPlanAuto = payFull
           ? {
               version: 1,
               product: "photo",
@@ -345,10 +434,10 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                 null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-            },
+            };
+      }
 
-        lastPurchaseAt: serverTimestamp(),
-      });
+      await updateDoc(userRef, updates);
 
       // 2) PDF + upload
       let pdfUrl = "";
@@ -365,14 +454,14 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             month: "long",
             day: "numeric",
           });
-        
+
           pdfBlob = await generatePhotoAddOnReceiptPDF({
             fullName,
-            email: userEmail,          // ✅ matches PhotoAddOnPDFOptions
+            email: userEmail,
             lineItems,
             total: amountDueToday,
             purchaseDate,
-            weddingDate: weddingYMD || undefined, // generator handles TBD display
+            weddingDate: weddingYMD || undefined,
           });
         } else {
           const depositForPdf = payFull ? 0 : amountDueToday;
@@ -386,9 +475,10 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             weddingDate: (userDoc as any)?.weddingDate || "TBD",
             signatureImageUrl: signatureImage || "",
             lineItems,
-            photoStyle: photoStyle && photoStyle.trim()
-              ? photoStyle
-              : "Not selected",
+            photoStyle:
+              photoStyle && photoStyle.trim()
+                ? photoStyle
+                : "Not selected",
           });
         }
 
@@ -414,7 +504,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         console.warn("⚠️ PDF generate/upload failed—continuing:", pdfErr);
       }
 
-      // 3) Emails (user + admin, VenueCheckOut style, but photo templates)
+      // 3) Emails (user + admin)
       try {
         const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
         const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
@@ -430,16 +520,16 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         const ADMIN_TEMPLATE_ID = "template_mgm37ce";
 
         if (SERVICE_ID && PUBLIC_KEY) {
-          const userEmail =
+          const userEmailFinal =
             (userDoc as any)?.email || user?.email || undefined;
 
           // buyer email
-          if (USER_TEMPLATE_ID && userEmail) {
+          if (USER_TEMPLATE_ID && userEmailFinal) {
             await emailjs.send(
               SERVICE_ID,
               USER_TEMPLATE_ID,
               {
-                user_email: userEmail,
+                user_email: userEmailFinal,
                 user_name: fullName,
                 pdf_url: pdfUrl,
                 pdf_title: isAddon
@@ -461,7 +551,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
               ADMIN_TEMPLATE_ID,
               {
                 admin_email: ADMIN_EMAIL,
-                user_email: userEmail || "",
+                user_email: userEmailFinal || "",
                 user_name: fullName,
                 pdf_url: pdfUrl,
                 amount_today: amountDueToday.toFixed(2),
@@ -538,13 +628,17 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
     localStorage.getItem("photoFinalDuePretty") ||
     "35 days before your wedding date";
 
-  const checkoutSummary = payFull
-    ? `You're paying $${Number(totalEffective).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
-    : `You're paying a $${amountDueToday.toFixed(
-        2
-      )} deposit today. Remaining $${remainingBalance.toFixed(
-        2
-      )} due ${finalDuePretty}.`;
+  const checkoutSummary =
+    payFull || isAddon
+      ? `You're paying $${Number(amountDueToday).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} today.`
+      : `You're paying a $${amountDueToday.toFixed(
+          2
+        )} deposit today. Remaining $${remainingBalance.toFixed(
+          2
+        )} due ${finalDuePretty}.`;
 
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
@@ -581,17 +675,92 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
             marginBottom: 8,
           }}
         >
-          Checkout
+          Photo Checkout
         </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
           {checkoutSummary}
         </p>
 
-        {/* Stripe form (no <Elements /> now) */}
+        {/* Payment Method Selection (saved vs new) */}
+        <div
+          style={{
+            marginTop: 12,
+            marginBottom: 20,
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: "#f7f8ff",
+            border: "1px solid #d9ddff",
+            maxWidth: 520,
+            marginInline: "auto",
+            textAlign: "left",
+          }}
+        >
+          {hasSavedCard ? (
+            <>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  marginBottom: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="paymentMode"
+                  checked={mode === "saved"}
+                  onChange={() => setMode("saved")}
+                />
+                <span>
+                  Saved card on file —{" "}
+                  <strong>{savedCardSummary!.brand.toUpperCase()}</strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/{savedCardSummary!.exp_year})
+                </span>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="paymentMode"
+                  checked={mode === "new"}
+                  onChange={() => setMode("new")}
+                />
+                <span>Pay with a different card</span>
+              </label>
+            </>
+          ) : (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: ".95rem",
+                cursor: "pointer",
+              }}
+            >
+              <input type="radio" checked readOnly />
+              <span>Enter your card details</span>
+            </label>
+          )}
+        </div>
+
+        {/* Stripe form */}
         <div className="px-elements" aria-busy={isGenerating}>
           <CheckoutForm
             total={amountDueToday}
+            useSavedCard={mode === "saved"}
             onSuccess={handleSuccess}
             setStepSuccess={onSuccess}
             isAddon={isAddon}
@@ -609,12 +778,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           />
         </div>
 
-        {/* Back button */}
-        <div className="px-cta-col" style={{ marginTop: 12 }}>
-          <button className="boutique-back-btn" onClick={onBack}>
-            ⬅ Back
-          </button>
-        </div>
+        {/* 🔙 No back button on checkout per latest flow */}
       </div>
     </div>
   );

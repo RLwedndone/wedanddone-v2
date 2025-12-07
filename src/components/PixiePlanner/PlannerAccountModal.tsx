@@ -4,10 +4,12 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
 } from "firebase/auth";
 import { saveUserProfile } from "../../utils/saveUserProfile";
+
+// ✅ Shared Google helper + name capture (same as Floral/Photo/Jam/Yum)
+import { signInWithGoogleAndEnsureUser } from "../../utils/signInWithGoogleAndEnsureUser";
+import NameCapture from "../NameCapture";
 
 interface PlannerAccountModalProps {
   onSuccess: () => void;
@@ -23,6 +25,11 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [error,     setError]     = useState("");
+
+  // Google “missing name” flow
+  const [needNameCapture, setNeedNameCapture] = useState(false);
+  const [pendingFirst, setPendingFirst] = useState("");
+  const [pendingLast,  setPendingLast]  = useState("");
 
   const auth = getAuth();
 
@@ -63,22 +70,36 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({
 
   const handleGoogleSignup = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result   = await signInWithPopup(auth, provider);
+      const result = await signInWithGoogleAndEnsureUser();
+      // result = { uid, email, firstName, lastName, missingName }
 
+      const uid = result.uid || "";
+      const em  = result.email || "";
+      const fn  = result.firstName || "";
+      const ln  = result.lastName || "";
+
+      // Keep everything going through profile helper
       await saveUserProfile({
-        firstName,
-        lastName,
-        email: result.user.email || "",
-        uid:   result.user.uid,
+        uid,
+        firstName: fn,
+        lastName: ln,
+        email: em,
       });
+
+      // If Google didn’t give us full name, flip to NameCapture
+      if (result.missingName) {
+        setPendingFirst(fn);
+        setPendingLast(ln);
+        setNeedNameCapture(true);
+        return;
+      }
 
       onSuccess();
     } catch (err: any) {
       console.error("[PlannerAccountModal] Google signup failed:", err);
 
       if (err?.code === "auth/popup-closed-by-user") {
-        // user closed the Google popup; no need to yell at them
+        // user closed the popup; no need to yell at them
         return;
       }
 
@@ -93,6 +114,18 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({
       setError(message);
     }
   };
+
+  // If we still need names after Google, show NameCapture instead
+  if (needNameCapture) {
+    return (
+      <NameCapture
+        initialFirst={pendingFirst}
+        initialLast={pendingLast}
+        onDone={onSuccess}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     // Overlay restores the dim background & proper stacking
@@ -127,8 +160,7 @@ const PlannerAccountModal: React.FC<PlannerAccountModalProps> = ({
           />
 
           {/* Title + copy */}
-                    {/* Title + copy */}
-                    <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
+          <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
             Ready to book your magical planner?
           </h2>
 

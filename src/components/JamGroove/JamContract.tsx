@@ -1,8 +1,8 @@
 // src/components/jam/JamContractScreen.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { getAuth } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
 interface JamContractProps {
@@ -30,7 +30,7 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 const parseLocalYMD = (ymd?: string | null): Date | null => {
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  return new Date(`${ymd}T12:00:00`); // local-noon guard
+  return new Date(`${ymd}T12:00:00`); // local-noon guard to dodge timezone shifts
 };
 
 const asStartOfDayUTC = (d: Date) =>
@@ -74,6 +74,45 @@ const JamContractScreen: React.FC<JamContractProps> = ({
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
+  // global card-on-file consent status (shared with Floral)
+  const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+  const [cardConsentChecked, setCardConsentChecked] = useState(false);
+
+  // 🔍 unified check for cardOnFileConsent (LS + Firestore)
+  useEffect(() => {
+    // 1) localStorage quick check
+    let localFlag = false;
+    try {
+      localFlag = localStorage.getItem("cardOnFileConsent") === "true";
+    } catch {
+      /* ignore */
+    }
+
+    if (localFlag) {
+      setHasCardOnFileConsent(true);
+      return;
+    }
+
+    // 2) Firestore check
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          if (data?.cardOnFileConsent) {
+            setHasCardOnFileConsent(true);
+          }
+        }
+      } catch (err) {
+        console.error("❌ Failed to load cardOnFileConsent:", err);
+      }
+    })();
+  }, []);
+
   /* ───────── values from cart / user date ───────── */
   const total = Number(bookingData?.total || 0);
   const formattedTotal = total.toLocaleString(undefined, {
@@ -103,7 +142,10 @@ const JamContractScreen: React.FC<JamContractProps> = ({
     "";
 
   const weddingDate = parseLocalYMD(weddingYMD);
-  const finalDueDate = weddingDate ? new Date(weddingDate.getTime() - 35 * MS_DAY) : null;
+  const finalDueDate = weddingDate
+    ? new Date(weddingDate.getTime() - 35 * MS_DAY)
+    : null;
+
   const finalDuePretty = finalDueDate
     ? finalDueDate.toLocaleDateString("en-US", {
         year: "numeric",
@@ -137,7 +179,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
     : "your wedding date";
   const dayOfWeek = bookingData.dayOfWeek || "";
 
-  /* ───────── signature helpers ───────── */
+  /* ───────── signature helpers (same pattern as Floral) ───────── */
   const generateImageFromText = (text: string): string => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -159,7 +201,9 @@ const JamContractScreen: React.FC<JamContractProps> = ({
       finalSignature = generateImageFromText(typedSignature.trim());
     } else if (!useTextSignature && sigCanvasRef.current) {
       try {
-        finalSignature = sigCanvasRef.current.getCanvas().toDataURL("image/png");
+        finalSignature = sigCanvasRef.current
+          .getCanvas()
+          .toDataURL("image/png");
       } catch {
         alert("⚠️ Error capturing signature. Please try again.");
         return;
@@ -173,25 +217,45 @@ const JamContractScreen: React.FC<JamContractProps> = ({
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
 
-    const user = getAuth().currentUser;
+    const auth = getAuth();
+    const user = auth.currentUser;
     if (user) {
       try {
-        await setDoc(
-          doc(db, "users", user.uid),
-          { jamSigned: true, signatureImageUrl: finalSignature },
-          { merge: true }
-        );
+        const payload: any = {
+          jamSigned: true,
+          signatureImageUrl: finalSignature,
+        };
+
+        // ✅ record global card-on-file consent if this is the first time
+        if (!hasCardOnFileConsent && cardConsentChecked) {
+          payload.cardOnFileConsent = true;
+          payload.cardOnFileConsentAt = serverTimestamp();
+          try {
+            localStorage.setItem("cardOnFileConsent", "true");
+          } catch {}
+          setHasCardOnFileConsent(true);
+        }
+
+        await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       } catch (error) {
         console.error("❌ Failed to save signature:", error);
       }
     }
   };
 
+  // 🔐 New consent rule:
+  // - Checkbox shows whenever they HAVEN'T already consented.
+  // - Once consent exists, we only require the main "I agree" checkbox.
+  const needsCardConsent = !hasCardOnFileConsent;
+
+  const canSign =
+    agreeChecked && (hasCardOnFileConsent || cardConsentChecked);
+
   /* ───────── UI payment summary (used in checkout/PDF) ───────── */
   let paymentSummaryText: string;
 
   if (payFull) {
-    paymentSummaryText = `You're paying $${formattedTotal} today.`;
+    paymentSummaryText = `You’re paying $${formattedTotal} today.`;
   } else if (planMonths > 0 && perMonthCents > 0) {
     const perMonthDisplay = (perMonthCents / 100).toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -204,18 +268,22 @@ const JamContractScreen: React.FC<JamContractProps> = ({
         maximumFractionDigits: 2,
       }
     );
-    paymentSummaryText = `You'll pay $${depositDisplay} today, then monthly through ${finalDuePretty}. Est. ${planMonths} payments of $${perMonthDisplay}${
+    paymentSummaryText = `You’ll pay $${depositDisplay} today, then monthly through ${finalDuePretty}. Est. ${planMonths} payments of $${perMonthDisplay}${
       planMonths > 1 ? ` (last ≈ $${lastPaymentDisplay})` : ""
     }.`;
   } else {
     // Fallback if we don't have a valid schedule (no date, etc.)
-    paymentSummaryText = `You'll pay $${depositDisplay} today, then monthly until 35 days before your wedding date.`;
+    paymentSummaryText = `You’ll pay $${depositDisplay} today, then monthly until 35 days before your wedding date.`;
   }
 
   return (
     <div className="pixie-card">
       {/* Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
         <img
           src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
@@ -225,7 +293,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
       {/* Standard card body */}
       <div className="pixie-card__body">
         <div className="px-center">
-          {/* Little button image with extra top spacing */}
+          {/* Button image */}
           <img
             src={`${import.meta.env.BASE_URL}assets/images/jam_groove_button.png`}
             alt="Jam & Groove"
@@ -233,17 +301,20 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             style={{ maxWidth: 100, margin: "6px auto 12px" }}
           />
 
+          {/* Title + booking summary (mirrors Floral) */}
           <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
             Jam &amp; Groove Agreement
           </h2>
 
           <p className="px-prose-narrow" style={{ marginBottom: 12 }}>
-            You're booking music services for <strong>{formattedDate}</strong>
-            {dayOfWeek ? ` (${dayOfWeek})` : ""}. Total due:{" "}
+            You’re booking{" "}
+            <strong>DJ / music services through Jam &amp; Groove</strong> for{" "}
+            <strong>{formattedDate}</strong>
+            {dayOfWeek ? ` (${dayOfWeek})` : ""}. Your total package amount is{" "}
             <strong>${formattedTotal}</strong>.
           </p>
 
-          {/* Booking Terms */}
+          {/* Booking Terms — updated to match Floral consent pattern */}
           <div className="px-section" style={{ maxWidth: 620 }}>
             <h3
               className="px-title-lg"
@@ -264,44 +335,65 @@ const JamContractScreen: React.FC<JamContractProps> = ({
               }}
             >
               <li>
-                <strong>Payment Options.</strong> Pay in full today, or place a{" "}
-                <strong>non-refundable $750 deposit</strong> with the balance
-                billed monthly. All installments must complete by{" "}
-                <strong>35 days before your wedding date</strong>. Any remaining
-                balance will be auto-charged on that date.
+                <strong>Payment Options &amp; Card Authorization:</strong> You
+                may pay in full today, or place a{" "}
+                <strong>non-refundable $750 deposit</strong> and pay the
+                remaining balance in monthly installments. All installments must
+                be completed no later than{" "}
+                <strong>35 days before your wedding date</strong>, and any
+                unpaid balance will be automatically charged on that date. By
+                completing this purchase, you authorize Wed&amp;Done and our
+                payment processor (Stripe) to securely store your card for:
+                (a)&nbsp;Jam &amp; Groove installment payments and any final
+                balance due under this agreement, and (b)&nbsp;future
+                Wed&amp;Done bookings you choose to make, for your convenience.
+                Your card details are encrypted and handled by Stripe, and you
+                can update or replace your saved card at any time through your
+                Wed&amp;Done account.
               </li>
               <br />
               <li>
-                <strong>Cancellation &amp; Refunds.</strong> If you cancel
-                &gt;35 days out, amounts paid beyond the non-refundable portion
-                are refundable (less non-recoverable costs). If you cancel ≤35
-                days, payments are non-refundable.
+                <strong>Cancellation &amp; Refunds.</strong> If you cancel more
+                than 35 days before your event, amounts you’ve paid beyond the
+                non-refundable portion and any non-recoverable costs are
+                refundable. If you cancel{" "}
+                <strong>35 days or fewer before the event</strong>, all payments
+                made are non-refundable.
               </li>
               <br />
               <li>
-                <strong>Missed Payments.</strong> We’ll re-attempt your card
-                automatically. After 7 days a $25 late fee may apply. After 14
-                days, services may be suspended and this agreement may be in
-                default.
+                <strong>Missed Payments.</strong> If a payment attempt fails,
+                we’ll automatically re-try your card. After{" "}
+                <strong>7 days</strong>, a <strong>$25 late fee</strong> may be
+                applied. After <strong>14 days</strong> of non-payment, services
+                may be paused and this agreement may be considered in default.
               </li>
               <br />
               <li>
-                <strong>Performance &amp; Logistics.</strong> Talent arrives ~1
-                hour before guest arrival for setup and sound check. Client
-                provides safe power and covered setup as required by the venue.
-                Travel outside Phoenix Metro may incur additional fees.
+                <strong>Performance &amp; Logistics.</strong> Your DJ / music
+                team will typically arrive about{" "}
+                <strong>1 hour before guest arrival</strong> for setup and sound
+                check. You agree to provide safe power, appropriate coverage or
+                shade if outdoors, and any venue access needed. Travel outside
+                the Phoenix Metro or to certain locations may incur additional
+                fees as discussed in your package.
               </li>
               <br />
               <li>
-                <strong>Force Majeure.</strong> If events beyond control prevent
-                performance, we’ll work in good faith to reschedule; otherwise,
-                amounts paid beyond non-recoverable costs are refunded. If we
-                must cancel, liability is limited to refund of payments made.
+                <strong>Force Majeure.</strong> If events outside anyone’s
+                control (including but not limited to extreme weather, natural
+                disasters, government restrictions, or serious illness) prevent
+                performance, both parties will work in good faith to reschedule.
+                If rescheduling isn’t possible, amounts you’ve paid beyond
+                non-recoverable costs are refunded. If Jam &amp; Groove must
+                cancel for any reason within our control and a suitable
+                replacement cannot be arranged, liability is limited to a refund
+                of payments made.
               </li>
             </ul>
           </div>
 
-          {/* Pay plan toggle */}
+          {/* Payment option toggle (same UX as Floral) */}
           <h4
             className="px-title"
             style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
@@ -323,6 +415,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
               onClick={() => {
                 setPayFull(true);
                 setSignatureSubmitted(false);
+                setCardConsentChecked(false);
                 try {
                   localStorage.setItem("jamPayPlan", "full");
                 } catch {}
@@ -344,6 +437,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
               onClick={() => {
                 setPayFull(false);
                 setSignatureSubmitted(false);
+                setCardConsentChecked(false);
                 try {
                   localStorage.setItem("jamPayPlan", "monthly");
                 } catch {}
@@ -353,7 +447,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             </button>
           </div>
 
-          {/* Pay-plan summary */}
+          {/* Pay-plan summary text (this matches what we push into PDF later) */}
           <p className="px-prose-narrow" style={{ marginTop: 4 }}>
             {payFull ? (
               <>
@@ -362,40 +456,58 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             ) : (
               <>
                 You’re paying <strong>${depositDisplay}</strong> today, then
-                about{" "}
-                <strong>
-                  $
-                  {(perMonthCents / 100).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </strong>{" "}
                 monthly until <strong>{finalDuePretty}</strong>.
               </>
             )}
           </p>
 
-          {/* Agree checkbox */}
-          <div style={{ margin: "0.75rem 0 0.5rem" }}>
-            <label>
+          {/* Agree to terms */}
+          <div style={{ margin: "0.9rem 0 0.5rem" }}>
+            <label className="px-prose-narrow">
               <input
                 type="checkbox"
                 checked={agreeChecked}
                 onChange={(e) => setAgreeChecked(e.target.checked)}
                 style={{ marginRight: 8 }}
               />
-              I agree to the terms above
+              I have read and agree to the Jam &amp; Groove Agreement and
+              booking terms above.
             </label>
           </div>
 
-          {/* Actions — ALWAYS show Back to Cart */}
+          {/* Global card-on-file consent — only if they haven’t already given it */}
+          {needsCardConsent && (
+            <div
+              style={{
+                margin: "0.25rem 0 0.75rem",
+                fontSize: ".9rem",
+                textAlign: "left",
+                maxWidth: 560,
+              }}
+            >
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cardConsentChecked}
+                  onChange={(e) => setCardConsentChecked(e.target.checked)}
+                  style={{ marginRight: 8 }}
+                />
+                I authorize Wed&amp;Done and our payment processor (Stripe) to
+                securely store my card and to charge it for Jam &amp; Groove
+                installments, any remaining Jam &amp; Groove balance, and future
+                Wed&amp;Done bookings I choose to make, as described in the
+                payment terms above.
+              </label>
+            </div>
+          )}
+
+          {/* Actions — BEFORE signature: only Sign + Back. AFTER: Continue + Back. */}
           {!signatureSubmitted ? (
-            // BEFORE signature: Sign + Back
             <div className="px-cta-col" style={{ marginTop: 8 }}>
               <button
                 className="boutique-primary-btn"
-                onClick={() => agreeChecked && setShowSignatureModal(true)}
-                disabled={!agreeChecked}
+                onClick={() => canSign && setShowSignatureModal(true)}
+                disabled={!canSign}
               >
                 Sign Contract
               </button>
@@ -408,11 +520,10 @@ const JamContractScreen: React.FC<JamContractProps> = ({
               </button>
             </div>
           ) : (
-            // AFTER signature: Continue + Back
             <div className="px-cta-col" style={{ marginTop: 8 }}>
               <img
                 src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-                alt="Signed"
+                alt="Contract signed"
                 style={{ width: 120, marginBottom: 4 }}
               />
               <button
@@ -484,7 +595,9 @@ const JamContractScreen: React.FC<JamContractProps> = ({
                         "jamLineItems",
                         JSON.stringify(bookingData.lineItems)
                       );
-                  } catch {}
+                  } catch {
+                    // swallow localStorage issues
+                  }
                   onContinue();
                 }}
               >
@@ -500,7 +613,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             </div>
           )}
 
-          {/* Signature modal */}
+          {/* Signature modal — same UX pattern as Floral */}
           {showSignatureModal && (
             <div
               style={{
@@ -527,8 +640,16 @@ const JamContractScreen: React.FC<JamContractProps> = ({
                   className="px-title-lg"
                   style={{ fontSize: "1.8rem", marginBottom: "1rem" }}
                 >
-                  Sign below or enter your text signature
+                  Sign your Jam &amp; Groove Agreement
                 </h3>
+
+                <p
+                  className="px-prose-narrow"
+                  style={{ marginBottom: "0.75rem" }}
+                >
+                  You can either draw your signature or type it and we’ll render
+                  it in a script font.
+                </p>
 
                 <div
                   style={{

@@ -36,22 +36,38 @@ const FloralAccountModal: React.FC<FloralAccountModalProps> = ({
 // Email/password create
 // ---------------------------
 const handleSignup = async () => {
+  setError("");
+
+  const trimmedFirst = firstName.trim();
+  const trimmedLast  = lastName.trim();
+  const trimmedEmail = email.trim();
+
+  if (!trimmedFirst || !trimmedLast) {
+    setError("Please add both your first and last name so we can personalize your booking.");
+    return;
+  }
+
+  if (!trimmedEmail || !password) {
+    setError("Email and password are required to create your account.");
+    return;
+  }
+
   try {
     const userCred = await createUserWithEmailAndPassword(
       auth,
-      email,
+      trimmedEmail,
       password
     );
 
     await updateProfile(userCred.user, {
-      displayName: `${firstName} ${lastName}`,
+      displayName: `${trimmedFirst} ${trimmedLast}`,
     });
 
     await saveUserProfile({
-      firstName,
-      lastName,
-      email,
-      uid: userCred.user.uid,
+      firstName: trimmedFirst,
+      lastName:  trimmedLast,
+      email:     trimmedEmail,
+      uid:       userCred.user.uid,
     });
 
     onSuccess();
@@ -79,7 +95,6 @@ const handleSignup = async () => {
           "We’re having trouble reaching the server. Check your connection and try again.";
         break;
       default:
-        // keep a soft fallback
         message =
           "We couldn’t create your account just yet. Please check your details and try again.";
         break;

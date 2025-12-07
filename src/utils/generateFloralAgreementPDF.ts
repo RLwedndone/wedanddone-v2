@@ -30,10 +30,11 @@ export const generateFloralAgreementPDF = async ({
   // ---- Layout constants ----
   const MARGIN_L = 20;
   const MARGIN_R = 20;
-  const CONTENT_W = doc.internal.pageSize.getWidth() - MARGIN_L - MARGIN_R; // ~170
+  const CONTENT_W =
+    doc.internal.pageSize.getWidth() - MARGIN_L - MARGIN_R; // ~170
   const TOP_Y = 20;
-  const LINE = 7;     // line height
-  const GAP = 10;     // paragraph gap
+  const LINE = 7; // line height
+  const GAP = 10; // paragraph gap
   const FOOTER_GAP = 12; // gap above footer text
   const FOOTER_LINE_GAP = 8; // line above footer text
 
@@ -43,22 +44,33 @@ export const generateFloralAgreementPDF = async ({
     const footerTextY = pageH - FOOTER_GAP;
     const footerLineY = footerTextY - FOOTER_LINE_GAP;
     doc.setDrawColor(200);
-    doc.line(MARGIN_L, footerLineY, doc.internal.pageSize.getWidth() - MARGIN_R, footerLineY);
+    doc.line(
+      MARGIN_L,
+      footerLineY,
+      doc.internal.pageSize.getWidth() - MARGIN_R,
+      footerLineY
+    );
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text("Magically booked by Wed&Done", doc.internal.pageSize.getWidth() / 2, footerTextY, { align: "center" });
+    doc.text(
+      "Magically booked by Wed&Done",
+      doc.internal.pageSize.getWidth() / 2,
+      footerTextY,
+      { align: "center" }
+    );
   };
+
   const contentMaxY = () => {
     const pageH = doc.internal.pageSize.getHeight();
     return pageH - FOOTER_GAP - FOOTER_LINE_GAP - 10; // safe zone
   };
 
-    // Reset normal body text style after a page break
-    const resetBodyTextStyle = () => {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(12);
-      doc.setTextColor(0); // black
-    };
+  // Reset normal body text style after a page break
+  const resetBodyTextStyle = () => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(0); // black
+  };
 
   let y = TOP_Y;
 
@@ -73,8 +85,7 @@ export const generateFloralAgreementPDF = async ({
     doc.addPage();
     y = TOP_Y;
 
-    // VERY IMPORTANT:
-    // go back to normal body text after the footer changed font/size/color
+    // back to normal body text after footer changes
     resetBodyTextStyle();
   };
 
@@ -114,34 +125,37 @@ export const generateFloralAgreementPDF = async ({
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
   const longDate = (d: Date) =>
-    `${d.toLocaleString("en-US", { month: "long" })} ${fmtOrdinal(d.getDate())}, ${d.getFullYear()}`;
+    `${d.toLocaleString("en-US", { month: "long" })} ${fmtOrdinal(
+      d.getDate()
+    )}, ${d.getFullYear()}`;
 
-// Parse "YYYY-MM-DD" safely in local time (no UTC shift).
-const parseLocalYMD = (ymd: string): Date | null => {
-  // match "2027-12-12"
-
-  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const monthIndex = Number(m[2]) - 1; // JS months are 0-based
-  const day = Number(m[3]);
-  return new Date(year, monthIndex, day, 12, 0, 0); 
-  // noon local time so subtraction math like "-30 days" is safer
-};
+  // Parse "YYYY-MM-DD" safely in local time (no UTC shift).
+  const parseLocalYMD = (ymd: string): Date | null => {
+    const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const year = Number(m[1]);
+    const monthIndex = Number(m[2]) - 1; // JS months are 0-based
+    const day = Number(m[3]);
+    // noon local time so -30 days math is safe & no off-by-one from TZ
+    return new Date(year, monthIndex, day, 12, 0, 0);
+  };
 
   const prettyWedding = (() => {
-  const safe = parseLocalYMD(weddingDate) || new Date(weddingDate);
-  return isNaN(safe.getTime()) ? weddingDate : longDate(safe);
-})();
+    const safe = parseLocalYMD(weddingDate) || new Date(weddingDate);
+    return isNaN(safe.getTime()) ? weddingDate : longDate(safe);
+  })();
 
-const finalDueDate = (() => {
-  const base = parseLocalYMD(weddingDate) || new Date(weddingDate);
-  if (isNaN(base.getTime())) return null;
-  const d = new Date(base.getTime());
-  d.setDate(d.getDate() - 30);
-  return d;
-})();
-  const finalDueStr = finalDueDate ? longDate(finalDueDate) : "30 days prior to event";
+  const finalDueDate = (() => {
+    const base = parseLocalYMD(weddingDate) || new Date(weddingDate);
+    if (isNaN(base.getTime())) return null;
+    const d = new Date(base.getTime());
+    d.setDate(d.getDate() - 30);
+    return d;
+  })();
+
+  const finalDueStr = finalDueDate
+    ? longDate(finalDueDate)
+    : "30 days before your wedding date";
 
   // ---- Assets ----
   const loadImage = (src: string): Promise<HTMLImageElement> =>
@@ -158,23 +172,43 @@ const finalDueDate = (() => {
       loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
       loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
     ]);
-    doc.addImage(lock, "JPEG", 40, 60, 130, 130); // watermark under text (drawn first)
+    // watermark under text (drawn first)
+    doc.addImage(lock, "JPEG", 40, 60, 130, 130);
     doc.addImage(logo, "JPEG", 75, 10, 60, 60);
-  } catch { /* ignore asset failures */ }
+  } catch {
+    /* ignore asset failures */
+  }
 
   // ---- Title ----
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text("Floral Agreement & Receipt", doc.internal.pageSize.getWidth() / 2, 75, { align: "center" });
+  doc.text(
+    "Floral Agreement & Receipt",
+    doc.internal.pageSize.getWidth() / 2,
+    75,
+    { align: "center" }
+  );
 
   // ---- Basics ----
   doc.setFontSize(12);
   y = 90;
   writeText(`Name: ${firstName || ""} ${lastName || ""}`);
   writeText(`Wedding Date: ${prettyWedding}`);
-  writeText(`Total Floral Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
-  if (!payFull && deposit > 0) writeText(`Deposit (25%): $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeText(
+    `Total Floral Cost: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  );
+  if (!payFull && deposit > 0) {
+    writeText(
+      `Deposit (25%): $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    );
+  }
 
   // ---- Included Items ----
   if (lineItems.length) {
@@ -190,14 +224,34 @@ const finalDueDate = (() => {
   // ---- Payment block ----
   const todayStr = longDate(new Date());
   y += 6;
+
   if (payFull) {
-    writeText(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
-    writeText(`Final balance due date: ${finalDueStr} (paid in full today).`);
+    writeText(
+      `Paid today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} on ${todayStr}`
+    );
+    writeText(
+      `Final balance due date: ${finalDueStr} (paid in full today).`
+    );
   } else {
     const remaining = Math.max(0, total - deposit);
-    writeText(`Deposit paid today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
-    writeText(`Remaining balance: $${Number(remaining).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} to be billed automatically in monthly installments.`);
-    writeText(`Final installment must be completed by: ${finalDueStr}.`);
+    writeText(
+      `Deposit paid today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} on ${todayStr}`
+    );
+    writeText(
+      `Remaining balance: $${Number(remaining).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} to be billed automatically in monthly installments.`
+    );
+    writeText(
+      `Final installment must be completed by: ${finalDueStr}.`
+    );
   }
 
   // ---- Terms ----
@@ -208,31 +262,34 @@ const finalDueDate = (() => {
   doc.text("Terms of Service:", MARGIN_L, y);
   y += GAP;
 
-  const terms = [
-    "By signing this agreement, you agree that at minimum 25% of the floral total is non-refundable.",
-    "The remaining balance will be charged 30 days before your wedding date unless you pay in full today or clear the balance earlier.",
-    "If you cancel more than 30 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred.",
-    "If you cancel within 30 days, all payments are non-refundable.",
-    "Reschedules are subject to vendor availability, and any additional fees will be the client’s responsibility.",
-    "Because flowers are perishable, comparable substitutions may be made if certain varieties are unavailable.",
-    "Any rented vases, stands, or décor remain the property of Wed&Done or its vendors and must be returned in good condition, or replacement costs will apply.",
-    "Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages.",
-    "Our liability is limited to the amounts you have paid for floral services under this agreement.",
-    "Force Majeure: Neither party is liable for failure or delay caused by events beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages).",
-    "If performance is prevented, we’ll work in good faith to reschedule.",
-    "If rescheduling isn’t possible, we’ll refund any amounts paid beyond non-recoverable costs already incurred.",
-    "Missed Payments: If any installment payment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. If payment is not received within 7 days, a late fee of $25 will be applied. If payment remains outstanding for more than 14 days, Wed&Done reserves the right to suspend services and declare this agreement in default. In the event of default, all amounts paid (including the non-refundable deposit) will be retained by Wed&Done, and the booking may be cancelled without further obligation.",
-  ];
+    // 🔁 Booking Terms – mirrored exactly from FloralContract screen
+    const terms: string[] = [
+      // 1) Perishable / substitutions / rentals
+      "Because flowers are perishable, comparable substitutions may be made if certain varieties are unavailable. Rented vases, stands, and décor remain Wed&Done or vendor property and must be returned in good condition (replacement costs apply if damaged or missing).",
+  
+      // 2) Payment Options & Card Authorization
+      "Payment Options & Card Authorization: You may pay in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 30 days before your wedding date, and any unpaid balance will be automatically charged on that date. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) floral installment payments and any final balance due under this agreement, and (b) future Wed&Done purchases you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+  
+      // 3) Liability + venue restrictions / allergies
+      "Wed&Done isn’t responsible for venue restrictions, undisclosed allergies, or consequential damages. Our liability is limited to amounts you have paid for floral services under this agreement.",
+  
+      // 4) Missed payments
+      "Missed Payments: We’ll retry your card automatically. If payment isn’t received within 7 days, a $25 late fee applies; after 14 days, services may be suspended and the agreement may be in default.",
+  
+      // 5) Force majeure
+      "Force Majeure: Neither party is liable for delays beyond reasonable control. We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs.",
+    ];
+
   for (const t of terms) writeBullet(t);
 
   // ---- Signature anchored to the last page (never overlaps) ----
   const placeSignature = () => {
-    const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const footerTextY = pageH - FOOTER_GAP;
     const footerLineY = footerTextY - FOOTER_LINE_GAP;
     const sigImgH = 30;
-    const sigBlockH = 5 /*label*/ + sigImgH + 14 /*two lines*/ + 6 /*pad*/;
+    const sigBlockH =
+      5 /*label*/ + sigImgH + 14 /*two lines*/ + 6 /*pad*/;
 
     // If not enough space for the whole block, push to a fresh page bottom
     if (y + 15 + sigBlockH > footerLineY - 10) {
@@ -250,14 +307,31 @@ const finalDueDate = (() => {
 
     try {
       if (signatureImageUrl) {
-        doc.addImage(signatureImageUrl, "PNG", left, sigTop + 5, 80, sigImgH);
+        doc.addImage(
+          signatureImageUrl,
+          "PNG",
+          left,
+          sigTop + 5,
+          80,
+          sigImgH
+        );
       }
-    } catch { /* ignore bad image */ }
+    } catch {
+      /* ignore bad image */
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Signed by: ${firstName || ""} ${lastName || ""}`, left, sigTop + 5 + sigImgH + 7);
-    doc.text(`Signature date: ${todayStr}`, left, sigTop + 5 + sigImgH + 14);
+    doc.text(
+      `Signed by: ${firstName || ""} ${lastName || ""}`,
+      left,
+      sigTop + 5 + sigImgH + 7
+    );
+    doc.text(
+      `Signature date: ${todayStr}`,
+      left,
+      sigTop + 5 + sigImgH + 14
+    );
 
     drawFooter();
   };

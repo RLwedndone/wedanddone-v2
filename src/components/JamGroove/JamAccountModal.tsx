@@ -4,12 +4,14 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { saveUserProfile } from "../../utils/saveUserProfile";
+
+// ✅ Shared Google helper + name capture
+import { signInWithGoogleAndEnsureUser } from "../../utils/signInWithGoogleAndEnsureUser";
+import NameCapture from "../NameCapture";
 
 interface JamAccountModalProps {
   onSuccess: () => void;
@@ -18,29 +20,23 @@ interface JamAccountModalProps {
 }
 
 // 🔹 Human-friendly Firebase auth error mapper
-function getFriendlyAuthError(err: any, contextLabel?: string): string {
+function getFriendlyAuthError(err: any): string {
   const code = err?.code || "";
 
   switch (code) {
     case "auth/email-already-in-use":
       return "Looks like there’s already an account with this email. Try logging in instead, or use a different email address.";
-
     case "auth/invalid-email":
       return "That email doesn’t look quite right. Double-check the spelling and try again.";
-
     case "auth/weak-password":
       return "For security, your password needs to be at least 6 characters. Try something a bit stronger.";
-
     case "auth/operation-not-allowed":
       return "Email/password sign-in isn’t available at the moment. Please try again later or use another sign-in option.";
-
     case "auth/popup-blocked":
     case "auth/popup-closed-by-user":
       return "The sign-in popup was closed before we could finish. Try again when you’re ready.";
-
     case "auth/account-exists-with-different-credential":
       return "There’s already an account with this email using a different sign-in method. Try logging in with email + password.";
-
     default:
       return (
         "We ran into a hiccup creating your account. " +
@@ -55,10 +51,15 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
   currentStep,
 }) => {
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [lastName,  setLastName]  = useState("");
+  const [email,     setEmail]     = useState("");
+  const [password,  setPassword]  = useState("");
+  const [error,     setError]     = useState("");
+
+  // NEW: Google flow may need a name capture
+  const [needNameCapture, setNeedNameCapture] = useState(false);
+  const [pendingFirst, setPendingFirst] = useState("");
+  const [pendingLast,  setPendingLast]  = useState("");
 
   const auth = getAuth();
 
@@ -141,52 +142,75 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
         { merge: true }
       );
 
-      // carry over any guest Jam data after signup
       await migrateGuestJamGrooveData(userCred.user.uid);
-
-      // cache Firestore wedding date flags for Jam flow
       await cacheExistingWeddingDateFlags(userCred.user.uid);
 
       onSuccess();
     } catch (err: any) {
       console.error("[JamAccountModal] Email signup error:", err);
-      setError(getFriendlyAuthError(err, "jam-email"));
+      setError(getFriendlyAuthError(err));
     }
   };
 
   const handleGoogleSignup = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      // ✅ Use shared helper so we *always* end up with a single user,
+      // and get first/last/email in one place.
+      const result = await signInWithGoogleAndEnsureUser();
+      // result: { uid, email, firstName, lastName, missingName }
+
+      const uid = result.uid || "";
 
       await saveUserProfile({
-        firstName,
-        lastName,
-        email: result.user.email || "",
-        uid: result.user.uid,
+        firstName: result.firstName || "",
+        lastName: result.lastName || "",
+        email: result.email || "",
+        uid,
       });
 
-      await setDoc(
-        doc(db, "users", result.user.uid),
-        { jamGrooveSavedStep: currentStep || "intro" },
-        { merge: true }
-      );
+      if (uid) {
+        await setDoc(
+          doc(db, "users", uid),
+          { jamGrooveSavedStep: currentStep || "intro" },
+          { merge: true }
+        );
 
-      await migrateGuestJamGrooveData(result.user.uid);
-      await cacheExistingWeddingDateFlags(result.user.uid);
+        await migrateGuestJamGrooveData(uid);
+        await cacheExistingWeddingDateFlags(uid);
+      }
+
+      // If Google didn't give us full name, flip to NameCapture
+      if (result.missingName) {
+        setPendingFirst(result.firstName || "");
+        setPendingLast(result.lastName || "");
+        setNeedNameCapture(true);
+        return;
+      }
 
       onSuccess();
     } catch (err: any) {
       console.error("[JamAccountModal] Google signup error:", err);
 
-      // Silent no-op if they just closed the popup
       if (err?.code === "auth/popup-closed-by-user") {
+        // user bailed, don't scream at them
         return;
       }
 
-      setError(getFriendlyAuthError(err, "jam-google"));
+      setError(getFriendlyAuthError(err));
     }
   };
+
+  // If we still need first/last after Google, temporarily swap in NameCapture
+  if (needNameCapture) {
+    return (
+      <NameCapture
+        initialFirst={pendingFirst}
+        initialLast={pendingLast}
+        onDone={onSuccess}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     // Backdrop + proper stacking (click outside to close)
@@ -318,47 +342,42 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
             }}
           >
             <button
-  onClick={handleGoogleSignup}
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
-
-    width: "80%",
-    maxWidth: 300,
-    minHeight: 44,
-
-    backgroundColor: "#fff",
-    border: "1px solid #dadce0",
-    borderRadius: "6px",
-    boxShadow:
-      "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-
-    fontSize: "15px",
-    fontWeight: 500,
-    color: "#3c4043",
-    lineHeight: 1.2,
-    cursor: "pointer",
-
-    // kill any weird inherited stuff:
-    padding: "0 16px",
-    boxSizing: "border-box",
-    backgroundClip: "padding-box",
-  }}
->
-  <img
-    src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-    alt="Google icon"
-    style={{
-      width: 20,
-      height: 20,
-      objectFit: "contain",
-      flexShrink: 0,
-    }}
-  />
-  <span>Sign in with Google</span>
-</button>
+              onClick={handleGoogleSignup}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                width: "80%",
+                maxWidth: 300,
+                minHeight: 44,
+                backgroundColor: "#fff",
+                border: "1px solid #dadce0",
+                borderRadius: "6px",
+                boxShadow:
+                  "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "#3c4043",
+                lineHeight: 1.2,
+                cursor: "pointer",
+                padding: "0 16px",
+                boxSizing: "border-box",
+                backgroundClip: "padding-box",
+              }}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                alt="Google icon"
+                style={{
+                  width: 20,
+                  height: 20,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <span>Sign in with Google</span>
+            </button>
           </div>
         </div>
       </div>

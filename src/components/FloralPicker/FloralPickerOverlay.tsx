@@ -131,8 +131,8 @@ const FloralPickerOverlay: React.FC<FloralPickerOverlayProps> = ({
           setFirstName(data.firstName || "");
           setLastName(data.lastName || "");
           setUserWeddingDate(data.weddingDate || "");
-          setUserDayOfWeek(data.dayOfWeek || null);
-          setDateLocked(!!data.dateLocked);
+setUserDayOfWeek(data.dayOfWeek || null);
+setDateLocked(!!data.weddingDateLocked);
         }
       } catch (err) {
         console.error("❌ Error fetching user data:", err);
@@ -152,7 +152,7 @@ const FloralPickerOverlay: React.FC<FloralPickerOverlayProps> = ({
           const data = snap.data();
           setUserWeddingDate(data.weddingDate || "");
           setUserDayOfWeek(data.dayOfWeek || null);
-          setDateLocked(!!data.dateLocked);
+          setDateLocked(!!data.weddingDateLocked);
         }
       } catch (e) {
         console.error("Error loading wedding date:", e);

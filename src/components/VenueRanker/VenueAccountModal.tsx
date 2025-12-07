@@ -4,22 +4,32 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
 } from "firebase/auth";
 import { saveUserProfile } from "../../utils/saveUserProfile";
+
+// ✅ Shared Google signup helper + name gate
+import { signInWithGoogleAndEnsureUser } from "../../utils/signInWithGoogleAndEnsureUser";
+import NameCapture from "../NameCapture";
 
 interface VenueAccountModalProps {
   onSuccess: () => void;
   onClose: () => void;
 }
 
-const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClose }) => {
+const VenueAccountModal: React.FC<VenueAccountModalProps> = ({
+  onSuccess,
+  onClose,
+}) => {
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [error,     setError]     = useState("");
+
+  // Google “missing name” flow
+  const [needNameCapture, setNeedNameCapture] = useState(false);
+  const [pendingFirst, setPendingFirst] = useState("");
+  const [pendingLast,  setPendingLast]  = useState("");
 
   const auth = getAuth();
 
@@ -67,7 +77,6 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
             "We’re having trouble reaching our servers. Check your connection and try again.";
           break;
         default:
-          // keep the soft fallback
           message =
             "Something went sideways while creating your account. Please try again.";
           break;
@@ -79,15 +88,28 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
 
   const handleGoogleSignup = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithGoogleAndEnsureUser();
+      // result = { uid, email, firstName, lastName, missingName }
+
+      const uid = result.uid || "";
+      const em  = result.email || "";
+      const fn  = result.firstName || "";
+      const ln  = result.lastName || "";
 
       await saveUserProfile({
-        firstName,
-        lastName,
-        email: result.user.email || "",
-        uid: result.user.uid,
+        uid,
+        firstName: fn,
+        lastName: ln,
+        email: em,
       });
+
+      // If Google didn’t give full name, switch to NameCapture
+      if (result.missingName) {
+        setPendingFirst(fn);
+        setPendingLast(ln);
+        setNeedNameCapture(true);
+        return;
+      }
 
       onSuccess();
     } catch (err: any) {
@@ -119,6 +141,18 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
       setError(message);
     }
   };
+
+  // If we still need names after Google, show NameCapture instead
+  if (needNameCapture) {
+    return (
+      <NameCapture
+        initialFirst={pendingFirst}
+        initialLast={pendingLast}
+        onDone={onSuccess}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     // Overlay: dim background + stacking; click backdrop to close
@@ -152,10 +186,20 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
       />
 
       {/* Standard card; stop inner clicks from closing */}
-      <div className="pixie-card venue-account" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="pixie-card venue-account"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Pink X */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -168,40 +212,75 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
           />
 
           {/* Title + copy */}
-          <h2 className="px-title" style={{ fontSize: "1.6rem", marginBottom: "0.5rem" }}>
-  Ready to say yes to your perfect venue?
-</h2>
+          <h2
+            className="px-title"
+            style={{ fontSize: "1.6rem", marginBottom: "0.5rem" }}
+          >
+            Ready to say yes to your perfect venue?
+          </h2>
 
-<p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
-  Just a few quick details and we’ll unlock your scroll of possibilities.
-</p>
+          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+            Just a few quick details and we’ll unlock your scroll of possibilities.
+          </p>
 
-<p
-  className="px-prose-narrow"
-  style={{
-    marginBottom: "1.5rem",
-    fontSize: "0.9rem",
-    color: "#666",
-  }}
->
-  🏰 A little heads-up: all of our castles and venue partners are located
-  right here in Arizona. Wed&amp;Done currently books Arizona weddings
-  only — but our kingdom is growing, and we’ll be opening magical doors in
-  more states soon!
-</p>
+          <p
+            className="px-prose-narrow"
+            style={{
+              marginBottom: "1.5rem",
+              fontSize: "0.9rem",
+              color: "#666",
+            }}
+          >
+            🏰 A little heads-up: all of our castles and venue partners are located
+            right here in Arizona. Wed&amp;Done currently books Arizona weddings
+            only — but our kingdom is growing, and we’ll be opening magical doors in
+            more states soon!
+          </p>
 
           {/* Inputs */}
-          <div style={{ width: "100%", maxWidth: 420, margin: "0 auto 1.25rem" }}>
+          <div
+            style={{ width: "100%", maxWidth: 420, margin: "0 auto 1.25rem" }}
+          >
             <div style={{ display: "grid", gap: 12 }}>
-              <input className="px-input" type="text" placeholder="First Name"  value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              <input className="px-input" type="text" placeholder="Last Name"   value={lastName}  onChange={(e) => setLastName(e.target.value)} />
-              <input className="px-input" type="email" placeholder="Email"      value={email}     onChange={(e) => setEmail(e.target.value)} />
-              <input className="px-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input
+                className="px-input"
+                type="text"
+                placeholder="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+              <input
+                className="px-input"
+                type="text"
+                placeholder="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+              <input
+                className="px-input"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <input
+                className="px-input"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
           </div>
 
           {error && (
-            <p style={{ color: "#e53935", marginBottom: "1rem", fontWeight: 600 }}>
+            <p
+              style={{
+                color: "#e53935",
+                marginBottom: "1rem",
+                fontWeight: 600,
+              }}
+            >
               {error}
             </p>
           )}
@@ -215,45 +294,52 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
             Create Account
           </button>
 
-          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-  <button
-    onClick={handleGoogleSignup}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "10px",
-      width: "80%",
-      maxWidth: 300,
-      minHeight: 44,
-      backgroundColor: "#fff",
-      border: "1px solid #dadce0",
-      borderRadius: "6px",
-      boxShadow:
-        "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-      fontSize: "15px",
-      fontWeight: 500,
-      color: "#3c4043",
-      lineHeight: 1.2,
-      cursor: "pointer",
-      padding: "0 16px",
-      boxSizing: "border-box",
-      backgroundClip: "padding-box",
-    }}
-  >
-    <img
-      src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-      alt="Google icon"
-      style={{
-        width: 20,
-        height: 20,
-        objectFit: "contain",
-        flexShrink: 0,
-      }}
-    />
-    <span>Sign in with Google</span>
-  </button>
-</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <button
+              onClick={handleGoogleSignup}
+              className="px-google-btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                width: "80%",
+                maxWidth: 300,
+                minHeight: 44,
+                backgroundColor: "#fff",
+                border: "1px solid #dadce0",
+                borderRadius: "6px",
+                boxShadow:
+                  "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "#3c4043",
+                lineHeight: 1.2,
+                cursor: "pointer",
+                padding: "0 16px",
+                boxSizing: "border-box",
+                backgroundClip: "padding-box",
+              }}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                alt="Google icon"
+                style={{
+                  width: 20,
+                  height: 20,
+                  objectFit: "contain",
+                  flexShrink: 0,
+                }}
+              />
+              <span>Sign in with Google</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

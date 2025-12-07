@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import CheckoutForm from "../../CheckoutForm";
 import { useUser } from "../../contexts/UserContext";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { generateJamAgreementPDF } from "../../utils/generateJamAgreementPDF";
 import { generateJamAddOnReceiptPDF } from "../../utils/generateJamAddOnReceiptPDF";
 import { uploadPdfBlob } from "../../helpers/firebaseUtils";
@@ -28,20 +28,13 @@ import {
   EMAILJS_PUBLIC_KEY,
 } from "../../config/emailjsConfig";
 
-// helpers
+// ------------ Stripe API base (same as Floral) ------------
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
+
+// ------------ helpers ------------
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const MS_DAY = 24 * 60 * 60 * 1000;
-const prettyDate = (ymd?: string | null) => {
-  if (!ymd) return "35 days before your wedding date";
-  const d = new Date(`${ymd}T12:00:00`);
-  if (isNaN(d.getTime())) return "35 days before your wedding date";
-  d.setTime(d.getTime() - 35 * MS_DAY);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
 
 // 🔧 patch selections for Groove Guide
 // NOTE: ceremony order now comes from `customProcessional` (your new screen).
@@ -133,7 +126,7 @@ const patchJamSelections = (
 interface JamCheckOutProps {
   onClose: () => void;
   isAddon?: boolean;
-  /** NEW: true when they’re buying Groove Guide PDF only */
+  /** true when they’re buying Groove Guide PDF only */
   isPdfOnly?: boolean;
   total: number;
   depositAmount: number; // flat deposit provided by cart (usually 750, capped by total)
@@ -174,6 +167,45 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // 🔐 Payment mode + saved card summary (like Floral)
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<{
+      brand: string;
+      last4: string;
+      exp_month: number;
+      exp_year: number;
+    } | null>(null);
+
+  const hasSavedCard = !!savedCardSummary;
+
+  // Load saved card summary once auth is ready
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        const effectiveUid = user?.uid || uid;
+        if (!effectiveUid) return;
+
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: effectiveUid }),
+        });
+
+        const data = await res.json();
+        if (data?.card) {
+          setSavedCardSummary(data.card);
+          setMode("saved");
+        }
+      } catch (err) {
+        console.warn("[JamCheckOut] No saved card found:", err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
   // On mount, read weddingDate/weddingDateLocked so cart/confirm step behaves correctly
   useEffect(() => {
     const u = getAuth().currentUser;
@@ -205,13 +237,11 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   if (!userData)
     return <p style={{ textAlign: "center" }}>Loading your info...</p>;
 
-  // Payment math (prefer provided flat deposit, else LS, else 25%)
+  // -------- Payment math (flat $750 deposit unless overridden) --------
   const totalEffective = round2(Number(total) || 0);
   const depositFromProp = Number(depositAmount);
-  const depositFromLS = Number(
-    localStorage.getItem("jamDepositAmount") || ""
-  );
-  const deposit25 = round2(totalEffective * 0.25);
+  const depositFromLS = Number(localStorage.getItem("jamDepositAmount") || "");
+  const deposit25 = round2(totalEffective * 0.25); // fallback only
 
   const depositNow =
     Number.isFinite(depositFromProp) && depositFromProp > 0
@@ -223,37 +253,85 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   const amountDueToday = payFull
     ? totalEffective
     : Math.min(totalEffective, depositNow);
+
   const remaining = round2(Math.max(0, totalEffective - amountDueToday));
-  const finalDuePretty = prettyDate(weddingDate);
 
-    // Prefer the exact text the contract screen showed
-    let effectiveSummary = paymentSummary;
+  // 35 days before wedding date
+  const ymdRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const parsedWedding =
+    weddingDate && ymdRegex.test(weddingDate)
+      ? new Date(`${weddingDate}T12:00:00`)
+      : null;
 
-    try {
-      const fromContract = localStorage.getItem("jamPaymentSummaryText");
-      if (fromContract) {
-        effectiveSummary = fromContract;
-      }
-    } catch {
-      // if LS explodes, just fall back to the prop
+  const finalDueDate = parsedWedding
+    ? new Date(parsedWedding.getTime() - 35 * MS_DAY)
+    : null;
+
+  const finalDuePretty = finalDueDate
+    ? finalDueDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "35 days before your wedding date";
+
+  // Prefer the exact text the contract screen showed
+  let effectiveSummary = paymentSummary;
+  try {
+    const fromContract = localStorage.getItem("jamPaymentSummaryText");
+    if (fromContract) {
+      effectiveSummary = fromContract;
     }
-  
-    // For pure PDF-only purchases, override with the simpler copy
-    if (isPdfOnly) {
-      effectiveSummary = `You're paying $${amountDueToday.toFixed(
-        2
-      )} today for your Groove Guide PDF.`;
-    }
+  } catch {
+    // ignore LS issues
+  }
+
+  // For pure PDF-only purchases, override with simpler copy
+  if (isPdfOnly) {
+    effectiveSummary = `You're paying $${amountDueToday.toFixed(
+      2
+    )} today for your Groove Guide PDF.`;
+  }
+
+  // If this is a monthly plan (full DJ, not addon/pdf-only, not payFull),
+  // card on file is REQUIRED.
+  const requiresCardOnFile = !isAddon && !isPdfOnly && !payFull;
+  const [saveCardOnFile] = useState<boolean>(requiresCardOnFile);
+
+  // ------ tiny helpers for auto-billing metadata (same pattern as Floral) ------
+  const asStartOfDayUTC = (d: Date) =>
+    new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1)
+    );
+
+  function nextApproxMonthUTC(from: Date): string {
+    const y = from.getUTCFullYear();
+    const m = from.getUTCMonth();
+    const d = from.getUTCDate();
+    const target = new Date(Date.UTC(y, m + 1, 1, 0, 0, 1));
+    const lastDayNextMonth = new Date(Date.UTC(y, m + 2, 0)).getUTCDate();
+    target.setUTCDate(Math.min(d, lastDayNextMonth));
+    return target.toISOString();
+  }
+
+  function monthsBetweenInclusive(from: Date, to: Date) {
+    const a = new Date(
+      Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1)
+    );
+    const b = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+    let months =
+      (b.getUTCFullYear() - a.getUTCFullYear()) * 12 +
+      (b.getUTCMonth() - a.getUTCMonth());
+    if (to.getUTCDate() >= from.getUTCDate()) months += 1;
+    return Math.max(1, months);
+  }
 
   // --------------- PDF-only success branch ---------------
-  const handlePdfOnlySuccess = async () => {
+  const handlePdfOnlySuccess = async (userDoc: any) => {
     const userRef = doc(db, "users", uid);
-    const snap = await getDoc(userRef);
-    const userDoc = snap.exists() ? snap.data() : {};
 
-    const safeFirst =
-      (userDoc as any)?.firstName || firstName || "Magic";
-    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const safeFirst = userDoc?.firstName || firstName || "Magic";
+    const safeLast = userDoc?.lastName || lastName || "User";
     const fullName = `${safeFirst} ${safeLast}`.trim();
 
     // Build Groove Guide selections (with ceremony order from customProcessional)
@@ -302,13 +380,13 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
 
     await addDoc(collection(db, "users", uid, "documents"), docItem);
 
-    // ✉️ User email ONLY – using your Groove Guide template
+    // ✉️ User email ONLY – using Groove Guide template
     await emailjs.send(
       EMAILJS_SERVICE_ID,
-      "template_w498nvm", // user-facing Groove Guide email
+      "template_w498nvm",
       {
         firstName: safeFirst,
-        user_name: fullName, // safe if template still uses this
+        user_name: fullName,
         wedding_date: weddingDate || "TBD",
         pdf_url: grooveUrl,
         pdf_title: "Groove Guide PDF",
@@ -319,21 +397,20 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
       EMAILJS_PUBLIC_KEY
     );
 
-    // UI events
     window.dispatchEvent(new Event("purchaseMade"));
     // ❌ Do NOT dispatch jamCompletedNow here
     onSuccess();
   };
 
   // --------------- Full DJ / add-on success branch ---------------
-  const handleFullJamSuccess = async (): Promise<void> => {
+  const handleFullJamSuccess = async (
+    userDoc: any,
+    customerId?: string | null
+  ): Promise<void> => {
     const userRef = doc(db, "users", uid);
-    const snap = await getDoc(userRef);
-    const userDoc = snap.exists() ? snap.data() : {};
 
-    const safeFirst =
-      (userDoc as any)?.firstName || firstName || "Magic";
-    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const safeFirst = userDoc?.firstName || firstName || "Magic";
+    const safeLast = userDoc?.lastName || lastName || "User";
     const fullName = `${safeFirst} ${safeLast}`.trim();
 
     const purchase = {
@@ -367,11 +444,13 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
       const pdfBlob = await generateJamAgreementPDF({
         fullName,
         total: totalEffective,
-        deposit: payFull ? totalEffective : amountDueToday,
-        paymentSummary,
+        deposit: payFull ? 0 : amountDueToday,
+        paymentSummary: effectiveSummary || "",
         weddingDate,
-        signatureImageUrl: signatureImage,
+        signatureImageUrl: signatureImage || "",
         lineItems,
+        signatureDate: new Date().toISOString(),
+        finalDuePretty, // align with 35-day rule
       });
       const fileName = `JamAgreement_${Date.now()}.pdf`;
       const filePath = `public_docs/${uid}/${fileName}`;
@@ -388,6 +467,108 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
       module: "jam",
     };
 
+    // paymentPlan + paymentPlanAuto for full DJ bookings (mirror Floral structure)
+    const depositPercent = payFull
+      ? 1
+      : totalEffective > 0
+      ? amountDueToday / totalEffective
+      : 0;
+
+    const paymentPlanField = isAddon
+      ? undefined
+      : payFull
+      ? {
+          product: "jam",
+          type: "full",
+          total: totalEffective,
+          paidNow: totalEffective,
+          remainingBalance: 0,
+          finalDueDate: null,
+          finalDueAt: null,
+          depositPercent: 1,
+          createdAt: new Date().toISOString(),
+        }
+      : {
+          product: "jam",
+          type: "deposit",
+          total: totalEffective,
+          depositPercent,
+          paidNow: amountDueToday,
+          remainingBalance: remaining,
+          finalDueDate: finalDuePretty,
+          finalDueAt: finalDueDate
+            ? asStartOfDayUTC(finalDueDate).toISOString()
+            : null,
+          createdAt: new Date().toISOString(),
+        };
+
+    const paymentPlanAutoField = isAddon
+      ? undefined
+      : payFull
+      ? {
+          version: 1,
+          product: "jam",
+          status: "complete",
+          strategy: "paid_in_full",
+          currency: "usd",
+          totalCents: Math.round(totalEffective * 100),
+          depositCents: Math.round(totalEffective * 100),
+          remainingCents: 0,
+          planMonths: 0,
+          perMonthCents: 0,
+          lastPaymentCents: 0,
+          nextChargeAt: null,
+          finalDueAt: null,
+          stripeCustomerId:
+            customerId ||
+            localStorage.getItem("stripeCustomerId") ||
+            null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      : (() => {
+          const nowUTC = new Date();
+          const firstChargeAtISO = nextApproxMonthUTC(nowUTC);
+          const firstChargeAt = new Date(firstChargeAtISO);
+          const finalISO = finalDueDate
+            ? asStartOfDayUTC(finalDueDate).toISOString()
+            : null;
+
+          const planMonths =
+            finalDueDate && finalISO
+              ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
+              : 1;
+
+          const remainingCentsTotal = Math.round(remaining * 100);
+          const perMonthCents = Math.floor(
+            remainingCentsTotal / planMonths
+          );
+          const lastPaymentCents =
+            remainingCentsTotal - perMonthCents * Math.max(0, planMonths - 1);
+
+          return {
+            version: 1,
+            product: "jam",
+            status: "active",
+            strategy: "monthly_until_final",
+            currency: "usd",
+            totalCents: Math.round(totalEffective * 100),
+            depositCents: Math.round(amountDueToday * 100),
+            remainingCents: remainingCentsTotal,
+            planMonths,
+            perMonthCents,
+            lastPaymentCents,
+            nextChargeAt: firstChargeAtISO,
+            finalDueAt: finalISO,
+            stripeCustomerId:
+              customerId ||
+              localStorage.getItem("stripeCustomerId") ||
+              null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        })();
+
     await updateDoc(userRef, {
       documents: arrayUnion(docItem),
       purchases: arrayUnion(purchase),
@@ -396,7 +577,10 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
       "bookings.updatedAt": serverTimestamp(),
       weddingDateLocked: true,
       lastPurchaseAt: serverTimestamp(),
+      ...(paymentPlanField && { paymentPlan: paymentPlanField }),
+      ...(paymentPlanAutoField && { paymentPlanAuto: paymentPlanAutoField }),
     });
+
     await addDoc(collection(db, "users", uid, "documents"), docItem);
 
     // Cache wedding date lock locally and notify the UI
@@ -427,7 +611,7 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
         line_items: (lineItems || []).join(", "),
         payment_now: amountDueToday.toFixed(2),
         remaining_balance: (remaining ?? 0).toFixed(2),
-        final_due: prettyDate(weddingDate),
+        final_due: finalDuePretty,
         dashboardUrl: `${window.location.origin}${
           import.meta.env.BASE_URL
         }dashboard`,
@@ -436,65 +620,149 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
     }
 
     // Groove Guide if applicable (DJ booked OR guide purchased as add-on)
-const boughtDJ = lineItems.some((i) =>
-  i.startsWith("DJ Wed&Done Package")
-);
-const boughtGuide = lineItems.some((i) =>
-  i.startsWith("Groove Guide PDF")
-);
+    const boughtDJ = lineItems.some((i) =>
+      i.startsWith("DJ Wed&Done Package")
+    );
+    const boughtGuide = lineItems.some((i) =>
+      i.startsWith("Groove Guide PDF")
+    );
 
-// ⛔ Only generate if we are NOT explicitly reusing an existing guide
-if (!skipGrooveGeneration && (boughtDJ || boughtGuide)) {
-  const selections = patchJamSelections(jamSelections);
-  const grooveBlob = await generateGrooveGuidePDF({
-    fullName: `${firstName} ${lastName}`,
-    weddingDate,
-    selections,
-  });
-  const fileName = `GrooveGuide_${Date.now()}.pdf`;
-  const filePath = `public_docs/${uid}/${fileName}`;
-  const grooveUrl = await uploadPdfBlob(grooveBlob, filePath);
+    // ⛔ Only generate if we are NOT explicitly reusing an existing guide
+    if (!skipGrooveGeneration && (boughtDJ || boughtGuide)) {
+      const selections = patchJamSelections(jamSelections);
+      const grooveBlob = await generateGrooveGuidePDF({
+        fullName: `${firstName} ${lastName}`,
+        weddingDate,
+        selections,
+      });
+      const fileName = `GrooveGuide_${Date.now()}.pdf`;
+      const filePath = `public_docs/${uid}/${fileName}`;
+      const grooveUrl = await uploadPdfBlob(grooveBlob, filePath);
 
-  await updateDoc(userRef, {
-    documents: arrayUnion({
-      title: "Groove Guide PDF",
-      url: grooveUrl,
-      uploadedAt: new Date().toISOString(),
-      kind: "guide",
-      module: "jam",
-    }),
-  });
+      await updateDoc(userRef, {
+        documents: arrayUnion({
+          title: "Groove Guide PDF",
+          url: grooveUrl,
+          uploadedAt: new Date().toISOString(),
+          kind: "guide",
+          module: "jam",
+        }),
+      });
 
-  await emailjs.send(
-    EMAILJS_SERVICE_ID,
-    "template_w498nvm",
-    {
-      firstName,
-      user_name: `${firstName} ${lastName}`,
-      wedding_date: weddingDate,
-      pdf_url: grooveUrl,
-      pdf_title: "Groove Guide PDF",
-      dashboardUrl: `${window.location.origin}${
-        import.meta.env.BASE_URL
-      }dashboard`,
-    },
-    EMAILJS_PUBLIC_KEY
-  );
-}
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        "template_w498nvm",
+        {
+          firstName,
+          user_name: `${firstName} ${lastName}`,
+          wedding_date: weddingDate,
+          pdf_url: grooveUrl,
+          pdf_title: "Groove Guide PDF",
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
+        },
+        EMAILJS_PUBLIC_KEY
+      );
+    }
 
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("jamCompletedNow"));
     onSuccess();
   };
 
-  // --------------- Main success handler (branch) ---------------
-  const handleSuccess = async (): Promise<void> => {
+  // --------------- Main success handler (Stripe + branches) ---------------
+  const handleSuccess = async ({
+    customerId,
+    paymentMethodId,
+  }: {
+    customerId?: string;
+    paymentMethodId?: string;
+  } = {}): Promise<void> => {
     setIsGenerating(true);
     try {
-      if (isPdfOnly) {
-        await handlePdfOnlySuccess();
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+      const userDoc = snap.exists() ? snap.data() : {};
+
+      // ✅ Save stripeCustomerId (if new)
+      try {
+        const existingId = (userDoc as any)?.stripeCustomerId as
+          | string
+          | undefined;
+        if (customerId && customerId !== existingId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {}
+          console.log("✅ Saved stripeCustomerId to Firestore (jam).");
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not save stripeCustomerId (jam):", e);
+      }
+
+      // ✅ Store the specific card used for this Jam payment plan
+      // Only for main DJ contract flow (not add-ons, not PDF-only) and only if it's a monthly plan.
+      if (!isAddon && !isPdfOnly && !payFull && paymentMethodId) {
+        try {
+          await updateDoc(userRef, {
+            "paymentPlan.paymentMethodId": paymentMethodId,
+          });
+          console.log(
+            "✅ Stored paymentPlan.paymentMethodId for Jam:",
+            paymentMethodId
+          );
+        } catch (err) {
+          console.error(
+            "❌ Failed to store paymentMethodId on paymentPlan (Jam):",
+            err
+          );
+        }
+      }
+
+      // ✅ Decide whether to store card
+      const shouldStoreCard = requiresCardOnFile || saveCardOnFile;
+
+      if (shouldStoreCard) {
+        try {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ Ensured default payment method for Jam customer"
+          );
+        } catch (err) {
+          console.error(
+            "❌ Failed to ensure default payment method (Jam):",
+            err
+          );
+        }
       } else {
-        await handleFullJamSuccess();
+        console.log(
+          "ℹ️ Skipping card-on-file setup for Jam (no consent / pay-in-full without monthly plan)."
+        );
+      }
+
+      // Now branch into PDF-only vs full DJ / add-on flows
+      if (isPdfOnly) {
+        await handlePdfOnlySuccess(userDoc);
+      } else {
+        await handleFullJamSuccess(userDoc, customerId);
       }
     } catch (err) {
       console.error("❌ Jam checkout error:", err);
@@ -570,15 +838,90 @@ if (!skipGrooveGeneration && (boughtDJ || boughtGuide)) {
               {effectiveSummary}
             </p>
 
+            {/* Payment Method Selection – mirrors Floral */}
+            <div
+              style={{
+                marginTop: "12px",
+                marginBottom: "20px",
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                maxWidth: 520,
+                marginInline: "auto",
+              }}
+            >
+              {hasSavedCard ? (
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "saved"}
+                      onChange={() => setMode("saved")}
+                    />
+                    <span>
+                      Saved card on file —{" "}
+                      <strong>
+                        {savedCardSummary!.brand.toUpperCase()}
+                      </strong>{" "}
+                      •••• {savedCardSummary!.last4} (exp{" "}
+                      {savedCardSummary!.exp_month}/
+                      {savedCardSummary!.exp_year})
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "new"}
+                      onChange={() => setMode("new")}
+                    />
+                    <span>Pay with a different card</span>
+                  </label>
+                </>
+              ) : (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input type="radio" checked readOnly />
+                  <span>Enter your card details</span>
+                </label>
+              )}
+            </div>
+
             <div className="px-elements">
               <CheckoutForm
                 total={amountDueToday}
+                useSavedCard={mode === "saved"}
                 onSuccess={handleSuccess}
                 setStepSuccess={onSuccess}
                 isAddon={false}
-                customerEmail={
-                  getAuth().currentUser?.email || undefined
-                }
+                customerEmail={getAuth().currentUser?.email || undefined}
                 customerName={`${firstName || "Magic"} ${
                   lastName || "User"
                 }`}
@@ -593,12 +936,6 @@ if (!skipGrooveGeneration && (boughtDJ || boughtGuide)) {
                   }
                 })()}
               />
-            </div>
-
-            <div className="px-cta-col" style={{ marginTop: 12 }}>
-              <button className="boutique-back-btn" onClick={onBack}>
-                ⬅ Back
-              </button>
             </div>
           </>
         )}

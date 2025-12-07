@@ -97,12 +97,19 @@ const PixiePurchaseScreenJam: React.FC<PixiePurchaseScreenJamProps> = ({
     }, 0);
   }, [grooveItems, quantities]);
 
-  const taxesAndFees = useMemo(
-    () => subtotal * SALES_TAX_RATE + subtotal * STRIPE_RATE + STRIPE_FLAT_FEE,
-    [subtotal]
+  const taxesAndFees = useMemo(() => {
+    if (subtotal <= 0) return 0; // 👈 no items, no fees
+  
+    const tax = subtotal * SALES_TAX_RATE;
+    const stripe = subtotal * STRIPE_RATE + STRIPE_FLAT_FEE;
+  
+    return tax + stripe;
+  }, [subtotal]);
+  
+  const grandTotal = useMemo(
+    () => round2(subtotal + taxesAndFees),
+    [subtotal, taxesAndFees]
   );
-
-  const grandTotal = useMemo(() => round2(subtotal + taxesAndFees), [subtotal, taxesAndFees]);
 
   // ── Deposit policy (flat $750, capped by total) ──
   const DEPOSIT_AMOUNT = 750;
