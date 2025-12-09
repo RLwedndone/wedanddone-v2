@@ -137,20 +137,28 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
 
   // ─────────────────────────────────────────────
   // 25% deposit today → rest until final-due (-35d)
-  // ─────────────────────────────────────────────
+  // (We trust the contract screen's stored values, just like catering)
+// ─────────────────────────────────────────────
   const DEPOSIT_PCT = 0.25;
+
   const totalEffective = round2(
     Number(localStorage.getItem("yumTotal")) || Number(total) || 0
   );
 
-  const plan = (localStorage.getItem("yumPaymentPlan") || "full") as
-    | "full"
-    | "monthly";
-  const usingFull = plan === "full";
+  const rawPlan =
+    (localStorage.getItem("yumPaymentPlan") as "full" | "monthly" | null) ||
+    (localStorage.getItem("yumPayPlan") as "full" | "monthly" | null) ||
+    "full";
 
+  const paymentPlan = rawPlan === "monthly" ? "monthly" : "full";
+  const usingFull = paymentPlan === "full";
+
+  // Stored from the contract screen:
+  // - For full: depositAmount === totalEffective
+  // - For monthly: depositAmount === 25% deposit
   const depositAmount = round2(
     Number(localStorage.getItem("yumDepositAmount")) ||
-      totalEffective * DEPOSIT_PCT
+      (usingFull ? totalEffective : totalEffective * DEPOSIT_PCT)
   );
 
   const remainingBalance = round2(
@@ -158,12 +166,14 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
       Math.max(0, totalEffective - depositAmount)
   );
 
-  const planMonths = Number(localStorage.getItem("yumPlanMonths")) || 0;
+  // Optional plan hints saved by contract (used for UI only)
+  const storedPlanMonths =
+    Number(localStorage.getItem("yumPlanMonths")) || 0;
+  const storedPerMonthCents =
+    Number(localStorage.getItem("yumPerMonthCents")) || 0;
+  const storedPerMonth = storedPerMonthCents / 100;
 
-  const perMonth =
-    (Number(localStorage.getItem("yumPerMonthCents")) || 0) / 100;
-
-  const finalDuePretty =
+  const finalDuePrettyFromLS =
     localStorage.getItem("yumFinalDuePretty") ||
     "35 days before your wedding date";
 
@@ -172,19 +182,20 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
 
   // One clear, plan-specific line for the UI
   const paymentMessage = usingFull
-    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
-      )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
+      )} today, then ${storedPlanMonths} monthly payments of about $${storedPerMonth.toFixed(
         2
-      )} (final due ${finalDuePretty}).`;
+      )} (final due ${finalDuePrettyFromLS}).`;
 
   // ─────────────────────────────────────────────
-  // Success handler (called by CheckoutForm on card success)
-  // NOTE: this version does NOT currently get { customerId } from CheckoutForm.
-  // If you later update CheckoutForm to send that, mirror the pattern from venue-specific checkouts.
+  // Success handler (Stripe success → finalize + PDF + Firestore)
   // ─────────────────────────────────────────────
-  const handleSuccess = async (): Promise<void> => {
+  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
       console.warn("[YumCheckOutDessert] handleSuccess already ran — ignoring re-entry");
       return;
@@ -201,12 +212,53 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? (snap.data() as any) : {};
-      const fullName = `${userDoc?.firstName || "Magic"} ${
-        userDoc?.lastName || "User"
-      }`;
-      const weddingYMD: string | null = userDoc?.weddingDate || null;
 
-      // Final due date = wedding - 35 days
+      // 🔐 store Stripe customer id and attach default payment method
+      try {
+        if (customerId && customerId !== userDoc?.stripeCustomerId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {
+            /* ignore */
+          }
+
+          // 🔑 Ensure a default payment method is attached for billing robot
+          try {
+            await fetch(
+              "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  customerId,
+                  firebaseUid: user.uid,
+                }),
+              }
+            );
+            console.log("✅ Ensured default payment method for", customerId);
+          } catch (err) {
+            console.error(
+              "❌ Failed to ensure default payment method for dessert:",
+              err
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not save stripeCustomerId (dessert):", e);
+      }
+
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
+
+      const weddingYMD: string | null = userDoc?.weddingDate || null;
       const wedding = parseLocalYMD(weddingYMD || "");
       const finalDueDate = wedding
         ? new Date(wedding.getTime() - 35 * MS_DAY)
@@ -228,15 +280,21 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
       let lastPaymentCents = 0;
       let nextChargeAtISO: string | null = null;
 
-      if (finalDueDate && remainingBalance > 0) {
+      if (!usingFull && finalDueDate && remainingBalance > 0) {
         derivedPlanMonths = monthsBetweenInclusive(new Date(), finalDueDate);
         const remainingCents = Math.round(remainingBalance * 100);
-        const base = Math.floor(remainingCents / Math.max(1, derivedPlanMonths));
+        const base = Math.floor(
+          remainingCents / Math.max(1, derivedPlanMonths)
+        );
         const tail = remainingCents - base * Math.max(0, derivedPlanMonths - 1);
         perMonthCents = base;
         lastPaymentCents = tail;
         nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
       }
+
+      const perMonthDollars = !usingFull
+        ? Number((perMonthCents / 100).toFixed(2))
+        : 0;
 
       // ── Firestore: mark booked + snapshot basic dessert data ──
       await setDoc(
@@ -257,14 +315,16 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
 
       try {
         localStorage.setItem("yumBookedDessert", "true");
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
       // Fire global events quickly so Budget Wand / dashboard update instantly
       try {
         window.dispatchEvent(new Event("dessertCompletedNow"));
         window.dispatchEvent(new Event("purchaseMade"));
-      } catch (e) {
-        /* non-blocking */
+      } catch {
+        /* ignore */
       }
 
       // ── Purchases entry (for spend dashboard & snapshots) ──
@@ -273,14 +333,18 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         category: "dessert",
         boutique: "dessert",
         source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
+        amount: Number(amountDueToday.toFixed(2)), // charged now
         amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(totalEffective.toFixed(2)),
-        payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
-        months: usingFull ? 0 : derivedPlanMonths,
-        method: usingFull ? "paid_in_full" : "deposit",
+        contractTotal: Number(totalEffective.toFixed(2)), // full commitment
+        payFull: paymentPlan !== "monthly",
+        deposit:
+          paymentPlan === "monthly"
+            ? Number(amountDueToday.toFixed(2))
+            : Number(totalEffective.toFixed(2)),
+        monthlyAmount:
+          paymentPlan === "monthly" ? perMonthDollars : 0,
+        months: paymentPlan === "monthly" ? derivedPlanMonths : 0,
+        method: paymentPlan === "monthly" ? "deposit" : "full",
         items: lineItems,
         date: new Date().toISOString(),
       };
@@ -291,42 +355,87 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         // spendTotal reflects what hit the card today
         spendTotal: increment(Number(amountDueToday.toFixed(2))),
 
-        paymentPlan: {
-          product: "dessert",
-          type: usingFull ? "paid_in_full" : "deposit",
-          total: totalEffective,
-          depositPercent: usingFull ? 1 : DEPOSIT_PCT,
-          paidNow: amountDueToday,
-          remainingBalance: usingFull ? 0 : remainingBalance,
-          finalDueDate: finalDueDateStr,
-          finalDueAt: finalDueISO,
-          createdAt: new Date().toISOString(),
-        },
+        // (A) UI snapshot (mirrors catering structure)
+        paymentPlan:
+          paymentPlan === "monthly"
+            ? {
+                product: "yum",
+                type: "deposit",
+                total: totalEffective,
+                depositPercent: DEPOSIT_PCT,
+                paidNow: amountDueToday,
+                remainingBalance,
+                finalDueDate: finalDueDateStr,
+                finalDueAt: finalDueISO,
+                createdAt: new Date().toISOString(),
+              }
+            : {
+                product: "yum",
+                type: "full",
+                total: totalEffective,
+                paidNow: totalEffective,
+                remainingBalance: 0,
+                finalDueDate: null,
+                finalDueAt: null,
+                depositPercent: 1,
+                createdAt: new Date().toISOString(),
+              },
 
-        paymentPlanAuto: {
-          version: 1,
-          product: "dessert",
-          status: usingFull
-            ? "complete"
-            : remainingBalance > 0
-            ? "active"
-            : "complete",
-          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
-          currency: "usd",
-          totalCents: Math.round(totalEffective * 100),
-          depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-          remainingCents: Math.round(
-            (usingFull ? 0 : remainingBalance) * 100
-          ),
-          planMonths: usingFull ? 0 : derivedPlanMonths,
-          perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
-          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-          nextChargeAt: usingFull ? null : nextChargeAtISO,
-          finalDueAt: finalDueISO,
-          stripeCustomerId: localStorage.getItem("stripeCustomerId") || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
+        // (B) snapshot for billing robot
+        paymentPlanAuto:
+          paymentPlan === "monthly"
+            ? {
+                version: 1,
+                product: "yum",
+                status: "active",
+                strategy: "monthly_until_final",
+                currency: "usd",
+
+                totalCents: Math.round(totalEffective * 100),
+                depositCents: Math.round(amountDueToday * 100),
+                remainingCents: Math.round(remainingBalance * 100),
+
+                planMonths: derivedPlanMonths,
+                perMonthCents,
+                lastPaymentCents,
+                nextChargeAt: nextChargeAtISO,
+                finalDueAt: finalDueISO,
+
+                stripeCustomerId:
+                  customerId ||
+                  userDoc?.stripeCustomerId ||
+                  localStorage.getItem("stripeCustomerId") ||
+                  null,
+
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }
+            : {
+                version: 1,
+                product: "yum",
+                status: "complete",
+                strategy: "paid_in_full",
+                currency: "usd",
+
+                totalCents: Math.round(totalEffective * 100),
+                depositCents: Math.round(totalEffective * 100),
+                remainingCents: 0,
+
+                planMonths: 0,
+                perMonthCents: 0,
+                lastPaymentCents: 0,
+                nextChargeAt: null,
+                finalDueAt: null,
+
+                stripeCustomerId:
+                  customerId ||
+                  userDoc?.stripeCustomerId ||
+                  localStorage.getItem("stripeCustomerId") ||
+                  null,
+
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
 
         // Route them to the correct Thank You based on whether catering is already booked
         "progress.yumYum.step": bookings.catering
@@ -361,26 +470,34 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         localStorage.getItem("yumSignature") ||
         "";
 
-      const pdfBlob = await generateDessertAgreementPDF({
-        fullName,
-        total: totalEffective,
-        deposit: amountDueToday,
-        guestCount: effectiveGuestCount,
-        weddingDate: weddingYMD || "TBD",
-        signatureImageUrl,
-        paymentSummary:
-          paymentSummaryText ||
-          (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
-            : `You're paying $${amountDueToday.toFixed(
-                2
-              )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
-                2
-              )} (final due ${finalDuePretty}).`),
-        selectedStyle,
-        selectedFlavorCombo,
-        lineItems,
-      });
+        const pdfBlob = await generateDessertAgreementPDF({
+          fullName,
+          total: totalEffective,
+          deposit: usingFull ? totalEffective : amountDueToday,
+          guestCount: effectiveGuestCount,
+          weddingDate: weddingYMD || "TBD",
+          signatureImageUrl,
+          paymentSummary:
+            paymentSummaryText ||
+            (usingFull
+              ? `Paid in full today: $${amountDueToday.toFixed(
+                  2
+                )}. No remaining balance is owed for this dessert agreement.`
+              : `Deposit of $${amountDueToday.toFixed(
+                  2
+                )} paid today. Remaining balance of $${remainingBalance.toFixed(
+                  2
+                )} will be charged in ${
+                  storedPlanMonths || derivedPlanMonths
+                } monthly installments of about $${(
+                  (storedPerMonth || perMonthDollars)
+                ).toFixed(2)}, with the final payment due ${
+                  finalDuePrettyFromLS || finalDueDateStr
+                }.`),
+          selectedStyle,
+          selectedFlavorCombo,
+          lineItems,
+        });
 
       const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
       const filename = `YumDessertAgreement_${Date.now()}.pdf`;
@@ -409,7 +526,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         await notifyBooking("yum_dessert", {
           user_email: current?.email || "unknown@wedndone.com",
           user_full_name: fullName,
-          firstName: fullName.split(" ")[0] || "Friend", // safe first
+          firstName: safeFirst,
           wedding_date: weddingYMD || "TBD",
 
           pdf_url: publicUrl,
@@ -419,7 +536,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
           line_items: (lineItems || []).join(", "),
           payment_now: amountDueToday.toFixed(2),
           remaining_balance: remainingBalance.toFixed(2),
-          final_due: finalDuePretty,
+          final_due: finalDueDateStr,
 
           dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
           product_name: "Yum Yum Desserts",
@@ -435,7 +552,9 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
 
       try {
         localStorage.setItem("yumStep", nextStep);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
       setStep(nextStep);
       onComplete();
@@ -542,7 +661,7 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
           {paymentMessage}
         </p>
 
-        {/* Stripe form (no <Elements> wrapper anymore) */}
+        {/* Stripe form */}
         <div className="px-elements" aria-busy={isGenerating}>
           <CheckoutForm
             total={amountDueToday}

@@ -29,11 +29,22 @@ const MARGIN_RATE = 0.06;
 const SALES_TAX_RATE = 0.086;
 const STRIPE_RATE = 0.029;
 const STRIPE_FLAT_FEE = 0.3;
-const BASE_PACKAGE_PRICE = 2800;
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+// 🆕 Base package sticker price (what user sees before taxes/fees)
+const BASE_PACKAGE_PRICE = 2600;
+
+const round2 = (n: number) =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
+
+// 🆕 Helper: apply W&D margin so cart + lineItems both match the math
+const priceWithMargin = (base: number) => round2(base * (1 + MARGIN_RATE));
+
 const prettyDate = (d: Date) =>
-  d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
 const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
   setTotal,
@@ -47,7 +58,9 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
   onClose,
 }) => {
   // init quantities to 0
-  const [localQuantities, setLocalQuantities] = useState<Record<string, number>>(
+  const [localQuantities, setLocalQuantities] = useState<
+    Record<string, number>
+  >(
     upgradeItems.reduce((acc, item) => {
       acc[item.name] = 0;
       return acc;
@@ -56,28 +69,41 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
 
   const handleQuantityChange = (itemName: string, value: string) => {
     const n = Math.max(0, parseInt(value || "0", 10));
-    const newQuantities = { ...localQuantities, [itemName]: Number.isFinite(n) ? n : 0 };
+    const newQuantities = {
+      ...localQuantities,
+      [itemName]: Number.isFinite(n) ? n : 0,
+    };
     setLocalQuantities(newQuantities);
     setQuantities(newQuantities);
   };
 
-  // ---------- Pricing (no isCurrency needed) ----------
+  // ---------- Pricing ----------
+  // Add-ons get margin baked into the *per unit* price
   const subtotalAddons = useMemo(
     () =>
       upgradeItems.reduce((sum, item) => {
         const qty = localQuantities[item.name] || 0;
-        return sum + item.basePrice * (1 + MARGIN_RATE) * qty;
+        const perUnit = priceWithMargin(item.basePrice);
+        return sum + perUnit * qty;
       }, 0),
     [localQuantities]
   );
 
-  const subtotal = hideBasePackage ? subtotalAddons : BASE_PACKAGE_PRICE + subtotalAddons;
-  const taxesAndFees = subtotal * SALES_TAX_RATE + subtotal * STRIPE_RATE + STRIPE_FLAT_FEE;
+  // Base package is already a sticker price ($2,600), no extra margin
+  const subtotal = hideBasePackage
+    ? subtotalAddons
+    : BASE_PACKAGE_PRICE + subtotalAddons;
+
+  const taxesAndFees =
+    subtotal * SALES_TAX_RATE + subtotal * STRIPE_RATE + STRIPE_FLAT_FEE;
+
   const grandTotal = round2(subtotal + taxesAndFees);
 
   // 50% deposit math + final due (35 days prior)
   const deposit50 = round2(grandTotal * 0.5);
-  const remainingAfterDeposit = round2(Math.max(0, grandTotal - deposit50));
+  const remainingAfterDeposit = round2(
+    Math.max(0, grandTotal - deposit50)
+  );
 
   const finalDueAt = (() => {
     if (!weddingDate) return null;
@@ -86,22 +112,41 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
     d.setDate(d.getDate() - 35);
     return d;
   })();
-  const finalDuePretty = finalDueAt ? prettyDate(finalDueAt) : "35 days before your wedding date";
+  const finalDuePretty = finalDueAt
+    ? prettyDate(finalDueAt)
+    : "35 days before your wedding date";
 
   const handleContinue = async () => {
     const auth = getAuth();
     const user = auth.currentUser;
 
+    // 🆕 Line items with margin-baked per-unit price
     const selectedItems = upgradeItems
       .filter((item) => (localQuantities[item.name] || 0) > 0)
-      .map(
-        (item) =>
-          `${localQuantities[item.name]} x ${item.name} ($${Number(item.basePrice).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} each)`
-      );
+      .map((item) => {
+        const qty = localQuantities[item.name] || 0;
+        const perUnit = priceWithMargin(item.basePrice);
+
+        return `${qty} x ${item.name} ($${Number(perUnit).toLocaleString(
+          undefined,
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        )} each)`;
+      });
 
     const lineItems = hideBasePackage
       ? [...selectedItems]
-      : [`Wedding Photography Package - $${Number(BASE_PACKAGE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, ...selectedItems];
+      : [
+          `Wedding Photography Package - $${Number(
+            BASE_PACKAGE_PRICE
+          ).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+          ...selectedItems,
+        ];
 
     setTotal(grandTotal);
     setLineItems(lineItems);
@@ -111,8 +156,14 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
       localStorage.setItem("photoTotal", String(grandTotal));
       localStorage.setItem("photoDepositPercent", "0.5");
       localStorage.setItem("photoDepositAmount", String(deposit50));
-      localStorage.setItem("photoRemainingBalance", String(remainingAfterDeposit));
-      localStorage.setItem("photoFinalDueAt", finalDueAt ? finalDueAt.toISOString() : "");
+      localStorage.setItem(
+        "photoRemainingBalance",
+        String(remainingAfterDeposit)
+      );
+      localStorage.setItem(
+        "photoFinalDueAt",
+        finalDueAt ? finalDueAt.toISOString() : ""
+      );
       localStorage.setItem("photoFinalDuePretty", finalDuePretty);
       localStorage.setItem("photoLineItems", JSON.stringify(lineItems));
     } catch {}
@@ -128,14 +179,22 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
         console.error("❌ Error saving photo progress:", e);
       }
     }
+
     onContinue();
   };
 
   return (
     <div className="pixie-card">
       {/* Pink X */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body">
@@ -157,26 +216,64 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
 
         {/* Base package blurb */}
         {!hideBasePackage && (
-          <div className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
-            <p style={{ fontWeight: 700, marginBottom: 8 }}>Photographer Wed&Done Package</p>
-            <ul style={{ textAlign: "left", margin: "0 auto", maxWidth: 520 }}>
+          <div
+            className="px-prose-narrow"
+            style={{ marginBottom: "1.25rem" }}
+          >
+            <p style={{ fontWeight: 700, marginBottom: 8 }}>
+              Photographer Wed&Done Package
+            </p>
+            <ul
+              style={{
+                textAlign: "left",
+                margin: "0 auto",
+                maxWidth: 520,
+              }}
+            >
               <li>6 hours of wedding day coverage</li>
               <li>At least 250 final images</li>
-              <li>Professional retouching/post-processing of all final images</li>
-              <li>Downloadable, high-resolution files (limited copyright release)</li>
+              <li>
+                Professional retouching/post-processing of all final images
+              </li>
+              <li>
+                Downloadable, high-resolution files (limited copyright release)
+              </li>
               <li>Online digital gallery</li>
             </ul>
             <p style={{ marginTop: 10, fontWeight: 700 }}>
-              ${Number(BASE_PACKAGE_PRICE).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+              $
+              {Number(BASE_PACKAGE_PRICE).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </div>
         )}
 
         {/* Rows */}
-        <div style={{ textAlign: "left", margin: "0 auto 1.5rem", maxWidth: 600 }}>
+        <div
+          style={{
+            textAlign: "left",
+            margin: "0 auto 1.5rem",
+            maxWidth: 600,
+          }}
+        >
           {upgradeItems.map((item) => (
             <div key={item.name} className="px-item">
-              <div className="px-item__label">{item.name}</div>
+              <div className="px-item__label">
+                {item.name}{" "}
+                <span style={{ opacity: 0.7 }}>
+                  ($
+                  {Number(priceWithMargin(item.basePrice)).toLocaleString(
+                    undefined,
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }
+                  )}{" "}
+                  each)
+                </span>
+              </div>
 
               <div className="px-qty">
                 <button
@@ -185,19 +282,30 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
                   onClick={() =>
                     handleQuantityChange(
                       item.name,
-                      String(Math.max(0, (localQuantities[item.name] || 0) - 1))
+                      String(
+                        Math.max(
+                          0,
+                          (localQuantities[item.name] || 0) - 1
+                        )
+                      )
                     )
                   }
                   aria-label={`Decrease ${item.name}`}
                 >
-                  <img src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`} alt="" aria-hidden="true" />
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/icons/qty_minus_pink_glossy.svg`}
+                    alt=""
+                    aria-hidden="true"
+                  />
                 </button>
 
                 <input
                   type="number"
                   min="0"
                   value={localQuantities[item.name]}
-                  onChange={(e) => handleQuantityChange(item.name, e.target.value)}
+                  onChange={(e) =>
+                    handleQuantityChange(item.name, e.target.value)
+                  }
                   className="px-input-number"
                   inputMode="numeric"
                 />
@@ -206,11 +314,18 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
                   type="button"
                   className="px-qty-btn px-qty-btn--plus"
                   onClick={() =>
-                    handleQuantityChange(item.name, String((localQuantities[item.name] || 0) + 1))
+                    handleQuantityChange(
+                      item.name,
+                      String((localQuantities[item.name] || 0) + 1)
+                    )
                   }
                   aria-label={`Increase ${item.name}`}
                 >
-                  <img src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`} alt="" aria-hidden="true" />
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/icons/qty_plus_blue_glossy.svg`}
+                    alt=""
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
@@ -219,7 +334,11 @@ const PixiePurchaseScreenPhoto: React.FC<PixiePurchaseScreenPhotoProps> = ({
 
         {/* Totals */}
         <div className="px-totals" style={{ marginBottom: 10 }}>
-          Total (includes taxes &amp; fees): ${Number(grandTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+          Total (includes taxes &amp; fees): $
+          {Number(grandTotal).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </div>
 
         {/* CTAs */}

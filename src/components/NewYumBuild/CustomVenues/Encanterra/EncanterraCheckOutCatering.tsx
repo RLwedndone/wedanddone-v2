@@ -253,12 +253,15 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (payFull
-            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
-            : `Deposit today: $${amountDueToday.toFixed(
+            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )}.`
+            : `Deposit of $${amountDueToday.toFixed(
                 2
-              )}. Remaining $${remainingBalance.toFixed(
+              )} paid today. Remaining balance of $${remainingBalance.toFixed(
                 2
-              )} due by ${finalDueDateStr}.`),
+              )} will be charged in monthly installments until ${finalDueDateStr}.`),
         diamondTier,
         selections: {
           hors: menuSelections.hors || encSelections.hors || [],
@@ -489,17 +492,6 @@ try {
           <h3 className="px-title" style={{ margin: 0 }}>
             Madge is working her magic…
           </h3>
-
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
-              disabled
-            >
-              ← Back to Cart
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -574,16 +566,6 @@ try {
     })()}
   />
 </div>
-        {/* Back (inside card) */}
-        <div style={{ marginTop: 12 }}>
-          <button
-            className="boutique-back-btn"
-            style={{ width: 250 }}
-            onClick={onBack}
-          >
-            ← Back to Cart
-          </button>
-        </div>
       </div>
     </div>
   );

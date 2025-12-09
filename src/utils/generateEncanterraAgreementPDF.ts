@@ -120,12 +120,13 @@ const generateEncanterraAgreementPDF = async ({
   const doc = new jsPDF();
 
   // Normalize package label
-  const tier = (typeof diamondTier === "string" && diamondTier) || tierLabel || "Package";
+  const tier =
+    (typeof diamondTier === "string" && diamondTier) || tierLabel || "Package";
 
   // Normalize menu selections (support aliases)
   const s = selections || {};
-  const hors    = s.hors ?? [];
-  const salads  = s.salads ?? [];
+  const hors = s.hors ?? [];
+  const salads = s.salads ?? [];
   const entrees = s.entrees ?? [];
   const sides =
     s.sides ??
@@ -136,13 +137,12 @@ const generateEncanterraAgreementPDF = async ({
     s.vegetables ??
     [];
 
-  // Images
+  // Images (1st page only – watermark + logo)
   const [logo, lock] = await Promise.all([
     loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
     loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
 
-  // Watermark + logo
   doc.addImage(lock, "JPEG", 40, 60, 130, 130);
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
@@ -150,12 +150,9 @@ const generateEncanterraAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text(
-    `Catering Agreement & Receipt — ${tier} Tier`,
-    105,
-    75,
-    { align: "center" }
-  );
+  doc.text(`Catering Agreement & Receipt — ${tier} Tier`, 105, 75, {
+    align: "center",
+  });
 
   const prettyWedding = toPrettyDate(weddingDate);
   const todayPretty = toPrettyDate(new Date().toISOString());
@@ -172,15 +169,30 @@ const generateEncanterraAgreementPDF = async ({
   // Header basics
   doc.setFontSize(12);
   let y = 90;
-  doc.text(`Name: ${fullName}`, MARGIN_X, y); y += LINE_GAP;
-  doc.text(`Wedding Date: ${prettyWedding}`, MARGIN_X, y); y += LINE_GAP;
-  if (tier) { doc.text(`Selected Tier: ${tier}`, MARGIN_X, y); y += LINE_GAP; }
-  if (venueName) { doc.text(`Venue: ${venueName}`, MARGIN_X, y); y += LINE_GAP; }
-  doc.text(`Guest Count: ${guestCount}`, MARGIN_X, y); y += LINE_GAP;
+  doc.text(`Name: ${fullName}`, MARGIN_X, y);
+  y += LINE_GAP;
+  doc.text(`Wedding Date: ${prettyWedding}`, MARGIN_X, y);
+  y += LINE_GAP;
+  if (tier) {
+    doc.text(`Selected Tier: ${tier}`, MARGIN_X, y);
+    y += LINE_GAP;
+  }
+  if (venueName) {
+    doc.text(`Venue: ${venueName}`, MARGIN_X, y);
+    y += LINE_GAP;
+  }
+  doc.text(`Guest Count: ${guestCount}`, MARGIN_X, y);
+  y += LINE_GAP;
   y += LINE_GAP;
 
   // Included items
-  if (lineItems.length || hors.length || salads.length || entrees.length || sides.length) {
+  if (
+    lineItems.length ||
+    hors.length ||
+    salads.length ||
+    entrees.length ||
+    sides.length
+  ) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
     doc.setFontSize(14);
     doc.text("Included Items:", MARGIN_X, y);
@@ -217,7 +229,7 @@ const generateEncanterraAgreementPDF = async ({
     section("Sides", sides);
   }
 
-  // Payment summary section
+  // ---------- Payment summary section (updated wording) ----------
   y += PARA_GAP;
   y = ensureSpace(doc, y, LINE_GAP * 4 + PARA_GAP);
   doc.setTextColor(0);
@@ -225,28 +237,80 @@ const generateEncanterraAgreementPDF = async ({
   doc.text("Payment Summary:", MARGIN_X, y);
   y += LINE_GAP;
 
-  const humanLines = doc.splitTextToSize(paymentSummary, 170);
-  for (const ln of humanLines) {
+  const hasDepositPlan = deposit > 0 && deposit < total;
+  const remaining = Math.max(0, total - deposit);
+
+  const headline = hasDepositPlan
+    ? `Deposit of $${deposit.toFixed(
+        2
+      )} paid today. Remaining balance of $${remaining.toFixed(
+        2
+      )} will be charged in monthly installments until ${
+        dueByPretty || "35 days before your wedding date"
+      }.`
+    : `Paid in full today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}.`;
+
+  // Always show the clear headline line first
+  const headlineLines = doc.splitTextToSize(headline, 170);
+  for (const ln of headlineLines) {
     y = ensureSpace(doc, y, LINE_GAP);
     doc.text(ln, MARGIN_X + 5, y);
     y += LINE_GAP;
   }
 
-  if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
+  // If caller passed extra detail, include it underneath
+  const trimmedSummary = (paymentSummary || "").trim();
+  if (trimmedSummary && trimmedSummary !== headline) {
+    const humanLines = doc.splitTextToSize(trimmedSummary, 170);
+    for (const ln of humanLines) {
+      y = ensureSpace(doc, y, LINE_GAP);
+      doc.text(ln, MARGIN_X + 5, y);
+      y += LINE_GAP;
+    }
+  }
+
+  // Additional explicit lines (still fine to keep – they reinforce totals)
+  if (hasDepositPlan) {
+    doc.text(
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      MARGIN_X + 5,
+      y
+    );
+    y += LINE_GAP;
     if (dueByPretty) {
-      doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y); y += LINE_GAP;
+      doc.text(
+        `Remaining balance due by: ${dueByPretty}`,
+        MARGIN_X + 5,
+        y
+      );
+      y += LINE_GAP;
     }
   } else {
-    doc.text(`Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      MARGIN_X + 5,
+      y
+    );
+    y += LINE_GAP;
   }
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;
 
-  // Venue-specific reminder (kept generic/safe)
+  // Venue-specific reminder (aligned with contract copy)
   {
     const v = venueName || "the venue";
-    const banner = `Reminder: Your catering selections may count toward the food & beverage minimum at ${v}. Alcohol and bar packages are booked directly with ${v} in accordance with applicable liquor laws.`;
+    const banner =
+      `Reminder: This catering agreement counts toward the food & beverage minimum at ${v}. ` +
+      `Alcohol and bar packages are booked directly with ${v} in accordance with applicable liquor laws.`;
     const lines = doc.splitTextToSize(banner, 170);
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
@@ -256,9 +320,10 @@ const generateEncanterraAgreementPDF = async ({
     y += 4;
   }
 
-  // Agreement terms — mirrored from contract UI
+  // ---------- Agreement terms (black text) ----------
   const writeParagraph = (title: string, text: string) => {
     y = ensureSpace(doc, y, PARA_GAP);
+    doc.setTextColor(0);
     doc.setFontSize(13);
     doc.text(title, MARGIN_X, y);
     y += LINE_GAP;
@@ -274,30 +339,38 @@ const generateEncanterraAgreementPDF = async ({
 
   writeParagraph(
     "Key terms",
-    `Final balance due by ${dueByPretty || "TBD"} (35 days before your wedding). Choose pay in full, or 25% deposit now + monthly installments until the due date. Final guest counts lock 30 days before your wedding.`
+    `Final balance is due by ${dueByPretty || "TBD"} (35 days before your wedding). ` +
+      `You may pay in full today, or place a 25% deposit now and pay the remaining balance in monthly installments ` +
+      `until the due date. Final guest counts lock 30 days before your wedding.`
   );
 
   writeParagraph(
     "Cancellation & refunds",
-    "A minimum of 25% of the catering total is non-refundable. If you cancel more than 30 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. If you cancel within 30 days, all payments are non-refundable. Reschedules are subject to availability and any difference in costs."
+    "A minimum of 25% of the catering total is non-refundable. If you cancel more than 35 days prior to your wedding date, " +
+      "amounts paid beyond the non-refundable portion will be refunded, less any non-recoverable costs already incurred. " +
+      "If you cancel within 35 days of your wedding date, all payments are non-refundable. Reschedules are subject to availability " +
+      "and any difference in costs."
   );
 
   writeParagraph(
     "Payments & default",
-    "Missed installments will be automatically re-attempted. If payment is not received within 7 days, a $25 late fee may apply; after 14 days, services may be suspended and the agreement may be placed in default."
+    "Missed installments will be automatically re-attempted. If payment is not received within 7 days, a $25 late fee may apply; " +
+      "after 14 days, services may be suspended and the agreement may be placed in default."
   );
 
   writeParagraph(
     "Substitutions & liability",
-    "Comparable substitutions may be made if an item is unavailable. Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages. Liability is limited to amounts paid for catering services under this agreement."
+    "Comparable substitutions may be made if an item is unavailable. Wed&Done is not responsible for venue restrictions, " +
+      "undisclosed allergies, or consequential damages. Liability is limited to amounts paid for catering services under this agreement."
   );
 
   writeParagraph(
     "Force majeure",
-    "Neither party is liable for failure or delay caused by events beyond reasonable control. We’ll work in good faith to reschedule; if that’s not possible, amounts paid beyond non-recoverable costs will be refunded."
+    "Neither party is liable for failure or delay caused by events beyond reasonable control. We’ll work in good faith to reschedule; " +
+      "if that’s not possible, amounts paid beyond non-recoverable costs will be refunded."
   );
 
-  // Signature block
+  // ---------- Signature block ----------
   if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
@@ -311,7 +384,14 @@ const generateEncanterraAgreementPDF = async ({
 
   try {
     if (signatureImageUrl) {
-      doc.addImage(signatureImageUrl, "PNG", MARGIN_X, sigTop + 5, 80, SIG_IMG_H);
+      doc.addImage(
+        signatureImageUrl,
+        "PNG",
+        MARGIN_X,
+        sigTop + 5,
+        80,
+        SIG_IMG_H
+      );
     }
   } catch (err) {
     console.error("❌ Failed to add signature image:", err);
@@ -320,7 +400,11 @@ const generateEncanterraAgreementPDF = async ({
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Signed by: ${fullName}`, MARGIN_X, sigTop + 5 + SIG_IMG_H + 12);
-  doc.text(`Signature date: ${todayPretty}`, MARGIN_X, sigTop + 5 + SIG_IMG_H + 19);
+  doc.text(
+    `Signature date: ${todayPretty}`,
+    MARGIN_X,
+    sigTop + 5 + SIG_IMG_H + 19
+  );
 
   addFooter(doc);
   return doc.output("blob");

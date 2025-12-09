@@ -84,7 +84,7 @@ export const venueContractSnippets: Record<string, string[]> = {
   haciendadelsol: [
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay Hacienda Del Sol directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
-    "For a Monday - Thursday wedding, Hacienda Del Sol requires a minimum total of $8,000 to be spent on food and beverage.",
+    "Catering is NOT included in this venue price. For a Monday - Thursday wedding, Hacienda Del Sol requires a minimum total of $8,000 to be spent on food and beverage.",
     "For a Friday wedding, Hacienda Del Sol requires a minimum total of $18,000 to be spent on food and beverage.",
     "For a Saturday wedding, Hacienda Del Sol requires a minimum total of $20,000 to be spent on food and beverage."
   ],
@@ -93,7 +93,7 @@ export const venueContractSnippets: Record<string, string[]> = {
   valleyho: [
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay Hotel Valley Ho directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
-    "Hotel Valley Ho requires a minimum total of $15,000 to be spent on food and beverage.",
+    "Catering is NOT included in this venue price. Hotel Valley Ho requires a minimum total of $15,000 to be spent on food and beverage.",
 
     "Overnight and Valet Guest Parking",
     "Your wedding package includes day-of valet guest parking.",
@@ -148,6 +148,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Absolutely no outside alcohol is allowed. Violation of this policy will result in a $500.00 charge. Schnepf Farms reserves the right to refuse alcohol service at any time and may terminate the event for disorderly behavior, fights, or destruction of property.",
     "Schnepf Farms holds a Series 7 Beer & Wine Bar Liquor License. No hard liquor or spirits are permitted on the property under any circumstances. Violation will result in a $500 charge.",
     "Cash Bar Packages start at $400. Open Bar Packages for 100 guests range from $3,000–$3,500 after tax and service fees.",
+    "Catering is NOT included in this venue price.",
 
     "Client & Guest Conduct",
     "Schnepf Farms reserves the right to refuse service or remove guests for misbehavior, disorderly conduct, or damage to the property.",
@@ -169,6 +170,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Absolutely no outside alcohol is allowed. Violation of this policy will result in a $500.00 charge. Schnepf Farms reserves the right to refuse alcohol service at any time and may terminate the event for disorderly behavior, fights, or destruction of property.",
     "Schnepf Farms holds a Series 7 Beer & Wine Bar Liquor License. No hard liquor or spirits are permitted on the property under any circumstances. Violation will result in a $500 charge.",
     "Cash Bar Packages start at $400. Open Bar Packages for 100 guests range from $3,000–$3,500 after tax and service fees.",
+    "Catering is NOT included in this venue price.",
 
     "Client & Guest Conduct",
     "Schnepf Farms reserves the right to refuse service or remove guests for misbehavior, disorderly conduct, or damage to the property.",
@@ -190,6 +192,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Absolutely no outside alcohol is allowed. Violation of this policy will result in a $500.00 charge. Schnepf Farms reserves the right to refuse alcohol service at any time and may terminate the event for disorderly behavior, fights, or destruction of property.",
     "Schnepf Farms holds a Series 7 Beer & Wine Bar Liquor License. No hard liquor or spirits are permitted on the property under any circumstances. Violation will result in a $500 charge.",
     "Cash Bar Packages start at $400. Open Bar Packages for 100 guests range from $3,000–$3,500 after tax and service fees.",
+    "Catering is NOT included in this venue price.",
 
     "Client & Guest Conduct",
     "Schnepf Farms reserves the right to refuse service or remove guests for misbehavior, disorderly conduct, or damage to the property.",
@@ -207,7 +210,7 @@ export const venueContractSnippets: Record<string, string[]> = {
   ocotillo: [
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay the Ocotillo directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
-    "The Ocotillo requires a minimum total of $10,000 to be spent on food and beverage.",
+    "Catering is NOT included in this venue price. The Ocotillo requires a minimum total of $10,000 to be spent on food and beverage.",
 
     "Rescheduling & Weather",
     "If the client wishes to reschedule for any reason, they must notify Wed&Done at least 60 days prior to the wedding date.",
@@ -222,6 +225,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay The Windmill Winery directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
     "The Windmill Winery holds a Beer & Wine license and offers three options for alcoholic beverages. Alcohol packages range from $15/person for 1 hour to $35/person for 5 hours. All alcohol must be purchased and served by The Windmill staff only.",
+    "Catering is NOT included in this venue price.",
 
     "Responsibilities of the Renter",
     "Renter is responsible for all guests and attendees, including minors and any service providers outside of The Windmill staff and Wed&Done vendors.",
@@ -243,6 +247,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay The Windmill Winery directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
     "The Windmill Winery holds a Beer & Wine license and offers three options for alcoholic beverages. Alcohol packages range from $15/person for 1 hour to $35/person for 5 hours. All alcohol must be purchased and served by The Windmill staff only.",
+    "Catering is NOT included in this venue price.",
 
     "Responsibilities of the Renter",
     "Renter is responsible for all guests and attendees, including minors and any service providers outside of The Windmill staff and Wed&Done vendors.",
@@ -263,7 +268,7 @@ export const venueContractSnippets: Record<string, string[]> = {
   tubac: [
     "Alcohol Policy & Food/Drink Minimum",
     "Due to state liquor laws, the client must pay Tubac Golf Resort and Spa directly for alcohol purchases. This cost is separate and additional to the cost of the Wed&Done package pricing.",
-    "For a Saturday wedding, Tubac Golf Resort and Spa requires a minimum total of $14,000 to be spent on food and beverage.",
+    "Catering is NOT included in this venue price. For a Saturday wedding, Tubac Golf Resort and Spa requires a minimum total of $14,000 to be spent on food and beverage.",
     "For weddings held on any other day of the week, catering is billed per person with no required minimum."
   ],
 
@@ -276,6 +281,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Client may not charge for alcohol, collect donations to offset costs, or host public events.",
     "A security guard is required at all events with a hosted bar.",
     "Shots of liquor are not allowed. Bartenders must be provided by Soho63. All guests under 30 will be carded. No self-service of alcohol is allowed.",
+"Catering is NOT included in this venue price.",
 
     "Decor Rules",
     "Open flames are prohibited. All candles must be fully enclosed.",
@@ -304,6 +310,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "The Verrado Golf Club reserves the right to discontinue service to any guest and to call transportation at the guest’s expense if necessary.",
     "Re-corked bottle wine (purchased on site) may be taken home by the client the following day.",
     "Client is responsible for guest behavior and damages to facilities.",
+    "Catering is NOT included in this venue price.",
 
     "Function Hours",
     "Facility use is limited to 6 hours. All events must end by midnight.",
@@ -343,6 +350,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "The Verrado Golf Club reserves the right to discontinue service to any guest and to call transportation at the guest’s expense if necessary.",
     "Re-corked bottle wine (purchased on site) may be taken home by the client the following day.",
     "Client is responsible for guest behavior and damages to facilities.",
+    "Catering is NOT included in this venue price.",
 
     "Function Hours",
     "Facility use is limited to 6 hours. All events must end by midnight.",
@@ -380,7 +388,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Proper ID is required for guests consuming alcohol. Encanterra reserves the right to discontinue service at any time.",
 
     "Food & Beverage Policy",
-    "Encanterra has an $8,000 food & beverage minimum (not including tax, service, labor, AV, or other charges).",
+    "Catering is NOT included in this venue price. Encanterra has an $8,000 food & beverage minimum (not including tax, service, labor, AV, or other charges).",
     "If your total drops below the minimum, staff will suggest options to meet the requirement.",
     "All food & beverage must be supplied through BlueStar Resort & Golf Club, except specialty desserts, wedding cake, or cupcakes.",
     "No leftover food may be taken home, except for desserts provided by the client.",
@@ -452,6 +460,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Due to state liquor laws, alcohol and bartending must be purchased directly from the venue or an approved vendor. This is separate from Wed&Done pricing.",
     "All bartenders must be licensed and insured. No self-service of alcohol.",
     "Venue reserves the right to refuse service and to end bar service for safety or legal reasons.",
+    "Catering is NOT included in this venue price.",
 
     "Decor & Usage",
     "No nails, staples, adhesives, or fixtures that damage surfaces. Free-standing decor only unless pre-approved.",
@@ -475,6 +484,7 @@ export const venueContractSnippets: Record<string, string[]> = {
     "Alcohol & Bar",
     "Due to state liquor laws, alcohol must be provided/served by an approved, licensed, and insured vendor. No self-service, no shots.",
     "Venue reserves the right to refuse service and to end bar service for safety or legal reasons.",
+    "Catering is NOT included in this venue price.",
 
     "Decor Rules",
     "No nails, staples, tape, or adhesives that damage surfaces. No glitter or confetti. Enclosed-flame candles only.",

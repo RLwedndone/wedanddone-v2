@@ -22,10 +22,14 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
   // NEW: support modal
   const [showSupport, setShowSupport] = useState(false);
 
-  // Use your deployed Cloud Run (Functions gen2) URL
-  const BASE = "https://stripeapi-afpkb5342a-uc.a.run.app";
+  // ✅ Use the **Functions** URL, not the raw Cloud Run host.
+  // Hard-coded here so it can't accidentally point anywhere else.
+  const BASE =
+    "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
   useEffect(() => {
+    console.log("[PaymentSettingsOverlay] BASE =", BASE); // 👈 sanity check
+
     (async () => {
       try {
         const user = getAuth().currentUser;
@@ -73,11 +77,11 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
         const t = await resp.text();
         throw new Error(`billing-portal failed: ${resp.status} ${t}`);
       }
+
       const data = await resp.json();
       const url = data?.url;
       if (!url) throw new Error("No portal URL returned.");
 
-      // ✅ Open Stripe in a new tab instead of replacing Wed&Done
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       console.error("[UI] billing-portal error:", e);

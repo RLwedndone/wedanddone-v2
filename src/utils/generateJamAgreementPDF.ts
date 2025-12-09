@@ -1,6 +1,60 @@
 import jsPDF from "jspdf";
 
-/** ---------------- helpers ---------------- */
+/* -------------------- types -------------------- */
+export interface JamPDFOptions {
+  fullName: string;
+  total: number;
+  deposit: number;           // amount paid today (0 if full)
+  paymentSummary: string;    // kept for compatibility, not rendered
+  weddingDate: string;       // ISO or human-readable
+  signatureImageUrl: string; // data URL (PNG)
+  lineItems?: string[];
+  signatureDate?: string;    // e.g. "September 2nd, 2025"
+  finalDuePretty?: string;   // default "35 days before your wedding date"
+}
+
+/* -------------------- helpers -------------------- */
+const ordinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+};
+
+const parseWeddingDate = (raw: string): Date | null => {
+  if (!raw) return null;
+  const isoNoTime = /^\d{4}-\d{2}-\d{2}$/;
+  let d: Date;
+
+  if (isoNoTime.test(raw)) {
+    d = new Date(raw + "T12:00:00");
+  } else {
+    d = new Date(raw);
+  }
+
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const fmtLong = (d: Date) =>
+  `${d.toLocaleString("en-US", { month: "long" })} ${d.getDate()}${ordinal(
+    d.getDate()
+  )}, ${d.getFullYear()}`;
+
+const prettyDate = (raw: string | Date): string => {
+  if (raw instanceof Date) {
+    return isNaN(raw.getTime()) ? "" : fmtLong(raw);
+  }
+  const d = parseWeddingDate(raw);
+  return !d ? raw : fmtLong(d);
+};
+
+const finalDueMinusDays = (raw: string, days: number): Date | null => {
+  const base = parseWeddingDate(raw);
+  if (!base) return null;
+  const out = new Date(base.getTime());
+  out.setDate(out.getDate() - days);
+  return out;
+};
+
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -10,113 +64,38 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
     img.src = src;
   });
 
-const ordinal = (n: number) =>
-  n % 10 === 1 && n % 100 !== 11
-    ? "st"
-    : n % 10 === 2 && n % 100 !== 12
-    ? "nd"
-    : n % 10 === 3 && n % 100 !== 13
-    ? "rd"
-    : "th";
-
-// 🔧 normalize raw input into a safe Date (handles YYYY-MM-DD as local noon)
-const normalizeDate = (input: string | Date): Date | null => {
-  if (input instanceof Date) {
-    return isNaN(input.getTime()) ? null : input;
-  }
-
-  if (!input) return null;
-
-  // Handle pure YMD as **local** noon to avoid timezone day-slip
-  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-    const d = new Date(`${input}T12:00:00`);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  const d = new Date(input);
-  return isNaN(d.getTime()) ? null : d;
+/** Reset to normal body text style */
+const setBodyFont = (doc: jsPDF) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
 };
 
-const prettyDate = (d: string | Date): string => {
-  const dt = normalizeDate(d);
-  if (!dt) {
-    return typeof d === "string" ? d : "";
-  }
-  const m = dt.toLocaleString("en-US", { month: "long" });
-  const day = dt.getDate();
-  const y = dt.getFullYear();
-  return `${m} ${day}${ordinal(day)}, ${y}`;
-};
-
+/* footer */
 const renderFooter = (doc: jsPDF) => {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
+  const lineY = h - 20;
+
   doc.setDrawColor(200);
-  doc.line(20, h - 25, w - 20, h - 25);
+  doc.line(20, lineY, w - 20, lineY);
+
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", w / 2, h - 17, { align: "center" });
-};
-
-// ✅ Reset back to normal body text after footer/page-break
-const resetBodyTextStyle = (doc: jsPDF, size: number = 11) => {
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(size);
-  doc.setTextColor(0); // black
-};
-
-// convenience: write a paragraph with auto-wrap + page-breaks
-function writeParagraph(
-  doc: jsPDF,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  bottomMargin = 60,
-  lock?: HTMLImageElement
-) {
-  const h = doc.internal.pageSize.getHeight();
-  const lines = doc.splitTextToSize(text, maxWidth);
-  let cursor = y;
-
-  lines.forEach((ln: string) => {
-    if (cursor > h - bottomMargin) {
-      // finish page with footer (this sets tiny grey text)
-      renderFooter(doc);
-      doc.addPage();
-      // re-add watermark if provided
-      if (lock) {
-        doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-      }
-      // 🔥 go back to normal body text on the new page
-      resetBodyTextStyle(doc, 11);
-      cursor = 30;
-    }
-    doc.text(ln, x, cursor);
-    cursor += 7;
+  doc.text("Magically booked by Wed&Done", w / 2, lineY + 8, {
+    align: "center",
   });
-  return cursor;
-}
 
-/** ---------------- types ---------------- */
-export interface JamPDFOptions {
-  fullName: string;
-  total: number;
-  deposit: number; // amount paid today (0 if full)
-  paymentSummary: string; // e.g. “25% today, balance monthly…”
-  weddingDate: string; // ISO or already-formatted
-  signatureImageUrl: string;
-  lineItems?: string[];
-  signatureDate?: string; // OPTIONAL: e.g. "September 2nd, 2025"
-  finalDuePretty?: string; // OPTIONAL: default "35 days before your wedding date"
-}
+  // restore body style for anything after the footer
+  setBodyFont(doc);
+};
 
-/** ---------------- main ---------------- */
+/* -------------------- main -------------------- */
 export const generateJamAgreementPDF = async ({
   fullName,
   total,
   deposit,
-  paymentSummary,
+  paymentSummary, // kept for compatibility, not rendered
   weddingDate,
   signatureImageUrl,
   lineItems = [],
@@ -127,212 +106,213 @@ export const generateJamAgreementPDF = async ({
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
 
-  // assets
-  const [logo, lock] = await Promise.all([
-    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
-    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
-  ]);
+  // layout guards
+  const TOP = 20;
+  const LEFT = 20;
+  const RIGHT = w - 20;
+  const FOOTER_GAP = 28;
+  const contentMaxY = () => h - FOOTER_GAP;
+  let y = TOP;
 
-  // watermark + logo
-  doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-  doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+  const ensureSpace = (needed: number) => {
+    if (y + needed <= contentMaxY()) return;
+    // finish current page
+    renderFooter(doc);
+    doc.addPage();
+    y = TOP;
+    setBodyFont(doc);
+  };
 
-  // title
-  doc.setFont("helvetica", "normal");
+  // assets – watermark + logo ONLY on first page
+  try {
+    const [logo, lock] = await Promise.all([
+      loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+      loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
+    ]);
+
+    // watermark
+    doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+    // logo
+    doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+  } catch {
+    // continue if assets fail
+  }
+
+  // header
+  setBodyFont(doc);
   doc.setFontSize(16);
-  doc.setTextColor(0);
   doc.text("Jam & Groove Agreement & Receipt", w / 2, 75, {
     align: "center",
   });
 
-  // formatted wedding date (fixed day-slip)
-  const formattedDate = prettyDate(weddingDate);
-
-  // header info
-  doc.setFontSize(12);
-  resetBodyTextStyle(doc, 12);
-  doc.text(`Name: ${fullName}`, 20, 90);
-  doc.text(`Wedding Date: ${formattedDate}`, 20, 100);
-  doc.text(`Total Jam & Groove Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 110);
-
-  let y = 120;
-  const bottomMargin = 60;
-
-  const addPageIfNeeded = () => {
-    if (y > h - bottomMargin) {
-      renderFooter(doc);
-      doc.addPage();
-      doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-      y = 30;
-      // 🔥 reset style after footer
-      resetBodyTextStyle(doc, 12);
-    }
-  };
-
-  // deposit line
-  if (deposit > 0 && deposit !== total) {
-    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, y);
-    y += 10;
-  }
-
-  // payment plan line
-  if (paymentSummary) {
-    addPageIfNeeded();
-    doc.text(`Payment Plan: ${paymentSummary}`, 20, y);
-    y += 10;
-  }
+  // basics
+  setBodyFont(doc);
+  y = 90;
+  const wedPretty = prettyDate(weddingDate);
+  doc.text(`Name: ${fullName || ""}`, LEFT, y);
+  y += 8;
+  doc.text(`Wedding Date: ${wedPretty}`, LEFT, y);
+  y += 8;
+  doc.text(
+    `Total Jam & Groove Cost: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    LEFT,
+    y
+  );
+  y += 12;
 
   // included items
   const filteredItems = (lineItems || []).filter(
     (it) => it && !it.startsWith("__")
   );
   if (filteredItems.length > 0) {
-    addPageIfNeeded();
+    ensureSpace(10);
     doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text("Included Items:", 20, y);
+    doc.text("Included Items:", LEFT, y);
     y += 10;
+    setBodyFont(doc);
 
-    doc.setFontSize(12);
-    resetBodyTextStyle(doc, 12);
     for (const item of filteredItems) {
-      addPageIfNeeded();
-      doc.text(`• ${item}`, 25, y);
-      y += 8;
+      ensureSpace(8);
+      const wrapped = doc.splitTextToSize(`• ${item}`, RIGHT - LEFT - 5);
+      doc.text(wrapped, LEFT + 5, y);
+      y += 8 + (wrapped.length - 1) * 6;
     }
+    y += 4;
   }
 
-  // confirmation line (paid today)
-  const todayPretty = prettyDate(new Date());
-  const paidToday = deposit > 0 && deposit !== total ? deposit : total;
+  // payment details
+  const today = new Date();
+  const todayPretty = prettyDate(today);
 
-  y += 10;
-  addPageIfNeeded();
-  doc.setFontSize(12);
-  resetBodyTextStyle(doc, 12);
+  const finalDueDate =
+    finalDuePretty && finalDuePretty.trim()
+      ? null
+      : finalDueMinusDays(weddingDate, 35);
+  const finalDuePrettyResolved =
+    finalDuePretty && finalDuePretty.trim().length > 0
+      ? finalDuePretty
+      : finalDueDate
+      ? fmtLong(finalDueDate)
+      : "35 days before your wedding date";
+
+  ensureSpace(24);
+  setBodyFont(doc);
+
+  // Treat `deposit` as “amount paid today” when using a plan; otherwise full total
+  const paidToday = deposit > 0 && deposit < total ? deposit : total;
+
   doc.text(
-    `Total paid today: $${Number(paidToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayPretty}`,
-    20,
+    `Paid today: $${Number(paidToday).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} on ${todayPretty}`,
+    LEFT,
     y
   );
-  y += 12;
+  y += 8;
 
-  /** -------- Legal Terms (aligned with contract screen) -------- */
-doc.setFontSize(14);
-doc.setTextColor(0);
-doc.text("Booking Terms & Policies", 20, y);
-y += 10;
-resetBodyTextStyle(doc, 11);
-
-const dueText = finalDuePretty || "35 days before your wedding date";
-
-y = writeParagraph(
-  doc,
-  "By signing this agreement, your event date is reserved for Jam & Groove services (DJ and/or musicians).",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Payment Options. You may either pay in full today, or place a non-refundable $750 deposit today with the remaining balance billed in monthly installments. All installments must be completed no later than " +
-    dueText +
-    ". Any remaining balance at that time will be automatically charged to the card on file.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Cancellation & Refunds. If you cancel more than 35 days before your event, amounts you have paid beyond the non-refundable portion are refundable, less any non-recoverable costs already incurred. If you cancel 35 days or fewer before the event, all payments made are non-refundable.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Missed Payments. If a payment attempt fails, we will automatically re-attempt your card. After 7 days, a $25 late fee may apply. After 14 days of non-payment, services may be suspended and this agreement may be considered in default.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Performance & Logistics. Your DJ / music team will typically arrive approximately 1 hour before guest arrival for setup and sound check. You agree to provide safe power, appropriate coverage or shade if outdoors, and any venue access needed. Travel outside the Phoenix Metro area or to certain locations may incur additional fees as discussed in your package.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Force Majeure. If events beyond anyone’s reasonable control (including but not limited to extreme weather, natural disasters, government restrictions, serious illness, or utility outages) prevent performance, the parties will work in good faith to reschedule. If rescheduling is not possible, amounts you have paid beyond non-recoverable costs will be refunded. If Jam & Groove must cancel for reasons within our control and a suitable replacement cannot be arranged, liability is limited to a refund of payments made.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-y += 4;
-y = writeParagraph(
-  doc,
-  "Limitation of Liability. In all circumstances, Wed&Done’s liability related to this agreement is limited to the total amounts paid by Client under this agreement.",
-  20,
-  y,
-  w - 40,
-  bottomMargin,
-  lock
-);
-
-  // -------- signature pinned to final page bottom --------
-  const sigBlockHeight = 55;
-  if (y > h - (sigBlockHeight + 35)) {
-    renderFooter(doc);
-    doc.addPage();
-    doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-    resetBodyTextStyle(doc, 12);
+  if (deposit > 0 && deposit < total) {
+    ensureSpace(8);
+    const remaining = Math.max(0, total - deposit);
+    const planText = `Remaining balance: $${remaining.toFixed(
+      2
+    )} to be billed automatically in monthly installments, with the final payment due by ${finalDuePrettyResolved}.`;
+    const wrappedPlan = doc.splitTextToSize(planText, RIGHT - LEFT);
+    doc.text(wrappedPlan, LEFT, y);
+    y += wrappedPlan.length * 6 + 2;
+  } else {
+    ensureSpace(8);
+    const paidFullText = `Final balance due date: ${finalDuePrettyResolved} (paid in full today).`;
+    const wrappedFull = doc.splitTextToSize(paidFullText, RIGHT - LEFT);
+    doc.text(wrappedFull, LEFT, y);
+    y += wrappedFull.length * 6 + 2;
   }
 
-  const sigTop = h - (sigBlockHeight + 28);
-  doc.setTextColor(0);
+  // (We intentionally do NOT render `paymentSummary` to avoid duplicate plan copy.)
+
+  // -------- Booking Terms (Jam-specific) --------
+  ensureSpace(14);
+  doc.setTextColor(50);
   doc.setFontSize(12);
-  doc.text("Signature:", 20, sigTop);
+  doc.text("Booking Terms & Policies:", LEFT, y);
+  y += 10;
 
-  try {
-    doc.addImage(signatureImageUrl, "PNG", 20, sigTop + 5, 80, 30);
-  } catch {
-    /* ignore img parse issues */
+  setBodyFont(doc);
+
+  const dueText = finalDuePrettyResolved;
+
+  const terms: string[] = [
+    // 🔹 EXACT match to the Jam & Groove contract screen
+    "Payment Options & Card Authorization: You may pay in full today, or place a non-refundable $750 deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) Jam & Groove installment payments and any final balance due under this agreement, and (b) future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+
+    "Cancellation & Refunds: If you cancel more than 35 days before your event, amounts you’ve paid beyond the non-refundable portion and any non-recoverable costs are refundable. If you cancel 35 days or fewer before the event, all payments made are non-refundable.",
+
+    "Missed Payments: If a payment attempt fails, we’ll automatically re-try your card. After 7 days, a $25 late fee may be applied. After 14 days of non-payment, services may be paused and this agreement may be considered in default.",
+
+    "Performance & Logistics: Your DJ / music team will typically arrive about 1 hour before guest arrival for setup and sound check. You agree to provide safe power, appropriate coverage or shade if outdoors, and any venue access needed. Travel outside the Phoenix Metro or to certain locations may incur additional fees as discussed in your package.",
+
+    "Force Majeure: If events outside anyone’s control (including but not limited to extreme weather, natural disasters, government restrictions, or serious illness) prevent performance, both parties will work in good faith to reschedule. If rescheduling isn’t possible, amounts you’ve paid beyond non-recoverable costs are refunded. If Jam & Groove must cancel for any reason within our control and a suitable replacement cannot be arranged, liability is limited to a refund of payments made.",
+
+    // Optional extra safety net, same tone as before
+    "Limitation of Liability: In all circumstances, Wed&Done’s liability related to this agreement is limited to the total amounts paid by Client under this agreement.",
+  ];
+
+  for (const t of terms) {
+    ensureSpace(10);
+    const wrapped = doc.splitTextToSize(`• ${t}`, RIGHT - LEFT - 5);
+    doc.text(wrapped, LEFT + 5, y);
+    y += wrapped.length * 6 + 2;
   }
 
-  const signedPretty = signatureDate
-    ? prettyDate(signatureDate)
-    : todayPretty;
+  // -------- Signature block (same placement style as Photo) --------
+  const sigImageMaxW = 100;
+  const sigImageMaxH = 35;
+  const sigBlockNeeded = 5 + sigImageMaxH + 7 + 7 + 6;
 
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(`Signed by: ${fullName}`, 20, sigTop + 30 + 12);
-  doc.text(`Signature date: ${signedPretty}`, 20, sigTop + 30 + 19);
+  const placeSignature = () => {
+    const footerTop = h - FOOTER_GAP + 8;
+    if (y + sigBlockNeeded > footerTop - 10) {
+      renderFooter(doc);
+      doc.addPage();
+      y = TOP;
+      setBodyFont(doc);
+    }
 
+    setBodyFont(doc);
+    doc.text("Signature:", LEFT, y);
+    y += 5;
+    try {
+      doc.addImage(
+        signatureImageUrl,
+        "PNG",
+        LEFT,
+        y,
+        sigImageMaxW,
+        sigImageMaxH
+      );
+    } catch {
+      doc.setDrawColor(180);
+      doc.rect(LEFT, y, sigImageMaxW, sigImageMaxH);
+      doc.setFontSize(10);
+      doc.text("Signature image unavailable", LEFT + 5, y + sigImageMaxH / 2);
+    }
+    y += sigImageMaxH + 7;
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    const sigDatePretty = signatureDate
+      ? prettyDate(signatureDate)
+      : prettyDate(new Date());
+    doc.text(`Signed by: ${fullName || ""}`, LEFT, y);
+    y += 7;
+    doc.text(`Signature date: ${sigDatePretty}`, LEFT, y);
+  };
+
+  placeSignature();
   renderFooter(doc);
+
   return doc.output("blob");
 };

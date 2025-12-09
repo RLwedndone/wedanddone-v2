@@ -20,10 +20,19 @@ function addFooter(doc: jsPDF) {
   doc.text("Magically booked by Wed&Done", 105, FOOTER_Y, { align: "center" });
 }
 
+/** Reset to standard body text (Helvetica, 12pt, black) after footer / page break */
+function resetBodyTextStyle(doc: jsPDF, size: number = 12) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(0);
+}
+
+/** Ensure there is space; if not, close page with footer, add page, and reset body style */
 function ensureSpace(doc: jsPDF, y: number, needed = 12): number {
   if (y + needed > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    resetBodyTextStyle(doc, 12); // 👈 keep bullets/text black & correct size on new page
     return TOP_Y;
   }
   return y;
@@ -36,7 +45,7 @@ function toPrettyDate(input: string) {
 
   if (ymd.test(input)) {
     d = new Date(`${input}T12:00:00`); // 🔒 avoid TZ off-by-one
-  } else {
+    } else {
     const tryDate = new Date(input);
     if (!isNaN(tryDate.getTime())) d = tryDate;
   }
@@ -120,9 +129,7 @@ const generateYumAgreementPDF = async ({
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
   // Title
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(16);
-  doc.setTextColor(0);
+  resetBodyTextStyle(doc, 16);
   doc.text("Yum Yum Catering Agreement & Receipt", 105, 75, { align: "center" });
 
   // Pretty dates
@@ -139,7 +146,7 @@ const generateYumAgreementPDF = async ({
   }
 
   // Basics
-  doc.setFontSize(12);
+  resetBodyTextStyle(doc, 12);
   let y = 90;
   doc.text(`Name: ${fullName}`, MARGIN_X, y);
   y += LINE_GAP;
@@ -165,10 +172,13 @@ const generateYumAgreementPDF = async ({
     menuSelections.sides?.length
   ) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", MARGIN_X, y);
     y += PARA_GAP;
-    doc.setFontSize(12);
+
+    resetBodyTextStyle(doc, 12);
 
     // flat lineItems
     for (const item of lineItems) {
@@ -184,8 +194,13 @@ const generateYumAgreementPDF = async ({
     const section = (label: string, items?: string[]) => {
       if (!items || items.length === 0) return;
       y = ensureSpace(doc, y, LINE_GAP);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(0);
       doc.text(`${label}:`, MARGIN_X + 5, y);
       y += LINE_GAP;
+
+      resetBodyTextStyle(doc, 12);
       for (const it of items) {
         const lines = doc.splitTextToSize(`- ${it}`, 165);
         for (const ln of lines) {
@@ -204,22 +219,31 @@ const generateYumAgreementPDF = async ({
   // Payment summary block
   y += PARA_GAP;
   y = ensureSpace(doc, y, LINE_GAP * 4 + PARA_GAP);
-  doc.setTextColor(0);
-  doc.setFontSize(12);
+  resetBodyTextStyle(doc, 12);
   doc.text("Payment Summary:", MARGIN_X, y);
   y += LINE_GAP;
 
   // Show the human summary line from the flow
-  const humanLines = doc.splitTextToSize(paymentSummary, 170);
-  for (const ln of humanLines) {
-    y = ensureSpace(doc, y, LINE_GAP);
-    doc.text(ln, MARGIN_X + 5, y);
-    y += LINE_GAP;
+  if (paymentSummary && paymentSummary.trim()) {
+    const humanLines = doc.splitTextToSize(paymentSummary, 170);
+    for (const ln of humanLines) {
+      y = ensureSpace(doc, y, LINE_GAP);
+      doc.text(ln, MARGIN_X + 5, y);
+      y += LINE_GAP;
+    }
   }
 
   // Also show machine-calculated basics
   if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y);
+    y = ensureSpace(doc, y, LINE_GAP * 2);
+    doc.text(
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      MARGIN_X + 5,
+      y
+    );
     y += LINE_GAP;
     if (dueByPretty) {
       doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y);
@@ -233,34 +257,37 @@ const generateYumAgreementPDF = async ({
       y += LINE_GAP;
     }
   } else {
+    y = ensureSpace(doc, y, LINE_GAP);
     doc.text(
-      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       MARGIN_X + 5,
       y
     );
     y += LINE_GAP;
   }
+  y = ensureSpace(doc, y, LINE_GAP);
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;
 
   // ---------- Booking Terms (mirror on-screen text) ----------
   y = ensureSpace(doc, y, LINE_GAP + PARA_GAP);
   doc.setFont("helvetica", "bold");
-doc.setFontSize(13);
-doc.setTextColor(0); // BLACK
-doc.text("Booking Terms", MARGIN_X, y);
+  doc.setFontSize(14);
+  doc.setTextColor(0); // BLACK
+  doc.text("Booking Terms", MARGIN_X, y);
   y += PARA_GAP;
 
-  doc.setFont("helvetica", "normal");
-doc.setFontSize(12);
-doc.setTextColor(0); // BLACK for bullets
+  resetBodyTextStyle(doc, 12);
 
   const bookingBullets: string[] = [
     // 1) Venue allows outside caterers
     "By signing, you confirm either (a) your venue allows outside caterers, or (b) you’ll book a venue that does.",
 
-    // 2) Deposit + 35-day payoff
-    "You may pay in full today, or place a 25% non-refundable deposit. Any remaining balance will be split into monthly installments and must be fully paid 35 days before your wedding date.",
+    // 2) Payment options + CARD-ON-FILE CONSENT
+    "Payment Options & Card Authorization: You may pay in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance at that time will be automatically charged to your card on file. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for catering installment payments, any remaining catering balance due under this agreement, and future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
 
     // 3) Buffet style
     "Your reception will be served buffet-style.",
@@ -295,18 +322,17 @@ doc.setTextColor(0); // BLACK for bullets
   }
 
   // Reset text color for anything that follows (signature, etc.)
-  doc.setTextColor(0);
+  resetBodyTextStyle(doc, 12);
 
   // ---------- Signature anchored to the bottom of the FINAL page ----------
   if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    resetBodyTextStyle(doc, 12);
     y = TOP_Y;
   }
 
   const sigTop = FOOTER_Y - 10 - SIG_BLOCK_H; // 10px breathing room above footer
-  doc.setTextColor(0);
-  doc.setFontSize(12);
   doc.text("Signature", MARGIN_X, sigTop);
 
   // Helper: detect format from data URL
@@ -329,7 +355,7 @@ doc.setTextColor(0); // BLACK for bullets
         // data URL → add directly
         doc.addImage(
           signatureImageUrl,
-          fmt as any,
+          (fmt as any) || "PNG",
           MARGIN_X,
           sigTop + 5,
           sigW,

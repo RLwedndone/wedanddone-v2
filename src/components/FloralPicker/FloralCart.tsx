@@ -36,7 +36,7 @@ const unitPrice = (base: number) => base * (1 + MARGIN_RATE);
 const floralItems: FloralItem[] = [
   { name: "Bridal Bouquet", basePrice: 175 },
   { name: "Bridesmaid Bouquet", basePrice: 95 },
-  { name: "Corsage", basePrice: 30 },
+  { name: "Corsage", basePrice: 35 },
   { name: "Table Arrangement", basePrice: 75 },
   { name: "Boutonnière", basePrice: 18 },
   { name: "Pocket Square", basePrice: 35 },

@@ -66,7 +66,7 @@ interface YumCheckOutCateringProps {
     sides: string[];
     salads: string[];
   };
-  onBack: () => void;
+  onBack: () => void; // 👈 still accepted but not rendered (no back from checkout)
   onComplete: () => void;
   onClose: () => void;
   isGenerating: boolean;
@@ -80,7 +80,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
   lineItems,
   selectedCuisine,
   menuSelections,
-  onBack,
+  onBack, // not used in UI (no Back button at checkout)
   onComplete,
   onClose,
   isGenerating: isGeneratingFromOverlay,
@@ -233,7 +233,13 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               )}. Remaining $${remainingBalance.toFixed(
                 2
               )} due by ${finalDueDateStr}.`
-            : `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`,
+            : `Paid in full today: $${Number(amountDueToday).toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )}.`,
         lineItems,
         // 🔹 mains / sides / salads now
         menuSelections,
@@ -490,8 +496,11 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
           2
         )} (25%). Remaining $${remainingBalance.toFixed(
           2
-        )} due ${finalDueDateStr}.`
-      : `Total due today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`;
+        )} due by ${finalDueDateStr}.`
+      : `Total due today: $${Number(amountDueToday).toLocaleString(
+          undefined,
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        )}.`;
 
   // 🔮 MAGIC-IN-PROGRESS / CHECKOUT CARD
   return (
@@ -599,10 +608,15 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
                 setStepSuccess={onComplete}
                 isAddon={false}
                 customerEmail={getAuth().currentUser?.email || undefined}
-                customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+                customerName={`${firstName || "Magic"} ${
+                  lastName || "User"
+                }`}
                 customerId={(() => {
                   try {
-                    return localStorage.getItem("stripeCustomerId") || undefined;
+                    return (
+                      localStorage.getItem("stripeCustomerId") ||
+                      undefined
+                    );
                   } catch {
                     return undefined;
                   }
@@ -610,16 +624,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               />
             </div>
 
-            {/* Back button (standard width) */}
-            <div style={{ marginTop: "1rem", textAlign: "center" }}>
-              <button
-                className="boutique-back-btn"
-                style={{ width: 250 }}
-                onClick={onBack}
-              >
-                ← Back
-              </button>
-            </div>
+            {/* 🔕 No Back button at checkout per UX rule */}
           </>
         )}
       </div>

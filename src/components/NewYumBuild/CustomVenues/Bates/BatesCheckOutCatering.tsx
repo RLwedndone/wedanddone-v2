@@ -4,7 +4,7 @@ import CheckoutForm from "../../../../CheckoutForm";
 
 import generateBatesCateringAgreementPDF from "../../../../utils/generateBatesCateringAgreementPDF";
 import { uploadPdfBlob } from "../../../../helpers/firebaseUtils";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   arrayUnion,
   doc,
@@ -15,6 +15,10 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../../firebase/firebaseConfig";
 import { notifyBooking } from "../../../../utils/email/email";
+
+// 🔗 Same base as Floral & PaymentSettingsOverlay
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
 // Helpers (parity with Floral)
 const asStartOfDayUTC = (d: Date) =>
@@ -114,8 +118,62 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   // 👉 Detect the “no payment” path (included catering, no add-ons)
   const isZeroTotal = amountDueToday <= 0;
 
+  // 🔐 Payment mode + saved card summary (parity with Floral)
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const [savedCardSummary, setSavedCardSummary] = useState<{
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  } | null>(null);
+
+  const hasSavedCard = !!savedCardSummary;
+  const requiresCardOnFile = !payFull; // if deposit/monthly → card on file required
+
+  // Load saved card summary once auth is ready
+  useEffect(() => {
+    const auth = getAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        const effectiveUid = user?.uid || uid;
+        if (!effectiveUid) return;
+
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: effectiveUid }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.warn(
+            "[BatesCheckOutCatering] get-default failed:",
+            res.status,
+            t
+          );
+          return;
+        }
+
+        const data = await res.json();
+        if (data?.card) {
+          setSavedCardSummary(data.card);
+          setMode("saved");
+        }
+      } catch (err) {
+        console.warn("[BatesCheckOutCatering] No saved card found:", err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
   // Stripe success → persist billing plan + docs (mirrors Floral)
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}) => {
     if (didRunRef.current) {
       console.warn("[BatesCheckOutCatering] handleSuccess already ran — ignoring re-entry");
       return;
@@ -190,20 +248,24 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       return { hors: [], salads: [], entrees: [] };
     }
 
-    // Ensure default PM for off-session charges
-    // (harmless in zero-flow; important in add-ons flow)
+    // Ensure default PM for off-session charges (only if we actually need a card on file)
     try {
-      await fetch(
-        "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
-        {
+      const shouldStoreCard = requiresCardOnFile;
+      if (shouldStoreCard) {
+        await fetch(`${API_BASE}/ensure-default-payment-method`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customerId: customerId || localStorage.getItem("stripeCustomerId"),
             firebaseUid: user.uid,
           }),
-        }
-      );
+        });
+        console.log("✅ ensure-default-payment-method called for Bates catering");
+      } else {
+        console.log(
+          "ℹ️ Skipping ensure-default-payment-method (pay-in-full, no plan needed)."
+        );
+      }
     } catch (err) {
       console.error("❌ ensure-default-payment-method failed:", err);
     }
@@ -245,7 +307,6 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       localStorage.getItem("yumSignature") ||
       "";
 
-    // (optional: temporary debug so we can see what's happening in the console)
     console.log("[Bates][CateringCheckout] PDF fields", {
       weddingDateProp: weddingDate,
       storedWeddingDate,
@@ -256,7 +317,6 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     });
 
     // ── Generate + upload Bates Agreement PDF ────────────────────────────────
-    // (spinner already ON; do NOT switch it off in this block)
     let agreementUrl: string | null = null;
     try {
       // Load the user’s selections so they appear on the agreement
@@ -272,7 +332,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         paymentSummary:
           paymentSummary ||
           (payFull
-            ? `You’re paying $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for Bates catering.`
+            ? `You’re paying $${Number(total).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} today for Bates catering.`
             : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
                 2
               )}. Remaining balance auto-billed monthly; final payment due ${finalDueDateStr}.`),
@@ -310,16 +373,15 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
 
     // ── Persist Firestore updates ───────────────────────────────────────────
     try {
-      // Normalized purchase entry (admin-friendly)
       const purchaseEntry = {
         label: "Bates Catering Add-ons",
         category: "catering",
         boutique: "catering",
         source: "W&D",
 
-        amount: Number(amountDueToday.toFixed(2)), // hit card today
+        amount: Number(amountDueToday.toFixed(2)),
         amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(total.toFixed(2)), // full add-ons total
+        contractTotal: Number(total.toFixed(2)),
 
         payFull: payFull,
         deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
@@ -347,22 +409,16 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             }
           : {}),
 
-        // purchase history
         purchases: arrayUnion(purchaseEntry),
 
-        // spendTotal reflects what hit the card today
         spendTotal: increment(Number(amountDueToday.toFixed(2))),
 
-        // 🔹 Normalized catering totals for Guest Scroll + admin views
         "totals.catering.contractTotal": Number(total.toFixed(2)),
-        "totals.catering.amountPaid": increment(
-          Number(amountDueToday.toFixed(2))
-        ),
+        "totals.catering.amountPaid": increment(Number(amountDueToday.toFixed(2))),
         "totals.catering.guestCountAtBooking": storedGuestCount,
         "totals.catering.venueSlug": "batesmansion",
         "totals.catering.lastUpdatedAt": new Date().toISOString(),
 
-        // keep existing plan / auto-plan for Stripe autopay
         paymentPlan: payFull
           ? {
               product: "catering_bates",
@@ -427,7 +483,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               perMonthCents,
               lastPaymentCents,
 
-              nextChargeAt: firstChargeAtISO, // ~1 month from now
+              nextChargeAt: firstChargeAtISO,
               finalDueAt: finalISO,
 
               stripeCustomerId:
@@ -441,40 +497,28 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       console.error("❌ Firestore update failed:", err);
     }
 
-    // ✅ Centralized user+admin email (same system used by Floral/Yum core)
+    // ✅ Centralized user+admin email (same system as Floral/Yum core)
     try {
       const current = getAuth().currentUser;
       await notifyBooking("yum_catering", {
-        // who + basics
         user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
         user_full_name: fullName,
         firstName: safeFirst,
-
-        // details
         wedding_date: storedWeddingDate || weddingDate || "TBD",
         total: total.toFixed(2),
         line_items: (lineItems || []).join(", "),
-
-        // pdf info
         pdf_url: agreementUrl || "",
         pdf_title: "Bates Catering Agreement",
-
-        // payment breakdown
         payment_now: amountDueToday.toFixed(2),
         remaining_balance: remainingBalance.toFixed(2),
         final_due: finalDueDateStr,
-
-        // UX link
         dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-
-        // label used inside the template
         product_name: "Bates Catering",
       });
     } catch (mailErr) {
       console.error("❌ notifyBooking failed:", mailErr);
     }
 
-    // UI nudges + done
     window.dispatchEvent(new Event("purchaseMade"));
     window.dispatchEvent(new Event("documentsUpdated"));
 
@@ -561,18 +605,6 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
                 No payment is due today.
               </p>
             )}
-
-            {/* single CTA */}
-            <div style={{ marginTop: 12 }}>
-              <button
-                className="boutique-back-btn"
-                style={{ width: 250 }}
-                onClick={onBack}
-                disabled
-              >
-                ← Back to Contract
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -644,7 +676,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             {paymentSummary
               ? paymentSummary
               : payFull
-              ? `Total due today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+              ? `Total due today: $${Number(total).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}.`
               : `Deposit due today: $${amountDueToday.toFixed(
                   2
                 )} (25%). Remaining $${remainingBalance.toFixed(
@@ -652,10 +687,84 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
                 )} — final payment due ${finalDueDateStr}.`}
           </p>
 
+          {/* Payment Method Selection (mirrors Floral UI) */}
+          <div
+            style={{
+              marginTop: 12,
+              marginBottom: 20,
+              padding: "14px 16px",
+              borderRadius: 12,
+              background: "#f7f8ff",
+              border: "1px solid #d9ddff",
+              maxWidth: 520,
+              marginInline: "auto",
+            }}
+          >
+            {hasSavedCard ? (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    checked={mode === "saved"}
+                    onChange={() => setMode("saved")}
+                  />
+                  <span>
+                    Saved card on file —{" "}
+                    <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
+                    {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    checked={mode === "new"}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              </>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "pointer",
+                }}
+              >
+                <input type="radio" checked readOnly />
+                <span>Enter your card details</span>
+              </label>
+            )}
+          </div>
+
           {/* Stripe form */}
           <div className="px-elements" aria-busy={isGenerating}>
             <CheckoutForm
               total={amountDueToday}
+              useSavedCard={mode === "saved"}
               onSuccess={handleSuccess}
               setStepSuccess={onSuccess}
               isAddon={false}
@@ -663,26 +772,12 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               customerName={`${firstName || "Magic"} ${lastName || "User"}`}
               customerId={(() => {
                 try {
-                  return (
-                    localStorage.getItem("stripeCustomerId") || undefined
-                  );
+                  return localStorage.getItem("stripeCustomerId") || undefined;
                 } catch {
                   return undefined;
                 }
               })()}
             />
-          </div>
-
-          {/* single CTA */}
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
-              disabled={isGenerating}
-            >
-              ← Back to Contract
-            </button>
           </div>
         </div>
       </div>

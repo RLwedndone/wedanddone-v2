@@ -293,7 +293,7 @@ const FloralContract: React.FC<FloralContractProps> = ({
                 in full today, or place a{" "}
                 <strong>25% non-refundable deposit</strong> and pay the remaining
                 balance in monthly installments. All installments must be completed no
-                later than <strong>30 days before your wedding date</strong>, and any
+                later than <strong>35 days before your wedding date</strong>, and any
                 unpaid balance will be automatically charged on that date. By
                 completing this purchase, you authorize Wed&amp;Done and our payment
                 processor (Stripe) to securely store your card for: (a) floral

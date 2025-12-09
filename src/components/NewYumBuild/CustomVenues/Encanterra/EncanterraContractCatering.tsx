@@ -347,65 +347,70 @@ const EncanterraContractCatering: React.FC<Props> = ({
           style={{ maxWidth: 640, margin: "0 auto 12px", textAlign: "left" }}
         >
           <h3
-            className="px-title"
-            style={{ textAlign: "center", marginBottom: 6 }}
-          >
-            Booking Terms
-          </h3>
-          <ul
-            className="px-prose-narrow"
-            style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}
-          >
-            <li>
-              The amount listed above will count toward any Food &amp; Beverage
-              minimum in your Encanterra Venue Contract. Any remaining amount
-              needed to reach the minimum can be covered by the bar package you
-              book directly with the venue, or by adding more items to this
-              contract.
-            </li>
-            <li>
-              You may pay in full today, or place a{" "}
-              <strong>25% non-refundable deposit</strong>. Any remaining balance
-              will be split into monthly installments and must be fully paid{" "}
-              <strong>35 days before your wedding date</strong>.
-            </li>
-            <li>
-              Final guest count is due <strong>30 days</strong> before your
-              wedding. You may increase your count starting 45 days out, but it
-              cannot be lowered after booking.
-            </li>
-            <li>
-              <strong>Bar Packages:</strong> All alcohol is booked directly with
-              the venue per Arizona liquor laws. Wed&amp;Done does not provide
-              bar service or alcohol.
-            </li>
-            <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more
-              than 35 days prior, amounts paid beyond the non-refundable portion
-              will be refunded less any non-recoverable costs already incurred.
-              Within 35 days, all payments are non-refundable.
-            </li>
-            <li>
-              <strong>Missed Payments:</strong> We’ll automatically retry your
-              card. After 7 days, a $25 late fee applies; after 14 days,
-              services may be suspended and this agreement may be in default.
-            </li>
-            <li>
-              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
-              standard food-safety guidelines and comply with venue rules, which
-              may limit service/display options.
-            </li>
-            <li>
-              <strong>Force Majeure:</strong> Neither party is liable for delays
-              beyond reasonable control. We’ll work in good faith to reschedule;
-              if not possible, we’ll refund amounts paid beyond non-recoverable
-              costs incurred.
-            </li>
-            <li>
-              In the unlikely event of our cancellation or issue, liability is
-              limited to a refund of payments made.
-            </li>
-          </ul>
+  className="px-title"
+  style={{ textAlign: "center", marginBottom: 6 }}
+>
+  Booking Terms
+</h3>
+<ul
+  className="px-prose-narrow"
+  style={{
+    margin: 0,
+    paddingLeft: "1.25rem",
+    lineHeight: 1.6,
+    textAlign: "left",
+  }}
+>
+  <li>
+    The amount listed above will count toward any Food &amp; Beverage
+    minimum in your Encanterra Venue Contract. Any remaining amount
+    needed to reach the minimum can be covered by the bar package you
+    book directly with the venue, or by adding more items to this
+    contract.
+  </li>
+  <li>
+    You may pay in full today, or place a{" "}
+    <strong>25% non-refundable deposit</strong>. Any remaining balance
+    will be split into monthly installments and must be fully paid{" "}
+    <strong>35 days before your wedding date</strong>.
+  </li>
+  <li>
+    Final guest count is due <strong>30 days</strong> before your
+    wedding. You may increase your count starting 45 days out, but it
+    cannot be lowered after booking.
+  </li>
+  <li>
+    <strong>Bar Packages:</strong> All alcohol is booked directly with
+    the venue per Arizona liquor laws. Wed&amp;Done does not provide
+    bar service or alcohol.
+  </li>
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more
+    than 35 days prior, amounts paid beyond the non-refundable portion
+    will be refunded less any non-recoverable costs already incurred.
+    Within 35 days, all payments are non-refundable.
+  </li>
+  <li>
+    <strong>Missed Payments:</strong> We’ll automatically retry your
+    card. After 7 days, a $25 late fee applies; after 14 days,
+    services may be suspended and this agreement may be in default.
+  </li>
+  <li>
+    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
+    standard food-safety guidelines and comply with venue rules, which
+    may limit service/display options.
+  </li>
+  <li>
+    <strong>Force Majeure:</strong> Neither party is liable for delays
+    beyond reasonable control. We’ll work in good faith to reschedule;
+    if not possible, we’ll refund amounts paid beyond non-recoverable
+    costs incurred.
+  </li>
+  <li>
+    In the unlikely event of our cancellation or issue, liability is
+    limited to a refund of payments made.
+  </li>
+</ul>
         </div>
 
         {/* Plan toggle */}

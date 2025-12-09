@@ -2,7 +2,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../../../firebase/firebaseConfig";
 import { YumStep } from "../yumTypes";
 
@@ -20,7 +26,7 @@ interface YumContractProps {
   dessertStyle: string;
   flavorCombo: string;
 
-  // ✅ NEW: lets us change wording if they're already booked
+  // ✅ lets us change wording if they're already booked
   // at a shared-flow partner venue like Windmill or Desert Foothills
   isSharedFlowBookedVenue?: boolean;
   bookedVenueName?: string;
@@ -39,13 +45,16 @@ const parseLocalYMD = (ymd?: string | null): Date | null => {
 
 // First second of a local Date as UTC ISO (good for crons)
 const asStartOfDayUTC = (d: Date) =>
-  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+  new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1)
+  );
 
 // Months count inclusive (partial month counts as 1)
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
   const b = new Date(to.getFullYear(), to.getMonth(), 1);
-  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  let months =
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
@@ -73,7 +82,6 @@ const YumContractDessert: React.FC<YumContractProps> = ({
   onClose,
   onComplete,
 
-  // ✅ NEW
   isSharedFlowBookedVenue,
   bookedVenueName,
 }) => {
@@ -83,9 +91,12 @@ const YumContractDessert: React.FC<YumContractProps> = ({
   const [lastName, setLastName] = useState("");
   const [agreeChecked, setAgreeChecked] = useState(false);
 
-  // read preferred pay plan from storage so it persists when they bounce back/forth
-  // default to full every time we open the dessert contract
-const [payFull, setPayFull] = useState(true);
+  // Pay plan
+  const [payFull, setPayFull] = useState(true);
+
+  // Card-on-file consent
+  const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+  const [cardConsentChecked, setCardConsentChecked] = useState(false);
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
@@ -95,22 +106,23 @@ const [payFull, setPayFull] = useState(true);
   const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(false);
 
   // start this contract fresh each time (prevents sticky "monthly" & old signatures)
-useEffect(() => {
-  try {
-    localStorage.removeItem("yumSignature");
-    localStorage.setItem("yumPaymentPlan", "full");
-    localStorage.setItem("yumPayPlan", "full");
-  } catch {}
-}, []);
+  useEffect(() => {
+    try {
+      localStorage.removeItem("yumSignature");
+      localStorage.setItem("yumPaymentPlan", "full");
+      localStorage.setItem("yumPayPlan", "full");
+    } catch {}
+  }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // Boot / progress + stash UX prefs
+  // Boot / progress + stash UX prefs + load consent
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     localStorage.setItem("yumStep", "contract");
     if (dessertStyle) localStorage.setItem("yumDessertStyle", dessertStyle);
     if (flavorCombo) localStorage.setItem("yumDessertFlavor", flavorCombo);
-    if (lineItems) localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
+    if (lineItems)
+      localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
@@ -123,6 +135,7 @@ useEffect(() => {
         setFirstName((data as any)?.firstName || "");
         setLastName((data as any)?.lastName || "");
 
+        // progress
         await updateDoc(userRef, { "progress.yumYum.step": "contract" });
         await setDoc(
           doc(userRef, "yumYumData", "dessertStyle"),
@@ -139,13 +152,26 @@ useEffect(() => {
           { lineItems },
           { merge: true }
         );
+
+        // 🔐 load existing card-on-file consent
+        const fsConsent = (data as any)?.billing?.cardOnFileConsent;
+        const localConsent =
+          typeof window !== "undefined" &&
+          localStorage.getItem("cardOnFileConsent") === "true";
+
+        if (fsConsent || localConsent) {
+          setHasCardOnFileConsent(true);
+          try {
+            localStorage.setItem("cardOnFileConsent", "true");
+          } catch {}
+        }
       } catch (err) {
         console.error("🔥 Error fetching/saving user info:", err);
       }
     });
 
     return () => unsub();
-  }, []);
+  }, [auth, dessertStyle, flavorCombo, lineItems]);
 
   useEffect(() => {
     localStorage.setItem("yumPaymentPlan", payFull ? "full" : "monthly");
@@ -161,8 +187,12 @@ useEffect(() => {
   const remainingBalance = round2(Math.max(0, totalSafe - amountDueToday));
 
   const wedding = parseLocalYMD(weddingDate || "");
-  const finalDueDate = wedding ? new Date(wedding.getTime() - FINAL_DUE_DAYS * MS_DAY) : null;
-  const finalDueISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : "";
+  const finalDueDate = wedding
+    ? new Date(wedding.getTime() - FINAL_DUE_DAYS * MS_DAY)
+    : null;
+  const finalDueISO = finalDueDate
+    ? asStartOfDayUTC(finalDueDate).toISOString()
+    : "";
 
   let planMonths = 0;
   let perMonthCents = 0;
@@ -208,10 +238,12 @@ useEffect(() => {
   };
 
   const handleSignClick = () => {
-    if (agreeChecked) setShowSignatureModal(true);
+    if (agreeChecked && (hasCardOnFileConsent || cardConsentChecked)) {
+      setShowSignatureModal(true);
+    }
   };
 
-  const handleSignatureSubmit = () => {
+  const handleSignatureSubmit = async () => {
     let finalSig = "";
 
     if (useTextSignature && typedSignature.trim()) {
@@ -254,19 +286,34 @@ useEffect(() => {
         localStorage.setItem("yumLineItems", JSON.stringify(lineItems));
     } catch {}
 
+    // 🔐 Save card-on-file consent if just granted
+    try {
+      if (!hasCardOnFileConsent && cardConsentChecked && userId) {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, {
+          "billing.cardOnFileConsent": true,
+          "billing.cardOnFileConsentAt": serverTimestamp(),
+        });
+        setHasCardOnFileConsent(true);
+        try {
+          localStorage.setItem("cardOnFileConsent", "true");
+        } catch {}
+      }
+    } catch (err) {
+      console.error("❌ Failed to save card-on-file consent:", err);
+    }
+
     // Update UI state and close the modal; stay on the contract screen
     setSignatureImage(finalSig);
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
-
-    // DO NOT navigate here
-    // setStep("dessertCheckout");        ❌ removed
-    // localStorage.setItem("yumStep", "dessertCheckout"); ❌ removed
-    // onComplete(finalSig);              ❌ removed
   };
 
   const paymentSummaryText = payFull
-    ? `You’ll pay $${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today for your desserts.`
+    ? `You’ll pay $${Number(totalSafe).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} today for your desserts.`
     : `You’ll pay a $${depositDollars.toFixed(
         2
       )} deposit today and the remaining $${remainingBalance.toFixed(
@@ -280,6 +327,9 @@ useEffect(() => {
         day: "numeric",
       })
     : "your wedding date";
+
+  const canSign =
+    agreeChecked && (hasCardOnFileConsent || cardConsentChecked);
 
   return (
     // ⛔️ No pixie-overlay here — parent handles backdrop
@@ -314,10 +364,16 @@ useEffect(() => {
         </p>
         <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
           Total dessert cost:{" "}
-          <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
+          <strong>
+            $
+            {Number(totalSafe).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </strong>
         </p>
 
-        {/* Booking Terms — blue Jenna Sue section */}
+        {/* Booking Terms */}
         <div className="px-section" style={{ maxWidth: 620 }}>
           <h3
             className="px-title-lg"
@@ -335,7 +391,6 @@ useEffect(() => {
               paddingLeft: "1.25rem",
             }}
           >
-            {/* 🔁 THIS IS THE ONLY BULLET WE'RE CHANGING */}
             {isSharedFlowBookedVenue ? (
               <li>
                 We’ll deliver and set up at{" "}
@@ -362,6 +417,16 @@ useEffect(() => {
               </strong>
               .
             </li>
+
+            {/* ⚡ NEW: card-on-file consent text (mirror Jam/Floral) */}
+            <li>
+              By agreeing and completing checkout, you authorize Wed&Done and
+              its payment partners to securely store your card and charge it for
+              this dessert booking, including any scheduled installments and any
+              remaining balance, using the payment method you select at checkout
+              or any updated card you add later.
+            </li>
+
             <li>
               Final guest count is due 30 days before your wedding. You may
               increase your guest count starting 45 days before your wedding,
@@ -381,8 +446,8 @@ useEffect(() => {
             </li>
             <li>
               <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
-              standard food-safety guidelines and comply with venue rules,
-              which may limit display/location options.
+              standard food-safety guidelines and comply with venue rules, which
+              may limit display/location options.
             </li>
             <li>
               <strong>Force Majeure:</strong> Neither party is liable for delays
@@ -455,19 +520,40 @@ useEffect(() => {
         <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
             <>
-              You’ll pay <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.
+              You’ll pay{" "}
+              <strong>
+                $
+                {Number(totalSafe).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>{" "}
+              today.
             </>
           ) : (
             <>
-              <strong>${Number(depositDollars).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> deposit + {planMonths}{" "}
-              monthly payments of about{" "}
-              <strong>${Number(monthlyAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>; final payment due{" "}
-              <strong>{finalDuePretty}</strong>.
+              <strong>
+                $
+                {Number(depositDollars).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>{" "}
+              deposit + {planMonths} monthly payments of about{" "}
+              <strong>
+                $
+                {Number(monthlyAmount).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </strong>
+              ; final payment due <strong>{finalDuePretty}</strong>.
             </>
           )}
         </p>
 
-        <div style={{ margin: "8px 0 6px" }}>
+        {/* Terms checkbox */}
+        <div style={{ margin: "8px 0 4px" }}>
           <label
             className="px-prose-narrow"
             style={{
@@ -485,6 +571,43 @@ useEffect(() => {
           </label>
         </div>
 
+        {/* Card-on-file consent checkbox or status */}
+        <div style={{ marginBottom: 6 }}>
+          {hasCardOnFileConsent ? (
+            <p
+              className="px-prose-narrow"
+              style={{ fontSize: ".85rem", opacity: 0.9 }}
+            >
+              Card-on-file consent is already on file. You can choose which card
+              to use or add a new one at checkout.
+            </p>
+          ) : (
+            <label
+              className="px-prose-narrow"
+              style={{
+                display: "inline-flex",
+                alignItems: "flex-start",
+                gap: 8,
+                maxWidth: 560,
+                textAlign: "left",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={cardConsentChecked}
+                onChange={(e) => setCardConsentChecked(e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                I authorize Wed&Done and its payment partners to securely store
+                my card and charge it for this dessert booking, including any
+                scheduled installments and remaining balance, using the payment
+                method I select at checkout or any updated card I add later.
+              </span>
+            </label>
+          )}
+        </div>
+
         {/* Sign / Continue */}
         {!signatureSubmitted ? (
           <div
@@ -497,11 +620,11 @@ useEffect(() => {
             <button
               className="boutique-primary-btn"
               onClick={handleSignClick}
-              disabled={!agreeChecked}
+              disabled={!canSign}
               style={{
                 width: 250,
-                opacity: agreeChecked ? 1 : 0.5,
-                cursor: agreeChecked ? "pointer" : "not-allowed",
+                opacity: canSign ? 1 : 0.5,
+                cursor: canSign ? "pointer" : "not-allowed",
               }}
             >
               Sign Contract
@@ -537,7 +660,10 @@ useEffect(() => {
                     "yumFinalDuePretty",
                     finalDuePretty
                   );
-                  localStorage.setItem("yumPlanMonths", String(planMonths));
+                  localStorage.setItem(
+                    "yumPlanMonths",
+                    String(planMonths)
+                  );
                   localStorage.setItem(
                     "yumPerMonthCents",
                     String(perMonthCents)
@@ -558,11 +684,9 @@ useEffect(() => {
                   signatureImage ||
                   "";
 
-                // ----- step change FIRST, then notify parent on next tick -----
                 localStorage.setItem("yumStep", "dessertCheckout");
                 setStep("dessertCheckout");
 
-                // give React a tick to mount the checkout before firing completion side-effects
                 setTimeout(() => onComplete(sig), 0);
               }}
               style={{ width: 250 }}
