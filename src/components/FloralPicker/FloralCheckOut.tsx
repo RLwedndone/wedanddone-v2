@@ -1,4 +1,3 @@
-// src/components/FloralPicker/FloralCheckOut.tsx
 import React, { useState, useRef } from "react";
 import CheckoutForm from "../../CheckoutForm";
 import { generateFloralAgreementPDF } from "../../utils/generateFloralAgreementPDF";
@@ -95,56 +94,17 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
 
   const hasSavedCard = !!savedCardSummary;
 
-  // 🔍 Load saved card summary once auth is ready
-  React.useEffect(() => {
-    const auth = getAuth();
-
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (user) => {
-        try {
-          const effectiveUid = user?.uid || uid;
-          if (!effectiveUid) return;
-
-          const res = await fetch(
-            `${API_BASE}/payments/get-default`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uid: effectiveUid }),
-            }
-          );
-
-          const data = await res.json();
-
-          if (data?.card) {
-            setSavedCardSummary(data.card);
-            setMode("saved");
-          }
-        } catch (err) {
-          console.warn("No saved card found:", err);
-        }
-      }
-    );
-
-    return () => unsubscribe();
-  }, [uid]);
-
-  // If this is a monthly plan (not addon + not payFull), card on file is REQUIRED.
-  const requiresCardOnFile = !isAddon && !payFull;
-
-  const [saveCardOnFile, setSaveCardOnFile] =
-    useState<boolean>(requiresCardOnFile);
-
   const DEPOSIT_PCT = 0.25;
+  const requiresCardOnFile = !isAddon && !payFull; // monthly main-flow plans only
 
   const parsedWedding = weddingDate
     ? new Date(`${weddingDate}T12:00:00`)
     : null;
+
+  // ✅ 35 days before wedding date (not 30)
   const finalDueDate = parsedWedding
     ? new Date(
-        parsedWedding.getTime() -
-          30 * 24 * 60 * 60 * 1000
+        parsedWedding.getTime() - 35 * 24 * 60 * 60 * 1000
       )
     : null;
 
@@ -170,15 +130,45 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
         month: "long",
         day: "numeric",
       })
-    : "30 days before your wedding date";
+    : "35 days before your wedding date";
 
-    const handleSuccess = async ({
-      customerId,
-      paymentMethodId,
-    }: {
-      customerId?: string;
-      paymentMethodId?: string;
-    } = {}) => {
+  // 🔍 Load saved card summary once auth is ready
+  React.useEffect(() => {
+    const auth = getAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        const effectiveUid = user?.uid || uid;
+        if (!effectiveUid) return;
+
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: effectiveUid }),
+        });
+
+        const data = await res.json();
+
+        if (data?.card) {
+          setSavedCardSummary(data.card);
+          // Default to the saved card when one exists
+          setMode("saved");
+        }
+      } catch (err) {
+        console.warn("No saved card found:", err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  const handleSuccess = async ({
+    customerId,
+    paymentMethodId,
+  }: {
+    customerId?: string;
+    paymentMethodId?: string;
+  } = {}) => {
     console.log("💳 Payment successful!");
 
     const auth = getAuth();
@@ -199,23 +189,15 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           "stripe.updatedAt": serverTimestamp(),
         });
         try {
-          localStorage.setItem(
-            "stripeCustomerId",
-            customerId
-          );
+          localStorage.setItem("stripeCustomerId", customerId);
         } catch {}
-        console.log(
-          "✅ Saved stripeCustomerId to Firestore."
-        );
+        console.log("✅ Saved stripeCustomerId to Firestore.");
       }
     } catch (e) {
-      console.warn(
-        "⚠️ Could not save stripeCustomerId:",
-        e
-      );
+      console.warn("⚠️ Could not save stripeCustomerId:", e);
     }
 
-     // ✅ Store the specific card used for this floral payment plan
+    // ✅ Store the specific card used for this floral payment plan
     // Only for main floral contract flow (not add-ons) and only if it's a monthly plan.
     if (!isAddon && !payFull && paymentMethodId) {
       try {
@@ -234,30 +216,24 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       }
     }
 
-    // ✅ Decide whether to store card
-    const shouldStoreCard =
-      requiresCardOnFile || saveCardOnFile;
+    // ✅ Decide whether to store card on file
+    // Rule: ONLY monthly plans (non-addon) create/refresh card-on-file.
+    const shouldStoreCard = requiresCardOnFile;
 
     if (shouldStoreCard) {
       try {
-        await fetch(
-          `${API_BASE}/ensure-default-payment-method`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              customerId:
-                customerId ||
-                localStorage.getItem("stripeCustomerId"),
-              firebaseUid: user.uid,
-            }),
-          }
-        );
-        console.log(
-          "✅ Ensured default payment method for floral customer"
-        );
+        await fetch(`${API_BASE}/ensure-default-payment-method`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            customerId:
+              customerId || localStorage.getItem("stripeCustomerId"),
+            firebaseUid: user.uid,
+          }),
+        });
+        console.log("✅ Ensured default payment method for floral customer");
       } catch (err) {
         console.error(
           "❌ Failed to ensure default payment method:",
@@ -266,17 +242,14 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       }
     } else {
       console.log(
-        "ℹ️ Skipping card-on-file setup (no consent / pay-in-full without opt-in)."
+        "ℹ️ Skipping card-on-file setup (no monthly plan / no card-on-file requirement)."
       );
     }
 
-    const safeFirst =
-      userDoc?.firstName || firstName || "Magic";
-    const safeLast =
-      userDoc?.lastName || lastName || "User";
+    const safeFirst = userDoc?.firstName || firstName || "Magic";
+    const safeLast = userDoc?.lastName || lastName || "User";
     const fullName = `${safeFirst} ${safeLast}`;
-    const purchaseDate =
-      new Date().toLocaleDateString("en-US");
+    const purchaseDate = new Date().toLocaleDateString("en-US");
 
     const asStartOfDayUTC = (d: Date) =>
       new Date(
@@ -300,9 +273,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
       const lastDayNextMonth = new Date(
         Date.UTC(y, m + 2, 0)
       ).getUTCDate();
-      target.setUTCDate(
-        Math.min(d, lastDayNextMonth)
-      );
+      target.setUTCDate(Math.min(d, lastDayNextMonth));
       return target.toISOString();
     }
 
@@ -322,9 +293,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
 
     // ---------- Add-on flow ----------
     if (isAddon) {
-      console.log(
-        "💐 Add-on mode — generating floral add-on receipt…"
-      );
+      console.log("💐 Add-on mode — generating floral add-on receipt…");
       setIsGenerating(true);
 
       const safeWeddingDateRaw =
@@ -342,26 +311,19 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
         "unknown@wedndone.com";
 
       try {
-        const blob =
-          await generateFloralAddOnReceiptPDF({
-            fullName,
-            email: safeEmail,
-            weddingDate: safeWeddingDateRaw,
-            lineItems,
-            total,
-            purchaseDate,
-          });
+        const blob = await generateFloralAddOnReceiptPDF({
+          fullName,
+          email: safeEmail,
+          weddingDate: safeWeddingDateRaw,
+          lineItems,
+          total,
+          purchaseDate,
+        });
 
         const fileName = `FloralAddOnReceipt_${Date.now()}.pdf`;
         const filePath = `public_docs/${user.uid}/${fileName}`;
-        const url = await uploadPdfBlob(
-          blob,
-          filePath
-        );
-        console.log(
-          "✅ Add-on receipt uploaded:",
-          url
-        );
+        const url = await uploadPdfBlob(blob, filePath);
+        console.log("✅ Add-on receipt uploaded:", url);
 
         await updateDoc(userRef, {
           documents: arrayUnion({
@@ -374,9 +336,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             amount: Number(total.toFixed(2)),
             date: new Date().toISOString(),
           }),
-          spendTotal: increment(
-            Number(total.toFixed(2))
-          ),
+          spendTotal: increment(Number(total.toFixed(2))),
           "bookings.floral": true,
           "bookings.updatedAt": new Date().toISOString(),
         });
@@ -390,21 +350,15 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           pdf_title: "Floral Add-On Receipt",
           total: total.toFixed(2),
           line_items: (lineItems || []).join(", "),
-          dashboardUrl: `${
-            window.location.origin
-          }${
+          dashboardUrl: `${window.location.origin}${
             import.meta.env.BASE_URL
           }dashboard`,
           product_name: "Floral Add-On",
         });
 
         window.dispatchEvent(new Event("purchaseMade"));
-        window.dispatchEvent(
-          new Event("documentsUpdated")
-        );
-        window.dispatchEvent(
-          new Event("floralCompletedNow")
-        );
+        window.dispatchEvent(new Event("documentsUpdated"));
+        window.dispatchEvent(new Event("floralCompletedNow"));
 
         setIsGenerating(false);
         onSuccess();
@@ -420,17 +374,13 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
 
     // ---------- Full contract flow ----------
-    console.log(
-      "📝 Generating Floral Agreement PDF…"
-    );
+    console.log("📝 Generating Floral Agreement PDF…");
     setIsGenerating(true);
 
     try {
       const blob = await generateFloralAgreementPDF({
-        firstName:
-          userDoc?.firstName || firstName || "Magic",
-        lastName:
-          userDoc?.lastName || lastName || "User",
+        firstName: userDoc?.firstName || firstName || "Magic",
+        lastName: userDoc?.lastName || lastName || "User",
         total,
         deposit: payFull ? 0 : amountDueToday,
         payFull,
@@ -443,18 +393,13 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
 
       const fileName = `FloralAgreement_${Date.now()}.pdf`;
       const filePath = `public_docs/${user.uid}/${fileName}`;
-      const url = await uploadPdfBlob(
-        blob,
-        filePath
-      );
+      const url = await uploadPdfBlob(blob, filePath);
 
       const purchaseTotalRow = {
         label: "floral",
         category: "floral",
         type: "contract_meta",
-        fullContractAmount: Number(
-          total.toFixed(2)
-        ),
+        fullContractAmount: Number(total.toFixed(2)),
         contractTotal: Number(total.toFixed(2)),
         total: Number(total.toFixed(2)),
         payFull: !!payFull,
@@ -502,8 +447,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               paidNow: amountDueToday,
               remainingBalance,
               finalDueDate: finalDueDateStr,
-              finalDueAt:
-                finalDueDate?.toISOString() ?? null,
+              finalDueAt: finalDueDate?.toISOString() ?? null,
               createdAt: new Date().toISOString(),
             },
         paymentPlanAuto: payFull
@@ -523,9 +467,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               finalDueAt: null,
               stripeCustomerId:
                 customerId ||
-                localStorage.getItem(
-                  "stripeCustomerId"
-                ) ||
+                localStorage.getItem("stripeCustomerId") ||
                 null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -534,13 +476,9 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               const nowUTC = new Date();
               const firstChargeAtISO =
                 nextApproxMonthUTC(nowUTC);
-              const firstChargeAt = new Date(
-                firstChargeAtISO
-              );
+              const firstChargeAt = new Date(firstChargeAtISO);
               const finalISO = finalDueDate
-                ? asStartOfDayUTC(
-                    finalDueDate
-                  ).toISOString()
+                ? asStartOfDayUTC(finalDueDate).toISOString()
                 : null;
               const planMonths = finalDueDate
                 ? monthsBetweenInclusive(
@@ -556,8 +494,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
               );
               const lastPaymentCents =
                 remainingCentsTotal -
-                perMonthCents *
-                  Math.max(0, planMonths - 1);
+                perMonthCents * Math.max(0, planMonths - 1);
 
               return {
                 version: 1,
@@ -577,9 +514,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 finalDueAt: finalISO,
                 stripeCustomerId:
                   customerId ||
-                  localStorage.getItem(
-                    "stripeCustomerId"
-                  ) ||
+                  localStorage.getItem("stripeCustomerId") ||
                   null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -606,18 +541,14 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
           remaining_balance:
             remainingBalance.toFixed(2),
           final_due: finalDueDateStr,
-          dashboardUrl: `${
-            window.location.origin
-          }${
+          dashboardUrl: `${window.location.origin}${
             import.meta.env.BASE_URL
           }dashboard`,
         });
       }
 
       window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(
-        new Event("floralCompletedNow")
-      );
+      window.dispatchEvent(new Event("floralCompletedNow"));
 
       setIsGenerating(false);
       onSuccess();
@@ -630,6 +561,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
     }
   };
 
+  const isMonthlyPlan = requiresCardOnFile;
+
   return (
     <div className="pixie-card pixie-card--modal">
       <button
@@ -638,9 +571,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
         aria-label="Close"
       >
         <img
-          src={`${
-            import.meta.env.BASE_URL
-          }assets/icons/pink_ex.png`}
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
         />
       </button>
@@ -736,7 +667,65 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 marginInline: "auto",
               }}
             >
-              {hasSavedCard ? (
+              {isMonthlyPlan ? (
+                hasSavedCard ? (
+                  // ✅ Monthly plan + card on file: locked to saved card
+                  <div
+                    style={{
+                      fontSize: ".95rem",
+                      textAlign: "left",
+                    }}
+                  >
+                    <p style={{ marginBottom: 6 }}>
+                      Monthly payments for this booking will be charged to your
+                      saved card on file:
+                    </p>
+                    <p style={{ marginBottom: 4 }}>
+                      <strong>
+                        {savedCardSummary!.brand.toUpperCase()} ••••{" "}
+                        {savedCardSummary!.last4} (exp{" "}
+                        {savedCardSummary!.exp_month}/
+                        {savedCardSummary!.exp_year})
+                      </strong>
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 6,
+                        fontSize: ".85rem",
+                        opacity: 0.8,
+                      }}
+                    >
+                      To use a different card for monthly payments, update your
+                      saved card in your Wed&Done account before your next
+                      charge.
+                    </p>
+                  </div>
+                ) : (
+                  // ✅ Monthly plan, no card on file: they enter a card, and it becomes the saved one
+                  <div
+                    style={{
+                      fontSize: ".95rem",
+                      textAlign: "left",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        cursor: "default",
+                      }}
+                    >
+                      <input type="radio" checked readOnly />
+                      <span>
+                        Enter your card details. This card will be saved on
+                        file for your floral monthly plan.
+                      </span>
+                    </label>
+                  </div>
+                )
+              ) : hasSavedCard ? (
+                // ✅ Pay-in-full (or add-on) with a saved card: let them choose saved vs new
                 <>
                   <label
                     style={{
@@ -760,14 +749,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                         {savedCardSummary!.brand.toUpperCase()}
                       </strong>{" "}
                       •••• {savedCardSummary!.last4} (exp{" "}
-                      {
-                        savedCardSummary!.exp_month
-                      }
-                      /
-                      {
-                        savedCardSummary!.exp_year
-                      }
-                      )
+                      {savedCardSummary!.exp_month}/
+                      {savedCardSummary!.exp_year})
                     </span>
                   </label>
 
@@ -790,6 +773,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                   </label>
                 </>
               ) : (
+                // ✅ No saved card, pay-in-full / add-on: just enter a card
                 <label
                   style={{
                     display: "flex",
@@ -799,11 +783,7 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                     cursor: "pointer",
                   }}
                 >
-                  <input
-                    type="radio"
-                    checked
-                    readOnly
-                  />
+                  <input type="radio" checked readOnly />
                   <span>Enter your card details</span>
                 </label>
               )}
@@ -812,13 +792,12 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             <div className="px-elements">
               <CheckoutForm
                 total={amountDueToday}
-                useSavedCard={mode === "saved"}
+                useSavedCard={isMonthlyPlan ? hasSavedCard : mode === "saved"}
                 onSuccess={handleSuccess}
                 setStepSuccess={onSuccess}
                 isAddon={false}
                 customerEmail={
-                  getAuth().currentUser?.email ||
-                  undefined
+                  getAuth().currentUser?.email || undefined
                 }
                 customerName={`${firstName || "Magic"} ${
                   lastName || "User"
@@ -826,9 +805,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 customerId={(() => {
                   try {
                     return (
-                      localStorage.getItem(
-                        "stripeCustomerId"
-                      ) || undefined
+                      localStorage.getItem("stripeCustomerId") ||
+                      undefined
                     );
                   } catch {
                     return undefined;

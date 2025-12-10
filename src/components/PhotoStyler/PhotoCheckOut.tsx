@@ -36,14 +36,7 @@ const parseLocalYMD = (ymd?: string | null): Date | null => {
 // first second of a local Date as UTC
 const asStartOfDayUTC = (d: Date) =>
   new Date(
-    Date.UTC(
-      d.getUTCFullYear(),
-      d.getUTCMonth(),
-      d.getUTCDate(),
-      0,
-      0,
-      1
-    )
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1)
   );
 
 // monthly count inclusive (partial months count as 1)
@@ -148,8 +141,16 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   }, [uid]);
 
   // If this is a monthly plan (not addon + not payFull), card on file is REQUIRED.
+  // Monthly rule: once a card exists, that card MUST be used for this plan.
   const requiresCardOnFile = !isAddon && !payFull;
   const [saveCardOnFile] = useState<boolean>(requiresCardOnFile);
+
+  // Enforce saved card for monthly plans when one exists
+  React.useEffect(() => {
+    if (requiresCardOnFile && hasSavedCard && mode !== "saved") {
+      setMode("saved");
+    }
+  }, [requiresCardOnFile, hasSavedCard, mode]);
 
   // ───────── amounts per policy ─────────
   // For add-ons: never use LS; full add-on amount is due now
@@ -640,6 +641,10 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
           2
         )} due ${finalDuePretty}.`;
 
+  // Enforced flag for Stripe: monthly + saved card → always use saved card
+  const useSavedCard =
+    requiresCardOnFile && hasSavedCard ? true : mode === "saved";
+
   return (
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X Close */}
@@ -711,8 +716,9 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                 <input
                   type="radio"
                   name="paymentMode"
-                  checked={mode === "saved"}
+                  checked={useSavedCard}
                   onChange={() => setMode("saved")}
+                  disabled={requiresCardOnFile && hasSavedCard}
                 />
                 <span>
                   Saved card on file —{" "}
@@ -722,23 +728,40 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                 </span>
               </label>
 
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  fontSize: ".95rem",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="paymentMode"
-                  checked={mode === "new"}
-                  onChange={() => setMode("new")}
-                />
-                <span>Pay with a different card</span>
-              </label>
+              {/* Only show "different card" option when monthly is NOT required */}
+              {!requiresCardOnFile && (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    checked={!useSavedCard}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              )}
+
+              {requiresCardOnFile && (
+                <p
+                  style={{
+                    marginTop: 8,
+                    fontSize: ".85rem",
+                    color: "#333",
+                  }}
+                >
+                  Monthly plans will be charged to your saved card on file. If you want
+                  to use a different card, choose <strong>Pay Full Amount</strong>{" "}
+                  instead.
+                </p>
+              )}
             </>
           ) : (
             <label
@@ -760,7 +783,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
         <div className="px-elements" aria-busy={isGenerating}>
           <CheckoutForm
             total={amountDueToday}
-            useSavedCard={mode === "saved"}
+            useSavedCard={useSavedCard}
             onSuccess={handleSuccess}
             setStepSuccess={onSuccess}
             isAddon={isAddon}

@@ -51,7 +51,8 @@ interface VenueCheckOutProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const FINAL_DUE_DAYS = 45;
+// ✅ Final venue balance must be paid 35 days before the wedding
+const FINAL_DUE_DAYS = 35;
 
 const fmtMoney = (n: number) =>
   Number.isFinite(n)
@@ -177,10 +178,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
     };
   }, [uid]);
 
-  if (!userData || !contractData) {
-    return <p style={{ textAlign: "center" }}>Loading your info...</p>;
-  }
-
+  // ---------- derive values from contractData (safe even when null) ----------
   const {
     venueName,
     weddingDate,
@@ -194,7 +192,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
     payFull,
     venueSpecificDetails = [],
     bookingTerms = [],
-  } = contractData;
+  } = contractData || {};
 
   const total = Number(venuePrice) || 0;
 
@@ -208,6 +206,24 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
     }
     return true;
   })();
+
+  const isMonthlyPlan = !isPayingFull;
+
+  // 🔁 Keep payment mode consistent with plan rules
+  useEffect(() => {
+    if (isMonthlyPlan && hasSavedCard) {
+      // Monthly plan + card on file → force saved card
+      setMode("saved");
+    } else if (!hasSavedCard) {
+      // No saved card → must enter card
+      setMode("new");
+    }
+  }, [isMonthlyPlan, hasSavedCard]);
+
+  // 🔒 Only NOW do the loading guard
+  if (!userData || !contractData) {
+    return <p style={{ textAlign: "center" }}>Loading your info...</p>;
+  }
 
   const DEPOSIT_PCT = 0.25;
   const fallbackDeposit = Math.round(total * DEPOSIT_PCT * 100) / 100;
@@ -341,7 +357,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
         ? `Paid in Full: $${fmtMoney(total)}`
         : `Deposit: $${fmtMoney(
             amountDueToday
-          )} + ${numMonthlyPayments} monthly payments of ${fmtMoney(
+          )} + ${numMonthlyPayments} monthly payments of $${fmtMoney(
             monthlyPayment
           )} (final due ${finalDueDateStr}).`;
 
@@ -373,8 +389,9 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
         ? contractData.venueTerms
         : [];
 
+      // 🧾 Fallback booking terms if nothing came from the contract payload.
+      // These mirror the standardized venue + payment terms you just added.
       const defaultBookingTerms: string[] = [
-        "Deposit & payments. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout.",
         `Date & availability. Booking is for ${new Date(
           `${weddingDate}T12:00:00`
         ).toLocaleDateString("en-US", {
@@ -384,13 +401,16 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
         })} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
         `Guest count lock. Your guest count for this booking is ${
           userData.guestCount ?? "the number on file"
-        }.`,
-        "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited.",
-        "Rescheduling. Subject to venue availability and possible additional fees.",
-        "Cancellations. Venue deposits are non-refundable.",
-        "Vendor rules. You agree to comply with venue rules (noise, decor, insurance, etc.).",
-        "Liability. Wed&Done is not liable for consequential damages.",
-        "Force majeure. Events beyond reasonable control may allow rescheduling or partial refunds.",
+        }. The venue’s capacity and pricing are based on that number. Guest count may be increased (subject to capacity and pricing changes) but cannot be decreased after booking.`,
+        "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited against the planning tier that corresponds to the guest count set on this contract. If your Pixie Planner amount exceeds the applicable tier, the difference will be credited on this venue booking; if it’s less, the remaining planning fee will be included in your venue total.",
+        "Rescheduling. Reschedules are subject to venue availability and may incur additional fees or price adjustments. Seasonal/weekday pricing and service charges may change for new dates.",
+        "Cancellations. Venue deposits are non-refundable. If you cancel, non-recoverable costs and fees already incurred may be retained. Any remaining refundable portion will follow the venue’s policy.",
+        "Vendor rules. You agree to comply with venue rules (noise, decor, load-in/out, insurance, alcohol, security, etc.). Venue-specific policies are incorporated into this agreement.",
+        "Liability. Wed&Done is not liable for venue restrictions or consequential damages. Our liability is limited to amounts paid to Wed&Done for this venue booking.",
+        "Payment options. You may pay in full today, or place a non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date.",
+        "Card authorization. By signing this agreement, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for recurring or future payments. Once a card is on file, all Deposit + Monthly plans will use that saved card for every installment and the final balance. Paid-in-full purchases may be made using your saved card or a new card, and you may update or replace your saved card at any time through your Wed&Done account.",
+        "Missed payments. If a scheduled payment fails, we’ll automatically retry your card. If payment is not received within 7 days, a $25 late fee applies; after 14 days, services may be suspended and the agreement may be in default.",
+        "Force majeure. Neither party is liable for delays or failures caused by events beyond reasonable control (including acts of God, government actions, labor disputes, epidemics/pandemics, or utility outages). We’ll work in good faith to reschedule; if rescheduling is not possible, we’ll refund amounts paid beyond non-recoverable costs.",
       ];
 
       const safeBookingTerms: string[] =
@@ -734,8 +754,8 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
             )}
           </p>
 
-          {/* Payment Method Selection (same pattern as Floral) */}
-          <div
+                    {/* Payment Method Selection — GOLD STANDARD */}
+                    <div
             style={{
               marginTop: "12px",
               marginBottom: "20px",
@@ -747,63 +767,107 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
               marginInline: "auto",
             }}
           >
-            {hasSavedCard ? (
-              <>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    fontSize: ".95rem",
-                    marginBottom: 10,
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMode"
-                    checked={mode === "saved"}
-                    onChange={() => setMode("saved")}
-                  />
-                  <span>
-                    Saved card on file —{" "}
-                    <strong>{savedCardSummary!.brand.toUpperCase()}</strong>{" "}
-                    •••• {savedCardSummary!.last4} (exp{" "}
-                    {savedCardSummary!.exp_month}/{savedCardSummary!.exp_year})
-                  </span>
-                </label>
-
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    fontSize: ".95rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="paymentMode"
-                    checked={mode === "new"}
-                    onChange={() => setMode("new")}
-                  />
-                  <span>Pay with a different card</span>
-                </label>
-              </>
+            {isMonthlyPlan ? (
+              // 🔹 Deposit + Monthly
+              hasSavedCard ? (
+                // Monthly + card on file → MUST use saved card (no toggle)
+                <div style={{ fontSize: ".95rem", textAlign: "left" }}>
+                  <p style={{ margin: 0, marginBottom: 4 }}>
+                    Your venue payment plan will use this saved card:
+                  </p>
+                  <p style={{ margin: 0, fontWeight: 600 }}>
+                    {savedCardSummary!.brand.toUpperCase()} ••••{" "}
+                    {savedCardSummary!.last4} (exp{" "}
+                    {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </p>
+                  <p style={{ marginTop: 8, fontSize: ".85rem" }}>
+                    To use a different card for your plan, first update your saved
+                    card in your Wed&amp;Done account, then return to book.
+                  </p>
+                </div>
+              ) : (
+                // Monthly + NO card on file → enter details, this will become the card on file
+                <div style={{ fontSize: ".95rem", textAlign: "left" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input type="radio" checked readOnly />
+                    <span>Enter your card details</span>
+                  </label>
+                  <p style={{ marginTop: 8, fontSize: ".85rem" }}>
+                    This card will be securely saved on file and used for your
+                    monthly venue payments and final balance.
+                  </p>
+                </div>
+              )
             ) : (
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  fontSize: ".95rem",
-                  cursor: "pointer",
-                }}
-              >
-                <input type="radio" checked readOnly />
-                <span>Enter your card details</span>
-              </label>
+              // 🔹 Pay in full
+              hasSavedCard ? (
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "saved"}
+                      onChange={() => setMode("saved")}
+                    />
+                    <span>
+                      Saved card on file —{" "}
+                      <strong>{savedCardSummary!.brand.toUpperCase()}</strong>{" "}
+                      •••• {savedCardSummary!.last4} (exp{" "}
+                      {savedCardSummary!.exp_month}/
+                      {savedCardSummary!.exp_year})
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "new"}
+                      onChange={() => setMode("new")}
+                    />
+                    <span>Pay with a different card</span>
+                  </label>
+                </>
+              ) : (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input type="radio" checked readOnly />
+                  <span>Enter your card details</span>
+                </label>
+              )
             )}
           </div>
 

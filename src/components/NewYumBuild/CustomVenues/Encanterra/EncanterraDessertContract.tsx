@@ -88,9 +88,7 @@ const EncanterraDessertContract: React.FC<EncanterraDessertContractProps> = ({
   const [weekdayPretty, setWeekdayPretty] = useState<string | null>(dayOfWeek || null);
 
   /// Consider "already signed" only if parent passes a valid data-URL image
-const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
-  () => typeof signatureImage === "string" && signatureImage.startsWith("data:image/")
-);
+  const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(false);
 
   // ─────────────────────────────────────────────────────────────
   // Boot: subscribe once, capture minimal user fields, pin progress step

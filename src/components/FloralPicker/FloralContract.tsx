@@ -1,4 +1,3 @@
-// src/components/FloralPicker/FloralContract.tsx
 import React, { useRef, useState, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -44,10 +43,15 @@ const FloralContract: React.FC<FloralContractProps> = ({
 
   const today = new Date();
   const weddingISO = bookingData.weddingDate || "";
-  const weddingDateObj = weddingISO ? new Date(weddingISO + "T12:00:00") : null;
+  const weddingDateObj = weddingISO
+    ? new Date(weddingISO + "T12:00:00")
+    : null;
 
+  // ✅ 35 days before wedding date
   const finalDue = weddingDateObj
-    ? new Date(weddingDateObj.getTime() - 30 * 24 * 60 * 60 * 1000)
+    ? new Date(
+        weddingDateObj.getTime() - 35 * 24 * 60 * 60 * 1000
+      )
     : null;
 
   function monthsBetween(start: Date, end: Date) {
@@ -102,10 +106,15 @@ const FloralContract: React.FC<FloralContractProps> = ({
 
   // 🔍 One unified check for cardOnFileConsent (localStorage + Firestore)
   useEffect(() => {
-    // 1) LocalStorage quick check
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const key = `cardOnFileConsent_${user.uid}`;
+
+    // 1) LocalStorage quick check (per-user)
     let localFlag = false;
     try {
-      localFlag = localStorage.getItem("cardOnFileConsent") === "true";
+      localFlag = localStorage.getItem(key) === "true";
     } catch {
       /* ignore */
     }
@@ -115,10 +124,7 @@ const FloralContract: React.FC<FloralContractProps> = ({
       return;
     }
 
-    // 2) Firestore check
-    const user = auth.currentUser;
-    if (!user) return;
-
+    // 2) Firestore check (per-user)
     (async () => {
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
@@ -126,6 +132,11 @@ const FloralContract: React.FC<FloralContractProps> = ({
           const data = snap.data() as any;
           if (data?.cardOnFileConsent) {
             setHasCardOnFileConsent(true);
+            try {
+              localStorage.setItem(key, "true");
+            } catch {
+              /* ignore */
+            }
           }
         }
       } catch (err) {
@@ -188,12 +199,15 @@ const FloralContract: React.FC<FloralContractProps> = ({
         };
 
         // ✅ If this is the first time they’re giving card-on-file consent,
-        // record it globally (regardless of full vs monthly).
+        // record it globally (only when they explicitly check the box).
         if (!hasCardOnFileConsent && cardConsentChecked) {
           payload.cardOnFileConsent = true;
           payload.cardOnFileConsentAt = serverTimestamp();
           try {
-            localStorage.setItem("cardOnFileConsent", "true");
+            localStorage.setItem(
+              `cardOnFileConsent_${user.uid}`,
+              "true"
+            );
           } catch {}
           setHasCardOnFileConsent(true);
         }
@@ -206,18 +220,23 @@ const FloralContract: React.FC<FloralContractProps> = ({
   };
 
   // 🔐 New consent rule:
-  // - Checkbox shows whenever they HAVEN'T already consented.
-  // - Once consent exists, we don't block by cardConsentChecked anymore.
-  const needsCardConsent = !hasCardOnFileConsent;
+// - If there is NO card on file yet, we must show/require consent (first purchase).
+// - Once cardOnFileConsent is true, we never show this checkbox again.
+// - payFull vs monthly does NOT change whether the checkbox appears; only
+//   whether we show extra reminder copy elsewhere.
+const needsCardConsent = !hasCardOnFileConsent;
 
-  const canSign =
-    agreeChecked && (hasCardOnFileConsent || cardConsentChecked);
+const canSign =
+  agreeChecked && (!needsCardConsent || cardConsentChecked);
 
   return (
     <div className="pixie-card">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body">
@@ -232,7 +251,10 @@ const FloralContract: React.FC<FloralContractProps> = ({
             Floral Agreement
           </h2>
 
-          <p className="px-prose-narrow" style={{ marginBottom: hasDate ? "1rem" : 8 }}>
+          <p
+            className="px-prose-narrow"
+            style={{ marginBottom: hasDate ? "1rem" : 8 }}
+          >
             You’re booking floral services for <strong>{formattedDate}</strong>
             {dayOfWeek ? ` (${dayOfWeek})` : ""}. The total is{" "}
             <strong>
@@ -257,7 +279,7 @@ const FloralContract: React.FC<FloralContractProps> = ({
                 fontSize: ".95rem",
               }}
             >
-              Add your wedding date anytime—your final balance will simply be due 30
+              Add your wedding date anytime—your final balance will simply be due 35
               days before it.
             </div>
           )}
@@ -289,21 +311,24 @@ const FloralContract: React.FC<FloralContractProps> = ({
               </li>
               <br />
               <li>
-                <strong>Payment Options &amp; Card Authorization:</strong> You may pay
-                in full today, or place a{" "}
-                <strong>25% non-refundable deposit</strong> and pay the remaining
-                balance in monthly installments. All installments must be completed no
-                later than <strong>35 days before your wedding date</strong>, and any
-                unpaid balance will be automatically charged on that date. By
-                completing this purchase, you authorize Wed&amp;Done and our payment
-                processor (Stripe) to securely store your card for: (a) floral
-                installment payments and any final balance due under this agreement,
-                and (b) future Wed&amp;Done purchases you choose to make, for your
-                convenience. Your card details are encrypted and handled by Stripe,
-                and you can update or replace your saved card at any time through your
-                Wed&amp;Done account.
-              </li>
-              <br />
+  <strong>Payment Options:</strong> You may pay in full today, or place a 
+  <strong>non-refundable deposit</strong> and pay the remaining balance in monthly 
+  installments. All installments must be completed no later than 
+  <strong> 35 days before your wedding date</strong>, and any unpaid balance will be 
+  automatically charged on that date.
+</li>
+<br />
+
+<li>
+  <strong>Card Authorization:</strong> By signing this agreement, you authorize 
+  Wed&Done to securely store your card for recurring or future payments. Once a 
+  card is on file, all <strong>Deposit + Monthly</strong> plans will use that saved 
+  card for every installment and the final balance. Paid-in-full purchases may be 
+  made using your saved card or a new card. Your card details are encrypted and 
+  processed by Stripe, and you may update or replace your saved card at any time 
+  through your Wed&Done account.
+</li>
+<br />
               <li>
                 Wed&amp;Done isn’t responsible for venue restrictions, undisclosed
                 allergies, or consequential damages. Our liability is limited to
@@ -408,11 +433,30 @@ const FloralContract: React.FC<FloralContractProps> = ({
                     until <strong>{finalDuePretty}</strong>.
                   </>
                 ) : (
-                  <> until 30 days before your wedding date.</>
+                  <> until 35 days before your wedding date.</>
                 )}
               </>
             )}
           </p>
+
+          {/* UX note: monthly after card is on file uses that card and you can't swap at checkout */}
+          {!payFull && hasCardOnFileConsent && (
+            <div
+              className="px-note"
+              style={{
+                margin: "0.75rem auto",
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                borderRadius: 10,
+                padding: "8px 12px",
+                fontSize: ".9rem",
+                maxWidth: 560,
+                textAlign: "left",
+              }}
+            >
+            Monthly plans will be charged to your saved card on file. If you want to use a different card, choose Pay Full Amount instead.
+            </div>
+          )}
 
           {/* Agree & sign */}
           <div style={{ margin: "0.75rem 0 0.5rem" }}>
@@ -428,7 +472,7 @@ const FloralContract: React.FC<FloralContractProps> = ({
           </div>
 
           {/* Global card-on-file consent:
-              - Show checkbox if they have NOT already consented (first purchase).
+              - Only required when they are choosing monthly and haven't consented yet.
            */}
           {needsCardConsent && (
             <div
@@ -446,9 +490,9 @@ const FloralContract: React.FC<FloralContractProps> = ({
                   onChange={(e) => setCardConsentChecked(e.target.checked)}
                   style={{ marginRight: 8 }}
                 />
-                I authorize Wed&Done and our payment processor (Stripe) to securely
+                I authorize Wed&amp;Done and our payment processor (Stripe) to securely
                 store my card and to charge it for floral installments, any remaining
-                floral balance, and future Wed&Done bookings I choose to make, as
+                floral balance, and future Wed&amp;Done bookings I choose to make, as
                 described in the payment terms above.
               </label>
             </div>

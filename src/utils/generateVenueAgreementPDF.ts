@@ -55,7 +55,11 @@ const sanitizeText = (s: string) =>
     .replace(/\s+/g, " ")       // collapse whitespace
     .trim();
 
-const setBodyFont = (doc: jsPDF, size = 12, color: [number, number, number] | number = 50) => {
+const setBodyFont = (
+  doc: jsPDF,
+  size = 12,
+  color: [number, number, number] | number = 50
+) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(size);
   if (Array.isArray(color)) doc.setTextColor(color[0], color[1], color[2]);
@@ -131,6 +135,7 @@ export const generateVenueAgreementPDF = async ({
   venueName,
   venueSpecificDetails = [],
   bookingTerms = [],
+  guestCount,
 }: PDFOptions): Promise<Blob> => {
   const doc = new jsPDF();
   const w = doc.internal.pageSize.getWidth();
@@ -152,22 +157,56 @@ export const generateVenueAgreementPDF = async ({
   doc.setTextColor(0);
   doc.text("Venue Agreement & Receipt", w / 2, 75, { align: "center" });
 
-  // details block
-  setBodyFont(doc, 12, 0);
+  // details block (dynamic Y instead of hard-coded)
   const weddingPretty = prettyDate(weddingDate);
   const venueLine = sanitizeText(venueName || "Selected Venue");
   const totalNum = Number(total) || 0;
   const depositNum = Number(deposit) || 0;
 
-  doc.text(`Name: ${sanitizeText(firstName)} ${sanitizeText(lastName)}`, 20, 90);
-  doc.text(`Wedding Date: ${weddingPretty}`, 20, 98);
-  doc.text(`Venue Booked: ${venueLine}`, 20, 106);
-  doc.text(`Total Venue Cost: $${Number(totalNum).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 114);
-  if (depositNum > 0 && depositNum !== totalNum) {
-    doc.text(`Deposit Paid: $${Number(depositNum).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 122);
+  let y = 90;
+  setBodyFont(doc, 12, 0);
+
+  doc.text(
+    `Name: ${sanitizeText(firstName)} ${sanitizeText(lastName)}`,
+    20,
+    y
+  );
+  y += 8;
+
+  doc.text(`Wedding Date: ${weddingPretty}`, 20, y);
+  y += 8;
+
+  doc.text(`Venue Booked: ${venueLine}`, 20, y);
+  y += 8;
+
+  if (typeof guestCount === "number" && guestCount > 0) {
+    doc.text(`Guest Count: ${guestCount}`, 20, y);
+    y += 8;
   }
 
-  let y = depositNum > 0 && depositNum !== totalNum ? 136 : 130;
+  doc.text(
+    `Total Venue Cost: $${Number(totalNum).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    20,
+    y
+  );
+  y += 8;
+
+  if (depositNum > 0 && depositNum !== totalNum) {
+    doc.text(
+      `Deposit Paid: $${Number(depositNum).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      20,
+      y
+    );
+    y += 8;
+  }
+
+  y += 10; // spacing before payment summary block
 
   const ensureRoom = () => {
     if (y > h - bottomMargin) {
@@ -189,14 +228,25 @@ export const generateVenueAgreementPDF = async ({
   });
 
   setBodyFont(doc, 12, 0);
-  const paidToday = depositNum > 0 && depositNum !== totalNum ? depositNum : totalNum;
-  doc.text(`Paid today: $${Number((Number(paidToday) || 0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayPretty}`, 20, y);
+  const paidToday =
+    depositNum > 0 && depositNum !== totalNum ? depositNum : totalNum;
+  doc.text(
+    `Paid today: $${Number(paidToday || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} on ${todayPretty}`,
+    20,
+    y
+  );
   y += 8;
 
   if (paymentSummary) {
     ensureRoom();
     setBodyFont(doc, 12, 0);
-    const wrapped = doc.splitTextToSize(`Payment Plan: ${sanitizeText(paymentSummary)}`, w - 40);
+    const wrapped = doc.splitTextToSize(
+      `Payment Plan: ${sanitizeText(paymentSummary)}`,
+      w - 40
+    );
     for (const ln of wrapped) {
       doc.text(ln, 20, y);
       y += 7;
@@ -257,7 +307,11 @@ export const generateVenueAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Signed by: ${sanitizeText(firstName)} ${sanitizeText(lastName)}`, 20, y);
+  doc.text(
+    `Signed by: ${sanitizeText(firstName)} ${sanitizeText(lastName)}`,
+    20,
+    y
+  );
   y += 7;
   doc.text(`Signature date: ${todayPretty}`, 20, y);
 

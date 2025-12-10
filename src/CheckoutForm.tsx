@@ -16,6 +16,7 @@ type CheckoutFormProps = {
 
   // 🔥 NEW:
   useSavedCard?: boolean; // true = charge saved card; false = Stripe.js entry
+  updateDefaultCard?: boolean; // true = make this new card the Stripe default
 };
 
 const API_BASE =
@@ -30,6 +31,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
   customerName,
   customerId,
   useSavedCard = false,
+  updateDefaultCard = false,
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -127,7 +129,8 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({
             customerId: customerId || cachedCustomerId,
             email: customerEmail || undefined,
             name: customerName || undefined,
-            updateDefaultCard: false,
+            // 👇 THIS is now driven by the caller (FloralCheckOut, PhotoCheckOut, etc.)
+            updateDefaultCard: !!updateDefaultCard,
           }),
         }
       );

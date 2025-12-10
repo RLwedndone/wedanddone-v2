@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
-
 import { getAuth } from "firebase/auth";
 import {
   doc,
@@ -22,6 +21,10 @@ import { notifyBooking } from "../../../../utils/email/email";
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
   d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+// 🔗 Stripe v2 base (same as Bates dessert)
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
 // ✅ Carat labels
 type DiamondTier = "1 Carat" | "2 Carat" | "3 Carat";
@@ -173,6 +176,58 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
     })();
   }, []);
 
+  // === 4) Saved card selection (same pattern as Bates dessert) ===
+  type CardSummary = {
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  };
+
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const [savedCardSummary, setSavedCardSummary] = useState<CardSummary | null>(
+    null
+  );
+
+  const hasSavedCard = !!savedCardSummary;
+  const requiresCardOnFile = !payFull; // deposit/monthly → need a card on file
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = getAuth().currentUser;
+        if (!user) return;
+
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.warn(
+            "[EncanterraCheckOutCatering] get-default failed:",
+            res.status,
+            t
+          );
+          return;
+        }
+
+        const data = await res.json();
+        if (data?.card) {
+          setSavedCardSummary(data.card);
+          setMode("saved");
+        }
+      } catch (err) {
+        console.warn(
+          "[EncanterraCheckOutCatering] No saved card found:",
+          err
+        );
+      }
+    })();
+  }, [payFull]);
+
   // === 5) On successful payment ===
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
@@ -225,10 +280,10 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
         guestCountFinal = Number(data2?.guestCount || 0);
       }
 
-      const safeFirst = userDoc?.firstName || firstName || "Magic";
-      const safeLast = userDoc?.lastName || lastName || "User";
+      const safeFirst = (userDoc as any)?.firstName || firstName || "Magic";
+      const safeLast = (userDoc as any)?.lastName || lastName || "User";
       const fullName = `${safeFirst} ${safeLast}`;
-      const wedding = weddingDateISO || userDoc?.weddingDate || "TBD";
+      const wedding = weddingDateISO || (userDoc as any)?.weddingDate || "TBD";
       const purchaseDate = new Date().toISOString();
 
       // --- Route FIRST + fan-out (snappy UI) ---
@@ -257,11 +312,11 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
                 undefined,
                 { minimumFractionDigits: 2, maximumFractionDigits: 2 }
               )}.`
-            : `Deposit of $${amountDueToday.toFixed(
+            : `Deposit today: $${amountDueToday.toFixed(
                 2
-              )} paid today. Remaining balance of $${remainingBalance.toFixed(
+              )}. Remaining $${remainingBalance.toFixed(
                 2
-              )} will be charged in monthly installments until ${finalDueDateStr}.`),
+              )} due by ${finalDueDateStr}.`),
         diamondTier,
         selections: {
           hors: menuSelections.hors || encSelections.hors || [],
@@ -289,171 +344,172 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
-          const contractTotal = round2(totalCents / 100 || total);
-          const amountChargedToday = round2(amountDueTodayCents / 100);
-    
-          const purchaseEntry = {
-            label: "Yum Yum Catering",
-            category: "catering",
-            boutique: "catering",
-            source: "W&D",
-            amount: amountChargedToday,
-            amountChargedToday,
-            contractTotal,
-            payFull,
-            deposit: payFull ? amountChargedToday : amountChargedToday,
-            monthlyAmount: payFull ? 0 : round2((perMonthCents || 0) / 100),
-            months: payFull ? 0 : planMonths,
-            method: payFull ? "paid_in_full" : "deposit",
-            items: lineItems?.length ? lineItems : encLineItems,
-            date: purchaseDate,
-          };
+      const contractTotal = round2(totalCents / 100 || total);
+      const amountChargedToday = round2(amountDueTodayCents / 100);
 
-          await updateDoc(userRef, {
-            // Store the PDF
-            documents: arrayUnion({
-              title: "Encanterra Catering Agreement",
-              url: publicUrl,
-              uploadedAt: new Date().toISOString(),
-            }),
-    
-            // Booking flags
-            "bookings.catering": true,
-            weddingDateLocked: true,
-    
-            // 🔹 Rich purchase entry
-            purchases: arrayUnion(purchaseEntry),
-    
-            // spendTotal = what actually hit the card today
-            spendTotal: increment(amountChargedToday),
-    
-            // 🔹 Normalized catering totals for Guest Scroll + admin
-            "totals.catering.contractTotal": contractTotal,
-            "totals.catering.amountPaid": increment(amountChargedToday),
-            "totals.catering.guestCountAtBooking": guestCountFinal,
-            "totals.catering.perGuest":
-              guestCountFinal > 0
-                ? round2(contractTotal / guestCountFinal)
-                : perGuestPrice,
-            "totals.catering.venueSlug": "encanterra",
-            "totals.catering.diamondTier": diamondTier,
-            "totals.catering.lastUpdatedAt": new Date().toISOString(),
-    
-            // Keep existing plan snapshot for Stripe auto-pay
-            paymentPlan: payFull
-              ? {
-                  product: "catering_encanterra",
-                  type: "paid_in_full",
-                  total: contractTotal,
-                  paidNow: amountChargedToday,
-                  remainingBalance: 0,
-                  finalDueDate: null,
-                  finalDueAt: null,
-                  depositPercent: 1,
-                  createdAt: new Date().toISOString(),
-                }
-              : {
-                  product: "catering_encanterra",
-                  type: "deposit",
-                  total: contractTotal,
-                  depositPercent: 0.25,
-                  paidNow: amountChargedToday,
-                  remainingBalance,
-                  finalDueDate: finalDueDateStr,
-                  finalDueAt: finalDueAtISO,
-                  createdAt: new Date().toISOString(),
-                },
-    
-            paymentPlanAuto: payFull
-              ? {
-                  version: 1,
-                  product: "catering_encanterra",
-                  status: "complete",
-                  strategy: "paid_in_full",
-                  currency: "usd",
-    
-                  totalCents,
-                  depositCents: totalCents,
-                  remainingCents: 0,
-    
-                  planMonths: 0,
-                  perMonthCents: 0,
-                  lastPaymentCents: 0,
-    
-                  nextChargeAt: null,
-                  finalDueAt: null,
-    
-                  stripeCustomerId:
-                    customerId ||
-                    localStorage.getItem("stripeCustomerId") ||
-                    null,
-                  venueCaterer: "encanterra",
-                  tier: diamondTier,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              : {
-                  version: 1,
-                  product: "catering_encanterra",
-                  status: "active",
-                  strategy: "monthly_until_final",
-                  currency: "usd",
-    
-                  totalCents,
-                  depositCents,
-                  remainingCents: Math.max(0, totalCents - depositCents),
-    
-                  planMonths,
-                  perMonthCents,
-                  lastPaymentCents,
-    
-                  nextChargeAt,
-                  finalDueAt: finalDueAtISO,
-    
-                  stripeCustomerId:
-                    customerId ||
-                    localStorage.getItem("stripeCustomerId") ||
-                    null,
-                  venueCaterer: "encanterra",
-                  tier: diamondTier,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-    
-            // Route back into overlay correctly
-            "progress.yumYum.step": "encanterraCateringThankYou",
-          });
+      const purchaseEntry = {
+        label: "Yum Yum Catering",
+        category: "catering",
+        boutique: "catering",
+        source: "W&D",
+        amount: amountChargedToday,
+        amountChargedToday,
+        contractTotal,
+        payFull,
+        deposit: payFull ? amountChargedToday : amountChargedToday,
+        monthlyAmount: payFull ? 0 : round2((perMonthCents || 0) / 100),
+        months: payFull ? 0 : planMonths,
+        method: payFull ? "paid_in_full" : "deposit",
+        items: lineItems?.length ? lineItems : encLineItems,
+        date: purchaseDate,
+      };
+
+      await updateDoc(userRef, {
+        // Store the PDF
+        documents: arrayUnion({
+          title: "Encanterra Catering Agreement",
+          url: publicUrl,
+          uploadedAt: new Date().toISOString(),
+        }),
+
+        // Booking flags
+        "bookings.catering": true,
+        weddingDateLocked: true,
+
+        // 🔹 Rich purchase entry
+        purchases: arrayUnion(purchaseEntry),
+
+        // spendTotal = what actually hit the card today
+        spendTotal: increment(amountChargedToday),
+
+        // 🔹 Normalized catering totals for Guest Scroll + admin
+        "totals.catering.contractTotal": contractTotal,
+        "totals.catering.amountPaid": increment(amountChargedToday),
+        "totals.catering.guestCountAtBooking": guestCountFinal,
+        "totals.catering.perGuest":
+          guestCountFinal > 0
+            ? round2(contractTotal / guestCountFinal)
+            : perGuestPrice,
+        "totals.catering.venueSlug": "encanterra",
+        "totals.catering.diamondTier": diamondTier,
+        "totals.catering.lastUpdatedAt": new Date().toISOString(),
+
+        // Keep existing plan snapshot for Stripe auto-pay
+        paymentPlan: payFull
+          ? {
+              product: "catering_encanterra",
+              type: "paid_in_full",
+              total: contractTotal,
+              paidNow: amountChargedToday,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              depositPercent: 1,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "catering_encanterra",
+              type: "deposit",
+              total: contractTotal,
+              depositPercent: 0.25,
+              paidNow: amountChargedToday,
+              remainingBalance,
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueAtISO,
+              createdAt: new Date().toISOString(),
+            },
+
+        paymentPlanAuto: payFull
+          ? {
+              version: 1,
+              product: "catering_encanterra",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
+
+              totalCents,
+              depositCents: totalCents,
+              remainingCents: 0,
+
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
+
+              nextChargeAt: null,
+              finalDueAt: null,
+
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
+              venueCaterer: "encanterra",
+              tier: diamondTier,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              version: 1,
+              product: "catering_encanterra",
+              status: "active",
+              strategy: "monthly_until_final",
+              currency: "usd",
+
+              totalCents,
+              depositCents,
+              remainingCents: Math.max(0, totalCents - depositCents),
+
+              planMonths,
+              perMonthCents,
+              lastPaymentCents,
+
+              nextChargeAt,
+              finalDueAt: finalDueAtISO,
+
+              stripeCustomerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
+              venueCaterer: "encanterra",
+              tier: diamondTier,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+
+        // Route back into overlay correctly
+        "progress.yumYum.step": "encanterraCateringThankYou",
+      });
 
       // 📧 Centralized user+admin booking email (Yum Catering @ Encanterra)
-try {
-  const current = getAuth().currentUser;
-  await notifyBooking("yum_catering", {
-    // who + basics
-    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
-    user_full_name: `${safeFirst} ${safeLast}`,
-    firstName: safeFirst,
+      try {
+        const current = getAuth().currentUser;
+        await notifyBooking("yum_catering", {
+          // who + basics
+          user_email:
+            current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+          user_full_name: `${safeFirst} ${safeLast}`,
+          firstName: safeFirst,
 
-    // details
-    wedding_date: wedding,
-    total: total.toFixed(2),
-    line_items: (lineItems?.length ? lineItems : encLineItems).join(", "),
+          // details
+          wedding_date: wedding,
+          total: total.toFixed(2),
+          line_items: (lineItems?.length ? lineItems : encLineItems).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Encanterra Catering Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Encanterra Catering Agreement",
 
-    // payment breakdown
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Encanterra Catering",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Encanterra Catering",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+      }
 
       window.dispatchEvent(new Event("documentsUpdated"));
     } catch (err) {
@@ -464,13 +520,16 @@ try {
     }
   };
 
-  // Spinner view (standardized)
+  // Spinner view (standardized – no Back button)
   if (isGenerating) {
     return (
       <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
         {/* 🩷 Pink X */}
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
         </button>
 
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -498,7 +557,10 @@ try {
   }
 
   const summaryText = payFull
-    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+    ? `Total due today: $${Number(amountDueTodayCents / 100).toLocaleString(
+        undefined,
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      )}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(
@@ -509,7 +571,10 @@ try {
     <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div
@@ -548,24 +613,101 @@ try {
           {paymentSummaryText ? paymentSummaryText : summaryText}
         </p>
 
+        {/* Payment Method Selection (saved vs new card) */}
+        <div
+          style={{
+            marginTop: 12,
+            marginBottom: 20,
+            padding: "14px 16px",
+            borderRadius: 12,
+            background: "#f7f8ff",
+            border: "1px solid #d9ddff",
+            maxWidth: 520,
+            marginInline: "auto",
+            textAlign: "left",
+          }}
+        >
+          {hasSavedCard ? (
+            <>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  marginBottom: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="encCateringPaymentMode"
+                  checked={mode === "saved"}
+                  onChange={() => setMode("saved")}
+                />
+                <span>
+                  Saved card on file —{" "}
+                  <strong>{savedCardSummary!.brand.toUpperCase()}</strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year})
+                </span>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="encCateringPaymentMode"
+                  checked={mode === "new"}
+                  onChange={() => setMode("new")}
+                />
+                <span>Pay with a different card</span>
+              </label>
+
+            </>
+          ) : (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: ".95rem",
+                cursor: "default",
+              }}
+            >
+              <input type="radio" checked readOnly />
+              <span>Enter your card details</span>
+            </label>
+          )}
+        </div>
+
         {/* Stripe Card Entry */}
-<div className="px-elements">
-  <CheckoutForm
-    total={amountDueToday}
-    onSuccess={handleSuccess}
-    setStepSuccess={onComplete} // still okay to forward this
-    isAddon={false}
-    customerEmail={getAuth().currentUser?.email || undefined}
-    customerName={`${firstName || "Magic"} ${lastName || "User"}`}
-    customerId={(() => {
-      try {
-        return localStorage.getItem("stripeCustomerId") || undefined;
-      } catch {
-        return undefined;
-      }
-    })()}
-  />
-</div>
+        <div className="px-elements">
+          <CheckoutForm
+            total={amountDueToday}
+            onSuccess={handleSuccess}
+            setStepSuccess={onComplete} // still okay to forward this
+            isAddon={false}
+            customerEmail={getAuth().currentUser?.email || undefined}
+            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerId={(() => {
+              try {
+                return localStorage.getItem("stripeCustomerId") || undefined;
+              } catch {
+                return undefined;
+              }
+            })()}
+            useSavedCard={mode === "saved"}
+          />
+        </div>
       </div>
     </div>
   );

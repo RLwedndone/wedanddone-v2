@@ -136,7 +136,7 @@ export const generateFloralAgreementPDF = async ({
     const year = Number(m[1]);
     const monthIndex = Number(m[2]) - 1; // JS months are 0-based
     const day = Number(m[3]);
-    // noon local time so -35 days math is safe & no off-by-one from TZ  👈 UPDATED COMMENT
+    // noon local time so -35 days math is safe & no off-by-one from TZ
     return new Date(year, monthIndex, day, 12, 0, 0);
   };
 
@@ -149,13 +149,13 @@ export const generateFloralAgreementPDF = async ({
     const base = parseLocalYMD(weddingDate) || new Date(weddingDate);
     if (isNaN(base.getTime())) return null;
     const d = new Date(base.getTime());
-    d.setDate(d.getDate() - 35);            // 👈 CHANGED from 30 → 35
+    d.setDate(d.getDate() - 35); // ✅ 35 days before wedding date
     return d;
   })();
 
   const finalDueStr = finalDueDate
     ? longDate(finalDueDate)
-    : "35 days before your wedding date";   // 👈 CHANGED fallback text
+    : "35 days before your wedding date";
 
   // ---- Assets ----
   const loadImage = (src: string): Promise<HTMLImageElement> =>
@@ -262,21 +262,24 @@ export const generateFloralAgreementPDF = async ({
   doc.text("Terms of Service:", MARGIN_L, y);
   y += GAP;
 
-  // 🔁 Booking Terms – mirrored exactly from FloralContract screen (35 days)
+  // 🔁 Booking Terms – mirrored from FloralContract screen (35 days + card-on-file rule)
   const terms: string[] = [
     // 1) Perishable / substitutions / rentals
     "Because flowers are perishable, comparable substitutions may be made if certain varieties are unavailable. Rented vases, stands, and décor remain Wed&Done or vendor property and must be returned in good condition (replacement costs apply if damaged or missing).",
 
-    // 2) Payment Options & Card Authorization
-    "Payment Options & Card Authorization: You may pay in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) floral installment payments and any final balance due under this agreement, and (b) future Wed&Done purchases you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+    // 2) Payment Options (floral: 25% deposit, 35 days static)
+    "Payment Options: You may pay in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date.",
 
-    // 3) Liability + venue restrictions / allergies
+    // 3) Card Authorization (standard wording)
+    "Card Authorization: By signing this agreement, you authorize Wed&Done and our payment processor (Stripe) to store your card for secure billing. Once you have a card on file, any future bookings you make using the Deposit + Monthly option will automatically use that saved card for all installments and the final balance. Paid-in-full purchases may be made using your saved card or a different card at checkout. Your card details are encrypted and handled by Stripe, and you may update or replace your saved card at any time through your Wed&Done account.",
+
+    // 4) Liability + venue restrictions / allergies
     "Wed&Done isn’t responsible for venue restrictions, undisclosed allergies, or consequential damages. Our liability is limited to amounts you have paid for floral services under this agreement.",
 
-    // 4) Missed payments
+    // 5) Missed payments
     "Missed Payments: We’ll retry your card automatically. If payment isn’t received within 7 days, a $25 late fee applies; after 14 days, services may be suspended and the agreement may be in default.",
 
-    // 5) Force majeure
+    // 6) Force majeure
     "Force Majeure: Neither party is liable for delays beyond reasonable control. We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs.",
   ];
 

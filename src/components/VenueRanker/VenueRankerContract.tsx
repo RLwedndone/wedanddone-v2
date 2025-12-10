@@ -1,14 +1,11 @@
-// src/components/VenueRanker/VenueRankerContract.tsx
 import React, { useState, useRef, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { useNavigate } from "react-router-dom";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../../firebase/firebaseConfig";
 import { venueDetails } from "../../utils/venueDetails";
 import { venueContractSnippets } from "../../utils/venueContractSnippets";
 import { calculatePlan } from "../../utils/calculatePlan";
 import { getAuth } from "firebase/auth";
-import VenueCheckOut from "./VenueCheckOut";
 import { format, parseISO, isValid as isValidDate } from "date-fns";
 
 interface VenueRankerContractProps {
@@ -34,6 +31,17 @@ interface VenueRankerContractProps {
   signatureImage: string;
 }
 
+type PaymentPlan = {
+  deposit: number;
+  monthly: number;
+  months: number;
+  lastInstallment: number;
+  finalDueDate?: string;
+  finalDueISO?: string;
+  payInFullRequired?: boolean;
+  total?: number;
+};
+
 const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
   venueSlug,
   venueName,
@@ -48,6 +56,8 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
   onBack,
   onContinue,
   setCurrentScreen,
+  setLineItems,
+  setPaymentSummary,
   setFinalVenuePrice,
   setFinalDeposit,
   setFinalMonthlyPayment,
@@ -56,21 +66,10 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [details, setDetails] = useState<any>(null);
-  const venueTerms = venueContractSnippets[venueSlug] || [];
 
   const [storedVenueName, setStoredVenueName] = useState<string | null>(null);
   const [storedWeddingDate, setStoredWeddingDate] = useState<string | null>(null);
   const [storedVenuePrice, setStoredVenuePrice] = useState<string | null>(null);
-
-  type PaymentPlan = {
-    deposit: number;
-    monthly: number;
-    months: number;
-    lastInstallment: number;
-    finalDueDate?: string;
-    finalDueISO?: string;
-    payInFullRequired?: boolean;
-  };
 
   const formatMoney = (value: number) =>
     Number(value || 0).toLocaleString("en-US", {
@@ -120,22 +119,20 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     return parts.join(" + ");
   }
 
-  // Wedding date used for plan
   const currentWeddingDateISO =
     (storedWeddingDate && storedWeddingDate.length >= 10 ? storedWeddingDate : null) ||
     (venueWeddingDate && venueWeddingDate.length >= 10 ? venueWeddingDate : null) ||
     "";
 
-  // Always use prop slug first
   const slug = venueSlug || localStorage.getItem("venueSlug") || "";
 
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
 
-  // 🔐 Global card-on-file consent (shared across boutiques)
+  // 🔐 Global card-on-file consent (shared across boutiques, but stored per user)
   const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState<boolean>(false);
   const [cardConsentChecked, setCardConsentChecked] = useState<boolean>(false);
 
-  const plan = React.useMemo(() => {
+  const plan: PaymentPlan = React.useMemo(() => {
     if (!slug || !currentWeddingDateISO) {
       return {
         total: 0,
@@ -143,7 +140,6 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
         months: 0,
         monthly: 0,
         lastInstallment: 0,
-        firstChargeOn: null as Date | null,
         finalDueDate: "",
         payInFullRequired: false,
       };
@@ -157,13 +153,8 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     });
   }, [slug, guestCount, currentWeddingDateISO, payFull, plannerPaidCents]);
 
-  useEffect(() => {
-    setMonthlyPayment(plan.monthly || 0);
-    setNumMonthlyPayments(plan.months || 0);
-  }, [plan.monthly, plan.months]);
-
-  const [lineItems, setLineItems] = useState<string[]>([]);
-  const [paymentSummary, setPaymentSummary] = useState<string>("");
+  const [lineItems, setLocalLineItems] = useState<string[]>([]);
+  const [paymentSummary, setLocalPaymentSummary] = useState<string>("");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -172,19 +163,38 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
   const [monthlyPayment, setMonthlyPayment] = useState<number>(0);
   const [numMonthlyPayments, setNumMonthlyPayments] = useState<number>(0);
 
+  // Keep monthly values in local state (if needed elsewhere later)
+  useEffect(() => {
+    setMonthlyPayment(plan.monthly || 0);
+    setNumMonthlyPayments(plan.months || 0);
+  }, [plan.monthly, plan.months]);
+
+  // 🔁 If pay-in-full is required (wedding too close), force Pay Full mode
+  useEffect(() => {
+    if (plan.payInFullRequired && !payFull) {
+      setPayFull(true);
+      setSignatureSubmitted(false);
+      setCardConsentChecked(false);
+    }
+  }, [plan.payInFullRequired, payFull, setPayFull, setSignatureSubmitted]);
+
   useEffect(() => {
     const fetchUserData = async () => {
-      // 1️⃣ LocalStorage quick check for global card consent
+      const authInner = getAuth();
+      const user = authInner.currentUser;
+
+      // 1️⃣ Per-user localStorage quick check
       try {
-        if (localStorage.getItem("cardOnFileConsent") === "true") {
-          setHasCardOnFileConsent(true);
+        if (user) {
+          const key = `cardOnFileConsent_${user.uid}`;
+          if (localStorage.getItem(key) === "true") {
+            setHasCardOnFileConsent(true);
+          }
         }
       } catch {
         /* ignore */
       }
 
-      const authInner = getAuth();
-      const user = authInner.currentUser;
       if (!user) return;
 
       const userRef = doc(db, "users", user.uid);
@@ -212,6 +222,12 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
         // 2️⃣ Firestore-level global consent
         if (data?.cardOnFileConsent) {
           setHasCardOnFileConsent(true);
+          try {
+            const key = `cardOnFileConsent_${user.uid}`;
+            localStorage.setItem(key, "true");
+          } catch {
+            /* ignore */
+          }
         }
       }
     };
@@ -219,6 +235,7 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     fetchUserData().catch(console.error);
   }, []);
 
+  // Load basic venue info from localStorage
   useEffect(() => {
     const name = localStorage.getItem("venueName");
     const date = localStorage.getItem("venueWeddingDate");
@@ -234,6 +251,7 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     setStoredVenuePrice(price);
   }, []);
 
+  // Scroll to top on mount and ensure card content starts at top
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -252,12 +270,22 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
-  const navigate = useNavigate();
 
-  // 🔐 Derived flags (same idea as Floral)
-  const needsCardConsent = !hasCardOnFileConsent;
-  const canSign = agreeChecked && (hasCardOnFileConsent || cardConsentChecked);
+  // 🔐 Derived flags (match Floral / Photo)
+  // - Card-on-file consent is only REQUIRED when:
+  //   * they do NOT already have global consent, AND
+  //   * they are choosing monthly (payFull === false), AND
+  //   * monthly is actually allowed (not payInFullRequired).
+  const needsCardConsent =
+    !hasCardOnFileConsent && !payFull && !plan.payInFullRequired;
 
+  const canSign = agreeChecked && (!needsCardConsent || cardConsentChecked);
+
+  // 👉 Helper: are we *actually* on a monthly plan that’s allowed?
+  const isMonthlyPlan =
+    !payFull && !plan.payInFullRequired && (plan?.months || 0) > 0;
+
+  // Signature helpers (white-background PNGs)
   const generateImageFromText = (text: string): string => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -266,11 +294,15 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
 
     if (!ctx) return "";
 
-    ctx.fillStyle = "#000";
+    // White background so PDF embeds cleanly
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#000000";
     ctx.font = "48px 'Jenna Sue', cursive";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    ctx.fillText((text || "").trim() || " ", canvas.width / 2, canvas.height / 2);
 
     return canvas.toDataURL("image/png");
   };
@@ -282,7 +314,17 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
       finalSignature = generateImageFromText(typedSignature.trim());
     } else if (!useTextSignature && sigCanvasRef.current) {
       try {
-        finalSignature = sigCanvasRef.current.getCanvas().toDataURL("image/png");
+        const base = sigCanvasRef.current.getCanvas();
+        const out = document.createElement("canvas");
+        out.width = base.width;
+        out.height = base.height;
+        const ctx = out.getContext("2d");
+        if (!ctx) throw new Error("No 2D context");
+        // White background under the drawn strokes
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(base, 0, 0);
+        finalSignature = out.toDataURL("image/png");
       } catch (error) {
         console.error("❌ Error capturing drawn signature:", error);
         alert("Something went wrong when capturing your drawn signature. Try again!");
@@ -306,12 +348,13 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
         };
 
         // ✅ If this is the first time they’re giving card-on-file consent,
-        // record it globally (regardless of full vs monthly).
+        // record it globally (we only show the checkbox when it's needed).
         if (!hasCardOnFileConsent && cardConsentChecked) {
           payload.cardOnFileConsent = true;
           payload.cardOnFileConsentAt = serverTimestamp();
           try {
-            localStorage.setItem("cardOnFileConsent", "true");
+            const key = `cardOnFileConsent_${user.uid}`;
+            localStorage.setItem(key, "true");
           } catch {
             /* ignore */
           }
@@ -339,22 +382,33 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     );
   }
 
-  const handleContinueToCheckout = () => {
-    // 🔹 Booking terms strings (used by PDF)
-    const bookingTerms: string[] = [
-      "Deposit & payments, card on file. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout. You authorize Wed&Done and its payment processor (Stripe) to securely store your card and, where applicable, charge it for these scheduled venue payments.",
-      `Date & availability. Booking is for ${formattedFullDate} at ${
-        storedVenueName || venueName || "the selected venue"
-      }. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
-      `Guest count lock. Your guest count for this booking is ${guestCount}. The venue’s capacity and pricing are based on that number. The guest count may be increased (subject to venue capacity and price changes) but cannot be decreased after booking.`,
-      "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited against the planning tier that corresponds to the guest count on this contract. If your Pixie Planner amount exceeds the applicable planning tier, the difference is credited on this venue booking; if it’s less, the remaining planning fee will be included in your venue total.",
-      "Rescheduling. Reschedules are subject to venue availability and may incur additional fees or price adjustments. Seasonal/weekday pricing and service charges may change for new dates.",
-      "Cancellations. Venue deposits are non-refundable. If you cancel, non-recoverable costs and fees already incurred may be retained. Any remaining refundable portion will follow the venue’s policy.",
-      "Vendor rules. You agree to comply with venue rules (noise, decor, load-in/out, insurance, alcohol, security, etc.). The venue-specific policies above are hereby incorporated.",
-      "Liability. Wed&Done is not liable for venue restrictions or consequential damages. Our liability is limited to amounts paid to Wed&Done for this venue booking.",
-      "Force majeure. Neither party is liable for failure or delay caused by events beyond reasonable control (e.g., acts of God, government actions, labor disputes, epidemics/pandemics, utility outages). If performance is prevented, we’ll work in good faith to reschedule; if rescheduling is not possible, refundable amounts (if any) will be returned less non-recoverable costs.",
-    ];
+  const rawWeddingDate = storedWeddingDate || venueWeddingDate || "";
+  const weddingDateObj = toValidDate(rawWeddingDate);
 
+  const formattedFullDate = weddingDateObj
+    ? format(weddingDateObj, "MMMM d, yyyy")
+    : "your wedding date";
+
+  const formattedWeekday = weddingDateObj
+    ? format(weddingDateObj, "EEEE")
+    : "day of week";
+
+  // Booking terms array (used for contractPayload)
+  const bookingTerms: string[] = [
+    "Deposit & payments, card on file. Your deposit is non-refundable once paid. If you select a monthly plan, remaining installments will be automatically charged to the card on file to complete by the final due date shown at checkout. You authorize Wed&Done and its payment processor (Stripe) to securely store your card and, where applicable, charge it for these scheduled venue payments.",
+    `Date & availability. Booking is for ${formattedFullDate} at ${
+      storedVenueName || venueName || "the selected venue"
+    }. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
+    `Guest count lock. Your guest count for this booking is ${guestCount}. The venue’s capacity and pricing are based on that number. The guest count may be increased (subject to venue capacity and price changes) but cannot be decreased after booking.`,
+    "Planner fee reconciliation. If you already purchased planning via Pixie Planner, any amount paid there will be credited against the planning tier that corresponds to the guest count on this contract. If your Pixie Planner amount exceeds the applicable planning tier, the difference is credited on this venue booking; if it’s less, the remaining planning fee will be included in your venue total.",
+    "Rescheduling. Reschedules are subject to venue availability and may incur additional fees or price adjustments. Seasonal/weekday pricing and service charges may change for new dates.",
+    "Cancellations. Venue deposits are non-refundable. If you cancel, non-recoverable costs and fees already incurred may be retained. Any remaining refundable portion will follow the venue’s policy.",
+    "Vendor rules. You agree to comply with venue rules (noise, decor, load-in/out, insurance, alcohol, security, etc.). The venue-specific policies above are hereby incorporated.",
+    "Liability. Wed&Done is not liable for venue restrictions or consequential damages. Our liability is limited to amounts paid to Wed&Done for this venue booking.",
+    "Force majeure. Neither party is liable for failure or delay caused by events beyond reasonable control (e.g., acts of God, government actions, labor disputes, epidemics/pandemics, or utility outages). If performance is prevented, we’ll work in good faith to reschedule; if rescheduling is not possible, refundable amounts (if any) will be returned less non-recoverable costs.",
+  ];
+
+  const handleContinueToCheckout = () => {
     setLineItems([
       `Venue: ${venueName}`,
       `${guestCount} guests`,
@@ -364,7 +418,6 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
         maximumFractionDigits: 2,
       })}`,
     ]);
-
     setPaymentSummary(
       payFull || plan.payInFullRequired
         ? `Venue Booking Total: $${Number(plan.total || 0).toLocaleString(
@@ -381,7 +434,10 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
             maximumFractionDigits: 2,
           })} + final $${Number(plan.lastInstallment || 0).toLocaleString(
             undefined,
-            { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
           )}`
     );
 
@@ -401,10 +457,8 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
       numMonthlyPayments: plan.months || 0,
       payFull: Boolean(payFull || plan.payInFullRequired),
       signatureImage,
-
       venueSpecificDetails: venueNotes || [],
       bookingTerms,
-
       firstName,
       lastName,
     };
@@ -430,17 +484,6 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
       setDetails(venueDetails[slug]);
     }
   }, [slug]);
-
-  const rawWeddingDate = storedWeddingDate || venueWeddingDate || "";
-  const weddingDateObj = toValidDate(rawWeddingDate);
-
-  const formattedFullDate = weddingDateObj
-    ? format(weddingDateObj, "MMMM d, yyyy")
-    : "your wedding date";
-
-  const formattedWeekday = weddingDateObj
-    ? format(weddingDateObj, "EEEE")
-    : "day of week";
 
   return (
     <>
@@ -527,92 +570,113 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
           </div>
 
           {/* Booking Terms */}
-          <h3
-            className="px-title"
-            style={{ fontSize: "1.8rem", margin: "1rem 0 .5rem" }}
-          >
-            Booking Terms
-          </h3>
+<h3
+  className="px-title"
+  style={{ fontSize: "1.8rem", margin: "1rem 0 .5rem" }}
+>
+  Booking Terms
+</h3>
 
-          <div
-            className="px-prose-narrow"
-            style={{ textAlign: "left", margin: "0 auto 18px" }}
-          >
-            <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
-              <li>
-                <strong>Deposit &amp; payments, card on file.</strong> Your deposit
-                is non-refundable once paid. If you select a monthly plan,
-                remaining installments will be automatically charged to the card on
-                file to complete by the final due date shown at checkout. You
-                authorize Wed&amp;Done and its payment processor (Stripe) to
-                securely store your card and, where applicable, charge it for these
-                scheduled venue payments.
-              </li>
+<div
+  className="px-prose-narrow"
+  style={{ textAlign: "left", margin: "0 auto 18px" }}
+>
+  <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
 
-              <li>
-                <strong>Date &amp; availability.</strong> Booking is for{" "}
-                <em>{formattedFullDate}</em> at{" "}
-                <em>{storedVenueName || venueName}</em>. If the venue is unable to
-                host due to force majeure or venue closure, we’ll work in good
-                faith to reschedule or refund venue fees paid to Wed&amp;Done.
-              </li>
+    {/* ⭐ VENUE-SPECIFIC TERMS — THESE STAY ON TOP */}
+    <li>
+      <strong>Date &amp; availability.</strong> Booking is for{" "}
+      <em>{formattedFullDate}</em> at{" "}
+      <em>{storedVenueName || venueName}</em>. If the venue is unable to
+      host due to force majeure or venue closure, we’ll work in good faith
+      to reschedule or refund venue fees paid to Wed&amp;Done.
+    </li>
+    <br />
 
-              <li>
-                <strong>Guest count lock.</strong> Your guest count for this
-                booking is <strong>{guestCount}</strong>. The venue’s capacity and
-                pricing are based on that number. The guest count may be increased
-                (subject to venue capacity and price changes) but cannot be
-                decreased after booking.
-              </li>
+    <li>
+      <strong>Guest count lock.</strong> Your guest count for this booking is{" "}
+      <strong>{guestCount}</strong>. The venue’s capacity and pricing are based
+      on that number. The guest count may be increased (subject to venue
+      capacity and pricing changes) but cannot be decreased after booking.
+    </li>
+    <br />
 
-              <li>
-                <strong>Planner fee reconciliation.</strong> If you already
-                purchased planning via Pixie Planner, any amount paid there will be{" "}
-                <em>credited</em> against the planning tier that corresponds to the
-                guest count set on this contract. If your Pixie Planner amount
-                exceeds the applicable planning tier, the difference will be
-                credited on this venue booking; if it’s less, the remaining
-                planning fee will be included in your venue total.
-              </li>
+    <li>
+      <strong>Planner fee reconciliation.</strong> If you already purchased
+      planning via Pixie Planner, any amount paid there will be{" "}
+      <em>credited</em> against the planning tier that corresponds to the
+      guest count on this contract. If your Pixie Planner amount exceeds the
+      applicable tier, the difference will be credited on this venue booking;
+      if it’s less, the remaining planning fee will be included in your venue
+      total.
+    </li>
+    <br />
 
-              <li>
-                <strong>Rescheduling.</strong> Reschedules are subject to venue
-                availability and may incur additional fees or price adjustments.
-                Seasonal/weekday pricing and service charges may change for new
-                dates.
-              </li>
+    <li>
+      <strong>Rescheduling.</strong> Reschedules are subject to venue
+      availability and may incur additional fees or price adjustments.
+      Seasonal/weekday pricing and service charges may change for new dates.
+    </li>
+    <br />
 
-              <li>
-                <strong>Cancellations.</strong> Venue deposits are non-refundable.
-                If you cancel, non-recoverable costs and fees already incurred may
-                be retained. Any remaining refundable portion will follow the
-                venue’s policy.
-              </li>
+    <li>
+      <strong>Cancellations.</strong> Venue deposits are non-refundable. If you
+      cancel, non-recoverable costs and fees already incurred may be retained.
+      Any remaining refundable portion will follow the venue’s policy.
+    </li>
+    <br />
 
-              <li>
-                <strong>Vendor rules.</strong> You agree to comply with venue rules
-                (noise, decor, load-in/out, insurance, alcohol, security, etc.).
-                Additional venue-specific policies in the section above are hereby
-                incorporated.
-              </li>
+    <li>
+      <strong>Vendor rules.</strong> You agree to comply with venue rules
+      (noise, decor, load-in/out, insurance, alcohol, security, etc.). The
+      venue-specific policies in the section above are incorporated into this
+      agreement.
+    </li>
+    <br />
 
-              <li>
-                <strong>Liability.</strong> Wed&amp;Done is not liable for venue
-                restrictions or consequential damages. Our liability is limited to
-                amounts paid to Wed&amp;Done for this venue booking.
-              </li>
+    <li>
+      <strong>Liability.</strong> Wed&amp;Done is not liable for venue
+      restrictions or consequential damages. Our liability is limited to amounts
+      paid to Wed&amp;Done for this venue booking.
+    </li>
+    <br />
 
-              <li>
-                <strong>Force majeure.</strong> Neither party is liable for
-                failure or delay caused by events beyond reasonable control (e.g.,
-                acts of God, government actions, labor disputes,
-                epidemics/pandemics, or utility outages). If performance is
-                prevented, we’ll work in good faith to reschedule; if rescheduling
-                is not possible, refundable amounts (if any) will be returned less
-                non-recoverable costs.
-              </li>
-            </ul>
-          </div>
+    {/* ⭐ NOW INSERT STANDARD WED&DONE TERMS */}
+    <li>
+      <strong>Payment Options:</strong> You may pay in full today, or place a 
+      <strong> non-refundable deposit</strong> and pay the remaining balance in
+      monthly installments. All installments must be completed no later than 
+      <strong> 35 days before your wedding date</strong>, and any unpaid balance
+      will be automatically charged on that date.
+    </li>
+    <br />
+
+    <li>
+      <strong>Card Authorization:</strong> By signing this agreement, you
+      authorize Wed&amp;Done to securely store your card for recurring or future
+      payments. Once a card is on file, all <strong>Deposit + Monthly</strong>
+      plans will use that saved card for every installment and the final balance.
+      Paid-in-full purchases may be made using your saved card or a new card.
+      Your card details are encrypted and processed by Stripe, and you may
+      update or replace your saved card at any time through your Wed&amp;Done
+      account.
+    </li>
+    <br />
+
+    <li>
+      <strong>Missed Payments:</strong> We’ll retry your card automatically. If
+      payment isn’t received within 7 days, a $25 late fee applies; after 14
+      days, services may be suspended and the agreement may be in default.
+    </li>
+    <br />
+
+    <li>
+      <strong>Force Majeure:</strong> Neither party is liable for delays beyond
+      reasonable control. We’ll work in good faith to reschedule; if not
+      possible, we’ll refund amounts paid beyond non-recoverable costs.
+    </li>
+  </ul>
+</div>
 
           <h4
             className="px-title"
@@ -622,6 +686,7 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
           </h4>
 
           <div className="px-toggle" style={{ marginBottom: 12 }}>
+            {/* Pay Full */}
             <button
               type="button"
               className={`px-toggle__btn ${
@@ -636,40 +701,54 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
             >
               Pay Full Amount
             </button>
+
+            {/* Deposit + Monthly (greyed out when payInFullRequired) */}
             <button
               type="button"
               className={`px-toggle__btn ${
-                !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+                !payFull && !plan.payInFullRequired
+                  ? "px-toggle__btn--pink px-toggle__btn--active"
+                  : ""
               }`}
-              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
+              style={{
+                minWidth: 150,
+                padding: "0.6rem 1rem",
+                fontSize: ".9rem",
+                opacity: plan.payInFullRequired ? 0.45 : 1,
+                cursor: plan.payInFullRequired ? "not-allowed" : "pointer",
+              }}
               onClick={() => {
+                if (plan.payInFullRequired) return;
                 setPayFull(false);
                 setSignatureSubmitted(false);
                 setCardConsentChecked(false);
               }}
+              disabled={!!plan.payInFullRequired}
             >
               Deposit + Monthly
             </button>
           </div>
 
+          {/* Payment schedule line (only when monthly is available) */}
           {(() => {
             const scheduleLine =
               !payFull && !plan?.payInFullRequired && plan && plan.months > 0
                 ? formatPaymentSchedule(plan as any)
                 : "";
             return scheduleLine ? (
-              <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
+              <p className="px-prose-narrow" style={{ marginBottom: "1rem" }}>
                 {scheduleLine}
               </p>
             ) : null;
           })()}
 
+          {/* If wedding is too close, force pay-in-full */}
           {plan.payInFullRequired && (
             <p
               style={{
                 fontSize: ".9rem",
                 color: "#b30000",
-                marginTop: "-.5rem",
+                marginTop: "-.25rem",
                 marginBottom: "1rem",
               }}
             >
@@ -678,11 +757,36 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
             </p>
           )}
 
+          {/* Floral-style monthly warning box — ONLY on Deposit + Monthly */}
+          {isMonthlyPlan && (
+            <div
+              style={{
+                maxWidth: 520,
+                margin: "0 auto 1rem",
+                padding: "10px 14px",
+                borderRadius: 12,
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                fontSize: ".9rem",
+                textAlign: "left",
+              }}
+            >
+              <strong>Heads up:</strong>{" "}
+              Because you&apos;ve chosen{" "}
+              <strong>Deposit + Monthly</strong>, your venue installments will
+              use a card on file. If you don&apos;t have one saved yet, we&apos;ll
+              securely add one at checkout and use it for your monthly payments
+              and final balance. You can update your saved card anytime from
+              your Wed&amp;Done account.
+            </div>
+          )}
+
+          {/* Generic “signing” paragraph — no card-specific logic here */}
           <p className="px-prose-narrow" style={{ marginBottom: "1.75rem" }}>
-            By signing this agreement, you agree that the deposit paid is
-            non-refundable. Monthly payments will be automatically scheduled and
-            charged to the card on file unless the full amount is paid today.
-            Rescheduling may be subject to availability and additional fees.
+            By signing this agreement, you agree that amounts paid (deposit or
+            paid-in-full) are non-refundable except as outlined in the Booking
+            Terms above. Rescheduling may be subject to availability and
+            additional fees.
           </p>
 
           <div className="px-section" style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -699,7 +803,7 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
               <span>I agree to the terms of this venue agreement.</span>
             </label>
 
-            {/* Global card-on-file consent: only show if they haven't already consented */}
+            {/* Global card-on-file consent */}
             {needsCardConsent && (
               <div
                 style={{

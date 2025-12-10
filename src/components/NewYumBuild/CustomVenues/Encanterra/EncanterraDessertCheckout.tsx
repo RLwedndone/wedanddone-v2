@@ -62,6 +62,14 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
   return dt.toISOString();
 }
 
+// Saved-card summary type
+type SavedCardSummary = {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+};
+
 // Props
 interface EncanterraDessertCheckoutProps {
   total: number; // contract total (backup if LS is missing)
@@ -100,8 +108,14 @@ const EncanterraDessertCheckout: React.FC<
   // We'll also mirror Firestore first/last name for CheckoutForm label
   const [checkoutName, setCheckoutName] = useState("Magic User");
 
+  // Saved-card state (mirrors Encanterra catering checkout)
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<SavedCardSummary | null>(null);
+  const [hasSavedCard, setHasSavedCard] = useState(false);
+  const [mode, setMode] = useState<"saved" | "new">("saved");
+
   useEffect(() => {
-    // Grab best-guess display name ASAP so Stripe form isn't blank
+    // Grab best-guess display name + any saved card ASAP
     (async () => {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -111,11 +125,40 @@ const EncanterraDessertCheckout: React.FC<
         const userRef = doc(db, "users", user.uid);
         const snap = await getDoc(userRef);
         const data = snap.exists() ? (snap.data() as any) : {};
+
         const safeFirst = data?.firstName || "Magic";
         const safeLast = data?.lastName || "User";
         setCheckoutName(`${safeFirst} ${safeLast}`);
+
+        // Try to hydrate saved card summary from Firestore stripe snapshot
+        const stripeCard =
+          data?.stripe?.defaultPaymentMethod ||
+          data?.stripe?.cardOnFile ||
+          null;
+
+        if (
+          stripeCard &&
+          stripeCard.brand &&
+          stripeCard.last4 &&
+          stripeCard.exp_month &&
+          stripeCard.exp_year
+        ) {
+          setSavedCardSummary({
+            brand: stripeCard.brand,
+            last4: stripeCard.last4,
+            exp_month: stripeCard.exp_month,
+            exp_year: stripeCard.exp_year,
+          });
+          setHasSavedCard(true);
+          setMode("saved");
+        } else {
+          setHasSavedCard(false);
+          setMode("new");
+        }
       } catch {
-        // fallback stays "Magic User"
+        // fallback stays "Magic User" and no saved card
+        setHasSavedCard(false);
+        setMode("new");
       }
     })();
   }, []);
@@ -216,7 +259,10 @@ const EncanterraDessertCheckout: React.FC<
           }
         }
       } catch (e) {
-        console.warn("⚠️ Could not save stripeCustomerId (dessert_encanterra):", e);
+        console.warn(
+          "⚠️ Could not save stripeCustomerId (dessert_encanterra):",
+          e
+        );
       }
 
       // Final due date = wedding - 35 days
@@ -323,9 +369,11 @@ const EncanterraDessertCheckout: React.FC<
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountChargedToday).toLocaleString(undefined,{
-                minimumFractionDigits:2,
-                maximumFractionDigits:2
+            ? `You're paying $${Number(
+                amountChargedToday
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })} today.`
             : `You're paying $${amountChargedToday.toFixed(
                 2
@@ -462,7 +510,10 @@ const EncanterraDessertCheckout: React.FC<
           product_name: "Encanterra Desserts",
         });
       } catch (mailErr) {
-        console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+        console.error(
+          "❌ notifyBooking(yum_dessert) failed:",
+          mailErr
+        );
       }
 
       // UI fan-out so dashboards/overlays refresh immediately
@@ -534,17 +585,6 @@ const EncanterraDessertCheckout: React.FC<
           >
             Madge is icing your cake... one sec!
           </h3>
-
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
-              disabled
-            >
-              ← Back
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -602,14 +642,88 @@ const EncanterraDessertCheckout: React.FC<
           {paymentMessage}
         </p>
 
-        {/* Stripe Card Entry */}
+        {/* Saved card toggle + Stripe Card Entry */}
         <div className="px-elements">
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid #e2e6f0",
+              background: "#f7f8ff",
+            }}
+          >
+            {hasSavedCard ? (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="encDessertPaymentMode"
+                    checked={mode === "saved"}
+                    onChange={() => setMode("saved")}
+                  />
+                  <span>
+                    Saved card on file —{" "}
+                    <strong>
+                      {savedCardSummary!.brand.toUpperCase()}
+                    </strong>{" "}
+                    •••• {savedCardSummary!.last4} (exp{" "}
+                    {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="encDessertPaymentMode"
+                    checked={mode === "new"}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              </>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "default",
+                }}
+              >
+                <input type="radio" checked readOnly />
+                <span>Enter your card details</span>
+              </label>
+            )}
+          </div>
+
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
             // we don't need setStepSuccess here because handleSuccess already drives navigation
             isAddon={false}
-            customerEmail={getAuth().currentUser?.email || undefined}
+            customerEmail={
+              getAuth().currentUser?.email || undefined
+            }
             customerName={checkoutName}
             customerId={(() => {
               try {
@@ -621,6 +735,7 @@ const EncanterraDessertCheckout: React.FC<
                 return undefined;
               }
             })()}
+            useSavedCard={hasSavedCard && mode === "saved"}
           />
         </div>
       </div>
