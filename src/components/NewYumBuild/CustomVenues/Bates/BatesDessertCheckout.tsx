@@ -205,7 +205,10 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
           setMode("saved");
         }
       } catch (err) {
-        console.warn("[BatesDessertCheckout] No saved card found:", err);
+        console.warn(
+          "[BatesDessertCheckout] No saved card found:",
+          err
+        );
       }
     });
 
@@ -262,22 +265,32 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
       try {
         const shouldStoreCard = requiresCardOnFile;
         if (shouldStoreCard) {
-          await fetch(`${API_BASE}/ensure-default-payment-method`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customerId: customerId || localStorage.getItem("stripeCustomerId"),
-              firebaseUid: user.uid,
-            }),
-          });
-          console.log("✅ ensure-default-payment-method called for Bates dessert");
+          await fetch(
+            `${API_BASE}/ensure-default-payment-method`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                customerId:
+                  customerId ||
+                  localStorage.getItem("stripeCustomerId"),
+                firebaseUid: user.uid,
+              }),
+            }
+          );
+          console.log(
+            "✅ ensure-default-payment-method called for Bates dessert"
+          );
         } else {
           console.log(
             "ℹ️ Skipping ensure-default-payment-method (dessert paid in full)."
           );
         }
       } catch (err) {
-        console.error("❌ ensure-default-payment-method failed:", err);
+        console.error(
+          "❌ ensure-default-payment-method failed:",
+          err
+        );
       }
 
       // Final due date = wedding - 35 days
@@ -341,11 +354,15 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         boutique: "dessert",
         source: "W&D",
         amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        amountChargedToday: Number(
+          amountDueToday.toFixed(2)
+        ),
         contractTotal: Number(totalEffective.toFixed(2)),
         payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
+        deposit: usingFull
+          ? 0
+          : Number(amountDueToday.toFixed(2)),
+        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
         months: usingFull ? 0 : mths,
         method: usingFull ? "paid_in_full" : "deposit",
         items: lineItems,
@@ -357,18 +374,23 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         purchases: arrayUnion(purchaseEntry),
 
         // spendTotal = what hit the card today
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(
+          Number(amountDueToday.toFixed(2))
+        ),
 
         // 🔹 Normalized dessert totals for Guest Scroll + admin
-        "totals.dessert.contractTotal": Number(totalEffective.toFixed(2)),
+        "totals.dessert.contractTotal":
+          Number(totalEffective.toFixed(2)),
         "totals.dessert.amountPaid": increment(
           Number(amountDueToday.toFixed(2))
         ),
         "totals.dessert.guestCountAtBooking": guestCount,
         "totals.dessert.venueSlug": "batesmansion",
         "totals.dessert.style": selectedStyle || null,
-        "totals.dessert.flavorCombo": selectedFlavorCombo || null,
-        "totals.dessert.lastUpdatedAt": new Date().toISOString(),
+        "totals.dessert.flavorCombo":
+          selectedFlavorCombo || null,
+        "totals.dessert.lastUpdatedAt":
+          new Date().toISOString(),
 
         // keep existing plan snapshot for Stripe autopay
         paymentPlan: {
@@ -391,7 +413,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
             : remainingBalance > 0
             ? "active"
             : "complete",
-          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
+          strategy: usingFull
+            ? "paid_in_full"
+            : "monthly_until_final",
           currency: "usd",
 
           totalCents: Math.round(totalEffective * 100),
@@ -410,7 +434,8 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
           finalDueAt: finalDueISO,
 
           stripeCustomerId:
-            localStorage.getItem("stripeCustomerId") || null,
+            localStorage.getItem("stripeCustomerId") ||
+            null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -436,12 +461,16 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${amountDueToday.toFixed(2)} today.`
-            : `You're paying $${amountDueToday.toFixed(
+            ? `Paid in full today: $${amountDueToday.toFixed(
                 2
-              )} today, then ${mths} monthly payments of about $${(
-                perMonthCents / 100
-              ).toFixed(2)} (final due ${finalDueDateStr}).`),
+              )}. No remaining balance is owed for this dessert agreement.`
+            : `Deposit of $${amountDueToday.toFixed(
+                2
+              )} paid today. Remaining balance of $${remainingBalance.toFixed(
+                2
+              )} will be charged in ${mths} monthly installments of about $${perMonth.toFixed(
+                2
+              )}, with the final payment due ${finalDueDateStr}.`),
         selectedStyle,
         selectedFlavorCombo,
         lineItems,
@@ -472,7 +501,10 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
       try {
         const current = getAuth().currentUser;
         await notifyBooking("yum_dessert", {
-          user_email: current?.email || userDoc?.email || "unknown@wedndone.com",
+          user_email:
+            current?.email ||
+            userDoc?.email ||
+            "unknown@wedndone.com",
           user_full_name: fullName,
           firstName: safeFirst,
           wedding_date: weddingYMD || "TBD",
@@ -483,7 +515,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
           payment_now: amountDueToday.toFixed(2),
           remaining_balance: remainingBalance.toFixed(2),
           final_due: finalDueDateStr,
-          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
           product_name: "Bates Desserts",
         });
       } catch (mailErr) {
@@ -592,7 +626,7 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
             {paymentMessage}
           </p>
 
-          {/* Payment Method Selection (mirrors Bates catering) */}
+          {/* Payment Method Selection (Pass 3 rules: requiresCardOnFile = !usingFull) */}
           <div
             style={{
               marginTop: 12,
@@ -605,7 +639,44 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
               marginInline: "auto",
             }}
           >
-            {hasSavedCard ? (
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                // Monthly + saved card → locked to saved card
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this
+                  Bates dessert plan —{" "}
+                  <strong>
+                    {savedCardSummary!.brand.toUpperCase()}
+                  </strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year}). If you need to
+                  change cards later, you can update your saved card
+                  in your Wed&amp;Done account before the next
+                  payment.
+                </p>
+              ) : (
+                // Monthly + no saved card → must enter a card, and it will be saved
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Bates dessert
+                  plan. This card will be saved on file and used for
+                  your monthly payments and final balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
+              // No plan required → let them pick saved vs new
               <>
                 <label
                   style={{
@@ -625,7 +696,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
                   />
                   <span>
                     Saved card on file —{" "}
-                    <strong>{savedCardSummary!.brand.toUpperCase()}</strong>{" "}
+                    <strong>
+                      {savedCardSummary!.brand.toUpperCase()}
+                    </strong>{" "}
                     •••• {savedCardSummary!.last4} (exp{" "}
                     {savedCardSummary!.exp_month}/
                     {savedCardSummary!.exp_year})
@@ -651,6 +724,7 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
                 </label>
               </>
             ) : (
+              // No saved card, no plan required → simple “enter details”
               <label
                 style={{
                   display: "flex",
@@ -673,7 +747,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
           >
             <CheckoutForm
               total={amountDueToday}
-              useSavedCard={mode === "saved"}
+              useSavedCard={
+                requiresCardOnFile ? hasSavedCard : mode === "saved"
+              }
               onSuccess={handleSuccess}
               isAddon={false}
               customerEmail={getAuth().currentUser?.email || undefined}

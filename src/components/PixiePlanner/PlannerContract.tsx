@@ -249,6 +249,18 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 paddingLeft: "1.25rem",
               }}
             >
+
+<li>
+  You may pay in full today or make a ${DEPOSIT_DOLLARS} non-refundable deposit.
+  Any remaining balance will be divided into monthly installments and must be 
+  fully paid <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+</li>
+
+<li>
+  By signing, you authorize Wed&amp;Done to securely store your payment method and
+  automatically process scheduled payments, including add-ons or increases to
+  your guest count that you approve during planning.
+</li>
               <li>
                 <strong>Refunds & Cancellations:</strong> At minimum, ${DEPOSIT_DOLLARS} is non-refundable. If you cancel
                 more than {FINAL_DUE_DAYS} days prior, amounts paid beyond the non-refundable portion are refundable
@@ -309,18 +321,26 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
             </button>
           </div>
 
-          {/* One-line summary (Floral-style) */}
-          <p className="px-prose-narrow" style={{ marginTop: 4 }}>
+                    {/* One-line summary (Floral-style) */}
+                    <p className="px-prose-narrow" style={{ marginTop: 4 }}>
             {payFull ? (
-              <>You’re paying <strong>{fmtUSD(grandTotalCents)}</strong> today.</>
+              <>
+                You’re paying <strong>{fmtUSD(grandTotalCents)}</strong> today.
+              </>
             ) : (
               <>
                 You’re paying <strong>{fmtUSD(depositCents)}</strong> today, then about{" "}
                 <strong>{fmtUSD(perMonthCents)}</strong> monthly
                 {finalDuePretty ? (
-                  <> until <strong>{finalDuePretty}</strong>.</>
+                  <>
+                    {" "}
+                    until <strong>{finalDuePretty}</strong>.
+                  </>
                 ) : (
-                  <> until {FINAL_DUE_DAYS} days before your wedding date.</>
+                  <>
+                    {" "}
+                    until {FINAL_DUE_DAYS} days before your wedding date.
+                  </>
                 )}{" "}
                 {planMonths > 1 && (
                   <>
@@ -331,18 +351,53 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
             )}
           </p>
 
+          {/* 🔔 REQUIRED: auto-pay warning for monthly plan */}
+          {!payFull && (
+            <div
+              style={{
+                marginTop: "0.25rem",
+                marginBottom: "0.75rem",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #f3b1c9",
+                background: "#fff5fa",
+                fontSize: "0.95rem",
+                lineHeight: 1.55,
+                textAlign: "left",
+                maxWidth: 560,
+                marginInline: "auto",
+              }}
+            >
+              <strong>Heads up:</strong> Choosing the deposit + monthly option means your saved card will be{" "}
+              <strong>automatically charged each month</strong> for your planner plan until the balance is paid in full
+              {finalDuePretty ? (
+                <>
+                  {" "}
+                  by <strong>{finalDuePretty}</strong>.
+                </>
+              ) : (
+                <>
+                  {" "}
+                  by <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+                </>
+              )}{" "}
+              You can update your card-n-file in your Wed&amp;Done dashboard. If you’d prefer to pay with a different card, choose
+              “Pay Full Amount” instead.
+            </div>
+          )}
+
           {/* Agree + Sign/Continue */}
-<div style={{ margin: "0.75rem 0 0.5rem" }}>
-  <label>
-    <input
-      type="checkbox"
-      checked={agreeChecked}
-      onChange={(e) => setAgreeChecked(e.target.checked)}
-      style={{ marginRight: 8 }}
-    />
-    I agree to the terms above
-  </label>
-</div>
+          <div style={{ margin: "0.75rem 0 0.5rem" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={agreeChecked}
+                onChange={(e) => setAgreeChecked(e.target.checked)}
+                style={{ marginRight: 8 }}
+              />
+              I agree to the terms above
+            </label>
+          </div>
 
 <div className="px-cta-col" style={{ marginTop: 8 }}>
   {/* SIGN OR CONTINUE BUTTON */}

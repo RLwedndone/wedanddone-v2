@@ -1,7 +1,7 @@
 // src/components/NewYumBuild/catering/YumCheckOutCatering.tsx
 import React, { useEffect, useState } from "react";
 import CheckoutForm from "../../../CheckoutForm";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   updateDoc,
@@ -34,6 +34,9 @@ const toPretty = (d: Date) =>
     month: "long",
     day: "numeric",
   });
+
+  const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
 // --- helpers used to build the monthly plan snapshot ---
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -95,10 +98,24 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
     ? "monthly"
     : rawPlan) as "full" | "monthly";
 
+    const requiresCardOnFile = paymentPlan === "monthly";
+
   // 📅 wedding date loading (Firestore → localStorage)
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string>("Magic");
   const [lastName, setLastName] = useState<string>("User");
+
+    // 🔐 Payment mode + saved card summary (Floral/Jam pattern)
+    const [mode, setMode] = useState<"saved" | "new">("new");
+    const [savedCardSummary, setSavedCardSummary] =
+      useState<{
+        brand: string;
+        last4: string;
+        exp_month: number;
+        exp_year: number;
+      } | null>(null);
+  
+    const hasSavedCard = !!savedCardSummary;
 
   useEffect(() => {
     (async () => {
@@ -131,6 +148,33 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+    // 🔍 Load saved card summary once auth is ready
+    useEffect(() => {
+      const auth = getAuth();
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        try {
+          const effectiveUid = user?.uid;
+          if (!effectiveUid) return;
+  
+          const res = await fetch(`${API_BASE}/payments/get-default`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid: effectiveUid }),
+          });
+  
+          const data = await res.json();
+          if (data?.card) {
+            setSavedCardSummary(data.card);
+            setMode("saved");
+          }
+        } catch (err) {
+          console.warn("[YumCheckOutCatering] No saved card found:", err);
+        }
+      });
+  
+      return () => unsubscribe();
+    }, []);
+
   // 💳 amounts (25% deposit or full)
   const DEPOSIT_PCT = 0.25;
   const deposit =
@@ -157,8 +201,14 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
   const signatureImageUrl =
     localStorage.getItem("yumSignature") || "";
 
-  // ✅ success handler
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+    // ✅ success handler
+    const handleSuccess = async ({
+      customerId,
+      paymentMethodId,
+    }: {
+      customerId?: string;
+      paymentMethodId?: string;
+    } = {}) => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -170,46 +220,68 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
       const snap = await getDoc(userRef);
       const userDoc = snap.data() || {};
 
-      // store Stripe customer id if new
-      try {
-        if (customerId && customerId !== userDoc?.stripeCustomerId) {
-          await updateDoc(userRef, {
-            stripeCustomerId: customerId,
-            "stripe.updatedAt": serverTimestamp(),
-          });
-          try {
-            localStorage.setItem("stripeCustomerId", customerId);
-          } catch {}
-
-          // 🔑 Ensure a default payment method is attached
-          try {
-            await fetch(
-              "https://us-central1-wedndonev2.cloudfunctions.net/stripeApi/ensure-default-payment-method",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  customerId,
-                  firebaseUid: user.uid,
-                }),
+            // store Stripe customer id if new
+            try {
+              if (customerId && customerId !== userDoc?.stripeCustomerId) {
+                await updateDoc(userRef, {
+                  stripeCustomerId: customerId,
+                  "stripe.updatedAt": serverTimestamp(),
+                });
+                try {
+                  localStorage.setItem("stripeCustomerId", customerId);
+                } catch {}
               }
-            );
-            console.log(
-              "✅ Ensured default payment method for",
-              customerId
-            );
-          } catch (err) {
-            console.error(
-              "❌ Failed to ensure default payment method:",
-              err
-            );
-          }
-        }
-      } catch (e) {
-        console.warn("⚠️ Could not save stripeCustomerId:", e);
-      }
+            } catch (e) {
+              console.warn("⚠️ Could not save stripeCustomerId:", e);
+            }
+      
+            // ✅ Store the specific card used for this Yum payment plan
+            // Only for monthly plans.
+            if (requiresCardOnFile && paymentMethodId) {
+              try {
+                await updateDoc(userRef, {
+                  "paymentPlan.paymentMethodId": paymentMethodId,
+                });
+                console.log(
+                  "✅ Stored paymentPlan.paymentMethodId for Yum:",
+                  paymentMethodId
+                );
+              } catch (err) {
+                console.error(
+                  "❌ Failed to store paymentMethodId on paymentPlan (Yum):",
+                  err
+                );
+              }
+            }
+      
+            // ✅ Decide whether to ensure a default payment method
+            const shouldStoreCard = requiresCardOnFile;
+      
+            if (shouldStoreCard) {
+              try {
+                await fetch(`${API_BASE}/ensure-default-payment-method`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    customerId:
+                      customerId || localStorage.getItem("stripeCustomerId"),
+                    firebaseUid: user.uid,
+                  }),
+                });
+                console.log("✅ Ensured default payment method for Yum customer");
+              } catch (err) {
+                console.error(
+                  "❌ Failed to ensure default payment method (Yum):",
+                  err
+                );
+              }
+            } else {
+              console.log(
+                "ℹ️ Skipping card-on-file setup for Yum (pay-in-full without monthly plan)."
+              );
+            }
 
       const safeFirst = userDoc?.firstName || firstName || "Magic";
       const safeLast = userDoc?.lastName || lastName || "User";
@@ -580,7 +652,7 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               }}
             />
 
-            <h2
+<h2
               className="px-title"
               style={{
                 fontFamily: "'Jenna Sue', cursive",
@@ -601,9 +673,144 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
               {summaryText}
             </p>
 
+            {/* Payment Method Selection – mirrors Floral/Jam */}
+            <div
+              style={{
+                marginTop: "12px",
+                marginBottom: "20px",
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                maxWidth: 520,
+                marginInline: "auto",
+              }}
+            >
+              {requiresCardOnFile ? (
+                hasSavedCard ? (
+                  // ✅ Monthly plan + card on file: locked to saved card
+                  <div
+                    style={{
+                      fontSize: ".95rem",
+                      textAlign: "left",
+                    }}
+                  >
+                    <p style={{ marginBottom: 6 }}>
+                      Monthly payments for this catering booking will be charged to
+                      your saved card on file:
+                    </p>
+                    <p style={{ marginBottom: 4 }}>
+                      <strong>
+                        {savedCardSummary!.brand.toUpperCase()} ••••{" "}
+                        {savedCardSummary!.last4} (exp{" "}
+                        {savedCardSummary!.exp_month}/
+                        {savedCardSummary!.exp_year})
+                      </strong>
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 6,
+                        fontSize: ".85rem",
+                        opacity: 0.8,
+                      }}
+                    >
+                      To use a different card for monthly payments, update your
+                      saved card in your Wed&Done account before your next charge.
+                    </p>
+                  </div>
+                ) : (
+                  // ✅ Monthly plan, no card on file: they enter a card, and it becomes the saved one
+                  <div
+                    style={{
+                      fontSize: ".95rem",
+                      textAlign: "left",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        cursor: "default",
+                      }}
+                    >
+                      <input type="radio" checked readOnly />
+                      <span>
+                        Enter your card details. This card will be saved on file
+                        for your catering monthly plan.
+                      </span>
+                    </label>
+                  </div>
+                )
+              ) : hasSavedCard ? (
+                // ✅ Pay-in-full: choose saved vs new
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "saved"}
+                      onChange={() => setMode("saved")}
+                    />
+                    <span>
+                      Saved card on file —{" "}
+                      <strong>
+                        {savedCardSummary!.brand.toUpperCase()}
+                      </strong>{" "}
+                      •••• {savedCardSummary!.last4} (exp{" "}
+                      {savedCardSummary!.exp_month}/
+                      {savedCardSummary!.exp_year})
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      checked={mode === "new"}
+                      onChange={() => setMode("new")}
+                    />
+                    <span>Pay with a different card</span>
+                  </label>
+                </>
+              ) : (
+                // ✅ No saved card, pay-in-full: just enter a card
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input type="radio" checked readOnly />
+                  <span>Enter your card details</span>
+                </label>
+              )}
+            </div>
+
             <div className="px-elements">
               <CheckoutForm
                 total={amountDueToday}
+                useSavedCard={requiresCardOnFile ? hasSavedCard : mode === "saved"}
                 onSuccess={handleSuccess}
                 setStepSuccess={onComplete}
                 isAddon={false}

@@ -516,8 +516,8 @@ const YumContractDessert: React.FC<YumContractProps> = ({
           </button>
         </div>
 
-        {/* Summary + Agree */}
-        <p className="px-prose-narrow" style={{ marginTop: 4 }}>
+                {/* Summary + Agree */}
+                <p className="px-prose-narrow" style={{ marginTop: 4 }}>
           {payFull ? (
             <>
               You’ll pay{" "}
@@ -551,6 +551,32 @@ const YumContractDessert: React.FC<YumContractProps> = ({
             </>
           )}
         </p>
+
+        {/* 🔔 REQUIRED: auto-pay warning when monthly is selected */}
+        {!payFull && (
+          <div
+            style={{
+              marginTop: "0.25rem",
+              marginBottom: "0.75rem",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #f3b1c9",
+              background: "#fff5fa",
+              fontSize: "0.95rem",
+              lineHeight: 1.55,
+              textAlign: "left",
+              maxWidth: 560,
+              marginInline: "auto",
+            }}
+          >
+            <strong>Heads up:</strong> Choosing the deposit + monthly option means
+            your saved card will be <strong>automatically charged each month</strong>{" "}
+            for your dessert plan until the balance is paid in full by{" "}
+            <strong>{finalDuePretty}</strong>. You can update your saved card
+            anytime in your Wed&amp;Done dashboard. If you’d prefer no auto-pay,
+            choose “Pay Full Amount” instead.
+          </div>
+        )}
 
         {/* Terms checkbox */}
         <div style={{ margin: "8px 0 4px" }}>

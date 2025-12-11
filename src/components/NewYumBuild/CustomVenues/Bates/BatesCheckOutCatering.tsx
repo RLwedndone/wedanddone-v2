@@ -22,23 +22,39 @@ const API_BASE =
 
 // Helpers (parity with Floral)
 const asStartOfDayUTC = (d: Date) =>
-  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+  new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      0,
+      0,
+      1
+    )
+  );
 
 function nextApproxMonthUTC(from: Date): string {
   const y = from.getUTCFullYear();
   const m = from.getUTCMonth();
   const d = from.getUTCDate();
   const target = new Date(Date.UTC(y, m + 1, 1, 0, 0, 1));
-  const lastDayNextMonth = new Date(Date.UTC(y, m + 2, 0)).getUTCDate();
+  const lastDayNextMonth = new Date(
+    Date.UTC(y, m + 2, 0)
+  ).getUTCDate();
   target.setUTCDate(Math.min(d, lastDayNextMonth));
   return target.toISOString();
 }
 
 function monthsBetweenInclusive(from: Date, to: Date) {
-  const a = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
-  const b = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+  const a = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1)
+  );
+  const b = new Date(
+    Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1)
+  );
   let months =
-    (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+    (b.getUTCFullYear() - a.getUTCFullYear()) * 12 +
+    (b.getUTCMonth() - a.getUTCMonth());
   if (to.getUTCDate() >= from.getUTCDate()) months += 1;
   return Math.max(1, months);
 }
@@ -92,20 +108,32 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   const DEPOSIT_PCT = 0.25; // same policy
   const FINAL_DUE_DAYS = 35; // Bates requires 35 days
 
-  const parsedWedding = weddingDate ? new Date(`${weddingDate}T12:00:00`) : null;
+  const parsedWedding = weddingDate
+    ? new Date(`${weddingDate}T12:00:00`)
+    : null;
   const finalDueDate = parsedWedding
-    ? new Date(parsedWedding.getTime() - FINAL_DUE_DAYS * 24 * 60 * 60 * 1000)
+    ? new Date(
+        parsedWedding.getTime() -
+          FINAL_DUE_DAYS * 24 * 60 * 60 * 1000
+      )
     : null;
 
-  const computedDeposit = Math.min(total, Math.round(total * DEPOSIT_PCT * 100) / 100);
+  const computedDeposit = Math.min(
+    total,
+    Math.round(total * DEPOSIT_PCT * 100) / 100
+  );
 
   const effectiveDeposit =
-    Number.isFinite(depositAmount || NaN) && (depositAmount as number) > 0
+    Number.isFinite(depositAmount || NaN) &&
+    (depositAmount as number) > 0
       ? (depositAmount as number)
       : computedDeposit;
 
   const amountDueToday = payFull ? total : effectiveDeposit;
-  const remainingBalance = Math.max(0, Math.round((total - amountDueToday) * 100) / 100);
+  const remainingBalance = Math.max(
+    0,
+    Math.round((total - amountDueToday) * 100) / 100
+  );
 
   const finalDueDateStr = finalDueDate
     ? finalDueDate.toLocaleDateString("en-US", {
@@ -128,7 +156,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
   } | null>(null);
 
   const hasSavedCard = !!savedCardSummary;
-  const requiresCardOnFile = !payFull; // if deposit/monthly → card on file required
+
+  // ❗ Pass 3 rule: Bates monthly (deposit + monthly) requires a card on file
+  const requiresCardOnFile = !payFull;
 
   // Load saved card summary once auth is ready
   useEffect(() => {
@@ -139,11 +169,14 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         const effectiveUid = user?.uid || uid;
         if (!effectiveUid) return;
 
-        const res = await fetch(`${API_BASE}/payments/get-default`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uid: effectiveUid }),
-        });
+        const res = await fetch(
+          `${API_BASE}/payments/get-default`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid: effectiveUid }),
+          }
+        );
 
         if (!res.ok) {
           const t = await res.text();
@@ -161,7 +194,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
           setMode("saved");
         }
       } catch (err) {
-        console.warn("[BatesCheckOutCatering] No saved card found:", err);
+        console.warn(
+          "[BatesCheckOutCatering] No saved card found:",
+          err
+        );
       }
     });
 
@@ -175,7 +211,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     customerId?: string;
   } = {}) => {
     if (didRunRef.current) {
-      console.warn("[BatesCheckOutCatering] handleSuccess already ran — ignoring re-entry");
+      console.warn(
+        "[BatesCheckOutCatering] handleSuccess already ran — ignoring re-entry"
+      );
       return;
     }
     didRunRef.current = true;
@@ -190,13 +228,17 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     const userSnap = await getDoc(userRef);
     const userDoc = userSnap.data() || {};
 
-    const safeFirst = (userDoc as any)?.firstName || firstName || "Magic";
-    const safeLast = (userDoc as any)?.lastName || lastName || "User";
+    const safeFirst =
+      (userDoc as any)?.firstName || firstName || "Magic";
+    const safeLast =
+      (userDoc as any)?.lastName || lastName || "User";
     const fullName = `${safeFirst} ${safeLast}`;
 
     // Save/refresh Stripe customer id (only relevant when customerId exists)
     try {
-      const existing = userDoc?.stripeCustomerId as string | undefined;
+      const existing = userDoc?.stripeCustomerId as
+        | string
+        | undefined;
       if (customerId && customerId !== existing) {
         await updateDoc(userRef, {
           stripeCustomerId: customerId,
@@ -230,18 +272,31 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
 
       // 2) Fallback: Firestore subdoc
       try {
-        const ref = doc(db, "users", uid, "yumYumData", "batesMenuSelections");
+        const ref = doc(
+          db,
+          "users",
+          uid,
+          "yumYumData",
+          "batesMenuSelections"
+        );
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const data = snap.data() as any;
           return {
             hors: Array.isArray(data.hors) ? data.hors : [],
-            salads: Array.isArray(data.salads) ? data.salads : [],
-            entrees: Array.isArray(data.entrees) ? data.entrees : [],
+            salads: Array.isArray(data.salads)
+              ? data.salads
+              : [],
+            entrees: Array.isArray(data.entrees)
+              ? data.entrees
+              : [],
           };
         }
       } catch (e) {
-        console.warn("⚠️ Could not load Bates selections from Firestore:", e);
+        console.warn(
+          "⚠️ Could not load Bates selections from Firestore:",
+          e
+        );
       }
 
       // 3) Nothing found
@@ -252,22 +307,32 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     try {
       const shouldStoreCard = requiresCardOnFile;
       if (shouldStoreCard) {
-        await fetch(`${API_BASE}/ensure-default-payment-method`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customerId: customerId || localStorage.getItem("stripeCustomerId"),
-            firebaseUid: user.uid,
-          }),
-        });
-        console.log("✅ ensure-default-payment-method called for Bates catering");
+        await fetch(
+          `${API_BASE}/ensure-default-payment-method`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId ||
+                localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          }
+        );
+        console.log(
+          "✅ ensure-default-payment-method called for Bates catering"
+        );
       } else {
         console.log(
           "ℹ️ Skipping ensure-default-payment-method (pay-in-full, no plan needed)."
         );
       }
     } catch (err) {
-      console.error("❌ ensure-default-payment-method failed:", err);
+      console.error(
+        "❌ ensure-default-payment-method failed:",
+        err
+      );
     }
 
     // --- FIX: Build safe values so PDF is always correct ---
@@ -290,9 +355,13 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         ? guestCount
         : Number(
             (userDoc as any)?.guestCount ||
-              (userDoc as any)?.profileData?.guestCount ||
-              (userDoc as any)?.venueRankerData?.booking?.guestCount ||
-              localStorage.getItem("batesLockedGuestCount") ||
+              (userDoc as any)?.profileData
+                ?.guestCount ||
+              (userDoc as any)?.venueRankerData?.booking
+                ?.guestCount ||
+              localStorage.getItem(
+                "batesLockedGuestCount"
+              ) ||
               localStorage.getItem("magicGuestCount") ||
               localStorage.getItem("yumGuestCount") ||
               localStorage.getItem("guestCount") ||
@@ -322,54 +391,73 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
       // Load the user’s selections so they appear on the agreement
       const sel = await loadBatesSelections(user.uid);
 
-      const pdfBlob = await generateBatesCateringAgreementPDF({
-        fullName: fullName,
-        total,
-        deposit: payFull ? 0 : amountDueToday,
-        guestCount: storedGuestCount,
-        weddingDate: storedWeddingDate,
-        signatureImageUrl: storedSignature,
-        paymentSummary:
-          paymentSummary ||
-          (payFull
-            ? `You’re paying $${Number(total).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} today for Bates catering.`
-            : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
-                2
-              )}. Remaining balance auto-billed monthly; final payment due ${finalDueDateStr}.`),
-        lineItems: lineItems || [],
-        menuSelections: {
-          appetizers: sel.hors,
-          mains: sel.entrees,
-          sides: sel.salads,
-        },
-      });
+      const pdfBlob =
+        await generateBatesCateringAgreementPDF({
+          fullName: fullName,
+          total,
+          deposit: payFull ? 0 : amountDueToday,
+          guestCount: storedGuestCount,
+          weddingDate: storedWeddingDate,
+          signatureImageUrl: storedSignature,
+          paymentSummary:
+            paymentSummary ||
+            (payFull
+              ? `You’re paying $${Number(
+                  total
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} today for Bates catering.`
+              : `You’re paying a 25% deposit of $${amountDueToday.toFixed(
+                  2
+                )}. Remaining balance auto-billed monthly; final payment due ${finalDueDateStr}.`),
+          lineItems: lineItems || [],
+          menuSelections: {
+            appetizers: sel.hors,
+            mains: sel.entrees,
+            sides: sel.salads,
+          },
+        });
 
       const fileName = `BatesCateringAgreement_${Date.now()}.pdf`;
       const filePath = `public_docs/${user.uid}/${fileName}`;
       agreementUrl = await uploadPdfBlob(pdfBlob, filePath);
     } catch (err) {
-      console.error("❌ Error generating/uploading Bates Agreement:", err);
+      console.error(
+        "❌ Error generating/uploading Bates Agreement:",
+        err
+      );
     }
 
     // ── Build robot plan snapshot (final due = 35 days) ─────────────────────
     const nowUTC = new Date();
-    const firstChargeAtISO = payFull ? null : nextApproxMonthUTC(nowUTC);
-    const firstChargeAt = firstChargeAtISO ? new Date(firstChargeAtISO) : null;
-    const finalISO = finalDueDate ? asStartOfDayUTC(finalDueDate).toISOString() : null;
+    const firstChargeAtISO = payFull
+      ? null
+      : nextApproxMonthUTC(nowUTC);
+    const firstChargeAt = firstChargeAtISO
+      ? new Date(firstChargeAtISO)
+      : null;
+    const finalISO = finalDueDate
+      ? asStartOfDayUTC(finalDueDate).toISOString()
+      : null;
 
     const planMonths =
       !payFull && finalDueDate && firstChargeAt
         ? monthsBetweenInclusive(firstChargeAt, finalDueDate)
         : 0;
 
-    const remainingCentsTotal = Math.round(remainingBalance * 100);
+    const remainingCentsTotal = Math.round(
+      remainingBalance * 100
+    );
     const perMonthCents =
-      planMonths > 1 ? Math.floor(remainingCentsTotal / planMonths) : remainingCentsTotal;
+      planMonths > 1
+        ? Math.floor(remainingCentsTotal / planMonths)
+        : remainingCentsTotal;
     const lastPaymentCents =
-      planMonths > 1 ? remainingCentsTotal - perMonthCents * (planMonths - 1) : 0;
+      planMonths > 1
+        ? remainingCentsTotal -
+          perMonthCents * (planMonths - 1)
+        : 0;
 
     // ── Persist Firestore updates ───────────────────────────────────────────
     try {
@@ -380,11 +468,15 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         source: "W&D",
 
         amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        amountChargedToday: Number(
+          amountDueToday.toFixed(2)
+        ),
         contractTotal: Number(total.toFixed(2)),
 
         payFull: payFull,
-        deposit: payFull ? 0 : Number(amountDueToday.toFixed(2)),
+        deposit: payFull
+          ? 0
+          : Number(amountDueToday.toFixed(2)),
         monthlyAmount: payFull ? 0 : perMonthCents / 100,
         months: payFull ? 0 : planMonths,
         method: payFull ? "paid_in_full" : "deposit",
@@ -411,13 +503,20 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
 
         purchases: arrayUnion(purchaseEntry),
 
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(
+          Number(amountDueToday.toFixed(2))
+        ),
 
-        "totals.catering.contractTotal": Number(total.toFixed(2)),
-        "totals.catering.amountPaid": increment(Number(amountDueToday.toFixed(2))),
-        "totals.catering.guestCountAtBooking": storedGuestCount,
+        "totals.catering.contractTotal":
+          Number(total.toFixed(2)),
+        "totals.catering.amountPaid": increment(
+          Number(amountDueToday.toFixed(2))
+        ),
+        "totals.catering.guestCountAtBooking":
+          storedGuestCount,
         "totals.catering.venueSlug": "batesmansion",
-        "totals.catering.lastUpdatedAt": new Date().toISOString(),
+        "totals.catering.lastUpdatedAt":
+          new Date().toISOString(),
 
         paymentPlan: payFull
           ? {
@@ -463,7 +562,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               finalDueAt: null,
 
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
 
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -476,7 +577,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               currency: "usd",
 
               totalCents: Math.round(total * 100),
-              depositCents: Math.round(amountDueToday * 100),
+              depositCents: Math.round(
+                amountDueToday * 100
+              ),
               remainingCents: remainingCentsTotal,
 
               planMonths,
@@ -487,7 +590,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               finalDueAt: finalISO,
 
               stripeCustomerId:
-                customerId || localStorage.getItem("stripeCustomerId") || null,
+                customerId ||
+                localStorage.getItem("stripeCustomerId") ||
+                null,
 
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -501,10 +606,14 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
     try {
       const current = getAuth().currentUser;
       await notifyBooking("yum_catering", {
-        user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+        user_email:
+          current?.email ||
+          (userDoc as any)?.email ||
+          "unknown@wedndone.com",
         user_full_name: fullName,
         firstName: safeFirst,
-        wedding_date: storedWeddingDate || weddingDate || "TBD",
+        wedding_date:
+          storedWeddingDate || weddingDate || "TBD",
         total: total.toFixed(2),
         line_items: (lineItems || []).join(", "),
         pdf_url: agreementUrl || "",
@@ -512,7 +621,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         payment_now: amountDueToday.toFixed(2),
         remaining_balance: remainingBalance.toFixed(2),
         final_due: finalDueDateStr,
-        dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+        dashboardUrl: `${window.location.origin}${
+          import.meta.env.BASE_URL
+        }dashboard`,
         product_name: "Bates Catering",
       });
     } catch (mailErr) {
@@ -601,7 +712,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             </h3>
 
             {isZeroTotal && (
-              <p className="px-prose-narrow" style={{ marginTop: 8 }}>
+              <p
+                className="px-prose-narrow"
+                style={{ marginTop: 8 }}
+              >
                 No payment is due today.
               </p>
             )}
@@ -672,11 +786,16 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
             Checkout
           </h2>
 
-          <p className="px-prose-narrow" style={{ marginBottom: 16 }}>
+          <p
+            className="px-prose-narrow"
+            style={{ marginBottom: 16 }}
+          >
             {paymentSummary
               ? paymentSummary
               : payFull
-              ? `Total due today: $${Number(total).toLocaleString(undefined, {
+              ? `Total due today: $${Number(
+                  total
+                ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}.`
@@ -687,7 +806,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
                 )} — final payment due ${finalDueDateStr}.`}
           </p>
 
-          {/* Payment Method Selection (mirrors Floral UI) */}
+          {/* Payment Method Selection (Pass 3 rules: requiresCardOnFile = !payFull) */}
           <div
             style={{
               marginTop: 12,
@@ -700,7 +819,44 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
               marginInline: "auto",
             }}
           >
-            {hasSavedCard ? (
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                // Monthly + saved card → locked to saved card
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this
+                  Bates catering plan —{" "}
+                  <strong>
+                    {savedCardSummary!.brand.toUpperCase()}
+                  </strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year}). If you need to
+                  change cards later, you can update your saved card
+                  in your Wed&amp;Done account before the next
+                  payment.
+                </p>
+              ) : (
+                // Monthly + no saved card → must enter a card, and it will be saved
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Bates
+                  catering plan. This card will be saved on file and
+                  used for your monthly payments and final balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
+              // No plan required → let them pick saved vs new
               <>
                 <label
                   style={{
@@ -720,8 +876,11 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
                   />
                   <span>
                     Saved card on file —{" "}
-                    <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
-                    {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+                    <strong>
+                      {savedCardSummary!.brand.toUpperCase()}
+                    </strong>{" "}
+                    •••• {savedCardSummary!.last4} (exp{" "}
+                    {savedCardSummary!.exp_month}/
                     {savedCardSummary!.exp_year})
                   </span>
                 </label>
@@ -745,6 +904,7 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
                 </label>
               </>
             ) : (
+              // No saved card, no plan required → simple “enter details”
               <label
                 style={{
                   display: "flex",
@@ -761,18 +921,30 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
           </div>
 
           {/* Stripe form */}
-          <div className="px-elements" aria-busy={isGenerating}>
+          <div
+            className="px-elements"
+            aria-busy={isGenerating}
+          >
             <CheckoutForm
               total={amountDueToday}
-              useSavedCard={mode === "saved"}
+              useSavedCard={
+                requiresCardOnFile ? hasSavedCard : mode === "saved"
+              }
               onSuccess={handleSuccess}
               setStepSuccess={onSuccess}
               isAddon={false}
-              customerEmail={getAuth().currentUser?.email || undefined}
-              customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+              customerEmail={
+                getAuth().currentUser?.email || undefined
+              }
+              customerName={`${firstName || "Magic"} ${
+                lastName || "User"
+              }`}
               customerId={(() => {
                 try {
-                  return localStorage.getItem("stripeCustomerId") || undefined;
+                  return (
+                    localStorage.getItem("stripeCustomerId") ||
+                    undefined
+                  );
                 } catch {
                   return undefined;
                 }

@@ -282,35 +282,55 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
             Booking Terms
           </h3>
           <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.6 }}>
-            <li>
-              You may pay in full today, or place a <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>. Any
-              remaining balance will be split into monthly installments and must be fully paid{" "}
-              <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
-            </li>
-            <li>
-              Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days before your
-              wedding, but the count cannot be lowered after booking.
-            </li>
-            <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more than {FINAL_DUE_DAYS} days prior, amounts paid beyond the
-              non-refundable portion will be refunded less any non-recoverable costs already incurred. Within {FINAL_DUE_DAYS} days, all
-              payments are non-refundable.
-            </li>
-            <li>
-              <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee applies; after 14 days,
-              services may be suspended and this agreement may be in default.
-            </li>
-            <li>
-              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and comply with venue rules,
-              which may limit display/location options.
-            </li>
-            <li>
-              <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control (e.g., natural disasters,
-              government actions, labor disputes, epidemics/pandemics, utility outages). We’ll work in good faith to reschedule; if not
-              possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.
-            </li>
-            <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
-          </ul>
+  <li>
+    <strong>Payment Options.</strong> You may pay your Schnepf dessert total in full
+    today, or place a{" "}
+    <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>. Any
+    remaining balance will be split into monthly installments so that the full amount
+    is paid <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>. Any
+    unpaid balance on that date will be automatically charged.
+  </li>
+  <li>
+    Final guest count is due 30 days before your wedding. You may increase your guest
+    count starting 45 days before your wedding, but the count cannot be lowered after
+    booking.
+  </li>
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than{" "}
+    {FINAL_DUE_DAYS} days prior, amounts paid beyond the non-refundable portion will
+    be refunded less any non-recoverable costs already incurred. Within{" "}
+    {FINAL_DUE_DAYS} days, all payments are non-refundable.
+  </li>
+  <li>
+    <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7
+    days, a $25 late fee applies; after 14 days, services may be suspended and this
+    agreement may be in default.
+  </li>
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking,
+    you authorize Wed&amp;Done and our payment processor (Stripe) to securely store
+    your card for: (a) Schnepf dessert installment payments and any remaining balance
+    under this agreement, and (b) future Wed&amp;Done bookings you choose to make, for
+    your convenience. Your card details are encrypted and handled by Stripe, and you
+    may update your saved card at any time in your Wed&amp;Done account.
+  </li>
+  <li>
+    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard
+    food-safety guidelines and comply with venue rules, which may limit
+    display/location options.
+  </li>
+  <li>
+    <strong>Force Majeure:</strong> Neither party is liable for delays beyond
+    reasonable control (e.g., natural disasters, government actions, labor disputes,
+    epidemics/pandemics, utility outages). We’ll work in good faith to reschedule; if
+    not possible, we’ll refund amounts paid beyond non-recoverable costs already
+    incurred.
+  </li>
+  <li>
+    In the unlikely event of our cancellation or issue, liability is limited to a
+    refund of payments made.
+  </li>
+</ul>
         </div>
   
         {/* Pay options */}
@@ -364,26 +384,69 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
   
         {/* One concise summary line */}
         <div className="px-prose-narrow" style={{ margin: "0 auto 14px", maxWidth: 560 }}>
-          {payFull ? (
-            <p>
-              You’ll pay <strong>${Number(totalSafe).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today for your desserts.
-            </p>
-          ) : (
-            <p>
-              <strong>${Number(depositDollars).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> deposit + {planMonths} monthly payments of about{" "}
-              <strong>${Number(monthlyAmount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>; final payment due <strong>{finalDuePretty}</strong>.
-            </p>
-          )}
-  
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={agreeChecked}
-              onChange={(e) => setAgreeChecked(e.target.checked)}
-            />
-            <span>I agree to the terms above</span>
-          </label>
-        </div>
+  {payFull ? (
+    <p>
+      You’ll pay{" "}
+      <strong>
+        ${Number(totalSafe).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </strong>{" "}
+      today for your desserts.
+    </p>
+  ) : (
+    <p>
+      <strong>
+        ${Number(depositDollars).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </strong>{" "}
+      deposit + {planMonths} monthly payments of about{" "}
+      <strong>
+        ${Number(monthlyAmount).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </strong>
+      ; final payment due <strong>{finalDuePretty}</strong>.
+    </p>
+  )}
+
+  {/* 🔔 Pass-2 monthly auto-pay warning */}
+  {!payFull && (
+    <div
+      style={{
+        marginTop: 8,
+        marginBottom: 10,
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: "1px solid #f3b1c9",
+        background: "#fff5fa",
+        fontSize: "0.9rem",
+        lineHeight: 1.5,
+        textAlign: "left",
+      }}
+    >
+      <strong>Heads up:</strong> Choosing the deposit + monthly option means we’ll{" "}
+      <strong>securely charge your saved card automatically</strong> each month
+      until your Schnepf dessert balance is paid in full{" "}
+      <strong>{finalDuePretty}</strong>. You can update your saved card any time
+      in your Wed&amp;Done account. If you’d rather not use auto-pay, choose “Pay
+      Full Amount” instead.
+    </div>
+  )}
+
+  <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <input
+      type="checkbox"
+      checked={agreeChecked}
+      onChange={(e) => setAgreeChecked(e.target.checked)}
+    />
+    <span>I agree to the terms above</span>
+  </label>
+</div>
   
         {/* Sign / Continue */}
         <div className="px-cta-col" style={{ marginTop: 6 }}>
@@ -409,22 +472,23 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
               <button
                 className="boutique-primary-btn"
                 onClick={() => {
-                  try {
-                    const plan = payFull ? "full" : "monthly";
-                    localStorage.setItem("schnepfDessertPaymentPlan", plan);
-                    localStorage.setItem("schnepfDessertTotal", String(totalSafe));
-                    localStorage.setItem(
-                      "schnepfDessertDepositAmount",
-                      String(payFull ? totalSafe : depositDollars)
-                    );
-                    localStorage.setItem("schnepfDessertRemainingBalance", String(remainingBalance));
-                    localStorage.setItem("schnepfDessertFinalDueAt", finalDueISO);
-                    localStorage.setItem("schnepfDessertFinalDuePretty", finalDuePretty);
-                    localStorage.setItem("schnepfDessertPlanMonths", String(planMonths));
-                    localStorage.setItem("schnepfDessertPerMonthCents", String(perMonthCents));
-                    localStorage.setItem("schnepfDessertLastPaymentCents", String(lastPaymentCents));
-                    localStorage.setItem("schnepfDessertNextChargeAt", nextChargeAtISO);
-                  } catch {}
+                  // Generic Yum keys for shared billing / Budget Wand
+try {
+  const plan = payFull ? "full" : "monthly";
+  localStorage.setItem("yumPaymentPlan", plan);
+  localStorage.setItem("yumTotal", String(totalSafe));
+  localStorage.setItem(
+    "yumDepositAmount",
+    String(payFull ? totalSafe : depositDollars)
+  );
+  localStorage.setItem("yumRemainingBalance", String(remainingBalance));
+  localStorage.setItem("yumFinalDueAt", finalDueISO);
+  localStorage.setItem("yumFinalDuePretty", finalDuePretty);
+  localStorage.setItem("yumPlanMonths", String(planMonths));
+  localStorage.setItem("yumPerMonthCents", String(perMonthCents));
+  localStorage.setItem("yumLastPaymentCents", String(lastPaymentCents));
+  localStorage.setItem("yumNextChargeAt", nextChargeAtISO);
+} catch {}
   
                   try {
                     localStorage.setItem("schnepfYumStep", "dessertCheckout");

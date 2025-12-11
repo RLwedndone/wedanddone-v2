@@ -77,7 +77,11 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [agreeChecked, setAgreeChecked] = useState(false);
-  const [payFull, setPayFull] = useState(true);
+  const initialPlan = (localStorage.getItem("yumPaymentPlan") || localStorage.getItem("yumPayPlan") || "full") as
+  | "full"
+  | "monthly";
+
+const [payFull, setPayFull] = useState(initialPlan === "full");
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
@@ -426,34 +430,50 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
         <div className="px-section" style={{ maxWidth: 640, margin: "0 auto 16px" }}>
           <h3 className="px-title" style={{ textAlign: "center", marginBottom: 8 }}>Booking Terms</h3>
           <ul
-            className="px-prose-narrow"
-            style={{ textAlign: "left", margin: "0 auto", maxWidth: 580, lineHeight: 1.6, paddingLeft: "2.80rem" }}
-          >
-            <li>
-              You may pay in full today, or place a <strong>25% non-refundable deposit</strong>. Any remaining
-              balance will be split into monthly installments and must be fully paid{" "}
-              <strong>35 days before your wedding date</strong>.
-            </li>
-            <li>Final guest count is due <strong>35 days before</strong> your wedding date.</li>
-            <li>
-              <strong>Custom Wedding Cake:</strong> A custom cake is included with your catering. You will work
-              directly with <strong>Hotel Valley Ho’s selected in-house baker</strong> to design and finalize your cake.
-            </li>
-            <li>
-              <strong>Cancellation & Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond
-              non-recoverable costs will be refunded. Within 35 days, all payments are non-refundable.
-            </li>
-            <li>
-              <strong>Missed Payments:</strong> We’ll retry your card; after 7 days a $25 late fee applies. After
-              14 days, services may be suspended.
-            </li>
-            <li>We’ll comply with venue rules and standard food-safety guidelines.</li>
-            <li>
-              <strong>Force Majeure:</strong> If circumstances beyond control prevent service, we’ll work to
-              reschedule or refund payments beyond non-recoverable costs.
-            </li>
-            <li>Our liability for any issue is limited to a refund of payments made.</li>
-          </ul>
+  className="px-prose-narrow"
+  style={{ textAlign: "left", margin: "0 auto", maxWidth: 580, lineHeight: 1.6, paddingLeft: "2.80rem" }}
+>
+  <li>
+    <strong>Payment Options.</strong> You may pay your catering total in full today, or you may place a non-refundable
+    deposit and pay the remaining balance in monthly installments. The full balance must be paid{" "}
+    <strong>35 days before your wedding date</strong>. Any unpaid balance on that date will be automatically charged.
+  </li>
+
+  <li>
+    Final guest count is due <strong>35 days before your wedding date</strong>.
+  </li>
+
+  <li>
+    <strong>Custom Wedding Cake:</strong> A custom cake is included with your catering. You will work directly with{" "}
+    <strong>Hotel Valley Ho’s selected in-house baker</strong> to design and finalize your cake.
+  </li>
+
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond
+    non-recoverable costs will be refunded. Within 35 days, all payments are non-refundable.
+  </li>
+
+  <li>
+    <strong>Missed Payments:</strong> We’ll retry your card; after 7 days a $25 late fee applies. After 14 days,
+    services may be suspended.
+  </li>
+
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking, you authorize Wed&amp;Done and
+    our payment processor (Stripe) to securely store your card for installment payments, remaining balances under this
+    agreement, and any future Wed&amp;Done bookings you choose to make. Your card is encrypted and handled by Stripe,
+    and you may update it anytime in your Wed&amp;Done account.
+  </li>
+
+  <li>We’ll comply with venue rules and standard food-safety guidelines.</li>
+
+  <li>
+    <strong>Force Majeure:</strong> If circumstances beyond anyone’s control prevent service, we’ll work in good faith
+    to reschedule; if that isn’t possible, we’ll refund payments beyond non-recoverable costs.
+  </li>
+
+  <li>Our liability for any issue is limited to a refund of payments made.</li>
+</ul>
         </div>
 
         {/* Pay plan toggle */}
@@ -539,6 +559,33 @@ const ValleyHoContractCatering: React.FC<ValleyHoContractProps> = ({
             </>
           )}
         </p>
+
+        {/* 🔔 Pass-2 monthly auto-pay warning */}
+{!payFull && (
+  <div
+    className="px-prose-narrow"
+    style={{
+      marginTop: 8,
+      marginBottom: 8,
+      padding: "8px 10px",
+      borderRadius: 10,
+      border: "1px solid #f3b1c9",
+      background: "#fff5fa",
+      fontSize: "0.9rem",
+      lineHeight: 1.5,
+      textAlign: "left",
+      maxWidth: 600,
+      marginInline: "auto",
+    }}
+  >
+    <strong>Heads up:</strong> Choosing the deposit + monthly option means we’ll{" "}
+    <strong>securely charge your saved card automatically</strong> each month
+    until your Hotel Valley Ho catering balance is paid in full by{" "}
+    <strong>{prettyDueBy || "your final due date"}</strong>. You can update your
+    saved card any time in your Wed&amp;Done account. If you’d rather not use
+    auto-pay, choose “Pay Full Amount” instead.
+  </div>
+)}
 
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>

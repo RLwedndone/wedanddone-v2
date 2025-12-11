@@ -434,15 +434,36 @@ const BatesContractCatering: React.FC<BatesContractCateringProps> = ({
                 through this agreement.
               </li>
               <li>
-                <strong>Payment.</strong>{" "}
-                {total > 0
-                  ? "You agree to pay for the selected add-ons."
-                  : "No add-ons selected; no payment is due."}{" "}
-                If you choose <em>Deposit + Monthly</em>, you
-                authorize Wed&Done to charge monthly; the final
-                payment is due{" "}
-                <strong>{FINAL_DUE_DAYS} days</strong> before your
-                wedding.
+                <strong>Payment Options.</strong>{" "}
+                {total > 0 ? (
+                  <>
+                    You may pay your Bates catering add-ons in full today, or
+                    place a{" "}
+                    <strong>
+                      {Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit
+                    </strong>
+                    . Any remaining balance will be split into monthly
+                    installments so that your total add-on amount is paid in
+                    full{" "}
+                    <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+                    Any unpaid balance on that date will be automatically
+                    charged.
+                  </>
+                ) : (
+                  <>No add-ons selected; no payment is due under this agreement.</>
+                )}
+              </li>
+
+              <li>
+                <strong>Card Authorization &amp; Saved Card.</strong> By
+                completing this purchase, you authorize Wed&amp;Done and our
+                payment processor (Stripe) to securely store your card for:
+                (a)&nbsp;Bates catering add-on installment payments and any
+                remaining add-on balance due under this agreement, and
+                (b)&nbsp;future Wed&amp;Done bookings you choose to make, for
+                your convenience. Your card details are encrypted and handled by
+                Stripe, and you can update or replace your saved card at any
+                time through your Wed&amp;Done account.
               </li>
               <li>
                 <strong>Non-Refundable Add-Ons.</strong> Add-on

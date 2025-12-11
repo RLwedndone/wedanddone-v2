@@ -78,40 +78,47 @@ const JamContractScreen: React.FC<JamContractProps> = ({
   const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
   const [cardConsentChecked, setCardConsentChecked] = useState(false);
 
-  // 🔍 unified check for cardOnFileConsent (LS + Firestore)
-  useEffect(() => {
-    // 1) localStorage quick check
-    let localFlag = false;
-    try {
-      localFlag = localStorage.getItem("cardOnFileConsent") === "true";
-    } catch {
-      /* ignore */
-    }
-
-    if (localFlag) {
-      setHasCardOnFileConsent(true);
-      return;
-    }
-
-    // 2) Firestore check
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    (async () => {
+    // 🔍 unified check for cardOnFileConsent (per-user LS + Firestore)
+    useEffect(() => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+  
+      const key = `cardOnFileConsent_${user.uid}`;
+  
+      // 1) LocalStorage quick check (per user)
+      let localFlag = false;
       try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          if (data?.cardOnFileConsent) {
-            setHasCardOnFileConsent(true);
-          }
-        }
-      } catch (err) {
-        console.error("❌ Failed to load cardOnFileConsent:", err);
+        localFlag = localStorage.getItem(key) === "true";
+      } catch {
+        /* ignore */
       }
-    })();
-  }, []);
+  
+      if (localFlag) {
+        setHasCardOnFileConsent(true);
+        return;
+      }
+  
+      // 2) Firestore check (per user)
+      (async () => {
+        try {
+          const snap = await getDoc(doc(db, "users", user.uid));
+          if (snap.exists()) {
+            const data = snap.data() as any;
+            if (data?.cardOnFileConsent) {
+              setHasCardOnFileConsent(true);
+              try {
+                localStorage.setItem(key, "true");
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        } catch (err) {
+          console.error("❌ Failed to load cardOnFileConsent:", err);
+        }
+      })();
+    }, []);
 
   /* ───────── values from cart / user date ───────── */
   const total = Number(bookingData?.total || 0);
@@ -179,6 +186,9 @@ const JamContractScreen: React.FC<JamContractProps> = ({
     : "your wedding date";
   const dayOfWeek = bookingData.dayOfWeek || "";
 
+  const perInstallment =
+  !payFull && planMonths > 0 ? perMonthCents / 100 : 0;
+
   /* ───────── signature helpers (same pattern as Floral) ───────── */
   const generateImageFromText = (text: string): string => {
     const canvas = document.createElement("canvas");
@@ -226,15 +236,20 @@ const JamContractScreen: React.FC<JamContractProps> = ({
           signatureImageUrl: finalSignature,
         };
 
-        // ✅ record global card-on-file consent if this is the first time
-        if (!hasCardOnFileConsent && cardConsentChecked) {
-          payload.cardOnFileConsent = true;
-          payload.cardOnFileConsentAt = serverTimestamp();
-          try {
-            localStorage.setItem("cardOnFileConsent", "true");
-          } catch {}
-          setHasCardOnFileConsent(true);
-        }
+                // ✅ record global card-on-file consent if this is the first time
+                if (!hasCardOnFileConsent && cardConsentChecked) {
+                  payload.cardOnFileConsent = true;
+                  payload.cardOnFileConsentAt = serverTimestamp();
+        
+                  const key = `cardOnFileConsent_${user.uid}`;
+                  try {
+                    localStorage.setItem(key, "true");
+                  } catch {
+                    /* ignore */
+                  }
+        
+                  setHasCardOnFileConsent(true);
+                }
 
         await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       } catch (error) {
@@ -314,7 +329,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             <strong>${formattedTotal}</strong>.
           </p>
 
-          {/* Booking Terms — updated to match Floral consent pattern */}
+          {/* Booking Terms — now split: Payment Options + Card Authorization */}
           <div className="px-section" style={{ maxWidth: 620 }}>
             <h3
               className="px-title-lg"
@@ -335,21 +350,24 @@ const JamContractScreen: React.FC<JamContractProps> = ({
               }}
             >
               <li>
-                <strong>Payment Options &amp; Card Authorization:</strong> You
-                may pay in full today, or place a{" "}
-                <strong>non-refundable $750 deposit</strong> and pay the
+                <strong>Payment Options.</strong> You may pay in full today, or
+                place a <strong>non-refundable $750 deposit</strong> and pay the
                 remaining balance in monthly installments. All installments must
                 be completed no later than{" "}
                 <strong>35 days before your wedding date</strong>, and any
-                unpaid balance will be automatically charged on that date. By
-                completing this purchase, you authorize Wed&amp;Done and our
-                payment processor (Stripe) to securely store your card for:
-                (a)&nbsp;Jam &amp; Groove installment payments and any final
-                balance due under this agreement, and (b)&nbsp;future
-                Wed&amp;Done bookings you choose to make, for your convenience.
-                Your card details are encrypted and handled by Stripe, and you
-                can update or replace your saved card at any time through your
-                Wed&amp;Done account.
+                unpaid balance will be automatically charged on that date.
+              </li>
+              <br />
+              <li>
+                <strong>Card Authorization.</strong> By completing this
+                purchase, you authorize Wed&amp;Done and our payment processor
+                (Stripe) to securely store your card and to charge it for
+                Jam&nbsp;&amp;&nbsp;Groove installment payments, any remaining
+                Jam&nbsp;&amp;&nbsp;Groove balance due under this agreement, and
+                any future Wed&amp;Done bookings you choose to make for your
+                convenience. Your card details are encrypted and handled by
+                Stripe, and you can update or replace your saved card at any
+                time through your Wed&amp;Done account.
               </li>
               <br />
               <li>
@@ -393,25 +411,20 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             </ul>
           </div>
 
-          {/* Payment option toggle (same UX as Floral) */}
+                              {/* Pay plan toggle */}
           <h4
             className="px-title"
             style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
           >
             Choose how you’d like to pay:
           </h4>
-
           <div className="px-toggle" style={{ marginBottom: 12 }}>
             <button
               type="button"
               className={`px-toggle__btn ${
                 payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""
               }`}
-              style={{
-                minWidth: 150,
-                padding: "0.6rem 1rem",
-                fontSize: ".9rem",
-              }}
+              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
               onClick={() => {
                 setPayFull(true);
                 setSignatureSubmitted(false);
@@ -423,17 +436,12 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             >
               Pay Full Amount
             </button>
-
             <button
               type="button"
               className={`px-toggle__btn ${
                 !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
               }`}
-              style={{
-                minWidth: 150,
-                padding: "0.6rem 1rem",
-                fontSize: ".9rem",
-              }}
+              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
               onClick={() => {
                 setPayFull(false);
                 setSignatureSubmitted(false);
@@ -447,16 +455,47 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             </button>
           </div>
 
-          {/* Pay-plan summary text (this matches what we push into PDF later) */}
+          {/* Summary line */}
           <p className="px-prose-narrow" style={{ marginTop: 4 }}>
             {payFull ? (
               <>
-                You’re paying <strong>${formattedTotal}</strong> today.
+                You’re paying{" "}
+                <strong>
+                  $
+                  {Number(total).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today.
               </>
             ) : (
               <>
-                You’re paying <strong>${depositDisplay}</strong> today, then
-                monthly until <strong>{finalDuePretty}</strong>.
+                You’re paying{" "}
+                <strong>
+                  $
+                  {Number(depositAmount).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today, then about{" "}
+                <strong>
+                  $
+                  {Number(perInstallment).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                monthly
+                {finalDuePretty ? (
+                  <>
+                    {" "}
+                    until <strong>{finalDuePretty}</strong>.
+                  </>
+                ) : (
+                  <> until 35 days before your wedding date.</>
+                )}
               </>
             )}
           </p>
@@ -475,7 +514,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
             </label>
           </div>
 
-          {/* Global card-on-file consent — only if they haven’t already given it */}
+          {/* Global card-on-file consent (same rules as Floral) */}
           {needsCardConsent && (
             <div
               style={{
@@ -498,6 +537,26 @@ const JamContractScreen: React.FC<JamContractProps> = ({
                 Wed&amp;Done bookings I choose to make, as described in the
                 payment terms above.
               </label>
+            </div>
+          )}
+
+          {/* UX note: monthly after card is on file uses that card and you can't swap at checkout */}
+          {!payFull && hasCardOnFileConsent && (
+            <div
+              className="px-note"
+              style={{
+                margin: "0.75rem auto",
+                background: "#f7f8ff",
+                border: "1px solid #d9ddff",
+                borderRadius: 10,
+                padding: "8px 12px",
+                fontSize: ".9rem",
+                maxWidth: 560,
+                textAlign: "left",
+              }}
+            >
+              Monthly plans will be charged to your saved card on file. If you
+              want to use a different card, choose Pay Full Amount instead.
             </div>
           )}
 

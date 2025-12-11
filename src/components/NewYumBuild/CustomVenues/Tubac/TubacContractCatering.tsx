@@ -429,18 +429,59 @@ const horsList: string[] =
             Booking Terms
           </h3>
           <ul
-            className="px-prose-narrow"
-            style={{ textAlign: "left", margin: "0 auto", maxWidth: 560, lineHeight: 1.6, paddingLeft: "1.25rem" }}
-          >
-            <li>The amount listed above will count towards your Food & Beverage minimum (if there is one in your Tubac Venue Contract). Any remaining amount needed to reach the minimum can be made up with the bar package you book directly with the venue, or you can add more to this contract.</li>
-            <li>You may pay in full today, or place a <strong>25% non-refundable deposit</strong>. Any remaining balance will be split into monthly installments and must be fully paid <strong>35 days before your wedding date</strong>.</li>
-            <li>Final guest count is due <strong>35 days before</strong> your wedding date.</li>
-            <li><strong>Cancellation & Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond non-recoverable costs will be refunded. Within 35 days, all payments are non-refundable.</li>
-            <li><strong>Missed Payments:</strong> We’ll retry your card; after 7 days a $25 late fee applies. After 14 days, services may be suspended.</li>
-            <li>We’ll comply with venue rules and standard food-safety guidelines.</li>
-            <li><strong>Force Majeure:</strong> If circumstances beyond control prevent service, we’ll work to reschedule or refund payments beyond non-recoverable costs.</li>
-            <li>Our liability for any issue is limited to a refund of payments made.</li>
-          </ul>
+  className="px-prose-narrow"
+  style={{
+    textAlign: "left",
+    margin: "0 auto",
+    maxWidth: 560,
+    lineHeight: 1.6,
+    paddingLeft: "1.25rem",
+  }}
+>
+  <li>
+    The amount listed above will count toward your Food &amp; Beverage minimum (if one applies under your Tubac
+    Venue Contract). Any remaining amount needed to reach the minimum may be made up with the bar package you
+    book directly with the venue, or you may add more catering through this contract.
+  </li>
+
+  <li>
+    <strong>Payment Options.</strong> You may pay your Tubac catering total in full today, or you may place a
+    non-refundable deposit and pay the remaining balance in monthly installments. The full balance must be paid
+    <strong> 35 days before your wedding date</strong>. Any unpaid balance on that date will be automatically charged.
+  </li>
+
+  <li>
+    Final guest count is due <strong>35 days before your wedding date</strong>.
+  </li>
+
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond
+    non-recoverable costs will be refunded. Within 35 days, all payments are non-refundable.
+  </li>
+
+  <li>
+    <strong>Missed Payments:</strong> We’ll retry your card. After 7 days, a $25 late fee applies; after 14 days,
+    services may be suspended.
+  </li>
+
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking, you authorize Wed&amp;Done and
+    our payment processor (Stripe) to securely store your card for installment payments, remaining balances under
+    this agreement, and any future Wed&amp;Done bookings you choose to make. Your card is encrypted and handled by
+    Stripe, and you may update it anytime in your Wed&amp;Done account.
+  </li>
+
+  <li>
+    We’ll comply with venue rules and standard food-safety guidelines.
+  </li>
+
+  <li>
+    <strong>Force Majeure:</strong> If circumstances beyond anyone’s control prevent service, we’ll work to
+    reschedule or refund amounts paid beyond non-recoverable costs.
+  </li>
+
+  <li>Our liability is limited to a refund of payments made.</li>
+</ul>
         </div>
 
         {/* Pay plan toggle */}
@@ -527,6 +568,33 @@ const horsList: string[] =
           )}
         </p>
 
+        {/* 🔔 Pass-2 monthly auto-pay warning */}
+{!payFull && (
+  <div
+    className="px-prose-narrow"
+    style={{
+      marginTop: 8,
+      marginBottom: 10,
+      padding: "8px 10px",
+      borderRadius: 10,
+      border: "1px solid #f3b1c9",
+      background: "#fff5fa",
+      fontSize: "0.9rem",
+      lineHeight: 1.5,
+      textAlign: "left",
+      maxWidth: 580,
+      marginInline: "auto",
+    }}
+  >
+    <strong>Heads up:</strong> Choosing the deposit + monthly option means we’ll{" "}
+    <strong>securely charge your saved card automatically</strong> each month
+    until your Tubac catering balance is paid in full{" "}
+    <strong>{prettyDueBy}</strong>. You can update your saved card any time in
+    your Wed&amp;Done account. If you’d rather not use auto-pay, choose
+    “Pay Full Amount” instead.
+  </div>
+)}
+
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>
           <label className="px-prose-narrow" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -563,18 +631,36 @@ const horsList: string[] =
     if (!signatureSubmitted) return;
 
     const amountDueToday = payFull ? total : depositAmount;
+    const remainingBalanceCents = payFull
+      ? 0
+      : Math.max(0, balanceCents);
+    const remainingBalance = remainingBalanceCents / 100;
+
     try {
+      // Tubac-specific catering keys
       localStorage.setItem("yumTotal", String(total));
       localStorage.setItem("yumAmountDueToday", String(amountDueToday));
       localStorage.setItem("yumPaymentPlan", payFull ? "full" : "monthly");
       localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
       localStorage.setItem("yumCateringDepositAmount", String(Math.round(depositAmount * 100)));
-      localStorage.setItem("yumCateringTotalCents", String(Math.round(total * 100)));
+      localStorage.setItem("yumCateringTotalCents", String(totalCents));
       localStorage.setItem("yumCateringAmountDueTodayCents", String(Math.round(amountDueToday * 100)));
       localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
       localStorage.setItem("yumCateringPlanMonths", String(planMonths));
       localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
       localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
+
+      // Generic yum keys for billing robot / Budget Wand
+      localStorage.setItem("yumDepositAmount", String(depositAmount));
+      localStorage.setItem("yumRemainingBalance", String(remainingBalance));
+      localStorage.setItem(
+        "yumFinalDuePretty",
+        dueByDate ? formatPretty(dueByDate) : "35 days before your wedding date"
+      );
+      localStorage.setItem("yumPlanMonths", String(planMonths));
+      localStorage.setItem("yumPerMonthCents", String(perMonthCents));
+      localStorage.setItem("yumLastPaymentCents", String(lastPaymentCents));
+
       localStorage.setItem("yumStep", "cateringCheckout");
     } catch {}
 

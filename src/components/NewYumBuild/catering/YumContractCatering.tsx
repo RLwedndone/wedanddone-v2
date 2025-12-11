@@ -3,7 +3,14 @@ import React, { useState, useRef, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import type SignatureCanvasType from "react-signature-canvas";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  setDoc,
+  serverTimestamp, // 👈 added
+} from "firebase/firestore";
 import { db, app } from "../../../firebase/firebaseConfig";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import generateYumAgreementPDF from "../../../utils/generateYumAgreementPDF";
@@ -112,6 +119,11 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   const [typedSignature, setTypedSignature] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const sigCanvasRef = useRef<SignatureCanvasType | null>(null);
+  
+
+  // 🔐 Global card-on-file consent state (same pattern as Floral)
+  const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+  const [cardConsentChecked, setCardConsentChecked] = useState(false);
 
   // ---------- derive policy amounts + dates ----------
   const wedding = parseLocalYMD(weddingDate || "");
@@ -133,7 +145,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   const lastPaymentCents =
     balanceCents - perMonthCents * Math.max(0, planMonths - 1);
 
-    const paymentSummaryText = payFull
+  const paymentSummaryText = payFull
     ? `You’re paying $${formatCurrency(total)} today.`
     : `You’re paying $${formatCurrency(
         depositAmount
@@ -169,7 +181,9 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         }
 
         // 🔹 progress step now catering-specific
-        await updateDoc(userRef, { "progress.yumYum.step": "cateringContract" });
+        await updateDoc(userRef, {
+          "progress.yumYum.step": "cateringContract",
+        });
 
         // 🔹 save menu selections flat, to match builder/cart
         await setDoc(
@@ -195,6 +209,40 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 🔍 Unified cardOnFileConsent check (localStorage → Firestore)
+  useEffect(() => {
+    // 1) LocalStorage quick check
+    let localFlag = false;
+    try {
+      localFlag = localStorage.getItem("cardOnFileConsent") === "true";
+    } catch {
+      /* ignore */
+    }
+
+    if (localFlag) {
+      setHasCardOnFileConsent(true);
+      return;
+    }
+
+    // 2) Firestore check
+    const user = auth.currentUser;
+    if (!user) return;
+
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          if (data?.cardOnFileConsent) {
+            setHasCardOnFileConsent(true);
+          }
+        }
+      } catch (err) {
+        console.error("❌ Failed to load cardOnFileConsent:", err);
+      }
+    })();
+  }, [auth]);
 
   useEffect(() => {
     localStorage.setItem("yumPaymentPlan", payFull ? "full" : "monthly");
@@ -278,7 +326,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   };
 
   const handleSignClick = () => {
-    if (agreeChecked) setShowSignatureModal(true);
+    setShowSignatureModal(true);
   };
 
   const handleSignatureSubmit = async () => {
@@ -332,16 +380,34 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
     const user = auth.currentUser;
     if (user) {
       try {
-        await setDoc(
-          doc(db, "users", user.uid),
-          { yumSignatureImageUrl: finalSignature, yumSigned: true },
-          { merge: true }
-        );
+        const payload: any = {
+          yumSignatureImageUrl: finalSignature,
+          yumSigned: true,
+        };
+
+        // ✅ First-time global card-on-file consent
+        if (!hasCardOnFileConsent && cardConsentChecked) {
+          payload.cardOnFileConsent = true;
+          payload.cardOnFileConsentAt = serverTimestamp();
+          try {
+            localStorage.setItem("cardOnFileConsent", "true");
+          } catch {
+            /* ignore */
+          }
+          setHasCardOnFileConsent(true);
+        }
+
+        await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       } catch (error) {
         console.error("❌ Failed to save signature:", error);
       }
     }
   };
+
+   /* -------------------- Consent gating for signature -------------------- */
+const needsCardConsent = !hasCardOnFileConsent;
+const canSign =
+  agreeChecked && (hasCardOnFileConsent || cardConsentChecked);
 
   /* -------------------- PDF gen after success -------------------- */
   const handleSuccess = async () => {
@@ -479,11 +545,25 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             )}
 
             <li>
-              You may pay in full today, or place a{" "}
-              <strong>25% non-refundable deposit</strong>. Any remaining balance
-              will be split into monthly installments and must be fully paid{" "}
-              <strong>35 days before your wedding date</strong>.
+              <strong>Payment Options.</strong> You may pay in full today, or
+              place a <strong>25% non-refundable deposit</strong>. Any remaining
+              balance will be split into monthly installments so that your total
+              catering amount is paid in full{" "}
+              <strong>35 days before your wedding date</strong>. Any unpaid
+              balance on that date will be automatically charged.
             </li>
+
+            <li>
+              <strong>Card Authorization &amp; Saved Card.</strong> By
+              completing this purchase, you authorize Wed&amp;Done and our
+              payment processor (Stripe) to securely store your card for: (a)
+              catering installment payments and any remaining catering balance
+              due under this agreement, and (b) future Wed&amp;Done bookings you
+              choose to make, for your convenience. Your card details are
+              encrypted and handled by Stripe, and you can update or replace
+              your saved card at any time through your Wed&amp;Done account.
+            </li>
+
             <li>Your reception will be served buffet-style.</li>
             <li>
               Final guest count is due <strong>30 days before</strong> your
@@ -540,6 +620,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             onClick={() => {
               setPayFull(true);
               setSignatureSubmitted(false);
+              setCardConsentChecked(false);
               try {
                 localStorage.setItem("yumPayPlan", "full");
               } catch {}
@@ -561,6 +642,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
             onClick={() => {
               setPayFull(false);
               setSignatureSubmitted(false);
+              setCardConsentChecked(false);
               try {
                 localStorage.setItem("yumPayPlan", "monthly");
               } catch {}
@@ -598,6 +680,26 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           )}
         </p>
 
+                {/* UX note: monthly after card is on file uses that card and you can't swap at checkout */}
+{!payFull && hasCardOnFileConsent && (
+  <div
+    className="px-note"
+    style={{
+      margin: "0.75rem auto",
+      background: "#f7f8ff",
+      border: "1px solid #d9ddff",
+      borderRadius: 10,
+      padding: "8px 12px",
+      fontSize: ".9rem",
+      maxWidth: 560,
+      textAlign: "left",
+    }}
+  >
+    Monthly plans will be charged to your saved card on file.  
+    If you want to use a different card, choose Pay Full Amount instead.
+  </div>
+)}
+
         {/* Agree & Sign */}
         <div style={{ margin: "10px 0 6px" }}>
           <label
@@ -617,13 +719,43 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
           </label>
         </div>
 
+        {/* Global card-on-file consent (show ONLY if they haven't consented yet) */}
+        {needsCardConsent && (
+          <div
+            style={{
+              margin: "0.25rem 0 0.75rem",
+              fontSize: ".9rem",
+              textAlign: "left",
+              maxWidth: 560,
+              marginInline: "auto",
+            }}
+          >
+            <label>
+              <input
+                type="checkbox"
+                checked={cardConsentChecked}
+                onChange={(e) => setCardConsentChecked(e.target.checked)}
+                style={{ marginRight: 8 }}
+              />
+              I authorize Wed&amp;Done and our payment processor (Stripe) to
+              securely store my card and to charge it for catering installments,
+              any remaining catering balance under this agreement, and future
+              Wed&amp;Done bookings I choose to make, as described in the
+              payment terms above.
+            </label>
+          </div>
+        )}
+
         {!signatureSubmitted ? (
           /* BEFORE signature: Sign + Back */
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             <button
               className="boutique-primary-btn"
-              onClick={handleSignClick}
-              disabled={!agreeChecked}
+              onClick={() => {
+                if (!canSign) return;
+                handleSignClick();
+              }}
+              disabled={!canSign}
               style={{ width: 250 }}
             >
               Sign Contract
@@ -700,7 +832,15 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
                     "yumCateringLastPaymentCents",
                     String(lastPaymentCents)
                   );
-                } catch {}
+
+                  // mirror Jam/Floral: persist the exact summary text if you want it later
+                  localStorage.setItem(
+                    "yumCateringPaymentSummaryText",
+                    paymentSummaryText
+                  );
+                } catch {
+                  /* ignore */
+                }
 
                 localStorage.setItem("yumStep", "cateringCheckout");
                 setStep("cateringCheckout");
@@ -845,8 +985,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
         </div>
       )}
 
-      {/* You still have handleSuccess(), which generates PDFs + emails after Stripe.
-          That still fires later in the flow, so we didn't touch it. */}
+      {/* handleSuccess() still runs later after Stripe, all good */}
     </div>
   );
 };

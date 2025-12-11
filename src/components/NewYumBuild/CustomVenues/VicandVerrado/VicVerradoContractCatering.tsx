@@ -97,12 +97,25 @@ const VicVerradoContractCatering: React.FC<Props> = ({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [agreeChecked, setAgreeChecked] = useState(false);
-  const [payFull, setPayFull] = useState(true);
+  const initialPlan = (localStorage.getItem("yumPaymentPlan") || localStorage.getItem("yumPayPlan") || "full") as
+  | "full"
+  | "monthly";
+
+const [payFull, setPayFull] = useState(initialPlan === "full");
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const sigCanvasRef = useRef<any>(null);
+
+  useEffect(() => {
+    try {
+      const plan = payFull ? "full" : "monthly";
+      localStorage.setItem("yumPaymentPlan", plan);
+      localStorage.setItem("yumPayPlan", plan);
+      localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
+    } catch {}
+  }, [payFull]);
 
   // Hydrated guest count (prop → store → localStorage)
 const [lockedGuestCount, setLockedGuestCount] = useState<number>(guestCount || 0);
@@ -222,7 +235,7 @@ useEffect(() => {
     });
 
     return () => unsub();
-  }, [auth, guestCount, lineItems, menuSelections, selectedTier]);
+  }, [auth, lockedGuestCount, lineItems, menuSelections, selectedTier]);
 
   /* -------------------- storage helpers -------------------- */
   const uploadPdfBlob = async (blob: Blob, uid: string, title: string): Promise<string> => {
@@ -402,42 +415,52 @@ useEffect(() => {
   }}
 >
   <li>
-    You may pay in full today, or place a <strong>25% non-refundable deposit</strong>. Any
-    remaining balance will be split into monthly installments and must be fully paid{" "}
-    <strong>35 days before your wedding date</strong>.
+    <strong>Payment Options.</strong> You may pay your catering total in full today, or you may place a
+    non-refundable deposit and pay the remaining balance in monthly installments. The full balance must be paid{" "}
+    <strong>35 days before your wedding date</strong>. Any unpaid balance on that date will be automatically charged.
   </li>
+
   <li>
-    Final guest count is due <strong>30 days before</strong> your wedding. You may increase
-    your guest count starting 45 days before your wedding, but the count cannot be lowered
-    after booking.
+    Final guest count is due <strong>30 days before</strong> your wedding. You may increase your guest count starting{" "}
+    45 days before your wedding, but the count cannot be lowered after booking.
   </li>
+
   <li>
-    <strong>Bar Packages:</strong> All alcohol is booked directly with the venue per Arizona
-    liquor laws. Wed&Done is not responsible for bar service or alcohol provision.
+    <strong>Bar Packages:</strong> All alcohol is booked directly with the venue per Arizona liquor laws. Wed&amp;Done
+    is not responsible for bar service or alcohol provision.
   </li>
+
   <li>
-    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior,
-    amounts paid beyond the non-refundable portion will be refunded less any non-recoverable
-    costs already incurred. Within 35 days, all payments are non-refundable.
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid beyond the
+    non-refundable portion will be refunded less any non-recoverable costs already incurred. Within 35 days, all
+    payments are non-refundable.
   </li>
+
   <li>
-    <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a
-    $25 late fee applies; after 14 days, services may be suspended and this agreement may be
-    in default.
+    <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee applies; after
+    14 days, services may be suspended and this agreement may be in default.
   </li>
+
   <li>
-    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety
-    guidelines and comply with venue rules, which may limit service or display options.
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking, you authorize Wed&amp;Done and
+    our payment processor (Stripe) to securely store your card for installment payments, remaining balances under this
+    agreement, and any future Wed&amp;Done bookings you choose to make. Your card is encrypted and handled by Stripe,
+    and you may update it anytime in your Wed&amp;Done account.
   </li>
+
   <li>
-    <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable
-    control (e.g., natural disasters, government actions, labor disputes,
-    epidemics/pandemics, utility outages). We’ll work in good faith to reschedule; if not
-    possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.
+    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and comply with
+    venue rules, which may limit service or display options.
   </li>
+
   <li>
-    In the unlikely event of our cancellation or issue, liability is limited to a refund of
-    payments made.
+    <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control (e.g., natural
+    disasters, government actions, labor disputes, epidemics/pandemics, utility outages). We’ll work in good faith to
+    reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.
+  </li>
+
+  <li>
+    In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.
   </li>
 </ul>
 
@@ -475,6 +498,32 @@ useEffect(() => {
         </div>
 
         <p style={{ marginBottom: "0.75rem" }}>{paymentSummaryText}</p>
+        
+        {/* 🔔 Monthly auto-pay warning */}
+{!payFull && (
+  <div
+    style={{
+      marginTop: "0.5rem",
+      marginBottom: "0.75rem",
+      padding: "8px 10px",
+      borderRadius: 10,
+      border: "1px solid #f3b1c9",
+      background: "#fff5fa",
+      fontSize: "0.9rem",
+      lineHeight: 1.5,
+      textAlign: "left",
+      maxWidth: 580,
+      marginInline: "auto",
+    }}
+  >
+    <strong>Heads up:</strong> Choosing the deposit + monthly option means we’ll{" "}
+    <strong>securely charge your saved card automatically</strong> each month
+    until your Vic/Verrado catering balance is paid in full by{" "}
+    <strong>{prettyDueBy || "your final due date"}</strong>. You can update your
+    saved card anytime in your Wed&amp;Done account. If you’d prefer not to use
+    auto-pay, choose “Pay Full Amount” instead.
+  </div>
+)}
 
         <label style={{ display: "inline-block", marginBottom: "1rem" }}>
           <input
@@ -503,17 +552,32 @@ useEffect(() => {
             className="boutique-primary-btn"
             onClick={() => {
               if (!signatureSubmitted) return;
-
-              // handoff for checkout
-              localStorage.setItem("yumStep", "vicVerradoCheckout");
-              localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
-              localStorage.setItem("yumCateringDepositAmount", String(depositCents));
-              localStorage.setItem("yumCateringTotalCents", String(totalCents));
-              localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
-              localStorage.setItem("yumCateringPlanMonths", String(planMonths));
-              localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
-              localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
-
+            
+              const amountDueToday = payFull ? total : depositAmount;
+            
+              try {
+                // Step + global plan
+                localStorage.setItem("yumStep", "vicVerradoCheckout");
+                localStorage.setItem("yumPaymentPlan", payFull ? "full" : "monthly");
+                localStorage.setItem("yumCateringPayFull", JSON.stringify(payFull));
+            
+                // Dollar + cents mirrors used by other flows
+                localStorage.setItem("yumTotal", String(total));
+                localStorage.setItem("yumAmountDueToday", String(amountDueToday));
+                localStorage.setItem("yumCateringDepositAmount", String(depositCents));
+                localStorage.setItem("yumCateringTotalCents", String(totalCents));
+                localStorage.setItem(
+                  "yumCateringAmountDueTodayCents",
+                  String(Math.round(amountDueToday * 100))
+                );
+            
+                // Plan schedule
+                localStorage.setItem("yumCateringDueBy", dueByDate ? dueByDate.toISOString() : "");
+                localStorage.setItem("yumCateringPlanMonths", String(planMonths));
+                localStorage.setItem("yumCateringPerMonthCents", String(perMonthCents));
+                localStorage.setItem("yumCateringLastPaymentCents", String(lastPaymentCents));
+              } catch {}
+            
               setStep("vicVerradoCheckout");
             }}
             disabled={!signatureSubmitted}

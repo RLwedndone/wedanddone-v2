@@ -296,7 +296,7 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
   // If this is a monthly plan (full DJ, not addon/pdf-only, not payFull),
   // card on file is REQUIRED.
   const requiresCardOnFile = !isAddon && !isPdfOnly && !payFull;
-  const [saveCardOnFile] = useState<boolean>(requiresCardOnFile);
+const isMonthlyPlan = requiresCardOnFile;
 
   // ------ tiny helpers for auto-billing metadata (same pattern as Floral) ------
   const asStartOfDayUTC = (d: Date) =>
@@ -728,7 +728,7 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
       }
 
       // ✅ Decide whether to store card
-      const shouldStoreCard = requiresCardOnFile || saveCardOnFile;
+      const shouldStoreCard = requiresCardOnFile;
 
       if (shouldStoreCard) {
         try {
@@ -840,102 +840,133 @@ const JamCheckOut: React.FC<JamCheckOutProps> = ({
 
             {/* Payment Method Selection – mirrors Floral */}
             <div
-              style={{
-                marginTop: "12px",
-                marginBottom: "20px",
-                padding: "14px 16px",
-                borderRadius: 12,
-                background: "#f7f8ff",
-                border: "1px solid #d9ddff",
-                maxWidth: 520,
-                marginInline: "auto",
-              }}
-            >
-              {hasSavedCard ? (
-                <>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      fontSize: ".95rem",
-                      marginBottom: 10,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMode"
-                      checked={mode === "saved"}
-                      onChange={() => setMode("saved")}
-                    />
-                    <span>
-                      Saved card on file —{" "}
-                      <strong>
-                        {savedCardSummary!.brand.toUpperCase()}
-                      </strong>{" "}
-                      •••• {savedCardSummary!.last4} (exp{" "}
-                      {savedCardSummary!.exp_month}/
-                      {savedCardSummary!.exp_year})
-                    </span>
-                  </label>
+  style={{
+    marginTop: "12px",
+    marginBottom: "20px",
+    padding: "14px 16px",
+    borderRadius: 12,
+    background: "#f7f8ff",
+    border: "1px solid #d9ddff",
+    maxWidth: 520,
+    marginInline: "auto",
+  }}
+>
+  {requiresCardOnFile ? (
+    hasSavedCard ? (
+      // ✅ Monthly DJ plan + card on file: locked to saved card
+      <div style={{ fontSize: ".95rem", textAlign: "left" }}>
+        <p style={{ marginBottom: 6 }}>
+          Monthly payments for this DJ booking will be charged to your saved card on file:
+        </p>
+        <p style={{ marginBottom: 4 }}>
+          <strong>
+            {savedCardSummary!.brand.toUpperCase()} •••• {savedCardSummary!.last4} (exp{" "}
+            {savedCardSummary!.exp_month}/{savedCardSummary!.exp_year})
+          </strong>
+        </p>
+        <p style={{ marginTop: 6, fontSize: ".85rem", opacity: 0.8 }}>
+          To use a different card for monthly payments, update your saved card in your
+          Wed&Done account before your next charge.
+        </p>
+      </div>
+    ) : (
+      // ✅ Monthly DJ plan, no saved card yet
+      <div style={{ fontSize: ".95rem", textAlign: "left" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            cursor: "default",
+          }}
+        >
+          <input type="radio" checked readOnly />
+          <span>
+            Enter your card details. This card will be saved on file for your Jam &amp; Groove
+            monthly plan.
+          </span>
+        </label>
+      </div>
+    )
+  ) : hasSavedCard ? (
+    // ✅ Pay-in-full, add-on, or PDF-only with saved card: let them choose
+    <>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: ".95rem",
+          marginBottom: 10,
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="radio"
+          name="paymentMode"
+          checked={mode === "saved"}
+          onChange={() => setMode("saved")}
+        />
+        <span>
+          Saved card on file —{" "}
+          <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
+          {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+          {savedCardSummary!.exp_year})
+        </span>
+      </label>
 
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      fontSize: ".95rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMode"
-                      checked={mode === "new"}
-                      onChange={() => setMode("new")}
-                    />
-                    <span>Pay with a different card</span>
-                  </label>
-                </>
-              ) : (
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    fontSize: ".95rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input type="radio" checked readOnly />
-                  <span>Enter your card details</span>
-                </label>
-              )}
-            </div>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: ".95rem",
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="radio"
+          name="paymentMode"
+          checked={mode === "new"}
+          onChange={() => setMode("new")}
+        />
+        <span>Pay with a different card</span>
+      </label>
+    </>
+  ) : (
+    // ✅ No saved card, non-monthly: just enter card
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        fontSize: ".95rem",
+        cursor: "pointer",
+      }}
+    >
+      <input type="radio" checked readOnly />
+      <span>Enter your card details</span>
+    </label>
+  )}
+</div>
 
             <div className="px-elements">
-              <CheckoutForm
-                total={amountDueToday}
-                useSavedCard={mode === "saved"}
-                onSuccess={handleSuccess}
-                setStepSuccess={onSuccess}
-                isAddon={false}
-                customerEmail={getAuth().currentUser?.email || undefined}
-                customerName={`${firstName || "Magic"} ${
-                  lastName || "User"
-                }`}
-                customerId={(() => {
-                  try {
-                    return (
-                      localStorage.getItem("stripeCustomerId") ||
-                      undefined
-                    );
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-              />
+            <CheckoutForm
+  total={amountDueToday}
+  useSavedCard={requiresCardOnFile ? hasSavedCard : mode === "saved"}
+  onSuccess={handleSuccess}
+  setStepSuccess={onSuccess}
+  isAddon={false}
+  customerEmail={getAuth().currentUser?.email || undefined}
+  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+  customerId={(() => {
+    try {
+      return localStorage.getItem("stripeCustomerId") || undefined;
+    } catch {
+      return undefined;
+    }
+  })()}
+/>
             </div>
           </>
         )}

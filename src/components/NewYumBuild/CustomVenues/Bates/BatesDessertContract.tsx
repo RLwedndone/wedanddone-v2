@@ -352,10 +352,21 @@ useEffect(() => {
               paddingLeft: "1.25rem",
             }}
           >
+                        <li>
+              <strong>Payment Options.</strong> You may pay your Bates dessert total in full today, or place a{" "}
+              <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>. Any remaining balance will be
+              split into monthly installments so that your total dessert amount is paid in full{" "}
+              <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>. Any unpaid balance on that date will be
+              automatically charged.
+            </li>
+
             <li>
-              You may pay in full today, or place a <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>.
-              Any remaining balance will be split into monthly installments and must be fully paid{" "}
-              <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+              <strong>Card Authorization &amp; Saved Card.</strong> By completing this purchase, you authorize
+              Wed&amp;Done and our payment processor (Stripe) to securely store your card for: (a) Bates dessert
+              installment payments and any remaining dessert balance due under this agreement, and (b) future
+              Wed&amp;Done bookings you choose to make, for your convenience. Your card details are encrypted and
+              handled by Stripe, and you can update or replace your saved card at any time through your Wed&amp;Done
+              account.
             </li>
             <li>
               Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days

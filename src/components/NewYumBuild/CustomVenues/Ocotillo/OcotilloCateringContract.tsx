@@ -480,59 +480,70 @@ const OcotilloCateringContract: React.FC<Props> = ({
         </h3>
 
         <ul
-          style={{
-            fontSize: "0.95rem",
-            lineHeight: 1.6,
-            paddingLeft: "1.25rem",
-            textAlign: "left",
-            margin: "0 auto 1.5rem",
-            maxWidth: "540px",
-          }}
-        >
-          <li>
-            You may pay in full today, or place a{" "}
-            <strong>25% non-refundable deposit</strong>. Any remaining
-            balance will be split into monthly installments and must be fully paid{" "}
-            <strong>35 days before your wedding date</strong>.
-          </li>
-          <li>
-            Final guest count is due <strong>30 days before</strong> your wedding.
-            You may increase your guest count starting 45 days before your wedding,
-            but the count cannot be lowered after booking.
-          </li>
-          <li>
-            <strong>Bar Packages:</strong> All alcohol is booked directly with the
-            venue per Arizona liquor laws. Wed&amp;Done is not responsible for bar
-            service or alcohol provision.
-          </li>
-          <li>
-            <strong>Cancellation &amp; Refunds:</strong> If you cancel more than
-            35 days prior, amounts paid beyond the non-refundable portion will be
-            refunded less any non-recoverable costs already incurred. Within 35
-            days, all payments are non-refundable.
-          </li>
-          <li>
-            <strong>Missed Payments:</strong> We’ll automatically retry your card.
-            After 7 days, a $25 late fee applies; after 14 days, services may be
-            suspended and this agreement may be in default.
-          </li>
-          <li>
-            <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow
-            standard food-safety guidelines and comply with venue rules, which may
-            limit service or display options.
-          </li>
-          <li>
-            <strong>Force Majeure:</strong> Neither party is liable for delays
-            beyond reasonable control (e.g., natural disasters, government
-            actions, labor disputes, epidemics/pandemics, utility outages).
-            We’ll work in good faith to reschedule; if not possible, we’ll refund
-            amounts paid beyond non-recoverable costs already incurred.
-          </li>
-          <li>
-            In the unlikely event of our cancellation or issue, liability is
-            limited to a refund of payments made.
-          </li>
-        </ul>
+  style={{
+    fontSize: "0.95rem",
+    lineHeight: 1.6,
+    paddingLeft: "1.25rem",
+    textAlign: "left",
+    margin: "0 auto 1.5rem",
+    maxWidth: "540px",
+  }}
+>
+  <li>
+    <strong>Payment Options.</strong> You may pay your Ocotillo catering total in full today, or
+    place a <strong>25% non-refundable deposit</strong>. Any remaining balance will be split into
+    monthly installments so that the full catering amount is paid{" "}
+    <strong>35 days before your wedding date</strong>. Any unpaid balance on that date will be
+    automatically charged.
+  </li>
+
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking, you authorize
+    Wed&amp;Done and our payment processor (Stripe) to securely store your card for: (a) Ocotillo
+    catering installment payments and any remaining catering balance under this agreement, and (b)
+    future Wed&amp;Done bookings you choose to make, for your convenience. Your card details are
+    encrypted and handled by Stripe, and you may update your saved card at any time in your
+    Wed&amp;Done account.
+  </li>
+
+  <li>
+    Final guest count is due <strong>30 days before</strong> your wedding. You may increase your
+    guest count starting 45 days before your wedding, but the count cannot be lowered after booking.
+  </li>
+
+  <li>
+    <strong>Bar Packages:</strong> All alcohol is booked directly with the venue per Arizona liquor
+    laws. Wed&amp;Done is not responsible for bar service or alcohol provision.
+  </li>
+
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than 35 days prior, amounts paid
+    beyond the non-refundable portion will be refunded less any non-recoverable costs already
+    incurred. Within 35 days, all payments are non-refundable.
+  </li>
+
+  <li>
+    <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late
+    fee applies; after 14 days, services may be suspended and this agreement may be in default.
+  </li>
+
+  <li>
+    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines
+    and comply with venue rules, which may limit service or display options.
+  </li>
+
+  <li>
+    <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control
+    (e.g., natural disasters, government actions, labor disputes, epidemics/pandemics, utility
+    outages). We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid
+    beyond non-recoverable costs already incurred.
+  </li>
+
+  <li>
+    In the unlikely event of our cancellation or issue, liability is limited to a refund of payments
+    made.
+  </li>
+</ul>
 
         {/* Pay plan toggle */}
         <h3

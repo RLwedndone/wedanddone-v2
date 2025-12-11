@@ -309,9 +309,10 @@ const RubiCateringContract: React.FC<Props> = ({
         </h2>
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
-          You’re booking catering for <strong>{prettyWedding}</strong>{" "}
-          ({dayOfWeek || "TBD"}).
-        </p>
+  Catering cost through Wed&amp;Done today:{" "}
+  <strong>Included with your Rubi House package</strong> for {lockedGuestCount} guest
+  {lockedGuestCount === 1 ? "" : "s"}.
+</p>
 
         <p className="px-prose-narrow" style={{ marginBottom: 6 }}>
           Total catering cost today:{" "}
@@ -335,32 +336,31 @@ const RubiCateringContract: React.FC<Props> = ({
             Booking Terms
           </h3>
           <ul
-            className="px-prose-narrow"
-            style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}
-          >
-            <li>
-              Your selected menu is{" "}
-              <strong>included with your Rubi House venue package</strong>.
-              Any additional food &amp; beverage minimums, bar packages, or
-              upgrades are handled directly with The Rubi House.
-            </li>
-            <li>
-              Final guest count is due <strong>30 days</strong> before your
-              wedding. You may increase your count starting 45 days out, but it
-              cannot be lowered after booking.
-            </li>
-            <li>
-              <strong>Bar Packages:</strong> Alcohol is booked directly with the
-              venue in accordance with Arizona liquor laws. Wed&amp;Done does
-              not provide bar service or alcohol.
-            </li>
-            <li>
-              <strong>Cancellation &amp; Refunds:</strong> Any changes to your
-              catering package or minimums are governed by The Rubi House’s
-              policies. Wed&amp;Done will assist with documentation but does not
-              control venue refunds.
-            </li>
-          </ul>
+  className="px-prose-narrow"
+  style={{ margin: 0, paddingLeft: "1.25rem", lineHeight: 1.6 }}
+>
+  <li>
+    Your selected menu is <strong>included with your Rubi House venue package</strong>.
+    Any additional food &amp; beverage minimums, bar packages, or upgrades are handled
+    directly with The Rubi House.
+  </li>
+
+  <li>
+    Final guest count is due <strong>30 days</strong> before your wedding. You may
+    increase your count starting 45 days out, but it cannot be lowered after booking.
+  </li>
+
+  <li>
+    <strong>Bar Packages:</strong> Alcohol is booked directly with the venue in accordance
+    with Arizona liquor laws. Wed&amp;Done does not provide bar service or alcohol.
+  </li>
+
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> Any changes to your catering package or
+    minimums are governed by The Rubi House’s policies. Wed&amp;Done will assist with
+    documentation but does not control venue refunds.
+  </li>
+</ul>
         </div>
 
         {/* Agree */}

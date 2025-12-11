@@ -369,11 +369,39 @@ const EncanterraContractCatering: React.FC<Props> = ({
     contract.
   </li>
   <li>
-    You may pay in full today, or place a{" "}
-    <strong>25% non-refundable deposit</strong>. Any remaining balance
-    will be split into monthly installments and must be fully paid{" "}
-    <strong>35 days before your wedding date</strong>.
+    The amount listed above will count toward any Food &amp; Beverage
+    minimum in your Encanterra Venue Contract. Any remaining amount
+    needed to reach the minimum can be covered by the bar package you
+    book directly with the venue, or by adding more items to this
+    contract.
   </li>
+
+  <li>
+    <strong>Payment Options.</strong> You may pay your Encanterra catering
+    total in full today, or place a{" "}
+    <strong>25% non-refundable deposit</strong>. Any remaining balance
+    will be split into monthly installments so that your total catering
+    amount is paid in full <strong>35 days before your wedding date</strong>.
+    Any unpaid balance on that date will be automatically charged.
+  </li>
+
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this
+    purchase, you authorize Wed&amp;Done and our payment processor (Stripe)
+    to securely store your card for: (a) Encanterra catering installment
+    payments and any remaining catering balance due under this agreement,
+    and (b) future Wed&amp;Done bookings you choose to make, for your
+    convenience. Your card details are encrypted and handled by Stripe, and
+    you can update or replace your saved card at any time through your
+    Wed&amp;Done account.
+  </li>
+
+  <li>
+    Final guest count is due <strong>30 days</strong> before your
+    wedding. You may increase your count starting 45 days out, but it
+    cannot be lowered after booking.
+  </li>
+  {/* ...rest of bullets unchanged */}
   <li>
     Final guest count is due <strong>30 days</strong> before your
     wedding. You may increase your count starting 45 days out, but it
