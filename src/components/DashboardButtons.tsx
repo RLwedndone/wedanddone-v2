@@ -144,6 +144,26 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   const [dessertCompletedLocal, setDessertCompletedLocal] = useState(readDessertCompletedLS);
   const [yumLastCompleted, setYumLastCompleted] = useState<"catering" | "dessert" | null>(readYumLastCompleted);
 
+  // ✨ One-time “click me” glow for the logo cloud (per device)
+const [logoIntroGlow, setLogoIntroGlow] = useState(false);
+
+useEffect(() => {
+  try {
+    const seen = localStorage.getItem("wd_seen_logo_glow");
+    if (!seen) {
+      setLogoIntroGlow(true);
+
+      const t = window.setTimeout(() => {
+        setLogoIntroGlow(false);
+        localStorage.setItem("wd_seen_logo_glow", "true");
+      }, 4000);
+
+      return () => window.clearTimeout(t);
+    }
+  } catch {}
+}, []);
+
+
   // keep catering "done" in sync with LS + events (legacy + generic)
   useEffect(() => {
     const update = () => setYumCompletedLocal(readYumCompletedLS());
@@ -318,9 +338,17 @@ const wandIconSrc =
      
       { id: "hud-wand", ...POS.hud.budgetWand, iconSrc: ICONS.budgetWand, onClick: onOpenBudget, zIndex: 3 },
       { id: "hud-book", ...POS.hud.magicBook, iconSrc: ICONS.magicBook, onClick: onOpenMagicBook, zIndex: 3 },
-      { id: "hud-logo", ...POS.hud.logoCloud, iconSrc: ICONS.logoCloud,
-        onClick: () => window.dispatchEvent(new CustomEvent("openOverlay", { detail: "wedanddoneinfo" })),
-        zIndex: 5
+      {
+        id: "hud-logo",
+        ...POS.hud.logoCloud,
+        iconSrc: ICONS.logoCloud,
+        className: logoIntroGlow ? "logoIntroGlow" : "",
+        onClick: () => {
+          setLogoIntroGlow(false);
+          try { localStorage.setItem("wd_seen_logo_glow", "true"); } catch {}
+          window.dispatchEvent(new CustomEvent("openOverlay", { detail: "wedanddoneinfo" }));
+        },
+        zIndex: 5,
       }
     );
 

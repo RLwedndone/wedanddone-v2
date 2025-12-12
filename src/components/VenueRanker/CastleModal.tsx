@@ -962,7 +962,7 @@ try {
         background: "#fff",
         borderRadius: "16px",
         boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
-        padding: "20px 20px 16px",
+        padding: "20px 20px 26px",
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -979,20 +979,18 @@ try {
         />
 
         <h3 style={{ margin: "6px 0 10px", fontSize: "1.8rem" }}>
-          Booking Heads-up
+        ✨ Booking Heads-up from Madge ✨ 
         </h3>
 
         <p
   style={{
     lineHeight: 1.5,
     color: "#444",
-    margin: "0 12px 8px",
+    margin: "0 12px 20px",
     fontSize: "1rem",
   }}
 >
-  ✨ <strong>Heads up from Madge:</strong> ✨ 
-  <br />
-  <br />
+   
   While many Wed&amp;Done venues allow you to book instantly <b>{details.title}</b> is one of
   our magical partners who asks us to double-check{" "}
   <strong>availability and pricing</strong> before we open the booking seal.
@@ -1012,7 +1010,8 @@ try {
     flexWrap: "wrap",
     gap: 12,
     justifyContent: "center",
-    marginTop: 18,
+    marginTop: 24,
+marginBottom: 14,
   }}
 >
   {/* cancel / pick different venue */}

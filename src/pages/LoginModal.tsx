@@ -16,6 +16,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,22 +155,46 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
               boxShadow: "inset 0 1px 4px rgba(0,0,0,0.1)",
             }}
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-            }}
-            style={{
-              padding: "0.75rem 1rem",
-              borderRadius: "12px",
-              border: "1px solid #ccc",
-              fontSize: "1rem",
-              boxShadow: "inset 0 1px 4px rgba(0,0,0,0.1)",
-            }}
-          />
+         <div style={{ position: "relative" }}>
+  <input
+    type={showPassword ? "text" : "password"}
+    placeholder="Password"
+    value={password}
+    onChange={(e) => {
+      setPassword(e.target.value);
+      setError(null);
+    }}
+    style={{
+      padding: "0.75rem 3rem 0.75rem 1rem",
+      borderRadius: "12px",
+      border: "1px solid #ccc",
+      fontSize: "1rem",
+      boxShadow: "inset 0 1px 4px rgba(0,0,0,0.1)",
+      width: "100%",
+    }}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPassword((v) => !v)}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+    style={{
+      position: "absolute",
+      right: "12px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      padding: 0,
+      fontSize: "1.1rem",
+      color: "#2c62ba",
+      lineHeight: 1,
+    }}
+  >
+    {showPassword ? "🙈" : "👁️"}
+  </button>
+</div>
 
           {/* Forgot password link */}
           <button
