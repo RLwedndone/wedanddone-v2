@@ -89,11 +89,12 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
     }
   }, []);
 
-  const totalCents = Number(
-    localStorage.getItem("vvTotalCents") ??
-      localStorage.getItem("yumCateringTotalCents") ??
-      0
-  );
+  const totalCents =
+    Number(
+      localStorage.getItem("vvTotalCents") ??
+        localStorage.getItem("yumCateringTotalCents") ??
+        0
+    ) || Math.round(total * 100);
 
   const depositCents = Number(
     localStorage.getItem("vvDepositAmountCents") ??
@@ -155,8 +156,11 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
   // === 2) Decide what we charge today ===
   const amountDueTodayCents = payFull ? totalCents : depositCents;
   const amountDueToday = round2(amountDueTodayCents / 100);
+  const amountNow = Number(amountDueToday.toFixed(2));
+  const contractTotal =
+    Number((totalCents / 100).toFixed(2)) || Number(total.toFixed(2));
 
-  const remainingBalance = round2(Math.max(0, total - amountDueToday));
+  const remainingBalance = round2(Math.max(0, contractTotal - amountNow));
 
   // final due = 35 days before wedding (pretty label for emails/PDF)
   const finalDueDateStr = (() => {
@@ -263,16 +267,19 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       const pdfBlob = await generateVicVerradoAgreementPDF({
         venueName: (localStorage.getItem("vvVenueName") as any) || "The Vic",
         fullName,
-        total, // grand total
-        deposit: payFull ? 0 : round2(total * 0.25),
+        total: contractTotal, // grand total
+        deposit: payFull ? 0 : amountNow,
         guestCount: guestCountFinal,
         weddingDate: wedding,
         signatureImageUrl,
         paymentSummary:
           paymentSummaryText ||
           (payFull
-            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
-            : `Deposit today: $${amountDueToday.toFixed(
+            ? `Paid in full today: $${amountNow.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}.`
+            : `Deposit today: $${amountNow.toFixed(
                 2
               )}. Remaining $${remainingBalance.toFixed(
                 2
@@ -304,34 +311,41 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
       const publicUrl = await getDownloadURL(fileRef);
 
       // 📧 Send booking email — Yum Catering @ Vic/Verrado
-try {
-  const current = getAuth().currentUser;
-  const safeFirst = userDoc?.firstName || firstName || "Magic";
+      try {
+        const current = getAuth().currentUser;
+        const user_full_name = fullName;
+        const payment_now = amountNow.toFixed(2);
+        const remaining_balance = remainingBalance.toFixed(2);
+        const line_items = (lineItems?.length ? lineItems : vvLineItems).join(
+          ", "
+        );
 
-  await notifyBooking("yum_catering", {
-    // who
-    user_email: current?.email || "unknown@wedndone.com",
-    user_first_name: safeFirst,
+        await notifyBooking("yum_catering", {
+          // who
+          user_email: current?.email || "unknown@wedndone.com",
+          user_full_name,
 
-    // what
-    venue_name: venueName || "The Vic",
-    wedding_date: wedding || "TBD",
-    total: total.toFixed(2),
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
-    plan_type: payFull ? "full" : "deposit",
+          // details
+          wedding_date: wedding || "TBD",
+          total: contractTotal.toFixed(2),
+          line_items,
 
-    // attachments / display
-    pdf_url: publicUrl,
-    pdf_title: "Vic/Verrado Catering Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Vic/Verrado Catering Agreement",
 
-    // extras
-    line_items: (lineItems?.length ? lineItems : vvLineItems).join(", "),
-  });
-} catch (e) {
-  console.warn("⚠️ Email notification failed (continuing):", e);
-}
+          // payment breakdown
+          payment_now,
+          remaining_balance,
+          final_due: finalDueDateStr,
+
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: `${venueName} Catering`,
+        });
+      } catch (e) {
+        console.warn("⚠️ Email notification failed (continuing):", e);
+      }
 
       // ---------- Pricing snapshot ----------
       await setDoc(
@@ -343,7 +357,7 @@ try {
           venueCaterer: "vic_verrado",
           tier: flowerTier,
           lineItems: lineItems?.length ? lineItems : vvLineItems,
-          totalBooked: total,
+          totalBooked: contractTotal,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -360,6 +374,8 @@ try {
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
+      const itemsForPurchase = lineItems?.length ? lineItems : vvLineItems;
+
       await updateDoc(userRef, {
         documents: arrayUnion({
           title: "Vic/Verrado Catering Agreement",
@@ -371,22 +387,32 @@ try {
         weddingDateLocked: true,
 
         purchases: arrayUnion({
-          label: "yum",
-          amount: Number((amountDueTodayCents / 100).toFixed(2)),
-          date: purchaseDate,
+          label: `${venueName} Catering`,
+          category: "catering",
+          boutique: "catering",
+          source: "W&D",
+          amount: amountNow,
+          amountChargedToday: amountNow,
+          contractTotal,
+          payFull,
+          deposit: amountNow,
+          monthlyAmount: payFull
+            ? 0
+            : Number((perMonthCents / 100).toFixed(2)),
+          months: payFull ? 0 : planMonths,
           method: payFull ? "full" : "deposit",
+          items: itemsForPurchase,
+          date: purchaseDate,
         }),
 
-        spendTotal: increment(
-          Number((amountDueTodayCents / 100).toFixed(2))
-        ),
+        spendTotal: increment(amountNow),
 
         paymentPlan: payFull
           ? {
               product: "yum",
               type: "full",
-              total,
-              paidNow: amountDueToday,
+              total: contractTotal,
+              paidNow: amountNow,
               remainingBalance: 0,
               finalDueDate: null,
               finalDueAt: null,
@@ -396,9 +422,9 @@ try {
           : {
               product: "yum",
               type: "deposit",
-              total,
+              total: contractTotal,
               depositPercent: 0.25,
-              paidNow: amountDueToday,
+              paidNow: amountNow,
               remainingBalance,
               finalDueDate: finalDueDateStr,
               finalDueAt: finalDueAtISO,
@@ -519,7 +545,12 @@ try {
 
   // UI copy for above the form
   const summaryText = payFull
-    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+    ? `Total due today: $${Number(
+        amountDueTodayCents / 100
+      ).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(

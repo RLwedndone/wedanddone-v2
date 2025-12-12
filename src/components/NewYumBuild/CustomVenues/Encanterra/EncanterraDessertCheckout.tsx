@@ -22,6 +22,10 @@ import {
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 import { notifyBooking } from "../../../../utils/email/email";
 
+// 🔗 Stripe v2 base (same as other Pass 3 checkouts)
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
+
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
 const round2 = (n: number) =>
@@ -108,11 +112,11 @@ const EncanterraDessertCheckout: React.FC<
   // We'll also mirror Firestore first/last name for CheckoutForm label
   const [checkoutName, setCheckoutName] = useState("Magic User");
 
-  // Saved-card state (mirrors Encanterra catering checkout)
+  // Saved-card state (Pass 3 pattern)
   const [savedCardSummary, setSavedCardSummary] =
     useState<SavedCardSummary | null>(null);
-  const [hasSavedCard, setHasSavedCard] = useState(false);
-  const [mode, setMode] = useState<"saved" | "new">("saved");
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const hasSavedCard = !!savedCardSummary;
 
   useEffect(() => {
     // Grab best-guess display name + any saved card ASAP
@@ -129,35 +133,53 @@ const EncanterraDessertCheckout: React.FC<
         const safeFirst = data?.firstName || "Magic";
         const safeLast = data?.lastName || "User";
         setCheckoutName(`${safeFirst} ${safeLast}`);
+      } catch {
+        // fallback stays "Magic User"
+      }
 
-        // Try to hydrate saved card summary from Firestore stripe snapshot
-        const stripeCard =
-          data?.stripe?.defaultPaymentMethod ||
-          data?.stripe?.cardOnFile ||
-          null;
+      // Fetch default payment method via Stripe helper (canonical Pass 3)
+      try {
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
 
+        if (!res.ok) {
+          const t = await res.text();
+          console.warn(
+            "[EncanterraDessertCheckout] get-default failed:",
+            res.status,
+            t
+          );
+          return;
+        }
+
+        const data = await res.json();
         if (
-          stripeCard &&
-          stripeCard.brand &&
-          stripeCard.last4 &&
-          stripeCard.exp_month &&
-          stripeCard.exp_year
+          data?.card &&
+          data.card.brand &&
+          data.card.last4 &&
+          data.card.exp_month &&
+          data.card.exp_year
         ) {
           setSavedCardSummary({
-            brand: stripeCard.brand,
-            last4: stripeCard.last4,
-            exp_month: stripeCard.exp_month,
-            exp_year: stripeCard.exp_year,
+            brand: data.card.brand,
+            last4: data.card.last4,
+            exp_month: data.card.exp_month,
+            exp_year: data.card.exp_year,
           });
-          setHasSavedCard(true);
           setMode("saved");
         } else {
-          setHasSavedCard(false);
+          setSavedCardSummary(null);
           setMode("new");
         }
-      } catch {
-        // fallback stays "Magic User" and no saved card
-        setHasSavedCard(false);
+      } catch (err) {
+        console.warn(
+          "[EncanterraDessertCheckout] No saved card found:",
+          err
+        );
+        setSavedCardSummary(null);
         setMode("new");
       }
     })();
@@ -177,6 +199,7 @@ const EncanterraDessertCheckout: React.FC<
     "full") as "full" | "monthly";
 
   const usingFull = planKey === "full";
+  const requiresCardOnFile = !usingFull; // monthly → card on file required
 
   const depositAmount = round2(
     Number(localStorage.getItem("yumDepositAmount")) ||
@@ -262,6 +285,34 @@ const EncanterraDessertCheckout: React.FC<
         console.warn(
           "⚠️ Could not save stripeCustomerId (dessert_encanterra):",
           e
+        );
+      }
+
+      // Ensure default PM for off-session charges (only if plan requires it)
+      try {
+        const shouldStoreCard = requiresCardOnFile;
+        if (shouldStoreCard) {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ ensure-default-payment-method called for Encanterra dessert"
+          );
+        } else {
+          console.log(
+            "ℹ️ Skipping ensure-default-payment-method (dessert paid in full)."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "❌ ensure-default-payment-method failed (Encanterra dessert):",
+          err
         );
       }
 
@@ -642,7 +693,7 @@ const EncanterraDessertCheckout: React.FC<
           {paymentMessage}
         </p>
 
-        {/* Saved card toggle + Stripe Card Entry */}
+        {/* Saved card toggle + Stripe Card Entry (Pass 3 rules) */}
         <div className="px-elements">
           <div
             style={{
@@ -653,7 +704,43 @@ const EncanterraDessertCheckout: React.FC<
               background: "#f7f8ff",
             }}
           >
-            {hasSavedCard ? (
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                // Monthly plan + saved card → locked to saved card
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this Encanterra
+                  dessert plan —{" "}
+                  <strong>
+                    {savedCardSummary!.brand.toUpperCase()}
+                  </strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year})
+                  . If you need to change cards later, you can update your
+                  saved card in your Wed&amp;Done account before the next
+                  payment.
+                </p>
+              ) : (
+                // Monthly plan + no saved card → must enter card, will be saved
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Encanterra dessert
+                  plan. This card will be saved on file and used for your
+                  monthly payments and final balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
               <>
                 <label
                   style={{
@@ -735,7 +822,9 @@ const EncanterraDessertCheckout: React.FC<
                 return undefined;
               }
             })()}
-            useSavedCard={hasSavedCard && mode === "saved"}
+            useSavedCard={
+              requiresCardOnFile ? hasSavedCard : hasSavedCard && mode === "saved"
+            }
           />
         </div>
       </div>

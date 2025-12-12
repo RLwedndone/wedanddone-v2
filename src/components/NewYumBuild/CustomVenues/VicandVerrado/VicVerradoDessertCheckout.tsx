@@ -84,7 +84,7 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
   const isGenerating = localGenerating || isGeneratingFromOverlay;
   const didRunRef = useRef(false);
 
-  // ✅ new: pull user names for CheckoutForm props
+  // ✅ pull user names for CheckoutForm props
   const [firstName, setFirstName] = useState("Magic");
   const [lastName, setLastName] = useState("User");
   useEffect(() => {
@@ -120,17 +120,17 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
 
   const usingFull = planKey === "full";
 
-  const depositAmount = round2(
+  const depositAmountRaw =
     Number(localStorage.getItem("yumDepositAmount")) ||
-      Number(localStorage.getItem("vvDepositAmount")) ||
-      totalEffective * DEPOSIT_PCT
-  );
+    Number(localStorage.getItem("vvDepositAmount")) ||
+    totalEffective * DEPOSIT_PCT;
 
-  const remainingBalance = round2(
-    Number(localStorage.getItem("yumRemainingBalance")) ||
-      Number(localStorage.getItem("vvRemainingBalance")) ||
-      Math.max(0, totalEffective - depositAmount)
-  );
+  // What we actually charge right now
+  const amountDueToday = usingFull ? totalEffective : round2(depositAmountRaw);
+  const amountNow = Number(amountDueToday.toFixed(2));
+  const contractTotal = Number(totalEffective.toFixed(2));
+
+  const remainingBalance = round2(Math.max(0, contractTotal - amountNow));
 
   const planMonths =
     Number(localStorage.getItem("yumPlanMonths")) ||
@@ -147,9 +147,6 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
     localStorage.getItem("vvFinalDuePretty") ||
     "35 days before your wedding date";
 
-  // What we actually charge right now
-  const amountDueToday = usingFull ? totalEffective : depositAmount;
-
   // ===================== SUCCESS FLOW =====================
   // finalize purchase, upload PDF, drive UI to Dessert TY
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
@@ -157,6 +154,8 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
       console.warn(
         "[VicVerradoDessertCheckout] handleSuccess already ran — ignoring re-entry"
       );
+    // still guard, but don't bail completely in case Stripe double-calls:
+    // we simply ignore the second one
       return;
     }
     didRunRef.current = true;
@@ -171,9 +170,9 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? (snap.data() as any) : {};
-      const fullName = `${userDoc?.firstName || "Magic"} ${
-        userDoc?.lastName || "User"
-      }`;
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
       const weddingYMD: string | null = userDoc?.weddingDate || null;
 
       // Save Stripe customer id locally/in Firestore if present
@@ -250,103 +249,107 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
         localStorage.setItem("yumStep", "vicVerradoDessertThankYou");
       } catch {}
 
-            // Purchases entry
-            const purchaseEntry = {
-              label: "Yum Yum Desserts",
-              category: "dessert",
-              boutique: "dessert",
-              source: "W&D",
-              amount: Number(amountDueToday.toFixed(2)),
-              amountChargedToday: Number(amountDueToday.toFixed(2)),
-              contractTotal: Number(totalEffective.toFixed(2)),
-              payFull: usingFull,
-              deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-              monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
-              months: usingFull ? 0 : mths,
-              method: usingFull ? "paid_in_full" : "deposit",
-              items: lineItems,
-              date: new Date().toISOString(),
-            };
-      
-            await updateDoc(userRef, {
-              purchases: arrayUnion(purchaseEntry),
-              spendTotal: increment(Number(amountDueToday.toFixed(2))),
-              paymentPlan: {
-                product: "dessert",
-                type: usingFull ? "paid_in_full" : "deposit",
-                total: totalEffective,
-                depositPercent: usingFull ? 1 : 0.25,
-                paidNow: amountDueToday,
-                remainingBalance: usingFull ? 0 : remainingBalance,
-                finalDueDate: finalDueDateStr,
-                finalDueAt: finalDueISO,
-                createdAt: new Date().toISOString(),
-              },
-              paymentPlanAuto: {
-                version: 1,
-                product: "dessert",
-                status: usingFull
-                  ? "complete"
-                  : remainingBalance > 0
-                  ? "active"
-                  : "complete",
-                strategy: usingFull ? "paid_in_full" : "monthly_until_final",
-                currency: "usd",
-                totalCents: Math.round(totalEffective * 100),
-                depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-                remainingCents: Math.round((usingFull ? 0 : remainingBalance) * 100),
-                planMonths: usingFull ? 0 : mths,
-                perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
-                lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-                nextChargeAt: usingFull ? null : nextChargeAtISO,
-                finalDueAt: finalDueISO,
-                stripeCustomerId:
-                  customerId || localStorage.getItem("stripeCustomerId") || null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-              // 👇 pin linear TY step
-              "progress.yumYum.step": "vicVerradoDessertThankYou",
-            });
-      
-            // 🔹 Dessert pricing snapshot for guest-count delta math
-            await setDoc(
-              doc(userRef, "pricingSnapshots", "dessert"),
-              {
-                booked: true,
-                guestCountAtBooking: guestCount,
-                totalBooked: Number(totalEffective.toFixed(2)),
-                perGuest:
-                  guestCount > 0
-                    ? Number((totalEffective / guestCount).toFixed(2))
-                    : 0,
-                venueId: "vicVerrado",
-                style: selectedStyle || null,
-                flavorCombo: selectedFlavorCombo || null,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-      
-            // Build PDF (use mths/perMonthCents in fallback summary)
-            const signatureImageUrl =
-              signatureImage ||
-              localStorage.getItem("vvDessertSignature") ||
-              localStorage.getItem("yumSignature") ||
-              "";
+      // Purchases entry
+      const purchaseDateISO = new Date().toISOString();
+      const purchaseEntry = {
+        label: "Yum Yum Desserts",
+        category: "dessert",
+        boutique: "dessert",
+        source: "W&D",
+        amount: amountNow,
+        amountChargedToday: amountNow,
+        contractTotal,
+        payFull: usingFull,
+        deposit: usingFull ? 0 : amountNow,
+        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
+        months: usingFull ? 0 : mths,
+        method: usingFull ? "paid_in_full" : "deposit",
+        items: lineItems,
+        date: purchaseDateISO,
+      };
+
+      await updateDoc(userRef, {
+        purchases: arrayUnion(purchaseEntry),
+        spendTotal: increment(amountNow),
+        paymentPlan: {
+          product: "dessert",
+          type: usingFull ? "paid_in_full" : "deposit",
+          total: contractTotal,
+          depositPercent: usingFull ? 1 : 0.25,
+          paidNow: amountNow,
+          remainingBalance: usingFull ? 0 : remainingBalance,
+          finalDueDate: finalDueDateStr,
+          finalDueAt: finalDueISO,
+          createdAt: purchaseDateISO,
+        },
+        paymentPlanAuto: {
+          version: 1,
+          product: "dessert",
+          status: usingFull
+            ? "complete"
+            : remainingBalance > 0
+            ? "active"
+            : "complete",
+          strategy: usingFull ? "paid_in_full" : "monthly_until_final",
+          currency: "usd",
+          totalCents: Math.round(contractTotal * 100),
+          depositCents: Math.round(amountNow * 100),
+          remainingCents: Math.round(remainingBalance * 100),
+          planMonths: usingFull ? 0 : mths,
+          perMonthCents: usingFull ? 0 : perMonthCents,
+          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+          nextChargeAt: usingFull ? null : nextChargeAtISO,
+          finalDueAt: finalDueISO,
+          stripeCustomerId:
+            customerId || localStorage.getItem("stripeCustomerId") || null,
+          createdAt: purchaseDateISO,
+          updatedAt: purchaseDateISO,
+        },
+        // 👇 pin linear TY step
+        "progress.yumYum.step": "vicVerradoDessertThankYou",
+      });
+
+      // 🔹 Dessert pricing snapshot for guest-count delta math
+      await setDoc(
+        doc(userRef, "pricingSnapshots", "dessert"),
+        {
+          booked: true,
+          guestCountAtBooking: guestCount,
+          totalBooked: contractTotal,
+          perGuest:
+            guestCount > 0
+              ? Number((contractTotal / guestCount).toFixed(2))
+              : 0,
+          venueId: "vicVerrado",
+          style: selectedStyle || null,
+          flavorCombo: selectedFlavorCombo || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      // Build PDF (use mths/perMonthCents in fallback summary)
+      const signatureImageUrl =
+        signatureImage ||
+        localStorage.getItem("vvDessertSignature") ||
+        localStorage.getItem("yumSignature") ||
+        "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,
-        total: totalEffective,
-        deposit: amountDueToday,
+        total: contractTotal,
+        deposit: amountNow,
         guestCount,
         weddingDate: weddingYMD || "TBD",
         signatureImageUrl,
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
-            : `You're paying $${amountDueToday.toFixed(
+            ? `You're paying $${amountNow.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} today.`
+            : `You're paying $${amountNow.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
                 perMonthCents / 100
@@ -363,43 +366,6 @@ const VicVerradoDessertCheckout: React.FC<VicVerradoDessertCheckoutProps> = ({
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
-      // 📧 Send booking email — Yum Desserts @ Vic/Verrado
-try {
-  const current = getAuth().currentUser;
-  const safeFirst = userDoc?.firstName || firstName || "Magic";
-
-  await notifyBooking("yum_dessert", {
-    // who
-    user_email: current?.email || "unknown@wedndone.com",
-    user_first_name: safeFirst,
-
-    // what / context
-    venue_name: localStorage.getItem("vvVenueName") || "The Vic",
-    wedding_date: weddingYMD || "TBD",
-
-    // money
-    total: totalEffective.toFixed(2),
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
-    plan_type: usingFull ? "full" : "deposit",
-
-    // agreement
-    pdf_url: publicUrl,
-    pdf_title: "Yum Yum Dessert Agreement",
-
-    // dessert specifics
-    dessert_style: selectedStyle,
-    dessert_flavors: selectedFlavorCombo,
-    guest_count: String(guestCount),
-
-    // optional display
-    line_items: (lineItems || []).join(", "),
-  });
-} catch (e) {
-  console.warn("⚠️ Email notification failed (continuing):", e);
-}
-
       await updateDoc(userRef, {
         documents: arrayUnion({
           title: "Yum Yum Dessert Agreement",
@@ -408,6 +374,45 @@ try {
         }),
       });
 
+      // 📧 Send booking email — Yum Desserts @ Vic/Verrado
+      try {
+        const current = getAuth().currentUser;
+        const user_full_name = fullName;
+        const payment_now = amountNow.toFixed(2);
+        const remaining_balance = remainingBalance.toFixed(2);
+
+        await notifyBooking("yum_dessert", {
+          // who
+          user_email: current?.email || "unknown@wedndone.com",
+          user_full_name,
+
+          // context
+          wedding_date: weddingYMD || "TBD",
+          total: contractTotal.toFixed(2),
+          line_items: (lineItems || []).join(", "),
+
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Yum Yum Dessert Agreement",
+
+          // payment breakdown
+          payment_now,
+          remaining_balance,
+          final_due: finalDueDateStr,
+
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Yum Yum Desserts",
+
+          // dessert-specific extras
+          dessert_style: selectedStyle,
+          dessert_flavors: selectedFlavorCombo,
+          guest_count: String(guestCount),
+        });
+      } catch (e) {
+        console.warn("⚠️ Email notification failed (continuing):", e);
+      }
+
       // Update local steps + UI wizard
       const nextStep: VicVerradoStep = "vicVerradoDessertThankYou";
       try {
@@ -415,7 +420,6 @@ try {
         localStorage.setItem("yumStep", nextStep);
       } catch {}
 
-      // clear spinner, push overlay to TY
       setLocalGenerating(false);
       setStep(nextStep);
 
@@ -530,13 +534,35 @@ try {
           <p style={{ margin: 0 }}>
             {usingFull ? (
               <>
-                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.
+                You're paying{" "}
+                <strong>
+                  $
+                  {amountNow.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today.
               </>
             ) : (
               <>
-                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today, then{" "}
-                {planMonths} monthly payments of about{" "}
-                <strong>${Number(perMonth).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> (final due {finalDuePretty}).
+                You're paying{" "}
+                <strong>
+                  $
+                  {amountNow.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today, then {planMonths} monthly payments of about{" "}
+                <strong>
+                  $
+                  {perMonth.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                (final due {finalDuePretty}).
               </>
             )}
           </p>
@@ -545,7 +571,7 @@ try {
         {/* Stripe form (no <Elements> wrapper now) */}
         <div className="px-elements">
           <CheckoutForm
-            total={amountDueToday}
+            total={amountNow}
             onSuccess={handleSuccess}
             setStepSuccess={() => {
               /* Step advanced in handleSuccess */

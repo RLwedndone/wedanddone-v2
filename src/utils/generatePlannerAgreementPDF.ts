@@ -21,7 +21,7 @@ export const generatePlannerAgreementPDF = async ({
   total,
   deposit,
   payFull,
-  monthlyAmount = 0,
+  monthlyAmount = 0, // kept for compatibility; not rendered directly
   paymentSummary,
   weddingDate,
   signatureImageUrl,
@@ -43,7 +43,6 @@ export const generatePlannerAgreementPDF = async ({
 
   // ---------- helpers ----------
 
-  // Footer draws the grey small text
   const drawFooter = () => {
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -53,15 +52,11 @@ export const generatePlannerAgreementPDF = async ({
     doc.line(MARGIN_L, footerLineY, pageW - MARGIN_R, footerLineY);
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text(
-      "Magically booked by Wed&Done",
-      pageW / 2,
-      footerTextY,
-      { align: "center" }
-    );
+    doc.text("Magically booked by Wed&Done", pageW / 2, footerTextY, {
+      align: "center",
+    });
   };
 
-  // After a footer / page break, go back to normal body text
   const resetBodyTextStyle = () => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
@@ -77,22 +72,25 @@ export const generatePlannerAgreementPDF = async ({
 
   const ensureSpace = (needed: number) => {
     if (y + needed <= contentMaxY()) return;
-    // finish current page with footer
     drawFooter();
-    // new page
     doc.addPage();
-    // reset text style for normal body copy
     resetBodyTextStyle();
     y = TOP_Y;
   };
 
-  // Wrapped text
+  // Wrapped text with support for "\n"
   const writeText = (text: string, x = MARGIN_L) => {
-    const lines = doc.splitTextToSize(text, CONTENT_W - (x - MARGIN_L));
-    for (const ln of lines) {
-      ensureSpace(LINE);
-      doc.text(ln, x, y);
-      y += LINE;
+    const paragraphs = text.split("\n");
+    for (const para of paragraphs) {
+      const lines = doc.splitTextToSize(
+        para,
+        CONTENT_W - (x - MARGIN_L)
+      ) as string[];
+      for (const ln of lines) {
+        ensureSpace(LINE);
+        doc.text(ln, x, y);
+        y += LINE;
+      }
     }
   };
 
@@ -101,7 +99,7 @@ export const generatePlannerAgreementPDF = async ({
     const bullet = "• ";
     const bulletW = doc.getTextWidth(bullet);
     const wrapW = CONTENT_W - bulletW;
-    const lines = doc.splitTextToSize(text, wrapW);
+    const lines = doc.splitTextToSize(text, wrapW) as string[];
 
     ensureSpace(LINE);
     doc.text(bullet, MARGIN_L, y);
@@ -116,8 +114,6 @@ export const generatePlannerAgreementPDF = async ({
   };
 
   // Date helpers (same style as floral)
-
-  // Parse YYYY-MM-DD as *local* noon to avoid timezone shifting it back a day
   const parseLocalYMD = (ymd: string): Date | null => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
     return new Date(`${ymd}T12:00:00`);
@@ -146,7 +142,7 @@ export const generatePlannerAgreementPDF = async ({
     ? `${longDate(weddingDateObj)}${dayOfWeek ? ` (${dayOfWeek})` : ""}`
     : weddingDate;
 
-  // Final due date: 35 days prior for planner, based on the *local* wedding date
+  // Final due date: 35 days prior
   const finalDueDate = (() => {
     if (!weddingDateObj) return null;
     const d = new Date(weddingDateObj.getTime());
@@ -176,7 +172,7 @@ export const generatePlannerAgreementPDF = async ({
       loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
       loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
     ]);
-    doc.addImage(lock, "JPEG", 40, 60, 130, 130); // watermark first (behind text)
+    doc.addImage(lock, "JPEG", 40, 60, 130, 130); // watermark
     doc.addImage(logo, "JPEG", 75, 10, 60, 60);
   } catch {
     // ignore asset failures
@@ -193,7 +189,7 @@ export const generatePlannerAgreementPDF = async ({
     { align: "center" }
   );
 
-  // Switch to normal body style for the rest
+  // Body
   resetBodyTextStyle();
 
   // ---- Basics ----
@@ -202,9 +198,19 @@ export const generatePlannerAgreementPDF = async ({
   writeText(`Wedding Date: ${prettyWedding}`);
   if (Number.isFinite(guestCount)) writeText(`Guest Count: ${guestCount}`);
 
-  writeText(`Total Coordination Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+  writeText(
+    `Total Coordination Cost: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  );
   if (!isPayFull && deposit > 0) {
-    writeText(`Deposit (flat $200): $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+    writeText(
+      `Deposit (flat $200): $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    );
   }
 
   // ---- Included Items (optional) ----
@@ -215,25 +221,37 @@ export const generatePlannerAgreementPDF = async ({
     doc.text("Included Services:", MARGIN_L, y);
     y += GAP;
     doc.setFontSize(12);
+    resetBodyTextStyle();
     for (const item of lineItems) writeBullet(item);
   }
 
-  // ---- Payment block (identical style to floral) ----
+  // ---- Payment block ----
   const todayStr = longDate(new Date());
 
   y += 6;
   if (isPayFull) {
-    writeText(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
+    writeText(
+      `Paid today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} on ${todayStr}`
+    );
     writeText(
       `Final balance due date: ${finalDueStr} (paid in full today).`
     );
   } else {
     const remaining = Math.max(0, total - deposit);
-    writeText(`Deposit paid today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${todayStr}`);
     writeText(
-      `Remaining balance: $${remaining.toFixed(
-        2
-      )} to be billed automatically in monthly installments, with the final payment due by ${finalDueStr}.`
+      `Deposit paid today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} on ${todayStr}`
+    );
+    writeText(
+      `Remaining balance: $${Number(remaining).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} to be billed automatically in monthly installments, with the final payment due by ${finalDueStr}.`
     );
   }
 
@@ -242,31 +260,35 @@ export const generatePlannerAgreementPDF = async ({
     writeText(`Payment Plan: ${paymentSummary}`);
   }
 
-  // ---- Terms (same structure, but using correct styles/page breaks) ----
+  // ---- Terms (now mirror the on-screen contract text) ----
   y += 8;
   ensureSpace(LINE + GAP);
-  doc.setTextColor(50);
   doc.setFontSize(12);
+  doc.setTextColor(50);
   doc.text("Terms of Service:", MARGIN_L, y);
   y += GAP;
+  resetBodyTextStyle(); // bullets in normal body style (black, 12)
 
-  const terms = [
-    "By signing this agreement, you agree that the $200 deposit is non-refundable.",
-    "The remaining balance will be billed in monthly installments with the final payment due 35 days before your wedding date unless you pay in full today or clear the balance earlier.",
-    "If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable deposit will be refunded less any non-recoverable costs already incurred.",
-    "If you cancel within 35 days of the event, all payments are non-refundable.",
-    "Reschedules are subject to planner and vendor availability; any additional fees will be the client’s responsibility.",
-    "Additional on-site hours or extraordinary setup labor may incur extra charges with your prior approval.",
-    "Wed&Done is not responsible for venue restrictions or consequential damages.",
-    "Our liability is limited to the amounts you have paid for planning services under this agreement.",
-    "Force Majeure: Neither party is liable for failure or delay caused by events beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages).",
-    "If performance is prevented, we’ll work in good faith to reschedule.",
-    "If rescheduling isn’t possible, we’ll refund any amounts paid beyond non-recoverable costs already incurred.",
-    "Missed Payments: If any installment payment is not successfully processed by the due date, Wed&Done will automatically attempt to re-charge the card on file. If payment is not received within 7 days, a late fee of $25 will be applied. If payment remains outstanding for more than 14 days, Wed&Done reserves the right to suspend services and declare this agreement in default. In the event of default, all amounts paid (including the non-refundable deposit) will be retained by Wed&Done, and the booking may be cancelled without further obligation.",
+  const terms: string[] = [
+    // Payment options: matches first bullet in PlannerContract
+    "You may pay in full today or make a $200 non-refundable deposit. Any remaining balance will be divided into monthly installments and must be fully paid 35 days before your wedding date. Any unpaid balance on that date will be automatically charged.",
+    // Card authorization: matches second bullet
+    "By signing, you authorize Wed&Done to securely store your payment method and automatically process scheduled payments, including add-ons or increases to your guest count that you approve during planning.",
+    // Refunds & cancellations
+    "Refunds & Cancellations: At minimum, $200 is non-refundable. If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion are refundable (less non-recoverable costs already incurred). If you cancel 35 days or fewer before the event, all payments are non-refundable.",
+    // Rescheduling
+    "Rescheduling: May be possible based on planner and vendor availability and may incur additional fees.",
+    // Missed payments (same structure as screen)
+    "Missed Payments: We’ll retry your card automatically. After 7 days a $25 late fee may apply; after 14 days, services may be suspended and the agreement may be in default (amounts paid, including the deposit, may be retained).",
+    // Liability & substitutions
+    "Liability & Substitutions: Wed&Done isn’t responsible for venue restrictions or consequential damages. Reasonable substitutions may be made as needed. Liability is limited to amounts paid for coordination services under this agreement.",
+    // Force majeure (condensed to one bullet)
+    "Force Majeure: Neither party is liable for delays beyond reasonable control (including natural disasters, acts of government, war, terrorism, labor disputes, epidemics/pandemics, or utility outages). We’ll work in good faith to reschedule; if rescheduling isn’t possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.",
   ];
+
   for (const t of terms) writeBullet(t);
 
-  // ---- Signature anchored to bottom (same pattern as floral) ----
+  // ---- Signature block (anchored like floral) ----
   const placeSignature = () => {
     const pageH = doc.internal.pageSize.getHeight();
     const footerTextY = pageH - FOOTER_GAP;
@@ -313,11 +335,7 @@ export const generatePlannerAgreementPDF = async ({
       left,
       signedLineY + 7
     );
-    doc.text(
-      `Signature date: ${todayStr}`,
-      left,
-      signedLineY + 14
-    );
+    doc.text(`Signature date: ${todayStr}`, left, signedLineY + 14);
 
     drawFooter();
   };

@@ -260,6 +260,34 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
         } catch {}
       }
 
+      // Ensure default PM for off-session charges (only if plan requires it)
+      try {
+        const shouldStoreCard = requiresCardOnFile;
+        if (shouldStoreCard) {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ ensure-default-payment-method called for Encanterra catering"
+          );
+        } else {
+          console.log(
+            "ℹ️ Skipping ensure-default-payment-method (paid in full, no plan)."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "❌ ensure-default-payment-method failed (Encanterra):",
+          err
+        );
+      }
+
       // --- Resolve the real guest count ---
       let guestCountFinal = 0;
       try {
@@ -613,7 +641,7 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
           {paymentSummaryText ? paymentSummaryText : summaryText}
         </p>
 
-        {/* Payment Method Selection (saved vs new card) */}
+        {/* Payment Method Selection (Pass 3 rules: requiresCardOnFile = !payFull) */}
         <div
           style={{
             marginTop: 12,
@@ -627,7 +655,40 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
             textAlign: "left",
           }}
         >
-          {hasSavedCard ? (
+          {requiresCardOnFile ? (
+            hasSavedCard ? (
+              // Monthly + saved card → locked to saved card
+              <p
+                style={{
+                  fontSize: ".95rem",
+                  margin: 0,
+                  textAlign: "left",
+                }}
+              >
+                We&apos;ll use your saved card on file for this Encanterra
+                catering plan —{" "}
+                <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
+                {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+                {savedCardSummary!.exp_year}). If you need to change cards
+                later, you can update your saved card in your Wed&amp;Done
+                account before the next payment.
+              </p>
+            ) : (
+              // Monthly + no saved card → must enter a card, and it will be saved
+              <p
+                style={{
+                  fontSize: ".95rem",
+                  margin: 0,
+                  textAlign: "left",
+                }}
+              >
+                Enter your card details to start your Encanterra catering plan.
+                This card will be saved on file and used for your monthly
+                payments and final balance.
+              </p>
+            )
+          ) : hasSavedCard ? (
+            // No plan required → let them pick saved vs new
             <>
               <label
                 style={{
@@ -671,9 +732,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
                 />
                 <span>Pay with a different card</span>
               </label>
-
             </>
           ) : (
+            // No saved card, no plan required → simple “enter details”
             <label
               style={{
                 display: "flex",
@@ -705,7 +766,9 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
                 return undefined;
               }
             })()}
-            useSavedCard={mode === "saved"}
+            useSavedCard={
+              requiresCardOnFile ? hasSavedCard : mode === "saved"
+            }
           />
         </div>
       </div>

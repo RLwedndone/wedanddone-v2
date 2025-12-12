@@ -29,7 +29,15 @@ const renderFooter = (doc: jsPDF) => {
   doc.line(20, h - 25, w - 20, h - 25);
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", w / 2, h - 17, { align: "center" });
+  doc.text("Magically booked by Wed&Done", w / 2, h - 17, {
+    align: "center",
+  });
+};
+
+const resetBodyStyle = (doc: jsPDF) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
 };
 
 interface AddOnPDFOptions {
@@ -50,14 +58,18 @@ export const generateJamAddOnReceiptPDF = async ({
   const h = doc.internal.pageSize.getHeight();
 
   // assets
-  const [logo, lock] = await Promise.all([
-    loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
-    loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
-  ]);
+  try {
+    const [logo, lock] = await Promise.all([
+      loadImage(`${import.meta.env.BASE_URL}assets/images/rainbow_logo.jpg`),
+      loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
+    ]);
 
-  // watermark + logo
-  doc.addImage(lock, "JPEG", 40, 60, 130, 130);
-  doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+    // watermark + logo
+    doc.addImage(lock, "JPEG", 40, 60, 130, 130);
+    doc.addImage(logo, "JPEG", 75, 10, 60, 60);
+  } catch {
+    // non-fatal
+  }
 
   // header
   doc.setFont("helvetica", "normal");
@@ -66,9 +78,16 @@ export const generateJamAddOnReceiptPDF = async ({
   doc.text("Jam & Groove Add-On Receipt", w / 2, 75, { align: "center" });
 
   // basics
-  doc.setFontSize(12);
+  resetBodyStyle(doc);
   doc.text(`Name: ${fullName}`, 20, 90);
-  doc.text(`Total Add-On Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 20, 100);
+  doc.text(
+    `Total Add-On Cost: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    20,
+    100
+  );
 
   // content flow with pagination
   let y = 115;
@@ -77,9 +96,8 @@ export const generateJamAddOnReceiptPDF = async ({
     if (y > h - bottomMargin) {
       renderFooter(doc);
       doc.addPage();
-      // optional watermark on new page
-      doc.addImage(lock, "JPEG", 40, 60, 130, 130);
       y = 30; // reset top margin
+      resetBodyStyle(doc);
     }
   };
 
@@ -87,10 +105,11 @@ export const generateJamAddOnReceiptPDF = async ({
   const items = (lineItems || []).filter((it) => it && !it.startsWith("__"));
   if (items.length > 0) {
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", 20, y);
     y += 10;
 
-    doc.setFontSize(12);
+    resetBodyStyle(doc);
     for (const it of items) {
       addPageIfNeeded();
       doc.text(`• ${it}`, 25, y);
@@ -101,8 +120,15 @@ export const generateJamAddOnReceiptPDF = async ({
   // payment summary
   y += 10;
   addPageIfNeeded();
-  doc.setFontSize(12);
-  doc.text(`Total paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${prettyDate(purchaseDate)}`, 20, y);
+  resetBodyStyle(doc);
+  doc.text(
+    `Total paid: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} on ${prettyDate(purchaseDate)}`,
+    20,
+    y
+  );
 
   // footer on last page
   renderFooter(doc);

@@ -1,3 +1,4 @@
+// src/components/NewYumBuild/CustomVenues/Ocotillo/OcotilloDessertCheckout.tsx
 import React, { useRef, useState, useEffect } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
@@ -22,21 +23,38 @@ import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreem
 import type { OcotilloStep } from "./OcotilloOverlay";
 import { notifyBooking } from "../../../../utils/email/email";
 
+// 🔗 Stripe v2 base
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
+
 // Helpers (same as template)
 const MS_DAY = 24 * 60 * 60 * 1000;
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
 
 const parseLocalYMD = (ymd?: string | null): Date | null =>
-  !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? null : new Date(`${ymd}T12:00:00`);
+  !ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)
+    ? null
+    : new Date(`${ymd}T12:00:00`);
 
 const asStartOfDayUTC = (d: Date) =>
-  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 1));
+  new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      0,
+      0,
+      1
+    )
+  );
 
 function monthsBetweenInclusive(from: Date, to: Date) {
   const a = new Date(from.getFullYear(), from.getMonth(), 1);
   const b = new Date(to.getFullYear(), to.getMonth(), 1);
   let months =
-    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    (b.getFullYear() - a.getFullYear()) * 12 +
+    (b.getMonth() - a.getMonth());
   if (to.getDate() >= from.getDate()) months += 1;
   return Math.max(1, months);
 }
@@ -48,6 +66,13 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
   const dt = new Date(Date.UTC(y, m + 1, d, 0, 0, 1));
   return dt.toISOString();
 }
+
+type CardSummary = {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+};
 
 // Props
 interface OcotilloDessertCheckoutProps {
@@ -65,7 +90,9 @@ interface OcotilloDessertCheckoutProps {
   bookings?: { catering?: boolean; dessert?: boolean };
 }
 
-const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
+const OcotilloDessertCheckout: React.FC<
+  OcotilloDessertCheckoutProps
+> = ({
   total,
   guestCount,
   selectedStyle,
@@ -118,6 +145,7 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
     "full") as "full" | "monthly";
 
   const usingFull = planKey === "full";
+  const requiresCardOnFile = !usingFull;
 
   const depositAmount = round2(
     Number(localStorage.getItem("yumDepositAmount")) ||
@@ -149,8 +177,71 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
   // What we actually charge RIGHT NOW
   const amountDueToday = usingFull ? totalEffective : depositAmount;
 
+  // Saved card selection (Pass 3 pattern)
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<CardSummary | null>(null);
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const hasSavedCard = !!savedCardSummary;
+
+  useEffect(() => {
+    (async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.warn(
+            "[OcotilloDessertCheckout] get-default failed:",
+            res.status,
+            text
+          );
+          setSavedCardSummary(null);
+          setMode("new");
+          return;
+        }
+
+        const data = await res.json();
+        if (
+          data?.card &&
+          data.card.brand &&
+          data.card.last4 &&
+          data.card.exp_month &&
+          data.card.exp_year
+        ) {
+          setSavedCardSummary({
+            brand: data.card.brand,
+            last4: data.card.last4,
+            exp_month: data.card.exp_month,
+            exp_year: data.card.exp_year,
+          });
+          setMode("saved");
+        } else {
+          setSavedCardSummary(null);
+          setMode("new");
+        }
+      } catch (err) {
+        console.warn(
+          "[OcotilloDessertCheckout] No saved card found:",
+          err
+        );
+        setSavedCardSummary(null);
+        setMode("new");
+      }
+    })();
+  }, []);
+
   // ===================== SUCCESS FLOW =====================
-  const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  const handleSuccess = async ({
+    customerId,
+  }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
       console.warn(
         "[OcotilloDessertCheckout] handleSuccess already ran — ignoring re-entry"
@@ -169,8 +260,11 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? (snap.data() as any) : {};
-      const fullName = `${userDoc?.firstName || "Magic"} ${userDoc?.lastName || "User"}`;
-      const weddingYMD: string | null = userDoc?.weddingDate || null;
+      const fullName = `${userDoc?.firstName || "Magic"} ${
+        userDoc?.lastName || "User"
+      }`;
+      const weddingYMD: string | null =
+        userDoc?.weddingDate || null;
 
       // store stripeCustomerId for later auto-pay pulls
       try {
@@ -181,10 +275,39 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
           });
           try {
             localStorage.setItem("stripeCustomerId", customerId);
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }
       } catch (e) {
         console.warn("⚠️ Could not save stripeCustomerId:", e);
+      }
+
+      // Ensure default PM for off-session charges when on a dessert plan
+      try {
+        if (!usingFull) {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ ensure-default-payment-method called for Ocotillo dessert"
+          );
+        } else {
+          console.log(
+            "ℹ️ Skipping ensure-default-payment-method (Ocotillo dessert paid in full)."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "❌ ensure-default-payment-method failed (Ocotillo dessert):",
+          err
+        );
       }
 
       // final due date = wedding - 35 days
@@ -214,20 +337,30 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
       if (!usingFull && finalDueDate && remainingBalance > 0) {
         mths = monthsBetweenInclusive(new Date(), finalDueDate);
         const remainingCents = Math.round(remainingBalance * 100);
-        const base = Math.floor(remainingCents / Math.max(1, mths));
-        const tail = remainingCents - base * Math.max(0, mths - 1);
+        const base = Math.floor(
+          remainingCents / Math.max(1, mths)
+        );
+        const tail =
+          remainingCents - base * Math.max(0, mths - 1);
         perMonthCents = base;
         lastPaymentCents = tail;
-        nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
+        nextChargeAtISO = firstMonthlyChargeAtUTC(
+          new Date()
+        );
       }
 
-            // --- Normalized numbers for Firestore snapshots ---
-            const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
-            const contractTotalRounded = Number(totalEffective.toFixed(2));
-            const perMonthDollars =
-              usingFull ? 0 : round2(perMonthCents / 100);
+      // --- Normalized numbers for Firestore snapshots ---
+      const amountDueTodayRounded = Number(
+        amountDueToday.toFixed(2)
+      );
+      const contractTotalRounded = Number(
+        totalEffective.toFixed(2)
+      );
+      const perMonthDollars = usingFull
+        ? 0
+        : round2(perMonthCents / 100);
 
-      // Firestore: mark dessert booked for Ocotillo + set plan info
+      // Firestore: mark dessert booked for Ocotillo + set base flags
       await setDoc(
         userRef,
         {
@@ -248,47 +381,58 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
       try {
         localStorage.setItem("ocotilloJustBookedDessert", "true");
         localStorage.setItem("ocotilloDessertsBooked", "true");
-        localStorage.setItem("ocotilloYumStep", "ocotilloDessertThankYou");
-        localStorage.setItem("yumStep", "ocotilloDessertThankYou");
-      } catch {}
+        localStorage.setItem(
+          "ocotilloYumStep",
+          "ocotilloDessertThankYou"
+        );
+        localStorage.setItem(
+          "yumStep",
+          "ocotilloDessertThankYou"
+        );
+      } catch {
+        /* ignore */
+      }
+
+      // Build normalized purchase entry
+      const purchaseEntry = {
+        label: "Yum Yum Desserts",
+        category: "dessert",
+        boutique: "dessert",
+        source: "W&D",
+        amount: amountDueTodayRounded,
+        amountChargedToday: amountDueTodayRounded,
+        contractTotal: contractTotalRounded,
+        payFull: usingFull,
+        deposit: usingFull ? 0 : amountDueTodayRounded,
+        monthlyAmount: usingFull ? 0 : perMonthDollars,
+        months: usingFull ? 0 : mths,
+        method: usingFull ? "paid_in_full" : "deposit",
+        items: lineItems,
+        date: new Date().toISOString(),
+      };
 
       await updateDoc(userRef, {
-        // 🔹 Purchases log (normalized dessert entry)
-        purchases: arrayUnion({
-          label: "Yum Yum Desserts",
-          category: "dessert",
-          boutique: "dessert",
-          source: "W&D",
-          amount: amountDueTodayRounded,
-          amountChargedToday: amountDueTodayRounded,
-          contractTotal: contractTotalRounded,
-          payFull: usingFull,
-          deposit: usingFull ? 0 : amountDueTodayRounded,
-          monthlyAmount: usingFull ? 0 : perMonthDollars,
-          months: usingFull ? 0 : mths,
-          method: usingFull ? "paid_in_full" : "deposit",
-          items: lineItems,
-          date: new Date().toISOString(),
-        }),
+        // 🔹 Purchases log
+        purchases: arrayUnion(purchaseEntry),
 
         // 🔹 Global spend total
         spendTotal: increment(amountDueTodayRounded),
 
-        // 🔹 Dessert totals for the guest scroll
-        totals: {
-          ...(userDoc.totals || {}),
-          dessert: {
-            ...(userDoc.totals?.dessert || {}),
-            contractTotal: round2(
-              (userDoc.totals?.dessert?.contractTotal || 0) +
-                contractTotalRounded
-            ),
-            amountPaid: round2(
-              (userDoc.totals?.dessert?.amountPaid || 0) +
-                amountDueTodayRounded
-            ),
-          },
-        },
+        // 🔹 Dessert totals for guest scroll/admin
+        "totals.dessert.contractTotal": contractTotalRounded,
+        "totals.dessert.amountPaid":
+          increment(amountDueTodayRounded),
+        "totals.dessert.guestCountAtBooking": guestCount,
+        "totals.dessert.perGuest":
+          guestCount > 0
+            ? round2(contractTotalRounded / guestCount)
+            : 0,
+        "totals.dessert.venueSlug": "ocotillo",
+        "totals.dessert.style": selectedStyle || null,
+        "totals.dessert.flavorCombo":
+          selectedFlavorCombo || null,
+        "totals.dessert.lastUpdatedAt":
+          new Date().toISOString(),
 
         // 🔹 Dessert-only plan snapshot (Ocotillo)
         paymentPlanDessert: usingFull
@@ -325,8 +469,12 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
               status: "complete",
               strategy: "paid_in_full",
               currency: "usd",
-              totalCents: Math.round(contractTotalRounded * 100),
-              depositCents: Math.round(contractTotalRounded * 100),
+              totalCents: Math.round(
+                contractTotalRounded * 100
+              ),
+              depositCents: Math.round(
+                contractTotalRounded * 100
+              ),
               remainingCents: 0,
               planMonths: 0,
               perMonthCents: 0,
@@ -344,16 +492,24 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
               version: 1,
               product: "dessert_ocotillo",
               status:
-                round2(contractTotalRounded - amountDueTodayRounded) > 0
+                round2(
+                  contractTotalRounded - amountDueTodayRounded
+                ) > 0
                   ? "active"
                   : "complete",
               strategy: "monthly_until_final",
               currency: "usd",
-              totalCents: Math.round(contractTotalRounded * 100),
-              depositCents: Math.round(amountDueTodayRounded * 100),
+              totalCents: Math.round(
+                contractTotalRounded * 100
+              ),
+              depositCents: Math.round(
+                amountDueTodayRounded * 100
+              ),
               remainingCents: Math.round(
-                round2(contractTotalRounded - amountDueTodayRounded) *
-                  100
+                round2(
+                  contractTotalRounded -
+                    amountDueTodayRounded
+                ) * 100
               ),
               planMonths: mths,
               perMonthCents,
@@ -371,32 +527,38 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
         // 🔹 Yum overlay restore
         "progress.yumYum.step": "ocotilloDessertThankYou",
       });
-      
-            // 🔹 Dessert pricing snapshot for guest-count delta
-            await setDoc(
-              doc(userRef, "pricingSnapshots", "dessert"),
-              {
-                booked: true,
-                guestCountAtBooking: guestCount,
-                totalBooked: Number(totalEffective.toFixed(2)),
-                perGuest:
-                  guestCount > 0
-                    ? Number((totalEffective / guestCount).toFixed(2))
-                    : 0,
-                venueId: "ocotillo",
-                style: selectedStyle || null,
-                flavorCombo: selectedFlavorCombo || null,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-      
-            // Build PDF (use mths/perMonthCents in fallback summary)
-            const signatureImageUrl =
-            signatureImage ||
-            localStorage.getItem("ocotilloDessertSignature") ||
-            localStorage.getItem("yumSignature") ||
-            "";
+
+      // 🔹 Dessert pricing snapshot for guest-count delta
+      await setDoc(
+        doc(userRef, "pricingSnapshots", "dessert"),
+        {
+          booked: true,
+          guestCountAtBooking: guestCount,
+          totalBooked: Number(
+            totalEffective.toFixed(2)
+          ),
+          perGuest:
+            guestCount > 0
+              ? Number(
+                  (totalEffective / guestCount).toFixed(2)
+                )
+              : 0,
+          venueId: "ocotillo",
+          style: selectedStyle || null,
+          flavorCombo: selectedFlavorCombo || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      // Build PDF (use mths/perMonthCents in fallback summary)
+      const signatureImageUrl =
+        signatureImage ||
+        localStorage.getItem(
+          "ocotilloDessertSignature"
+        ) ||
+        localStorage.getItem("yumSignature") ||
+        "";
 
       const pdfBlob = await generateDessertAgreementPDF({
         fullName,
@@ -408,7 +570,12 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+            ? `You're paying $${Number(
+                amountDueToday
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
@@ -420,9 +587,15 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
       });
 
       // Upload PDF to storage and add to documents[]
-      const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
+      const storage = getStorage(
+        app,
+        "gs://wedndonev2.firebasestorage.app"
+      );
       const filename = `YumDessertAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
+      const fileRef = ref(
+        storage,
+        `public_docs/${user.uid}/${filename}`
+      );
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
@@ -435,50 +608,69 @@ const OcotilloDessertCheckout: React.FC<OcotilloDessertCheckoutProps> = ({
       });
 
       // 📧 Centralized booking email for Yum Dessert @ Ocotillo
-try {
-  const current = getAuth().currentUser;
+      try {
+        const current = getAuth().currentUser;
 
-  await notifyBooking("yum_dessert", {
-    // who + basics
-    user_email: current?.email || (userDoc?.email as string) || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: userDoc?.firstName || firstName,
+        await notifyBooking("yum_dessert", {
+          // who + basics
+          user_email:
+            current?.email ||
+            (userDoc?.email as string) ||
+            "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: userDoc?.firstName || firstName,
 
-    // details
-    wedding_date: weddingYMD || "TBD",
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems && lineItems.length ? lineItems : []).join(", "),
+          // details
+          wedding_date: weddingYMD || "TBD",
+          total: totalEffective.toFixed(2),
+          line_items: (lineItems && lineItems.length
+            ? lineItems
+            : []
+          ).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Yum Yum Dessert Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Yum Yum Dessert Agreement",
 
-    // payment breakdown
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: (usingFull ? 0 : remainingBalance).toFixed(2),
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: (usingFull
+            ? 0
+            : remainingBalance
+          ).toFixed(2),
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Ocotillo Dessert",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
+          product_name: "Ocotillo Dessert",
+        });
+      } catch (mailErr) {
+        console.error(
+          "❌ notifyBooking(yum_dessert) failed:",
+          mailErr
+        );
+      }
 
       // push overlay forward into TY + mirror LS
-      const nextStep: OcotilloStep = "ocotilloDessertThankYou";
+      const nextStep: OcotilloStep =
+        "ocotilloDessertThankYou";
       try {
         localStorage.setItem("ocotilloYumStep", nextStep);
         localStorage.setItem("yumStep", nextStep);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
       setLocalGenerating(false);
       setStep(nextStep);
 
       // Fire global events for Budget Wand/widgets
       window.dispatchEvent(new Event("purchaseMade"));
-      window.dispatchEvent(new Event("dessertCompletedNow"));
+      window.dispatchEvent(
+        new Event("dessertCompletedNow")
+      );
       window.dispatchEvent(
         new CustomEvent("bookingsChanged", {
           detail: { dessert: true },
@@ -486,7 +678,10 @@ try {
       );
       window.dispatchEvent(new Event("documentsUpdated"));
     } catch (err) {
-      console.error("❌ [Ocotillo][DessertCheckout] finalize error:", err);
+      console.error(
+        "❌ [Ocotillo][DessertCheckout] finalize error:",
+        err
+      );
       setLocalGenerating(false);
     }
   };
@@ -496,16 +691,26 @@ try {
   // Spinner mode ("Madge is icing your cake...")
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      <div
+        className="pixie-card pixie-card--modal"
+        style={{ maxWidth: 700 }}
+      >
         {/* Close button */}
-        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
           <img
             src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
             alt="Close"
           />
         </button>
 
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
             autoPlay
@@ -521,20 +726,12 @@ try {
               display: "block",
             }}
           />
-          <h3 className="px-title" style={{ margin: 0, color: "#2c62ba" }}>
+          <h3
+            className="px-title"
+            style={{ margin: 0, color: "#2c62ba" }}
+          >
             Madge is icing your cake... one sec!
           </h3>
-
-          <div style={{ marginTop: 12 }}>
-            <button
-              className="boutique-back-btn"
-              style={{ width: 250 }}
-              onClick={onBack}
-              disabled
-            >
-              ← Back
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -542,16 +739,26 @@ try {
 
   // Normal checkout UI
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div
+      className="pixie-card pixie-card--modal"
+      style={{ maxWidth: 700 }}
+    >
       {/* Close button */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
         <img
           src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
         />
       </button>
 
-      <div className="pixie-card__body" style={{ textAlign: "center" }}>
+      <div
+        className="pixie-card__body"
+        style={{ textAlign: "center" }}
+      >
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
           autoPlay
@@ -588,20 +795,156 @@ try {
           <p style={{ margin: 0 }}>
             {usingFull ? (
               <>
-                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today.
+                You&apos;re paying{" "}
+                <strong>
+                  $
+                  {Number(
+                    amountDueToday
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today.
               </>
             ) : (
               <>
-                You're paying <strong>${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> today, then{" "}
-                {planMonths} monthly payments of about{" "}
-                <strong>${Number(perMonth).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> (final due {finalDuePretty}).
+                You&apos;re paying{" "}
+                <strong>
+                  $
+                  {Number(
+                    amountDueToday
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </strong>{" "}
+                today, then {planMonths} monthly payments of about{" "}
+                <strong>
+                  $
+                  {Number(perMonth).toLocaleString(
+                    undefined,
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }
+                  )}
+                </strong>{" "}
+                (final due {finalDuePretty}).
               </>
             )}
           </p>
         </div>
 
-        {/* Stripe CheckoutForm */}
+        {/* Saved card toggle + Stripe CheckoutForm */}
         <div className="px-elements">
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid #e2e6f0",
+              background: "#f7f8ff",
+            }}
+          >
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this
+                  Ocotillo dessert plan —{" "}
+                  <strong>
+                    {savedCardSummary!.brand.toUpperCase()}
+                  </strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year}). If you need to
+                  change cards later, you can update your saved
+                  card in your Wed&amp;Done account before the
+                  next payment.
+                </p>
+              ) : (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Ocotillo
+                  dessert plan. This card will be saved on file
+                  and used for your monthly payments and final
+                  balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="ocotilloDessertPaymentMode"
+                    checked={mode === "saved"}
+                    onChange={() => setMode("saved")}
+                  />
+                  <span>
+                    Saved card on file —{" "}
+                    <strong>
+                      {savedCardSummary!.brand.toUpperCase()}
+                    </strong>{" "}
+                    •••• {savedCardSummary!.last4} (exp{" "}
+                    {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="ocotilloDessertPaymentMode"
+                    checked={mode === "new"}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              </>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "default",
+                }}
+              >
+                <input type="radio" checked readOnly />
+                <span>Enter your card details</span>
+              </label>
+            )}
+          </div>
+
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
@@ -609,20 +952,34 @@ try {
               /* we advance to TY in handleSuccess */
             }}
             isAddon={false}
-            customerEmail={getAuth().currentUser?.email || undefined}
-            customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+            customerEmail={
+              getAuth().currentUser?.email || undefined
+            }
+            customerName={`${firstName || "Magic"} ${
+              lastName || "User"
+            }`}
             customerId={(() => {
               try {
-                return localStorage.getItem("stripeCustomerId") || undefined;
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
               } catch {
                 return undefined;
               }
             })()}
+            useSavedCard={
+              requiresCardOnFile
+                ? hasSavedCard
+                : hasSavedCard && mode === "saved"
+            }
           />
         </div>
 
         {/* Back button */}
-        <div style={{ marginTop: 16, textAlign: "center" }}>
+        <div
+          style={{ marginTop: 16, textAlign: "center" }}
+        >
           <button
             className="boutique-back-btn"
             style={{ width: 250 }}

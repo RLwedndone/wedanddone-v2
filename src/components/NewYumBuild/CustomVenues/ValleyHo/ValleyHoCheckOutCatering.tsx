@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/ValleyHo/ValleyHoCheckOutCatering.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -21,7 +21,6 @@ import {
 } from "firebase/storage";
 import generateYumAgreementPDF from "../../../../utils/generateYumAgreementPDF";
 import { notifyBooking } from "../../../../utils/email/email";
-
 
 // helpers
 const round2 = (n: number) =>
@@ -77,10 +76,11 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
   onBack,
   onComplete,
   onClose,
-  isGenerating: isGeneratingFromOverlay,
+  isGenerating: isGeneratingFromOverlay = false,
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+  const didRunRef = useRef(false);
 
   // === 1) Read handoff keys saved by the Contract screen ===
   const payFull = useMemo(() => {
@@ -129,12 +129,13 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
 
   // The message above the card form
   const summaryText = payFull
-    ? `Total due today: $${(
+    ? `Total due today: $${Number(
         amountDueTodayCents / 100
-      ).toFixed(2)}.`
-    : `Deposit due today: $${(
-        amountDueTodayCents / 100
-      ).toFixed(
+      ).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}.`
+    : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(
         2
@@ -177,6 +178,14 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
   }: {
     customerId?: string;
   } = {}) => {
+    if (didRunRef.current) {
+      console.warn(
+        "[ValleyHoCheckOutCatering] handleSuccess already ran — ignoring re-entry"
+      );
+      return;
+    }
+    didRunRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -188,6 +197,7 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.data() || {};
+
       if (
         customerId &&
         customerId !== userDoc?.stripeCustomerId
@@ -201,8 +211,14 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
             "stripeCustomerId",
             customerId
           );
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
+
+      const safeFirst = userDoc?.firstName || firstName || "Magic";
+      const safeLast = userDoc?.lastName || lastName || "User";
+      const fullName = `${safeFirst} ${safeLast}`;
 
       // Build appetizers list (hors)
       const appetizers = menuSelections.hors || [];
@@ -251,16 +267,29 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
           : "Reception Stations"
       }`;
 
+      const amountNow = Number(amountDueToday.toFixed(2));
+      const totalCentsSafe = totalCents;
+      const depositCentsSafe = payFull
+        ? totalCentsSafe
+        : amountDueTodayCents;
+      const remainingCentsSafe = Math.max(
+        0,
+        totalCentsSafe - depositCentsSafe
+      );
+      const depositPercent =
+        totalCentsSafe > 0
+          ? depositCentsSafe / totalCentsSafe
+          : payFull
+          ? 1
+          : 0.25;
+
       // Generate Valley Ho agreement PDF
       const pdfBlob =
         await generateYumAgreementPDF({
-          fullName: `${
-            userDoc?.firstName || firstName
-          } ${userDoc?.lastName || lastName}`,
+          fullName,
           total,
-          deposit: payFull
-            ? 0
-            : round2(total * 0.25),
+          // Reflect actual amount charged today as "deposit" for payment logic
+          deposit: payFull ? 0 : amountNow,
           guestCount,
           charcuterieCount: 0,
           weddingDate:
@@ -269,10 +298,14 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
           signatureImageUrl:
             signatureImageUrl || "",
           paymentSummary: payFull
-            ? `Paid in full today: $${amountDueToday.toFixed(
-                2
+            ? `Paid in full today: $${amountNow.toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
               )}.`
-            : `Deposit today: $${amountDueToday.toFixed(
+            : `Deposit today: $${amountNow.toFixed(
                 2
               )}. Remaining $${remainingBalance.toFixed(
                 2
@@ -323,10 +356,25 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
         { merge: true }
       );
 
-      // Robot payment plan snapshot + user doc updates
       const purchaseDate =
         new Date().toISOString();
 
+      const purchaseEntry = {
+        label: "Valley Ho Catering",
+        category: "catering",
+        boutique: "catering",
+        source: "W&D",
+        amount: amountNow,
+        amountChargedToday: amountNow,
+        contractTotal: Number(total.toFixed(2)),
+        payFull,
+        deposit: payFull ? amountNow : amountNow,
+        method: payFull ? "full" : "deposit",
+        items: lineItems,
+        date: purchaseDate,
+      };
+
+      // Robot payment plan snapshot + user doc updates
       await updateDoc(userRef, {
         documents: arrayUnion({
           title:
@@ -339,33 +387,16 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
         "bookings.catering": true,
         dateLocked: true,
 
-        purchases: arrayUnion({
-          label: "yum",
-          amount: Number(
-            (amountDueTodayCents / 100).toFixed(
-              2
-            )
-          ),
-          date: purchaseDate,
-          method: payFull
-            ? "full"
-            : "deposit",
-        }),
+        purchases: arrayUnion(purchaseEntry),
 
-        spendTotal: increment(
-          Number(
-            (amountDueTodayCents / 100).toFixed(
-              2
-            )
-          )
-        ),
+        spendTotal: increment(amountNow),
 
         paymentPlan: payFull
           ? {
               product: "yum",
               type: "full",
               total,
-              paidNow: amountDueToday,
+              paidNow: amountNow,
               remainingBalance: 0,
               finalDueDate: null,
               finalDueAt: null,
@@ -376,8 +407,8 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
               product: "yum",
               type: "deposit",
               total,
-              depositPercent: 0.25,
-              paidNow: amountDueToday,
+              depositPercent,
+              paidNow: amountNow,
               remainingBalance,
               finalDueDate:
                 finalDueDateStr,
@@ -394,9 +425,8 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
               strategy:
                 "paid_in_full",
               currency: "usd",
-              totalCents,
-              depositCents:
-                totalCents,
+              totalCents: totalCentsSafe,
+              depositCents: totalCentsSafe,
               remainingCents: 0,
               planMonths: 0,
               perMonthCents: 0,
@@ -426,13 +456,9 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
               strategy:
                 "monthly_until_final",
               currency: "usd",
-              totalCents,
-              depositCents,
-              remainingCents: Math.max(
-                0,
-                totalCents -
-                  depositCents
-              ),
+              totalCents: totalCentsSafe,
+              depositCents: depositCentsSafe,
+              remainingCents: remainingCentsSafe,
               planMonths,
               perMonthCents,
               lastPaymentCents,
@@ -468,11 +494,11 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
         await notifyBooking("yum_catering", {
           // who
           user_email: user.email || "unknown@wedndone.com",
-          user_full_name: firstName,
+          user_full_name: fullName,
 
           // money
           total: total.toFixed(2),
-          payment_now: amountDueToday.toFixed(2),
+          payment_now: amountNow.toFixed(2),
           remaining_balance: remainingBalance.toFixed(2),
           final_due: finalDueDateStr,
 
@@ -496,11 +522,15 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
           "yumStep",
           "valleyHoCateringThankYou"
         );
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
+      window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(
         new Event("documentsUpdated")
       );
+
       onComplete();
     } catch (err) {
       console.error(

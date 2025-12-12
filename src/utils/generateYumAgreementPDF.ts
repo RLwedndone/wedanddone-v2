@@ -45,7 +45,7 @@ function toPrettyDate(input: string) {
 
   if (ymd.test(input)) {
     d = new Date(`${input}T12:00:00`); // 🔒 avoid TZ off-by-one
-    } else {
+  } else {
     const tryDate = new Date(input);
     if (!isNaN(tryDate.getTime())) d = tryDate;
   }
@@ -286,28 +286,31 @@ const generateYumAgreementPDF = async ({
     // 1) Venue allows outside caterers
     "By signing, you confirm either (a) your venue allows outside caterers, or (b) you’ll book a venue that does.",
 
-    // 2) Payment options + CARD-ON-FILE CONSENT
-    "Payment Options & Card Authorization: You may pay in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance at that time will be automatically charged to your card on file. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for catering installment payments, any remaining catering balance due under this agreement, and future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+    // 2) Payment options
+    "Payment Options: You may pay in full today, or place a 25% non-refundable deposit. Any remaining balance will be split into monthly installments so that your total catering amount is paid in full 35 days before your wedding date. Any unpaid balance on that date will be automatically charged.",
 
-    // 3) Buffet style
+    // 3) Card Authorization & Saved Card
+    "Card Authorization & Saved Card: By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for catering installment payments, any remaining catering balance due under this agreement, and future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+
+    // 4) Buffet style
     "Your reception will be served buffet-style.",
 
-    // 4) Guest count / 30 + 45 days
+    // 5) Guest count / 30 + 45 days
     "Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days before your wedding, but the count cannot be lowered after booking.",
 
-    // 5) Cancellation & Refunds
+    // 6) Cancellation & Refunds
     "Cancellation & Refunds: If you cancel more than 35 days prior, amounts paid beyond the non-recoverable portion will be refunded less any non-recoverable costs already incurred. Within 35 days, all payments are non-refundable.",
 
-    // 6) Missed Payments
+    // 7) Missed Payments
     "Missed Payments: We’ll automatically retry your card. After 7 days, a $25 late fee applies; after 14 days, services may be suspended and this agreement may be in default.",
 
-    // 7) Food safety & venue policies
+    // 8) Food safety & venue policies
     "Food Safety & Venue Policies: We’ll follow standard food-safety guidelines and comply with venue rules, which may limit service or display options.",
 
-    // 8) Force Majeure
+    // 9) Force Majeure
     "Force Majeure: Neither party is liable for delays beyond reasonable control. We’ll work in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs already incurred.",
 
-    // 9) Liability cap
+    // 10) Liability cap
     "In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.",
   ];
 

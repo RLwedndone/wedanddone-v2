@@ -231,9 +231,7 @@ export const generateJamAgreementPDF = async ({
     y += wrappedFull.length * 6 + 2;
   }
 
-  // (We intentionally do NOT render `paymentSummary` to avoid duplicate plan copy.)
-
-  // -------- Booking Terms (Jam-specific) --------
+  // -------- Booking Terms (Jam-specific, now matching contract text) --------
   ensureSpace(14);
   doc.setTextColor(50);
   doc.setFontSize(12);
@@ -242,21 +240,26 @@ export const generateJamAgreementPDF = async ({
 
   setBodyFont(doc);
 
-  const dueText = finalDuePrettyResolved;
-
   const terms: string[] = [
-    // 🔹 EXACT match to the Jam & Groove contract screen
-    "Payment Options & Card Authorization: You may pay in full today, or place a non-refundable $750 deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) Jam & Groove installment payments and any final balance due under this agreement, and (b) future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+    // 🔹 Payment Options (exact match)
+    "Payment Options. You may pay in full today, or place a non-refundable $750 deposit and pay the remaining balance in monthly installments. All installments must be completed no later than 35 days before your wedding date, and any unpaid balance will be automatically charged on that date.",
 
+    // 🔹 Card Authorization (exact match)
+    "Card Authorization. By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card and to charge it for Jam & Groove installment payments, any remaining Jam & Groove balance due under this agreement, and any future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any time through your Wed&Done account.",
+
+    // 🔹 Cancellation & Refunds
     "Cancellation & Refunds: If you cancel more than 35 days before your event, amounts you’ve paid beyond the non-refundable portion and any non-recoverable costs are refundable. If you cancel 35 days or fewer before the event, all payments made are non-refundable.",
 
+    // 🔹 Missed Payments
     "Missed Payments: If a payment attempt fails, we’ll automatically re-try your card. After 7 days, a $25 late fee may be applied. After 14 days of non-payment, services may be paused and this agreement may be considered in default.",
 
+    // 🔹 Performance & Logistics
     "Performance & Logistics: Your DJ / music team will typically arrive about 1 hour before guest arrival for setup and sound check. You agree to provide safe power, appropriate coverage or shade if outdoors, and any venue access needed. Travel outside the Phoenix Metro or to certain locations may incur additional fees as discussed in your package.",
 
+    // 🔹 Force Majeure
     "Force Majeure: If events outside anyone’s control (including but not limited to extreme weather, natural disasters, government restrictions, or serious illness) prevent performance, both parties will work in good faith to reschedule. If rescheduling isn’t possible, amounts you’ve paid beyond non-recoverable costs are refunded. If Jam & Groove must cancel for any reason within our control and a suitable replacement cannot be arranged, liability is limited to a refund of payments made.",
 
-    // Optional extra safety net, same tone as before
+    // 🔹 Limitation of Liability (extra safety net – fine to keep)
     "Limitation of Liability: In all circumstances, Wed&Done’s liability related to this agreement is limited to the total amounts paid by Client under this agreement.",
   ];
 
@@ -267,7 +270,7 @@ export const generateJamAgreementPDF = async ({
     y += wrapped.length * 6 + 2;
   }
 
-  // -------- Signature block (same placement style as Photo) --------
+  // -------- Signature block --------
   const sigImageMaxW = 100;
   const sigImageMaxH = 35;
   const sigBlockNeeded = 5 + sigImageMaxH + 7 + 7 + 6;

@@ -83,7 +83,7 @@ const generateDessertAgreementPDF = async ({
   };
 
   const addWatermark = (lockImg: HTMLImageElement) => {
-    // tasteful watermark sizing
+    // tasteful watermark sizing – only on page 1
     doc.addImage(lockImg, "JPEG", 40, 60, 130, 130);
   };
 
@@ -99,6 +99,7 @@ const generateDessertAgreementPDF = async ({
   ) => {
     if (!items?.length) return;
     doc.setFontSize(12);
+    doc.setTextColor(0);
     doc.text(label, 25, yRef.value);
     yRef.value += 8;
     items.forEach((item) => {
@@ -115,7 +116,7 @@ const generateDessertAgreementPDF = async ({
   ]);
 
   // ---------- cover (page 1) ----------
-  addWatermark(lock);
+  addWatermark(lock); // 🔒 lock only used on page 1
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
   doc.setFont("helvetica", "normal");
@@ -143,6 +144,7 @@ const generateDessertAgreementPDF = async ({
     (cupcakes?.length ?? 0) > 0
   ) {
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", 20, y);
     y += 10;
 
@@ -150,12 +152,14 @@ const generateDessertAgreementPDF = async ({
     lineItems.forEach((it) => {
       const wrapped = wrap(bullet(it));
       doc.setFontSize(12);
+      doc.setTextColor(0);
       doc.text(wrapped, 25, y);
       y += wrapped.length * 8;
     });
 
     if (selectedFlavorCombo) {
       doc.setFontSize(12);
+      doc.setTextColor(0);
       doc.text("Cake Flavor & Filling:", 25, y);
       y += 8;
       const wrapped = wrap(`- ${selectedFlavorCombo}`);
@@ -165,6 +169,7 @@ const generateDessertAgreementPDF = async ({
 
     if (selectedStyle) {
       doc.setFontSize(12);
+      doc.setTextColor(0);
       doc.text("Cake Style:", 25, y);
       y += 8;
       const wrapped = wrap(`- ${selectedStyle}`);
@@ -185,7 +190,7 @@ const generateDessertAgreementPDF = async ({
   doc.addPage();
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
-  doc.setTextColor(0);
+  doc.setTextColor(0); // reset to BLACK after grey footer on page 1
 
   let y2 = 30;
 
@@ -212,14 +217,21 @@ const generateDessertAgreementPDF = async ({
     dueByPretty = prettyDate(dueDate.toISOString());
   }
 
+  const hasDeposit =
+    typeof deposit === "number" &&
+    deposit > 0 &&
+    deposit < total;
+
+  const remaining =
+    hasDeposit && total > deposit ? Math.max(0, total - deposit) : 0;
+
   if (paymentSummary && paymentSummary.trim()) {
     const wrapped = wrap(paymentSummary.trim());
     doc.text(wrapped, 25, y2);
-    y2 += wrapped.length * 8 + 2;
+    y2 += wrapped.length * 8 + 4;
   } else {
-    // Fallback wording (no assumptions about number of installments)
-    if (deposit > 0 && deposit < total) {
-      const remaining = Math.max(0, total - deposit);
+    // Fallback summary if caller didn't pass a custom paymentSummary
+    if (hasDeposit) {
       doc.text(
         `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
           minimumFractionDigits: 2,
@@ -247,7 +259,7 @@ const generateDessertAgreementPDF = async ({
           y2
         );
       }
-      y2 += 8;
+      y2 += 10;
     } else {
       doc.text(
         `Total Paid in Full: $${Number(total).toLocaleString(undefined, {
@@ -257,8 +269,49 @@ const generateDessertAgreementPDF = async ({
         25,
         y2
       );
-      y2 += 8;
+      y2 += 10;
     }
+  }
+
+  // ⬇️ Extra clarity: always show the actual paid mode, even if paymentSummary handled the prose
+  if (hasDeposit) {
+    doc.text(
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      25,
+      y2
+    );
+    y2 += 8;
+    if (dueByPretty) {
+      doc.text(
+        `Remaining Balance: $${remaining.toFixed(
+          2
+        )} (due by ${dueByPretty})`,
+        25,
+        y2
+      );
+    } else {
+      doc.text(
+        `Remaining Balance: $${remaining.toFixed(
+          2
+        )} (due ${FINAL_DUE_DAYS} days before your wedding date)`,
+        25,
+        y2
+      );
+    }
+    y2 += 10;
+  } else {
+    doc.text(
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      25,
+      y2
+    );
+    y2 += 10;
   }
 
   const todayPretty = prettyDate(new Date().toISOString());
@@ -275,13 +328,13 @@ const generateDessertAgreementPDF = async ({
   doc.setFont("helvetica", "normal");
 
   const bookingBullets: string[] = [
-    // 1) Venue allows outside bakers
+    // 1) Venue allows outside bakers (matches non-shared-flow copy on screen)
     "By signing, you confirm either (a) your venue allows outside bakers, or (b) you’ll book a venue that does.",
 
     // 2) Deposit + FINAL_DUE_DAYS payoff
     `You may pay in full today, or place a 25% non-refundable deposit. Any remaining balance will be split into monthly installments and must be fully paid ${FINAL_DUE_DAYS} days before your wedding date.`,
 
-    // 3) Card-on-file consent (NEW)
+    // 3) Card-on-file consent (matches contract bullet)
     "By agreeing and completing checkout, you authorize Wed&Done and its payment partners to securely store your card and charge it for this dessert booking, including any scheduled installments and any remaining balance, using the payment method you select at checkout or any updated card you add later.",
 
     // 4) Guest count / 30 + 45 days

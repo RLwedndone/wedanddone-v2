@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Tubac/TubacDessertCheckout.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -75,10 +75,12 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+  const didRunRef = useRef(false);
 
   // lightweight user name for CheckoutForm + emails
   const [firstName, setFirstName] = useState("Magic");
   const [lastName, setLastName] = useState("User");
+
   useEffect(() => {
     (async () => {
       const user = getAuth().currentUser;
@@ -131,15 +133,55 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
 
   // UI copy
   const paymentMessage = usingFull
-    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
         2
       )} (final due ${finalDuePretty}).`;
 
+  // Spinner overlay styles
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    zIndex: 1000,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    overflowY: "auto",
+    padding: 16,
+  };
+
+  const cardStyle: React.CSSProperties = {
+    background: "#fff",
+    width: "min(680px, 94vw)",
+    maxHeight: "90vh",
+    overflow: "hidden",
+    boxSizing: "border-box",
+    borderRadius: 18,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+    padding: "22px 20px 28px",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 12,
+  };
+
   // Success → finalize, upload PDF, route to Tubac Dessert TY
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+    if (didRunRef.current) {
+      console.warn(
+        "[TubacDessertCheckout] handleSuccess already ran — ignoring re-entry"
+      );
+      return;
+    }
+    didRunRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -165,7 +207,9 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
           });
           try {
             localStorage.setItem("stripeCustomerId", customerId);
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }
       } catch (e) {
         console.warn("⚠️ Could not save stripeCustomerId:", e);
@@ -225,7 +269,21 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         localStorage.setItem("tubacJustBookedDessert", "true");
         localStorage.setItem("tubacDessertsBooked", "true");
         localStorage.setItem("yumStep", "tubacDessertThankYou");
-      } catch {}
+      } catch {
+        /* ignore */
+      }
+
+      const nowIso = new Date().toISOString();
+      const amountNow = Number(amountDueToday.toFixed(2));
+      const totalCents = Math.round(totalEffective * 100);
+      const depositCents = usingFull ? totalCents : Math.round(amountNow * 100);
+      const remainingCents = usingFull ? 0 : Math.round(remainingBalance * 100);
+      const depositPercent =
+        totalCents > 0
+          ? depositCents / totalCents
+          : usingFull
+          ? 1
+          : 0.25;
 
       // Purchases entry
       const purchaseEntry = {
@@ -233,35 +291,35 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         category: "dessert",
         boutique: "dessert",
         source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
+        amount: amountNow,
+        amountChargedToday: amountNow,
         contractTotal: Number(totalEffective.toFixed(2)),
         payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
+        deposit: usingFull ? 0 : amountNow,
         monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
         months: usingFull ? 0 : mths,
         method: usingFull ? "paid_in_full" : "deposit",
         items: lineItems,
-        date: new Date().toISOString(),
+        date: nowIso,
       };
 
       await updateDoc(userRef, {
         purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(amountNow),
         paymentPlan: {
-          product: "dessert",
+          product: "dessert_tubac",
           type: usingFull ? "paid_in_full" : "deposit",
           total: totalEffective,
-          depositPercent: usingFull ? 1 : 0.25,
-          paidNow: amountDueToday,
+          depositPercent,
+          paidNow: amountNow,
           remainingBalance: usingFull ? 0 : remainingBalance,
           finalDueDate: finalDueDateStr,
           finalDueAt: finalDueISO,
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso,
         },
         paymentPlanAuto: {
           version: 1,
-          product: "dessert",
+          product: "dessert_tubac",
           status: usingFull
             ? "complete"
             : remainingBalance > 0
@@ -269,15 +327,11 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
             : "complete",
           strategy: usingFull ? "paid_in_full" : "monthly_until_final",
           currency: "usd",
-          totalCents: Math.round(totalEffective * 100),
-          depositCents: Math.round(
-            (usingFull ? 0 : amountDueToday) * 100
-          ),
-          remainingCents: Math.round(
-            (usingFull ? 0 : remainingBalance) * 100
-          ),
+          totalCents,
+          depositCents,
+          remainingCents,
           planMonths: usingFull ? 0 : mths,
-          perMonthCents: usingFull ? 0 : Math.round(perMonth * 100),
+          perMonthCents: usingFull ? 0 : perMonthCents,
           lastPaymentCents: usingFull ? 0 : lastPaymentCents,
           nextChargeAt: usingFull ? null : nextChargeAtISO,
           finalDueAt: finalDueISO,
@@ -285,8 +339,8 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
             customerId ||
             localStorage.getItem("stripeCustomerId") ||
             null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: nowIso,
+          updatedAt: nowIso,
         },
         "progress.yumYum.step": "tubacDessertThankYou",
       });
@@ -326,7 +380,13 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+            ? `You're paying $${Number(amountDueToday).toLocaleString(
+                undefined,
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }
+              )} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
@@ -353,33 +413,33 @@ const TubacDessertCheckout: React.FC<TubacDessertCheckoutProps> = ({
       });
 
       // 📧 Centralized booking email — Yum Dessert @ Tubac
-try {
-  await notifyBooking("yum_dessert", {
-    // who
-    user_email: user.email || "unknown@wedndone.com",
-    user_full_name: fullName,
+      try {
+        await notifyBooking("yum_dessert", {
+          // who
+          user_email: user.email || "unknown@wedndone.com",
+          user_full_name: fullName,
 
-    // details
-    wedding_date: weddingYMD || "TBD",
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems || []).join(", "),
+          // details
+          wedding_date: weddingYMD || "TBD",
+          total: totalEffective.toFixed(2),
+          line_items: (lineItems || []).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Yum Yum Dessert Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Yum Yum Dessert Agreement",
 
-    // payment breakdown
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Yum Yum Desserts",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Tubac Desserts",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+      }
 
       // UI fan-out
       window.dispatchEvent(new Event("purchaseMade"));
@@ -389,12 +449,15 @@ try {
           detail: { dessert: true },
         })
       );
+      window.dispatchEvent(new Event("documentsUpdated"));
 
       // Advance wizard
       const nextStep: TubacStep = "tubacDessertThankYou";
       try {
         localStorage.setItem("yumStep", nextStep);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       setStep(nextStep);
     } catch (err) {
       console.error("❌ [Tubac][DessertCheckout] finalize error:", err);
@@ -404,6 +467,41 @@ try {
   };
 
   // ===================== RENDER =====================
+  if (isGenerating) {
+    return (
+      <div className="pixie-overlay" style={overlayStyle}>
+        <div className="pixie-overlay-card" style={cardStyle}>
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="px-media"
+            style={{
+              width: "100%",
+              maxWidth: 350,
+              margin: "0 auto 12px",
+              display: "block",
+              borderRadius: 12,
+            }}
+          />
+          <p
+            style={{
+              fontSize: "1.05rem",
+              color: "#2c62ba",
+              textAlign: "center",
+              fontStyle: "italic",
+              margin: 0,
+            }}
+          >
+            Madge is icing your cake... one sec!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pixie-card pixie-card--modal">
       {/* 🩷 Pink X Close */}

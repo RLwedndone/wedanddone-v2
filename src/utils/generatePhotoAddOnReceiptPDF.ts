@@ -1,4 +1,3 @@
-// src/utils/generatePhotoAddOnReceiptPDF.ts
 import jsPDF from "jspdf";
 
 const MARGIN_X = 20;
@@ -26,10 +25,17 @@ const addFooter = (doc: jsPDF) => {
   });
 };
 
+const resetBodyStyle = (doc: jsPDF) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+};
+
 const ensureSpace = (doc: jsPDF, y: number, needed = 12) => {
   if (y + needed > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    resetBodyStyle(doc);
     return TOP_Y;
   }
   return y;
@@ -96,7 +102,7 @@ export const generatePhotoAddOnReceiptPDF = async ({
   doc.text("Photo Add-On Receipt", 105, 75, { align: "center" });
 
   let y = 90;
-  doc.setFontSize(12);
+  resetBodyStyle(doc);
 
   const prettyWedding = weddingDate ? toPrettyDate(weddingDate) : "TBD";
 
@@ -110,7 +116,14 @@ export const generatePhotoAddOnReceiptPDF = async ({
 
   doc.text(`Wedding Date: ${prettyWedding}`, MARGIN_X, y);
   y += LINE_GAP;
-  doc.text(`Total Add-On Cost: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X, y);
+  doc.text(
+    `Total Add-On Cost: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    MARGIN_X,
+    y
+  );
   y += LINE_GAP + PARA_GAP;
 
   // line items
@@ -119,7 +132,7 @@ export const generatePhotoAddOnReceiptPDF = async ({
     doc.setFontSize(14);
     doc.text("Included Items:", MARGIN_X, y);
     y += PARA_GAP;
-    doc.setFontSize(12);
+    resetBodyStyle(doc);
 
     for (const item of lineItems) {
       const wrapped = doc.splitTextToSize(`• ${item}`, 170);
@@ -135,7 +148,14 @@ export const generatePhotoAddOnReceiptPDF = async ({
   // payment summary
   y = ensureSpace(doc, y, LINE_GAP * 3 + PARA_GAP);
   doc.setFontSize(12);
-  doc.text(`Paid today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} on ${purchaseDate}`, MARGIN_X, y);
+  doc.text(
+    `Paid today: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} on ${purchaseDate}`,
+    MARGIN_X,
+    y
+  );
   y += LINE_GAP * 2;
 
   doc.text(

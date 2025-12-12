@@ -71,7 +71,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
 
 /* ---------- Types ---------- */
 interface VicVerradoPDFOptions {
-  venueName?: "The Vic" | "The Verrado"; // NEW (optional but recommended)
+  venueName?: "The Vic" | "The Verrado";
   fullName: string;
   total: number;
   /** dollars: include when user chose monthly plan; 0 or omit for pay-in-full */
@@ -89,10 +89,10 @@ interface VicVerradoPDFOptions {
     hors?: string[];
     salads?: string[];
     entrees?: string[];
-    starch?: string[];      // canonical
-    veg?: string[];         // canonical
-    starches?: string[];    // alias accepted but normalized
-    vegetables?: string[];  // alias accepted but normalized
+    starch?: string[];
+    veg?: string[];
+    starches?: string[];
+    vegetables?: string[];
   };
 }
 
@@ -159,6 +159,7 @@ const generateVicVerradoAgreementPDF = async ({
 
   // Header basics
   doc.setFontSize(12);
+  doc.setTextColor(0);
   let y = 90;
   doc.text(`Name: ${fullName}`, MARGIN_X, y); y += LINE_GAP;
   doc.text(`Wedding Date: ${prettyWedding}`, MARGIN_X, y); y += LINE_GAP;
@@ -171,6 +172,7 @@ const generateVicVerradoAgreementPDF = async ({
   if (lineItems.length || hors.length || salads.length || entrees.length || starch.length || veg.length) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", MARGIN_X, y);
     y += PARA_GAP;
     doc.setFontSize(12);
@@ -222,19 +224,40 @@ const generateVicVerradoAgreementPDF = async ({
   }
 
   if (deposit > 0 && deposit < total) {
-    doc.text(`Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      MARGIN_X + 5,
+      y
+    );
+    y += LINE_GAP;
     if (dueByPretty) {
-      doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y); y += LINE_GAP;
+      doc.text(`Remaining balance due by: ${dueByPretty}`, MARGIN_X + 5, y);
+      y += LINE_GAP;
     }
   } else {
-    doc.text(`Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, y); y += LINE_GAP;
+    doc.text(
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      MARGIN_X + 5,
+      y
+    );
+    y += LINE_GAP;
   }
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, y);
   y += PARA_GAP;
 
   // Venue-specific reminder (matches contract banner)
   {
-    const banner = `Reminder: Your catering selections count toward the $8,000 food & beverage minimum at ${venueName || "the venue"}. Alcohol and bar packages are booked directly with ${venueName || "the venue"} in accordance with Arizona liquor laws.`;
+    const banner = `Reminder: Your catering selections count toward the $8,000 food & beverage minimum at ${
+      venueName || "the venue"
+    }. Alcohol and bar packages are booked directly with ${
+      venueName || "the venue"
+    } in accordance with Arizona liquor laws.`;
     const lines = doc.splitTextToSize(banner, 170);
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
@@ -244,13 +267,15 @@ const generateVicVerradoAgreementPDF = async ({
     y += 4;
   }
 
-  // Agreement terms — EXACT wording from the contract screen
+  // Agreement terms — mirror contract Booking Terms
   const writeParagraph = (title: string, text: string) => {
     y = ensureSpace(doc, y, PARA_GAP);
+    doc.setTextColor(0);
     doc.setFontSize(13);
     doc.text(title, MARGIN_X, y);
     y += LINE_GAP;
     doc.setFontSize(12);
+    doc.setTextColor(0);
     const lines = doc.splitTextToSize(text, 170);
     for (const ln of lines) {
       y = ensureSpace(doc, y, LINE_GAP);
@@ -260,31 +285,46 @@ const generateVicVerradoAgreementPDF = async ({
     y += 2;
   };
 
-  // Key terms (as shown on screen)
+  // 1) Payment, guest count, bar packages
   writeParagraph(
-    "Key terms",
-    `Final balance due by ${dueByPretty || "TBD"} (35 days before your wedding). Choose pay in full, or 25% deposit now + monthly installments until the due date. Final guest counts lock 30 days before your wedding.`
+    "Payment, guest count & bar packages",
+    `You may pay your catering total in full today, or place a non-refundable deposit and pay the remaining balance in monthly installments. The full balance must be paid 35 days before your wedding date; any unpaid balance on that date will be automatically charged. Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days before your wedding, but the count cannot be lowered after booking. All alcohol and bar packages are booked directly with the venue per Arizona liquor laws; Wed&Done is not responsible for bar service or alcohol provision.`
   );
 
-  // Agreement terms (verbatim to the contract screen)
+  // 2) Cancellation & refunds
   writeParagraph(
     "Cancellation & refunds",
-    "A minimum of 25% of the catering total is non-refundable. If you cancel more than 30 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. If you cancel within 30 days, all payments are non-refundable. Reschedules are subject to availability and any difference in costs."
+    "If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. Within 35 days of your wedding date, all payments are non-refundable. Reschedules are subject to availability and any difference in costs."
   );
 
+  // 3) Missed payments
   writeParagraph(
-    "Payments & default",
-    "Missed installments will be automatically re-attempted. If payment is not received within 7 days, a $25 late fee may apply; after 14 days, services may be suspended and the agreement may be placed in default."
+    "Missed payments",
+    "We’ll automatically retry your card if an installment fails. After 7 days without successful payment, a $25 late fee may apply; after 14 days, services may be suspended and this agreement may be placed in default."
   );
 
+  // 4) Card authorization & saved card
   writeParagraph(
-    "Substitutions & liability",
-    "Comparable substitutions may be made if an item is unavailable. Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages. Liability is limited to amounts paid for catering services under this agreement."
+    "Card authorization & saved card",
+    "By completing this booking, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for installment payments, remaining balances under this agreement, and any future Wed&Done bookings you choose to make. Your card details are encrypted and handled by Stripe, and you may update or replace your saved card at any time from your Wed&Done account."
   );
 
+  // 5) Food safety & venue policies
+  writeParagraph(
+    "Food safety & venue policies",
+    "We will follow standard food-safety guidelines and comply with venue rules, which may limit service or display options. If an item becomes unavailable, a comparable substitution may be made where possible and appropriate."
+  );
+
+  // 6) Force majeure
   writeParagraph(
     "Force majeure",
-    "Neither party is liable for failure or delay caused by events beyond reasonable control. We’ll work in good faith to reschedule; if that’s not possible, amounts paid beyond non-recoverable costs will be refunded."
+    "Neither party is liable for failure or delay caused by events beyond reasonable control (for example, natural disasters, government actions, labor disputes, epidemics or pandemics, or utility outages). We’ll work in good faith to reschedule; if that’s not possible, amounts paid beyond non-recoverable costs already incurred will be refunded."
+  );
+
+  // 7) Liability
+  writeParagraph(
+    "Liability",
+    "In the unlikely event of our cancellation or a service issue that is solely our responsibility, liability is limited to a refund of payments made for catering services under this agreement."
   );
 
   // Signature block (end of doc)

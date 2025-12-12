@@ -1,4 +1,3 @@
-// src/components/planner/PlannerContract.tsx
 import React, { useEffect, useState, useRef } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { auth, db } from "../../firebase/firebaseConfig";
@@ -19,7 +18,7 @@ interface PlannerContractProps {
   setSignatureSubmitted: (val: boolean) => void;
   onContinue: () => void;
   onBack: () => void;
-  onClose: () => void; 
+  onClose: () => void;
 }
 
 const FINAL_DUE_DAYS = 35;
@@ -80,7 +79,11 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     : "your wedding date";
 
   // ---- money math in cents (no float bleed) ----
-  const fmtUSD = (cents: number) => `$${Number((cents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  const fmtUSD = (cents: number) =>
+    `$${Number(cents / 100).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   const grandTotalCents = Math.max(0, Math.round((bookingData.total || 0) * 100));
   const depositCents = Math.min(grandTotalCents, DEPOSIT_DOLLARS * 100);
@@ -92,21 +95,31 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     : null;
 
   const finalDuePretty = finalDue
-    ? finalDue.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    ? finalDue.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "";
 
   const today = new Date();
   function monthsBetweenInclusive(from: Date, to: Date) {
     const a = new Date(from.getFullYear(), from.getMonth(), 1);
     const b = new Date(to.getFullYear(), to.getMonth(), 1);
-    let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    let months =
+      (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
     if (to.getDate() >= from.getDate()) months += 1;
     return Math.max(1, months);
   }
 
-  const planMonths = weddingDateObj && finalDue ? monthsBetweenInclusive(today, finalDue) : 1;
-  const perMonthCents = planMonths > 0 ? Math.floor(remainingCents / planMonths) : remainingCents;
-  const lastPaymentCents = Math.max(0, remainingCents - perMonthCents * Math.max(0, planMonths - 1));
+  const planMonths =
+    weddingDateObj && finalDue ? monthsBetweenInclusive(today, finalDue) : 1;
+  const perMonthCents =
+    planMonths > 0 ? Math.floor(remainingCents / planMonths) : remainingCents;
+  const lastPaymentCents = Math.max(
+    0,
+    remainingCents - perMonthCents * Math.max(0, planMonths - 1)
+  );
 
   // ---- signature helpers ----
   const generateImageFromText = (text: string): string => {
@@ -144,7 +157,9 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
         }
       } catch {
         try {
-          finalSignature = (sc.getCanvas() as HTMLCanvasElement).toDataURL("image/png");
+          finalSignature = (sc.getCanvas() as HTMLCanvasElement).toDataURL(
+            "image/png"
+          );
         } catch {
           alert("Something went wrong when capturing your signature. Try again!");
           return;
@@ -155,7 +170,9 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
       return;
     }
 
-    try { localStorage.setItem("plannerSignature", finalSignature); } catch {}
+    try {
+      localStorage.setItem("plannerSignature", finalSignature);
+    } catch {}
     setSignatureImage(finalSignature);
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
@@ -191,9 +208,12 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
   return (
     <div className="pixie-card">
       {/* 🩷 Pink X — closes the planner overlay */}
-<button className="pixie-card__close" onClick={onClose} aria-label="Close">
-  <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-</button>
+      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
 
       <div className="pixie-card__body">
         <div className="px-center">
@@ -211,13 +231,17 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
           </h2>
 
           {/* Lead copy */}
-          <p className="px-prose-narrow" style={{ marginBottom: hasDate ? "1rem" : 8 }}>
+          <p
+            className="px-prose-narrow"
+            style={{ marginBottom: hasDate ? "1rem" : 8 }}
+          >
             You’re booking planning services for <strong>{formattedDate}</strong>
-            {dayOfWeek ? ` (${dayOfWeek})` : ""} for <strong>{finalGuestCount} guests</strong>.
-            The total is <strong>{fmtUSD(grandTotalCents)}</strong>.
+            {dayOfWeek ? ` (${dayOfWeek})` : ""} for{" "}
+            <strong>{finalGuestCount} guests</strong>. The total is{" "}
+            <strong>{fmtUSD(grandTotalCents)}</strong>.
           </p>
 
-          {/* No-date note (matches Floral pattern) */}
+          {/* No-date note */}
           {!hasDate && (
             <div
               className="px-note"
@@ -230,13 +254,17 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 fontSize: ".95rem",
               }}
             >
-              Add your wedding date anytime—your final balance will be due {FINAL_DUE_DAYS} days before it.
+              Add your wedding date anytime—your final balance will be due{" "}
+              {FINAL_DUE_DAYS} days before it.
             </div>
           )}
 
-          {/* Booking Terms (Planner-specific) */}
+          {/* Booking Terms */}
           <div className="px-section" style={{ maxWidth: 620 }}>
-            <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
+            <h3
+              className="px-title-lg"
+              style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
+            >
               Booking Terms
             </h3>
             <ul
@@ -249,88 +277,111 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 paddingLeft: "1.25rem",
               }}
             >
+              <li>
+                You may pay in full today or make a ${DEPOSIT_DOLLARS}{" "}
+                non-refundable deposit. Any remaining balance will be divided
+                into monthly installments and must be fully paid{" "}
+                <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+                Any unpaid balance on that date will be automatically charged.
+              </li>
 
-<li>
-  You may pay in full today or make a ${DEPOSIT_DOLLARS} non-refundable deposit.
-  Any remaining balance will be divided into monthly installments and must be 
-  fully paid <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
-</li>
+              <li>
+                By signing, you authorize Wed&amp;Done to securely store your
+                payment method and automatically process scheduled payments,
+                including add-ons or increases to your guest count that you
+                approve during planning.
+              </li>
 
-<li>
-  By signing, you authorize Wed&amp;Done to securely store your payment method and
-  automatically process scheduled payments, including add-ons or increases to
-  your guest count that you approve during planning.
-</li>
               <li>
-                <strong>Refunds & Cancellations:</strong> At minimum, ${DEPOSIT_DOLLARS} is non-refundable. If you cancel
-                more than {FINAL_DUE_DAYS} days prior, amounts paid beyond the non-refundable portion are refundable
-                (less non-recoverable costs already incurred). Cancel ≤{FINAL_DUE_DAYS} days: payments are non-refundable.
+                <strong>Refunds &amp; Cancellations:</strong> At minimum, $
+                {DEPOSIT_DOLLARS} is non-refundable. If you cancel more than{" "}
+                {FINAL_DUE_DAYS} days prior, amounts paid beyond the
+                non-refundable portion are refundable (less non-recoverable
+                costs already incurred). Cancel &le;{FINAL_DUE_DAYS} days:
+                payments are non-refundable.
               </li>
               <br />
               <li>
-                <strong>Rescheduling:</strong> May be possible based on vendor availability and may incur additional fees.
+                <strong>Rescheduling:</strong> May be possible based on vendor
+                availability and may incur additional fees.
               </li>
               <br />
               <li>
-                <strong>Missed Payments:</strong> We’ll retry your card automatically. After 7 days a $25 late fee may
-                apply; after 14 days, services may be suspended and the agreement may be in default (amounts paid, incl.
-                the deposit, may be retained).
+                <strong>Missed Payments:</strong> We’ll retry your card
+                automatically. After 7 days a $25 late fee may apply; after 14
+                days, services may be suspended and the agreement may be in
+                default (amounts paid, incl. the deposit, may be retained).
               </li>
               <br />
               <li>
-                <strong>Liability & Substitutions:</strong> Wed&amp;Done isn’t responsible for venue restrictions or
-                consequential damages. Reasonable substitutions may be made as needed. Liability is limited to amounts
-                paid for coordination services under this agreement.
+                <strong>Liability &amp; Substitutions:</strong> Wed&amp;Done
+                isn’t responsible for venue restrictions or consequential
+                damages. Reasonable substitutions may be made as needed.
+                Liability is limited to amounts paid for coordination services
+                under this agreement.
               </li>
               <br />
               <li>
-                <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control. We’ll work
-                in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs.
+                <strong>Force Majeure:</strong> Neither party is liable for
+                delays beyond reasonable control. We’ll work in good faith to
+                reschedule; if not possible, we’ll refund amounts paid beyond
+                non-recoverable costs.
               </li>
             </ul>
           </div>
 
-          {/* Pay plan toggle (Floral-style) */}
-          <h4 className="px-title" style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
+          {/* Pay plan toggle */}
+          <h4
+            className="px-title"
+            style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
+          >
             Choose how you’d like to pay:
           </h4>
           <div className="px-toggle" style={{ marginBottom: 12 }}>
             <button
               type="button"
-              className={`px-toggle__btn ${payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""}`}
+              className={`px-toggle__btn ${
+                payFull ? "px-toggle__btn--blue px-toggle__btn--active" : ""
+              }`}
               style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
               onClick={() => {
                 setPayFull(true);
                 setSignatureSubmitted(false);
-                try { localStorage.setItem("plannerPayPlan", "full"); } catch {}
+                try {
+                  localStorage.setItem("plannerPayPlan", "full");
+                } catch {}
               }}
             >
               Pay Full Amount
             </button>
             <button
               type="button"
-              className={`px-toggle__btn ${!payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""}`}
+              className={`px-toggle__btn ${
+                !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+              }`}
               style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
               onClick={() => {
                 setPayFull(false);
                 setSignatureSubmitted(false);
-                try { localStorage.setItem("plannerPayPlan", "monthly"); } catch {}
+                try {
+                  localStorage.setItem("plannerPayPlan", "monthly");
+                } catch {}
               }}
             >
               ${DEPOSIT_DOLLARS} Deposit + Monthly
             </button>
           </div>
 
-                    {/* One-line summary (Floral-style) */}
-                    <p className="px-prose-narrow" style={{ marginTop: 4 }}>
+          {/* One-line summary */}
+          <p className="px-prose-narrow" style={{ marginTop: 4 }}>
             {payFull ? (
               <>
                 You’re paying <strong>{fmtUSD(grandTotalCents)}</strong> today.
               </>
             ) : (
               <>
-                You’re paying <strong>{fmtUSD(depositCents)}</strong> today, then about{" "}
-                <strong>{fmtUSD(perMonthCents)}</strong> monthly
+                You’re paying <strong>{fmtUSD(depositCents)}</strong> today,
+                then about <strong>{fmtUSD(perMonthCents)}</strong> monthly
                 {finalDuePretty ? (
                   <>
                     {" "}
@@ -351,7 +402,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
             )}
           </p>
 
-          {/* 🔔 REQUIRED: auto-pay warning for monthly plan */}
+          {/* Auto-pay warning */}
           {!payFull && (
             <div
               style={{
@@ -368,8 +419,10 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 marginInline: "auto",
               }}
             >
-              <strong>Heads up:</strong> Choosing the deposit + monthly option means your saved card will be{" "}
-              <strong>automatically charged each month</strong> for your planner plan until the balance is paid in full
+              <strong>Heads up:</strong> Choosing the deposit + monthly option
+              means your saved card will be{" "}
+              <strong>automatically charged each month</strong> for your planner
+              plan until the balance is paid in full
               {finalDuePretty ? (
                 <>
                   {" "}
@@ -378,15 +431,20 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
               ) : (
                 <>
                   {" "}
-                  by <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
+                  by{" "}
+                  <strong>
+                    {FINAL_DUE_DAYS} days before your wedding date
+                  </strong>
+                  .
                 </>
               )}{" "}
-              You can update your card-n-file in your Wed&amp;Done dashboard. If you’d prefer to pay with a different card, choose
-              “Pay Full Amount” instead.
+              You can update your card on file in your Wed&amp;Done dashboard.
+              If you’d prefer to pay with a different card, choose “Pay Full
+              Amount” instead.
             </div>
           )}
 
-          {/* Agree + Sign/Continue */}
+          {/* Agree + Sign / Continue */}
           <div style={{ margin: "0.75rem 0 0.5rem" }}>
             <label>
               <input
@@ -399,69 +457,90 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
             </label>
           </div>
 
-<div className="px-cta-col" style={{ marginTop: 8 }}>
-  {/* SIGN OR CONTINUE BUTTON */}
-  {!signatureSubmitted ? (
-    <button
-      className="boutique-primary-btn"
-      onClick={() => agreeChecked && setShowSignatureModal(true)}
-      disabled={!agreeChecked}
-      style={{ width: 260 }}
-    >
-      Sign Contract
-    </button>
-  ) : (
-    <>
-      <img
-        src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
-        alt="Signed"
-        style={{ width: 120, marginBottom: 4 }}
-      />
-      <button
-        className="boutique-primary-btn"
-        onClick={() => {
-          try {
-            localStorage.setItem("plannerPaymentPlan", payFull ? "full" : "monthly");
-            localStorage.setItem("plannerTotalCents", String(grandTotalCents));
-            localStorage.setItem("plannerDepositCents", String(depositCents));
-            localStorage.setItem("plannerRemainingCents", String(remainingCents));
-            localStorage.setItem(
-              "plannerFinalDueAt",
-              finalDue
-                ? new Date(
-                    Date.UTC(
-                      finalDue.getUTCFullYear(),
-                      finalDue.getUTCMonth(),
-                      finalDue.getUTCDate(),
-                      0, 0, 1
-                    )
-                  ).toISOString()
-                : ""
-            );
-            localStorage.setItem("plannerPlanMonths", String(planMonths));
-            localStorage.setItem("plannerPerMonthCents", String(perMonthCents));
-            localStorage.setItem("plannerLastPaymentCents", String(lastPaymentCents));
-          } catch {}
-          onContinue();
-        }}
-        style={{ width: 260 }}
-      >
-        Continue to Checkout
-      </button>
-    </>
-  )}
+          <div className="px-cta-col" style={{ marginTop: 8 }}>
+            {!signatureSubmitted ? (
+              <button
+                className="boutique-primary-btn"
+                onClick={() => agreeChecked && setShowSignatureModal(true)}
+                disabled={!agreeChecked}
+                style={{ width: 260 }}
+              >
+                Sign Contract
+              </button>
+            ) : (
+              <>
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/images/contract_signed.png`}
+                  alt="Signed"
+                  style={{ width: 120, marginBottom: 4 }}
+                />
+                <button
+                  className="boutique-primary-btn"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem(
+                        "plannerPaymentPlan",
+                        payFull ? "full" : "monthly"
+                      );
+                      localStorage.setItem(
+                        "plannerTotalCents",
+                        String(grandTotalCents)
+                      );
+                      localStorage.setItem(
+                        "plannerDepositCents",
+                        String(depositCents)
+                      );
+                      localStorage.setItem(
+                        "plannerRemainingCents",
+                        String(remainingCents)
+                      );
+                      localStorage.setItem(
+                        "plannerFinalDueAt",
+                        finalDue
+                          ? new Date(
+                              Date.UTC(
+                                finalDue.getUTCFullYear(),
+                                finalDue.getUTCMonth(),
+                                finalDue.getUTCDate(),
+                                0,
+                                0,
+                                1
+                              )
+                            ).toISOString()
+                          : ""
+                      );
+                      localStorage.setItem(
+                        "plannerPlanMonths",
+                        String(planMonths)
+                      );
+                      localStorage.setItem(
+                        "plannerPerMonthCents",
+                        String(perMonthCents)
+                      );
+                      localStorage.setItem(
+                        "plannerLastPaymentCents",
+                        String(lastPaymentCents)
+                      );
+                    } catch {}
+                    onContinue();
+                  }}
+                  style={{ width: 260 }}
+                >
+                  Continue to Checkout
+                </button>
+              </>
+            )}
 
-  {/* ALWAYS-VISIBLE BACK BUTTON, STACKED BELOW */}
-  <button
-    className="boutique-back-btn"
-    onClick={onBack}
-    style={{ width: 260, marginTop: 10 }}
-  >
-    ⬅ Back to Cart
-  </button>
-</div>
+            <button
+              className="boutique-back-btn"
+              onClick={onBack}
+              style={{ width: 260, marginTop: 10 }}
+            >
+              ⬅ Back to Cart
+            </button>
+          </div>
 
-          {/* Signature modal (Floral-style mini overlay) */}
+          {/* Signature modal */}
           {showSignatureModal && (
             <div
               style={{
@@ -484,11 +563,21 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                   textAlign: "center",
                 }}
               >
-                <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: "1rem" }}>
+                <h3
+                  className="px-title-lg"
+                  style={{ fontSize: "1.8rem", marginBottom: "1rem" }}
+                >
                   Sign below or enter your text signature
                 </h3>
 
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: 8,
+                    marginBottom: 12,
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => setUseTextSignature(false)}
@@ -557,7 +646,10 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 )}
 
                 <div className="px-cta-col" style={{ marginTop: 8 }}>
-                  <button className="boutique-primary-btn" onClick={handleSignatureSubmit}>
+                  <button
+                    className="boutique-primary-btn"
+                    onClick={handleSignatureSubmit}
+                  >
                     Save Signature
                   </button>
                   <button

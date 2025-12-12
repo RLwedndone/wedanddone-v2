@@ -24,21 +24,28 @@ export const generateDessertAddOnReceiptPDF = async ({
   purchaseDate,
 }: AddOnReceiptParams): Promise<Blob> => {
   const pdf = new jsPDF();
+  const pageH = pdf.internal.pageSize.getHeight();
 
   // ---------- Helpers ----------
+  const resetBodyStyle = () => {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(12);
+    pdf.setTextColor(0);
+  };
+
   const drawFooter = () => {
-    const pageH = pdf.internal.pageSize.getHeight();
     const footerTextY = pageH - 12;
     const footerLineY = footerTextY - 8;
     pdf.setDrawColor(200);
     pdf.line(20, footerLineY, 190, footerLineY);
     pdf.setFontSize(10);
     pdf.setTextColor(120);
-    pdf.text("Magically booked by Wed&Done", 105, footerTextY, { align: "center" });
+    pdf.text("Magically booked by Wed&Done", 105, footerTextY, {
+      align: "center",
+    });
   };
 
   const contentMaxY = () => {
-    const pageH = pdf.internal.pageSize.getHeight();
     return pageH - 12 - 8 - 10; // footerTextY - gap - padding
   };
 
@@ -50,6 +57,7 @@ export const generateDessertAddOnReceiptPDF = async ({
     drawFooter();
     pdf.addPage();
     y = 20;
+    resetBodyStyle();
   };
 
   // Date formatting (only if parseable)
@@ -68,13 +76,13 @@ export const generateDessertAddOnReceiptPDF = async ({
   try {
     // 🍰 Load both images
     const [bgImg, logoImg] = await Promise.all([
-      loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.png`),
+      loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
       loadImage(`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`),
     ]);
 
     // 📐 Centered background graphic (watermark)
     const bgSize = 120;
-    pdf.addImage(bgImg, "PNG", (210 - bgSize) / 2, 60, bgSize, bgSize);
+    pdf.addImage(bgImg, "JPEG", (210 - bgSize) / 2, 60, bgSize, bgSize);
 
     // 🍭 Logo at the top
     const logoSize = 30;
@@ -88,13 +96,13 @@ export const generateDessertAddOnReceiptPDF = async ({
   pdf.setFontSize(22);
   pdf.setTextColor(44, 98, 186);
   ensureSpace(30);
-  pdf.text("Dessert Add‑On Receipt", 105, 100, { align: "center" });
+  pdf.text("Dessert Add-On Receipt", 105, 100, { align: "center" });
   y = 115;
 
-  // Buyer name (optional but nice)
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.setTextColor(50);
+  // Body defaults
+  resetBodyStyle();
+
+  // Buyer name
   ensureSpace(8);
   pdf.text(`Name: ${fullName}`, 30, y);
   y += 10;
@@ -107,6 +115,7 @@ export const generateDessertAddOnReceiptPDF = async ({
     pdf.text("Included Items:", 30, y);
     y += 10;
 
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(12);
     pdf.setTextColor(50);
     for (const item of lineItems) {
@@ -121,7 +130,14 @@ export const generateDessertAddOnReceiptPDF = async ({
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0);
   ensureSpace(8);
-  pdf.text(`Total Add‑On Amount Paid: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, 30, y);
+  pdf.text(
+    `Total Add-On Amount Paid: $${Number(total).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    30,
+    y
+  );
   y += 10;
 
   // 📅 Date

@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Schnepf/SchnepfDessertCheckout.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 import { getAuth } from "firebase/auth";
 import {
@@ -72,6 +72,7 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+  const didRunRef = useRef(false);
 
   // We'll also grab first/last name once so we can pass to CheckoutForm nicely
   const [firstName, setFirstName] = useState("Magic");
@@ -143,14 +144,29 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
   const amountDueToday = usingFull ? totalEffective : depositAmount;
 
   const paymentMessage = usingFull
-    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
         2
       )} (final due ${finalDuePretty}).`;
 
-  const handleSuccess = async (): Promise<void> => {
+  const handleSuccess = async ({
+    customerId,
+  }: {
+    customerId?: string;
+  } = {}): Promise<void> => {
+    if (didRunRef.current) {
+      console.warn(
+        "[SchnepfDessertCheckout] handleSuccess already ran — ignoring re-entry"
+      );
+      return;
+    }
+    didRunRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -161,8 +177,27 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.exists() ? (snap.data() as any) : {};
-      const fullName = `${userDoc?.firstName || "Magic"} ${userDoc?.lastName || "User"}`;
+      const fullName = `${userDoc?.firstName || "Magic"} ${
+        userDoc?.lastName || "User"
+      }`;
       const weddingYMD: string | null = userDoc?.weddingDate || null;
+
+      // store stripeCustomerId for later auto-pay pulls
+      try {
+        if (customerId && customerId !== userDoc?.stripeCustomerId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not save stripeCustomerId:", e);
+      }
 
       // Final due date = wedding - 35 days
       const wedding = parseLocalYMD(weddingYMD || "");
@@ -212,28 +247,39 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
         localStorage.setItem("schnepfDessertsBooked", "true");
         localStorage.setItem("schnepfYumStep", "schnepfDessertThankYou");
         localStorage.setItem("yumStep", "schnepfDessertThankYou");
-      } catch {}
+      } catch {
+        /* ignore */
+      }
+
+      const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
+      const contractTotalRounded = Number(totalEffective.toFixed(2));
 
       const purchaseEntry = {
         label: "Yum Yum Desserts",
         category: "dessert",
         boutique: "dessert",
         source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(totalEffective.toFixed(2)),
+        amount: amountDueTodayRounded,
+        amountChargedToday: amountDueTodayRounded,
+        contractTotal: contractTotalRounded,
         payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
+        deposit: usingFull ? 0 : amountDueTodayRounded,
+        monthlyAmount: usingFull ? 0 : +perMonth.toFixed(2),
         months: usingFull ? 0 : mths,
         method: usingFull ? "paid_in_full" : "deposit",
         items: lineItems,
         date: new Date().toISOString(),
       };
 
+      const totalCents = Math.round(totalEffective * 100);
+      const depositCents = Math.round((usingFull ? 0 : amountDueToday) * 100);
+      const remainingCents = Math.round((usingFull ? 0 : remainingBalance) * 100);
+
       await updateDoc(userRef, {
         purchases: arrayUnion(purchaseEntry),
-        spendTotal: increment(Number(amountDueToday.toFixed(2))),
+        spendTotal: increment(amountDueTodayRounded),
+
+        // human-readable dessert plan snapshot
         paymentPlan: {
           product: "dessert",
           type: usingFull ? "paid_in_full" : "deposit",
@@ -245,9 +291,11 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
           finalDueAt: finalDueISO,
           createdAt: new Date().toISOString(),
         },
+
+        // robot-friendly dessert auto-pay snapshot
         paymentPlanAuto: {
           version: 1,
-          product: "dessert",
+          product: "dessert_schnepf",
           status: usingFull
             ? "complete"
             : remainingBalance > 0
@@ -255,21 +303,22 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
             : "complete",
           strategy: usingFull ? "paid_in_full" : "monthly_until_final",
           currency: "usd",
-          totalCents: Math.round(totalEffective * 100),
-          depositCents: Math.round((usingFull ? 0 : amountDueToday) * 100),
-          remainingCents: Math.round(
-            (usingFull ? 0 : remainingBalance) * 100
-          ),
+          totalCents,
+          depositCents,
+          remainingCents,
           planMonths: usingFull ? 0 : mths,
           perMonthCents: usingFull ? 0 : perMonthCents,
           lastPaymentCents: usingFull ? 0 : lastPaymentCents,
           nextChargeAt: usingFull ? null : nextChargeAtISO,
           finalDueAt: finalDueISO,
           stripeCustomerId:
-            localStorage.getItem("stripeCustomerId") || null,
+            customerId ||
+            localStorage.getItem("stripeCustomerId") ||
+            null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
+
         // progress snapshot so TY screen shows correctly
         "progress.yumYum.step": "schnepfDessertThankYou",
       });
@@ -280,11 +329,9 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
         {
           booked: true,
           guestCountAtBooking: guestCount,
-          totalBooked: Number(totalEffective.toFixed(2)),
+          totalBooked: contractTotalRounded,
           perGuest:
-            guestCount > 0
-              ? Number((totalEffective / guestCount).toFixed(2))
-              : 0,
+            guestCount > 0 ? Number((totalEffective / guestCount).toFixed(2)) : 0,
           venueId: "schnepf",
           style: selectedStyle || null,
           flavorCombo: selectedFlavorCombo || null,
@@ -310,7 +357,10 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+            ? `You're paying $${Number(amountDueToday).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
@@ -337,39 +387,47 @@ const SchnepfDessertCheckout: React.FC<SchnepfDessertCheckoutProps> = ({
       });
 
       // 📧 Centralized booking email — Yum Dessert @ Schnepf
-try {
-  const current = getAuth().currentUser;
+      try {
+        const current = getAuth().currentUser;
 
-  const user_full_name = `${userDoc?.firstName || firstName || "Magic"} ${userDoc?.lastName || lastName || "User"}`;
-  const payment_now = amountDueToday.toFixed(2);
-  const remaining_balance = (Math.max(0, totalEffective - amountDueToday)).toFixed(2);
+        const user_full_name = `${userDoc?.firstName || firstName || "Magic"} ${
+          userDoc?.lastName || lastName || "User"
+        }`;
+        const payment_now = amountDueToday.toFixed(2);
+        const remaining_balance = Math.max(
+          0,
+          totalEffective - amountDueToday
+        ).toFixed(2);
 
-  await notifyBooking("yum_dessert", {
-    // who
-    user_email: current?.email || "unknown@wedndone.com",
-    user_full_name,
+        await notifyBooking("yum_dessert", {
+          // who
+          user_email:
+            current?.email || (userDoc?.email as string) || "unknown@wedndone.com",
+          user_full_name,
 
-    // details
-    wedding_date: (userDoc?.weddingDate || "TBD"),
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems || []).join(", "),
+          // details
+          wedding_date: userDoc?.weddingDate || "TBD",
+          total: totalEffective.toFixed(2),
+          line_items: (lineItems || []).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Yum Yum Dessert Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Yum Yum Dessert Agreement",
 
-    // payment breakdown
-    payment_now,
-    remaining_balance,
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now,
+          remaining_balance,
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Schnepf Desserts",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
+          product_name: "Schnepf Desserts",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
+      }
 
       setLocalGenerating(false);
 
@@ -379,6 +437,7 @@ try {
       window.dispatchEvent(
         new CustomEvent("bookingsChanged", { detail: { dessert: true } })
       );
+      window.dispatchEvent(new Event("documentsUpdated"));
 
       // Parent navigates to SchnepfDessertThankYou
       onComplete();
@@ -490,10 +549,7 @@ try {
           Dessert Checkout
         </h2>
 
-        <div
-          className="px-prose-narrow"
-          style={{ margin: "0 auto 16px" }}
-        >
+        <div className="px-prose-narrow" style={{ margin: "0 auto 16px" }}>
           <p>{paymentMessage}</p>
         </div>
 
@@ -502,7 +558,9 @@ try {
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
-            setStepSuccess={handleSuccess} // harmless passthrough
+            setStepSuccess={() => {
+              /* nav handled in onComplete after Firestore + PDF */
+            }}
             isAddon={false}
             customerEmail={getAuth().currentUser?.email || undefined}
             customerName={`${firstName || "Magic"} ${lastName || "User"}`}

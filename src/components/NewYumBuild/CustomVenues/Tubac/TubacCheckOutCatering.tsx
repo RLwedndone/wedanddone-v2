@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Tubac/TubacCheckOutCatering.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -60,6 +60,7 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+  const didRunRef = useRef(false);
 
   // Minimal user info for CheckoutForm display
   const [firstName, setFirstName] = useState("Magic");
@@ -92,22 +93,23 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
     Number(localStorage.getItem("yumCateringTotalCents")) ||
     Math.round(total * 100);
 
-  const depositCents = Number(
+  const depositCentsFromLs = Number(
     localStorage.getItem("yumCateringDepositAmount") || 0
   );
 
-  const planMonths = Number(
-    localStorage.getItem("yumCateringPlanMonths") || 0
-  );
-  const perMonthCents = Number(
-    localStorage.getItem("yumCateringPerMonthCents") || 0
-  );
-  const lastPaymentCents = Number(
-    localStorage.getItem("yumCateringLastPaymentCents") || 0
-  );
+  const planMonths =
+    Number(localStorage.getItem("yumCateringPlanMonths")) || 0;
+  const perMonthCents =
+    Number(localStorage.getItem("yumCateringPerMonthCents")) || 0;
+  const lastPaymentCents =
+    Number(localStorage.getItem("yumCateringLastPaymentCents")) || 0;
   const dueByISO = localStorage.getItem("yumCateringDueBy") || "";
 
-  const amountDueTodayCents = payFull ? totalCents : depositCents;
+  // Normalize what we actually charge right now
+  const amountDueTodayCents = payFull
+    ? totalCents
+    : depositCentsFromLs || Math.round(total * 0.25 * 100);
+
   const amountDueToday = round2(amountDueTodayCents / 100);
   const remainingBalance = round2(Math.max(0, total - amountDueToday));
 
@@ -117,7 +119,12 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
 
   // 🔹 explainer text above card box
   const summaryText = payFull
-    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+    ? `Total due today: $${Number(
+        amountDueTodayCents / 100
+      ).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
       )} (25%). Remaining $${remainingBalance.toFixed(
@@ -146,6 +153,14 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   }: {
     customerId?: string;
   } = {}) => {
+    if (didRunRef.current) {
+      console.warn(
+        "[TubacCheckOutCatering] handleSuccess already ran — ignoring re-entry"
+      );
+      return;
+    }
+    didRunRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -153,18 +168,25 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
     try {
       setLocalGenerating(true);
 
-      // Store/refresh Stripe customer id
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
       const userDoc = snap.data() || {};
-      if (customerId && customerId !== userDoc?.stripeCustomerId) {
-        await updateDoc(userRef, {
-          stripeCustomerId: customerId,
-          "stripe.updatedAt": serverTimestamp(),
-        });
-        try {
-          localStorage.setItem("stripeCustomerId", customerId);
-        } catch {}
+
+      // Store/refresh Stripe customer id
+      try {
+        if (customerId && customerId !== (userDoc as any)?.stripeCustomerId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (idErr) {
+        console.warn("⚠️ Could not update stripeCustomerId for Tubac:", idErr);
       }
 
       // Build hors list: prefer split arrays; fallback to combined
@@ -181,19 +203,27 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
         serviceOption === "plated" ? "Plated" : "Buffet"
       } (${tierLabel})`;
 
-      // Generate Tubac agreement PDF
+      const fullName = `${
+        (userDoc as any)?.firstName || firstName || "Magic"
+      } ${(userDoc as any)?.lastName || lastName || "User"}`;
+
+      const weddingDateStr =
+        (userDoc as any)?.weddingDate || "Your wedding date";
+
+      // Generate Tubac agreement PDF (use actual charged deposit)
       const pdfBlob = await generateYumAgreementPDF({
-        fullName: `${userDoc?.firstName || firstName} ${
-          userDoc?.lastName || lastName
-        }`,
+        fullName,
         total,
-        deposit: payFull ? 0 : round2(total * 0.25),
+        deposit: payFull ? 0 : amountDueToday,
         guestCount,
         charcuterieCount: 0,
-        weddingDate: userDoc?.weddingDate || "Your wedding date",
+        weddingDate: weddingDateStr,
         signatureImageUrl: signatureImageUrl || "",
         paymentSummary: payFull
-          ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+          ? `Paid in full today: $${Number(amountDueToday).toLocaleString(
+              undefined,
+              { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+            )}.`
           : `Deposit today: $${amountDueToday.toFixed(
               2
             )}. Remaining $${remainingBalance.toFixed(
@@ -232,15 +262,26 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
           service: serviceOption,
           tier: tierLabel,
           lineItems,
-          totalBooked: total,
+          totalBooked: Number(total.toFixed(2)),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
 
-      // Robot payment plan snapshot + user doc updates
+      // Normalized purchase + plan snapshots
       const purchaseDate = new Date().toISOString();
+      const amountNow = Number(amountDueToday.toFixed(2));
+      const contractTotalRounded = Number(total.toFixed(2));
+
+      const monthlyAmount = payFull ? 0 : round2(perMonthCents / 100);
+      const normalizedDepositCents = payFull
+        ? totalCents
+        : depositCentsFromLs || amountDueTodayCents;
+      const remainingCents = Math.max(0, totalCents - normalizedDepositCents);
+      const depositPercent =
+        totalCents > 0 ? normalizedDepositCents / totalCents : payFull ? 1 : 0.25;
+
       await updateDoc(userRef, {
         documents: arrayUnion({
           title: "Tubac Catering Agreement",
@@ -249,39 +290,46 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
         }),
 
         "bookings.catering": true,
-        dateLocked: true,
+        weddingDateLocked: true,
+        lastPurchaseAt: serverTimestamp(),
 
         purchases: arrayUnion({
-          label: "yum",
-          amount: Number(
-            (amountDueTodayCents / 100).toFixed(2)
-          ),
+          label: "Tubac Catering",
+          category: "catering",
+          boutique: "catering",
+          source: "W&D",
+          amount: amountNow,
+          amountChargedToday: amountNow,
+          contractTotal: contractTotalRounded,
+          payFull,
+          deposit: payFull ? 0 : amountNow,
+          monthlyAmount,
+          months: payFull ? 0 : planMonths,
+          method: payFull ? "paid_in_full" : "deposit",
+          items: lineItems,
           date: purchaseDate,
-          method: payFull ? "full" : "deposit",
         }),
 
-        spendTotal: increment(
-          Number((amountDueTodayCents / 100).toFixed(2))
-        ),
+        spendTotal: increment(amountNow),
 
         paymentPlan: payFull
           ? {
-              product: "yum",
-              type: "full",
+              product: "catering_tubac",
+              type: "paid_in_full",
               total,
-              paidNow: amountDueToday,
+              depositPercent: 1,
+              paidNow: amountNow,
               remainingBalance: 0,
               finalDueDate: null,
               finalDueAt: null,
-              depositPercent: 1,
               createdAt: purchaseDate,
             }
           : {
-              product: "yum",
+              product: "catering_tubac",
               type: "deposit",
               total,
-              depositPercent: 0.25,
-              paidNow: amountDueToday,
+              depositPercent,
+              paidNow: amountNow,
               remainingBalance,
               finalDueDate: finalDueDateStr,
               finalDueAt: dueByISO || null,
@@ -291,7 +339,7 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
         paymentPlanAuto: payFull
           ? {
               version: 1,
-              product: "yum",
+              product: "catering_tubac",
               status: "complete",
               strategy: "paid_in_full",
               currency: "usd",
@@ -315,16 +363,13 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
             }
           : {
               version: 1,
-              product: "yum",
-              status: "active",
+              product: "catering_tubac",
+              status: remainingCents > 0 ? "active" : "complete",
               strategy: "monthly_until_final",
               currency: "usd",
               totalCents,
-              depositCents,
-              remainingCents: Math.max(
-                0,
-                totalCents - depositCents
-              ),
+              depositCents: normalizedDepositCents,
+              remainingCents,
               planMonths,
               perMonthCents,
               lastPaymentCents,
@@ -347,54 +392,64 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
       });
 
       // 📧 Centralized booking email — Yum Catering @ Tubac
-try {
-  const authUser = getAuth().currentUser;
+      try {
+        const authUser = getAuth().currentUser;
 
-  const user_full_name = `${(userDoc as any)?.firstName || firstName || "Magic"} ${(userDoc as any)?.lastName || lastName || "User"}`;
-  const payment_now = amountDueToday.toFixed(2);
-  const remaining_balance = Math.max(0, total - amountDueToday).toFixed(2);
+        const user_full_name = fullName;
+        const payment_now = amountNow.toFixed(2);
+        const remaining_balance = Math.max(0, total - amountNow).toFixed(2);
 
-  await notifyBooking("yum_catering", {
-    // who
-    user_email: authUser?.email || "unknown@wedndone.com",
-    user_full_name,
+        await notifyBooking("yum_catering", {
+          // who
+          user_email:
+            authUser?.email ||
+            (userDoc as any)?.email ||
+            "unknown@wedndone.com",
+          user_full_name,
 
-    // details
-    wedding_date: (userDoc as any)?.weddingDate || "TBD",
-    total: total.toFixed(2),
-    line_items: (lineItems || []).join(", "),
+          // details
+          wedding_date: (userDoc as any)?.weddingDate || "TBD",
+          total: total.toFixed(2),
+          line_items: (lineItems || []).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Tubac Catering Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Tubac Catering Agreement",
 
-    // payment breakdown
-    payment_now,
-    remaining_balance,
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now,
+          remaining_balance,
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Tubac Catering",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
+          product_name: "Tubac Catering",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+      }
 
       try {
-        localStorage.setItem(
-          "yumStep",
-          "tubacCateringThankYou"
-        );
-      } catch {}
+        localStorage.setItem("yumStep", "tubacCateringThankYou");
+        localStorage.setItem("tubacCateringBooked", "true");
+        localStorage.setItem("tubacJustBookedCatering", "true");
+      } catch {
+        /* ignore */
+      }
 
+      // Global fan-out
+      window.dispatchEvent(new Event("purchaseMade"));
+      window.dispatchEvent(new Event("cateringCompletedNow"));
+      window.dispatchEvent(
+        new CustomEvent("bookingsChanged", { detail: { catering: true } })
+      );
       window.dispatchEvent(new Event("documentsUpdated"));
+
       onComplete();
     } catch (err) {
-      console.error(
-        "❌ Error in Tubac Catering checkout:",
-        err
-      );
+      console.error("❌ Error in Tubac Catering checkout:", err);
       alert(
         "Something went wrong saving your receipt. Please contact support."
       );
@@ -409,13 +464,6 @@ try {
         className="pixie-card pixie-card--modal"
         style={{ maxWidth: 720 }}
       >
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
-        </button>
         <div
           className="pixie-card__body"
           style={{ textAlign: "center" }}
@@ -454,7 +502,10 @@ try {
         onClick={onClose}
         aria-label="Close"
       >
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body">
@@ -494,21 +545,20 @@ try {
           {summaryText}
         </p>
 
-        {/* ✅ Stripe Card Entry (global StripeProvider wraps App now, so no <Elements>) */}
+        {/* ✅ Stripe Card Entry */}
         <div className="px-elements">
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
-            setStepSuccess={onComplete}
+            setStepSuccess={() => {
+              /* nav handled in handleSuccess → onComplete */
+            }}
             isAddon={false}
             customerEmail={getAuth().currentUser?.email || undefined}
             customerName={`${firstName || "Magic"} ${lastName || "User"}`}
             customerId={(() => {
               try {
-                return (
-                  localStorage.getItem("stripeCustomerId") ||
-                  undefined
-                );
+                return localStorage.getItem("stripeCustomerId") || undefined;
               } catch {
                 return undefined;
               }

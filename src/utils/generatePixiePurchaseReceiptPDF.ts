@@ -1,4 +1,3 @@
-// src/utils/generatePixiePurchaseReceiptPDF.ts
 import jsPDF from "jspdf";
 
 interface PixiePurchaseReceiptOptions {
@@ -82,12 +81,21 @@ export async function generatePixiePurchaseReceiptPDF(
     resetBodyTextStyle();
   };
 
+  // ---- UPDATED: supports "\n" properly ----
   const writeText = (text: string, x = MARGIN_L) => {
-    const lines = doc.splitTextToSize(text, CONTENT_W - (x - MARGIN_L));
-    for (const ln of lines) {
-      ensureSpace(LINE);
-      doc.text(ln, x, y);
-      y += LINE;
+    const paragraphs = text.split("\n");
+
+    for (const para of paragraphs) {
+      const lines = doc.splitTextToSize(
+        para,
+        CONTENT_W - (x - MARGIN_L)
+      ) as string[];
+
+      for (const ln of lines) {
+        ensureSpace(LINE);
+        doc.text(ln, x, y);
+        y += LINE;
+      }
     }
   };
 
@@ -113,10 +121,10 @@ export async function generatePixiePurchaseReceiptPDF(
     // rainbow logo at top
     doc.addImage(logo, "JPEG", 75, 10, 60, 60);
   } catch {
-    // if assets fail, just fall back to plain text — no crash
+    // ignore asset failures
   }
 
-  // ---- Header / title ----
+  // ---- Header ----
   doc.setFont("helvetica", "normal");
   doc.setFontSize(16);
   doc.setTextColor(0);
@@ -131,11 +139,13 @@ export async function generatePixiePurchaseReceiptPDF(
   resetBodyTextStyle();
   y = 90;
 
-  // Billed to + basics
   writeText(`Billed To: ${fullName}`);
   writeText(`Purchase Date: ${purchaseDate}`);
   writeText(
-    `Amount: ${currency.toUpperCase()} $${Number(amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`
+    `Amount: ${currency.toUpperCase()} $${Number(amount).toLocaleString(undefined,{
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
   );
 
   y += 4;
@@ -157,11 +167,14 @@ export async function generatePixiePurchaseReceiptPDF(
   y += GAP;
   resetBodyTextStyle();
 
-  const todayStr = purchaseDate; // already a pretty string
+  // ---- UPDATED: amount formatting consistent with all PDFs ----
+  const amountPretty = Number(amount).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   writeText(
-    `Status: Paid in full.\nPaid today: $${amount.toFixed(
-      2
-    )} on ${todayStr}.`
+    `Status: Paid in full.\nPaid today: $${amountPretty} on ${purchaseDate}.`
   );
 
   y += 4;
@@ -172,7 +185,6 @@ export async function generatePixiePurchaseReceiptPDF(
     "This Pixie Purchase has been recorded in your Wed&Done account and will appear in your Mag-O-Meter totals."
   );
 
-  // Footer on final page
   drawFooter();
 
   return doc.output("blob");

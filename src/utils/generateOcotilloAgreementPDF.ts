@@ -1,4 +1,3 @@
-// src/utils/generateOcotilloAgreementPDF.ts
 import jsPDF from "jspdf";
 
 /* ---------- Layout ---------- */
@@ -139,12 +138,20 @@ const generateOcotilloAgreementPDF = async ({
   const prettyWedding = toPrettyDate(weddingDate);
   const todayPretty = toPrettyDate(new Date().toISOString());
 
-  // due-by = wedding - 35 days (if we can parse)
+  // 🔁 Parse wedding date (pretty OR ISO) for due date math
   let dueByPretty = "";
+  let baseDate: Date | null = null;
   const ymd = /^\d{4}-\d{2}-\d{2}$/;
+
   if (ymd.test(weddingDate)) {
-    const d = new Date(`${weddingDate}T12:00:00`);
-    const dueBy = addDays(d, -35);
+    baseDate = new Date(`${weddingDate}T12:00:00`);
+  } else {
+    const tmp = new Date(weddingDate);
+    if (!isNaN(tmp.getTime())) baseDate = tmp;
+  }
+
+  if (baseDate) {
+    const dueBy = addDays(baseDate, -35);
     dueByPretty = toPrettyDate(dueBy.toISOString());
   }
 
@@ -225,7 +232,10 @@ const generateOcotilloAgreementPDF = async ({
 
   if (deposit > 0 && deposit < total) {
     doc.text(
-      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+      `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       MARGIN_X + 5,
       y
     );
@@ -237,10 +247,20 @@ const generateOcotilloAgreementPDF = async ({
         y
       );
       y += LINE_GAP;
+    } else {
+      doc.text(
+        "Remaining balance due 35 days before your wedding date.",
+        MARGIN_X + 5,
+        y
+      );
+      y += LINE_GAP;
     }
   } else {
     doc.text(
-      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+      `Total Paid in Full Today: $${Number(total).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       MARGIN_X + 5,
       y
     );
@@ -251,7 +271,7 @@ const generateOcotilloAgreementPDF = async ({
 
   // Venue-specific reminder
   {
-    // we highlight the 25% service charge here so it's captured in the PDF
+    // highlight the 25% service charge + bar handling
     const banner =
       "Reminder: Ocotillo includes a 25% service charge on food & beverage. Bar packages and alcohol are handled directly through Ocotillo per Arizona liquor laws.";
     const lines = doc.splitTextToSize(banner, 170);
@@ -263,7 +283,7 @@ const generateOcotilloAgreementPDF = async ({
     y += 4;
   }
 
-  // Agreement terms — mirrors what we show on the Ocotillo contract screen
+  // Agreement terms — now aligned with Ocotillo contract screen
   const writeParagraph = (title: string, text: string) => {
     y = ensureSpace(doc, y, PARA_GAP);
     doc.setFontSize(13);
@@ -279,30 +299,41 @@ const generateOcotilloAgreementPDF = async ({
     y += 2;
   };
 
-  // Key terms (based on our shared contract text)
+  const keyTermsText = (() => {
+    const dueSentence = dueByPretty
+      ? `Final balance is due by ${dueByPretty} (35 days before your wedding date).`
+      : "Final balance is due 35 days before your wedding date.";
+    return (
+      `${dueSentence} You may pay your Ocotillo catering total in full today, or place a 25% non-refundable deposit and pay the remaining balance in monthly installments so that the full catering amount is paid by that date. Any unpaid balance on that due date will be automatically charged. ` +
+      "Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days before your wedding, but the count cannot be lowered after booking."
+    );
+  })();
+
+  writeParagraph("Key terms", keyTermsText);
+
   writeParagraph(
-    "Key terms",
-    `Final balance is due by ${dueByPretty || "TBD"} (35 days before your wedding). You can either pay in full now or place a 25% non-refundable deposit today and continue with monthly installments until the due date. Final guest counts lock 30 days before your wedding.`
+    "Card authorization & saved card",
+    "By completing this booking, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for: (a) Ocotillo catering installment payments and any remaining catering balance under this agreement, and (b) future Wed&Done bookings you choose to make, for your convenience. Your card details are encrypted and handled by Stripe, and you may update your saved card at any time in your Wed&Done account."
   );
 
   writeParagraph(
     "Cancellation & refunds",
-    "A minimum of 25% of the catering total is non-refundable. If you cancel more than 30 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. Within 30 days, all payments are non-refundable. Reschedules are subject to availability and any difference in costs."
+    "A minimum of 25% of the catering total is non-refundable. If you cancel more than 35 days prior to your wedding, amounts paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred. Within 35 days of your wedding date, all payments are non-refundable. Reschedules are subject to availability and any difference in costs."
   );
 
   writeParagraph(
     "Payments & default",
-    "Missed installments will be automatically re-attempted. If payment is not received within 7 days, a $25 late fee may apply; after 14 days, services may be suspended and the agreement may be placed in default."
+    "Missed installments will be automatically re-attempted. If payment is not received within 7 days, a $25 late fee may apply; after 14 days, services may be suspended and this agreement may be considered in default."
   );
 
   writeParagraph(
-    "Substitutions & liability",
-    "Comparable substitutions may be made if an item is unavailable. Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages. Liability is limited to amounts paid for catering services under this agreement."
+    "Substitutions, food safety & liability",
+    "We’ll follow standard food-safety guidelines and comply with venue policies, which may limit certain service or display options. Comparable substitutions may be made if a menu item is unavailable. Wed&Done is not responsible for venue restrictions, undisclosed allergies, or consequential damages. In all circumstances, liability related to this agreement is limited to the amounts you have paid for catering services under this agreement."
   );
 
   writeParagraph(
     "Force majeure",
-    "Neither party is liable for failure or delay caused by events beyond reasonable control. We’ll work in good faith to reschedule; if that’s not possible, amounts paid beyond non-recoverable costs will be refunded."
+    "Neither party is liable for failure or delay caused by events beyond reasonable control (including but not limited to extreme weather, natural disasters, government actions, labor disputes, epidemics/pandemics, or utility outages). We’ll work in good faith to reschedule; if that’s not possible, amounts paid beyond non-recoverable costs already incurred will be refunded."
   );
 
   // Signature Block

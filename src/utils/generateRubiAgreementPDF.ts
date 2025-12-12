@@ -16,14 +16,33 @@ function addFooter(doc: jsPDF) {
   doc.line(MARGIN_X, FOOTER_Y - 8, 190, FOOTER_Y - 8);
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text("Magically booked by Wed&Done", 105, FOOTER_Y, { align: "center" });
+  doc.text("Magically booked by Wed&Done", 105, FOOTER_Y, {
+    align: "center",
+  });
+}
+
+function resetBodyStyle(doc: jsPDF) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(0); // black body text
 }
 
 function ensureSpace(doc: jsPDF, y: number, needed = 12): number {
   if (y + needed > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    resetBodyStyle(doc);
     return TOP_Y;
+  }
+  return y;
+}
+
+function writeWrapped(doc: jsPDF, text: string, x: number, y: number, maxWidth = 170) {
+  const lines = doc.splitTextToSize(text, maxWidth) as string[];
+  for (const ln of lines) {
+    y = ensureSpace(doc, y, LINE_GAP);
+    doc.text(ln, x, y);
+    y += LINE_GAP;
   }
   return y;
 }
@@ -54,13 +73,6 @@ function toPrettyDate(input: string | Date) {
       ? "rd"
       : "th";
   return `${month} ${day}${ord}, ${year}`;
-}
-
-function minusDaysISO(ymd: string, days: number): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  const d = new Date(`${ymd}T12:00:00`);
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
 }
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
@@ -160,32 +172,32 @@ export default async function generateRubiAgreementPDF(
 
   const weddingPretty = toPrettyDate(weddingDate || "TBD");
   const todayPretty = toPrettyDate(new Date());
-  const minus35ISO = minusDaysISO(weddingDate, 35);
-  const dueByPretty = minus35ISO ? toPrettyDate(minus35ISO) : "your final due date";
 
   // 🧾 Basics
-  doc.setFontSize(12);
+  resetBodyStyle(doc);
   let y = 90;
-  doc.text(`Name: ${fullName}`, MARGIN_X, y); y += LINE_GAP;
-  doc.text(`Wedding Date: ${weddingPretty}`, MARGIN_X, y); y += LINE_GAP;
-  if (selectedPackage) { doc.text(`Selected Package: ${selectedPackage}`, MARGIN_X, y); y += LINE_GAP; }
-  doc.text(`Caterer: ${catererDisplay}`, MARGIN_X, y); y += LINE_GAP;
-  doc.text(`Guest Count: ${safeGuestCount}`, MARGIN_X, y); y += LINE_GAP * 2;
+  doc.text(`Name: ${fullName}`, MARGIN_X, y);
+  y += LINE_GAP;
+  doc.text(`Wedding Date: ${weddingPretty}`, MARGIN_X, y);
+  y += LINE_GAP;
+  if (selectedPackage) {
+    doc.text(`Selected Package: ${selectedPackage}`, MARGIN_X, y);
+    y += LINE_GAP;
+  }
+  doc.text(`Caterer: ${catererDisplay}`, MARGIN_X, y);
+  y += LINE_GAP;
+  doc.text(`Guest Count: ${safeGuestCount}`, MARGIN_X, y);
+  y += LINE_GAP * 2;
 
   // 🍽️ Selections
   const safeSelections: any = selections || {};
   const addGroup = (label: string, items: unknown) => {
     if (!Array.isArray(items) || !items.length) return;
     const line = `${label}: ${items.join(", ")}`;
-    const wrapped = doc.splitTextToSize(line, 170);
-    for (const ln of wrapped) {
-      y = ensureSpace(doc, y, LINE_GAP);
-      doc.text(ln, MARGIN_X + 5, y);
-      y += LINE_GAP;
-    }
+    y = writeWrapped(doc, line, MARGIN_X + 5, y, 170);
   };
 
-  const allGroups = [
+  const allGroups: [string, unknown][] = [
     ["Starters", safeSelections.bbqStarters],
     ["Smoked Meats", safeSelections.bbqMeats],
     ["Sides", safeSelections.bbqSides],
@@ -197,39 +209,33 @@ export default async function generateRubiAgreementPDF(
     ["Desserts", safeSelections.mexDesserts],
   ];
 
-  const anyFilled = allGroups.some(([_, val]) => Array.isArray(val) && val.length);
+  const anyFilled = allGroups.some(
+    ([_, val]) => Array.isArray(val) && (val as unknown[]).length
+  );
   if (anyFilled || (safeSelections.notes && safeSelections.notes.trim() !== "")) {
     doc.setFontSize(14);
     doc.text("Your Selections:", MARGIN_X, y);
     y += PARA_GAP;
-    doc.setFontSize(12);
+    resetBodyStyle(doc);
     for (const [label, items] of allGroups) addGroup(label, items);
     if (safeSelections.notes?.trim()) {
-      const notes = doc.splitTextToSize(`Notes: ${safeSelections.notes}`, 170);
-      for (const ln of notes) {
-        y = ensureSpace(doc, y, LINE_GAP);
-        doc.text(ln, MARGIN_X + 5, y);
-        y += LINE_GAP;
-      }
+      const notesText = `Notes: ${safeSelections.notes}`;
+      y = writeWrapped(doc, notesText, MARGIN_X + 5, y, 170);
     }
     y += PARA_GAP;
   }
 
-  // 💲 Cost Breakdown
+  // 💲 Cost Breakdown (optional line item list)
   if (Array.isArray(lineItems) && lineItems.length) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
     doc.setFontSize(14);
     doc.text("Included Items / Pricing:", MARGIN_X, y);
     y += PARA_GAP;
-    doc.setFontSize(12);
+    resetBodyStyle(doc);
 
     for (const item of lineItems) {
-      const lines = doc.splitTextToSize(`• ${item}`, 170);
-      for (const ln of lines) {
-        y = ensureSpace(doc, y, LINE_GAP);
-        doc.text(ln, MARGIN_X + 5, y);
-        y += LINE_GAP;
-      }
+      const text = `• ${item}`;
+      y = writeWrapped(doc, text, MARGIN_X + 5, y, 170);
     }
   }
 
@@ -239,49 +245,110 @@ export default async function generateRubiAgreementPDF(
   doc.setFontSize(12);
   doc.text("Payment Summary:", MARGIN_X, y);
   y += LINE_GAP;
+  resetBodyStyle(doc);
 
-  const humanLines = doc.splitTextToSize(paymentSummary || "", 170);
-  for (const ln of humanLines) {
-    y = ensureSpace(doc, y, LINE_GAP);
-    doc.text(ln, MARGIN_X + 5, y);
-    y += LINE_GAP;
+  if (paymentSummary) {
+    y = writeWrapped(doc, paymentSummary, MARGIN_X + 5, y, 170);
   }
 
   const safeDeposit = !isNaN(depositPaidToday) ? depositPaidToday : 0;
   const safeTotal = !isNaN(totalDueOverall) ? totalDueOverall : 0;
 
-  doc.text(`Amount Paid Today: $${Number(safeDeposit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, (y += LINE_GAP));
-  doc.text(`Total Contract Amount: $${Number(safeTotal).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, MARGIN_X + 5, (y += LINE_GAP));
+  y = ensureSpace(doc, y, LINE_GAP);
+  doc.text(
+    `Amount Paid Today: $${Number(safeDeposit).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    MARGIN_X + 5,
+    (y += LINE_GAP)
+  );
+  doc.text(
+    `Total Contract Amount: $${Number(safeTotal).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    MARGIN_X + 5,
+    (y += LINE_GAP)
+  );
   doc.text(`Date Paid: ${todayPretty}`, MARGIN_X + 5, (y += LINE_GAP));
   y += PARA_GAP;
 
   // 🏰 Venue Note
   const banner = `${safeVenueName} note: This catering counts toward your food & beverage minimum with ${safeVenueName}. Any remaining spend to hit that minimum (like bar service) is handled directly with the venue and must follow Arizona liquor laws. Guest count locks 30 days before your wedding.`;
-  const lines = doc.splitTextToSize(banner, 170);
-  for (const ln of lines) {
+  y = writeWrapped(doc, banner, MARGIN_X, y, 170);
+
+  y += PARA_GAP;
+
+  // 📜 Booking Terms (mirror on-screen contract bullets)
+  y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
+  doc.setFontSize(13);
+  doc.text("Booking Terms:", MARGIN_X, y);
+  y += PARA_GAP;
+  resetBodyStyle(doc);
+
+  const terms: string[] = [
+    "Your selected menu is included with your Rubi House venue package. Any additional food & beverage minimums, bar packages, or upgrades are handled directly with The Rubi House.",
+    "Final guest count is due 30 days before your wedding. You may increase your count starting 45 days out, but it cannot be lowered after booking.",
+    "Bar Packages: Alcohol is booked directly with the venue in accordance with Arizona liquor laws. Wed&Done does not provide bar service or alcohol.",
+    "Cancellation & Refunds: Any changes to your catering package or minimums are governed by The Rubi House’s policies. Wed&Done will assist with documentation but does not control venue refunds.",
+  ];
+
+  for (const t of terms) {
+    const bullet = "• ";
+    const bulletW = doc.getTextWidth(bullet);
+    const wrapW = 170 - bulletW;
+    const lines = doc.splitTextToSize(t, wrapW) as string[];
+
     y = ensureSpace(doc, y, LINE_GAP);
-    doc.text(ln, MARGIN_X, y);
+    doc.text(bullet, MARGIN_X, y);
+    doc.text(lines[0], MARGIN_X + bulletW, y);
     y += LINE_GAP;
+
+    for (const ln of lines.slice(1)) {
+      y = ensureSpace(doc, y, LINE_GAP);
+      doc.text(ln, MARGIN_X + bulletW, y);
+      y += LINE_GAP;
+    }
   }
 
   // ✍️ Signature
   if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    resetBodyStyle(doc);
     y = TOP_Y;
   }
   const sigTop = FOOTER_Y - 10 - SIG_BLOCK_H;
   doc.setFontSize(12);
+  doc.setTextColor(0);
   doc.text("Signature", MARGIN_X, sigTop);
   try {
-    if (signatureImageUrl)
-      doc.addImage(signatureImageUrl, "PNG", MARGIN_X, sigTop + 5, 80, SIG_IMG_H);
+    if (signatureImageUrl) {
+      doc.addImage(
+        signatureImageUrl,
+        "PNG",
+        MARGIN_X,
+        sigTop + 5,
+        80,
+        SIG_IMG_H
+      );
+    }
   } catch (err) {
     console.error("❌ Signature image failed:", err);
   }
   doc.setFontSize(10);
-  doc.text(`Signed by: ${fullName}`, MARGIN_X, sigTop + 5 + SIG_IMG_H + 12);
-  doc.text(`Signature date: ${todayPretty}`, MARGIN_X, sigTop + 5 + SIG_IMG_H + 19);
+  doc.setTextColor(100);
+  doc.text(
+    `Signed by: ${fullName}`,
+    MARGIN_X,
+    sigTop + 5 + SIG_IMG_H + 12
+  );
+  doc.text(
+    `Signature date: ${todayPretty}`,
+    MARGIN_X,
+    sigTop + 5 + SIG_IMG_H + 19
+  );
 
   addFooter(doc);
   return doc.output("blob");

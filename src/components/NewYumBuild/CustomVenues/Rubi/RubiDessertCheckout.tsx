@@ -1,5 +1,5 @@
 // src/components/NewYumBuild/CustomVenues/Rubi/RubiDessertCheckout.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CheckoutForm from "../../../../CheckoutForm";
 
 import { getAuth } from "firebase/auth";
@@ -22,6 +22,10 @@ import {
 import generateDessertAgreementPDF from "../../../../utils/generateDessertAgreementPDF";
 
 import { notifyBooking } from "../../../../utils/email/email";
+
+// 🔗 Stripe v2 base
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
 
 // Helpers
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -63,6 +67,13 @@ function firstMonthlyChargeAtUTC(from = new Date()): string {
   return dt.toISOString();
 }
 
+type CardSummary = {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+};
+
 interface RubiDessertCheckoutProps {
   total: number;
   guestCount: number;
@@ -93,6 +104,7 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
 }) => {
   const [localGenerating, setLocalGenerating] = useState(false);
   const isGenerating = localGenerating || isGeneratingFromOverlay;
+  const didRunRef = useRef(false);
 
   const [checkoutName, setCheckoutName] = useState("Magic User");
 
@@ -109,7 +121,9 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         const safeFirst = data?.firstName || "Magic";
         const safeLast = data?.lastName || "User";
         setCheckoutName(`${safeFirst} ${safeLast}`);
-      } catch {}
+      } catch {
+        /* ignore name load errors */
+      }
     })();
   }, []);
 
@@ -124,6 +138,7 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
     "full") as "full" | "monthly";
 
   const usingFull = planKey === "full";
+  const requiresCardOnFile = !usingFull;
 
   const depositAmount = round2(
     Number(localStorage.getItem("yumDepositAmount")) ||
@@ -147,14 +162,88 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
   const amountDueToday = usingFull ? totalEffective : depositAmount;
 
   const paymentMessage = usingFull
-    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+    ? `You're paying $${Number(amountDueToday).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} today.`
     : `You're paying $${amountDueToday.toFixed(
         2
       )} today, then ${planMonths} monthly payments of about $${perMonth.toFixed(
         2
       )} (final due ${finalDuePretty}).`;
 
-      const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
+  // Saved card state
+  const [savedCardSummary, setSavedCardSummary] =
+    useState<CardSummary | null>(null);
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const hasSavedCard = !!savedCardSummary;
+
+  useEffect(() => {
+    (async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.warn(
+            "[RubiDessertCheckout] get-default failed:",
+            res.status,
+            text
+          );
+          setSavedCardSummary(null);
+          setMode("new");
+          return;
+        }
+
+        const data = await res.json();
+        if (
+          data?.card &&
+          data.card.brand &&
+          data.card.last4 &&
+          data.card.exp_month &&
+          data.card.exp_year
+        ) {
+          setSavedCardSummary({
+            brand: data.card.brand,
+            last4: data.card.last4,
+            exp_month: data.card.exp_month,
+            exp_year: data.card.exp_year,
+          });
+          setMode("saved");
+        } else {
+          setSavedCardSummary(null);
+          setMode("new");
+        }
+      } catch (err) {
+        console.warn(
+          "[RubiDessertCheckout] No saved card found:",
+          err
+        );
+        setSavedCardSummary(null);
+        setMode("new");
+      }
+    })();
+  }, []);
+
+  const handleSuccess = async ({
+    customerId,
+  }: { customerId?: string } = {}) => {
+    if (didRunRef.current) {
+      console.warn(
+        "[RubiDessertCheckout] handleSuccess already ran — ignoring re-entry"
+      );
+      return;
+    }
+    didRunRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -170,20 +259,49 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
       const fullName = `${safeFirst} ${safeLast}`;
       const weddingYMD: string | null = userDoc?.weddingDate || null;
 
-            // store stripeCustomerId for later auto-pay pulls
-            try {
-              if (customerId && customerId !== userDoc?.stripeCustomerId) {
-                await updateDoc(userRef, {
-                  stripeCustomerId: customerId,
-                  "stripe.updatedAt": serverTimestamp(),
-                });
-                try {
-                  localStorage.setItem("stripeCustomerId", customerId);
-                } catch {}
-              }
-            } catch (e) {
-              console.warn("⚠️ Could not save stripeCustomerId:", e);
-            }
+      // store stripeCustomerId for later auto-pay pulls
+      try {
+        if (customerId && customerId !== userDoc?.stripeCustomerId) {
+          await updateDoc(userRef, {
+            stripeCustomerId: customerId,
+            "stripe.updatedAt": serverTimestamp(),
+          });
+          try {
+            localStorage.setItem("stripeCustomerId", customerId);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not save stripeCustomerId:", e);
+      }
+
+      // Ensure default PM for off-session charges when on a dessert plan
+      try {
+        if (!usingFull) {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ ensure-default-payment-method called for Rubi dessert"
+          );
+        } else {
+          console.log(
+            "ℹ️ Skipping ensure-default-payment-method (Rubi dessert paid in full)."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "❌ ensure-default-payment-method failed (Rubi dessert):",
+          err
+        );
+      }
 
       const wedding = parseLocalYMD(weddingYMD || "");
       const finalDueDate = wedding
@@ -215,6 +333,16 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         nextChargeAtISO = firstMonthlyChargeAtUTC(new Date());
       }
 
+      const amountDueTodayRounded = Number(
+        amountDueToday.toFixed(2)
+      );
+      const contractTotalRounded = Number(
+        totalEffective.toFixed(2)
+      );
+      const perMonthDollars = usingFull
+        ? 0
+        : round2(perMonthCents / 100);
+
       await setDoc(
         userRef,
         {
@@ -236,84 +364,119 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         localStorage.setItem("rubiJustBookedDessert", "true");
         localStorage.setItem("rubiDessertsBooked", "true");
         localStorage.setItem("yumStep", "rubiDessertThankYou");
-      } catch {}
+      } catch {
+        /* ignore */
+      }
 
       const purchaseEntry = {
         label: "Yum Yum Desserts",
         category: "dessert",
         boutique: "dessert",
         source: "W&D",
-        amount: Number(amountDueToday.toFixed(2)),
-        amountChargedToday: Number(amountDueToday.toFixed(2)),
-        contractTotal: Number(totalEffective.toFixed(2)),
+        amount: amountDueTodayRounded,
+        amountChargedToday: amountDueTodayRounded,
+        contractTotal: contractTotalRounded,
         payFull: usingFull,
-        deposit: usingFull ? 0 : Number(amountDueToday.toFixed(2)),
-        monthlyAmount: usingFull ? 0 : +(perMonth.toFixed(2)),
+        deposit: usingFull ? 0 : amountDueTodayRounded,
+        monthlyAmount: usingFull ? 0 : perMonthDollars,
         months: usingFull ? 0 : mths,
         method: usingFull ? "paid_in_full" : "deposit",
         items: lineItems,
         date: new Date().toISOString(),
       };
 
-            // cents + plan snapshot for paymentPlanAuto
-            const totalCents = Math.round(totalEffective * 100);
-            const depositCents = Math.round((usingFull ? 0 : amountDueToday) * 100);
-            const remainingCents = Math.round(
-              (usingFull ? 0 : remainingBalance) * 100
-            );
+      const totalCents = Math.round(totalEffective * 100);
+      const depositCents = Math.round(
+        (usingFull ? 0 : amountDueToday) * 100
+      );
+      const remainingCents = Math.round(
+        (usingFull ? 0 : remainingBalance) * 100
+      );
 
-            await updateDoc(userRef, {
-              purchases: arrayUnion(purchaseEntry),
-              spendTotal: increment(Number(amountDueToday.toFixed(2))),
-      
-              // 🔹 normalized dessert total for guest scroll / Budget Wand
-              "totals.dessert": Number(totalEffective.toFixed(2)),
-      
-              // 🔹 human-readable dessert plan snapshot
-              paymentPlan: {
-                product: "dessert",
-                type: usingFull ? "paid_in_full" : "deposit",
-                total: totalEffective,
-                depositPercent: usingFull ? 1 : 0.25,
-                paidNow: amountDueToday,
-                remainingBalance: usingFull ? 0 : remainingBalance,
-                finalDueDate: finalDueDateStr,
-                finalDueAt: finalDueISO,
-                createdAt: new Date().toISOString(),
-              },
-      
-              // 🔹 robot-friendly dessert auto-pay snapshot
-              paymentPlanAuto: {
-                version: 1,
-                product: "dessert_rubi",
-                status: usingFull
-                  ? "complete"
-                  : remainingBalance > 0
-                  ? "active"
-                  : "complete",
-                strategy: usingFull ? "paid_in_full" : "monthly_until_final",
-                currency: "usd",
-      
-                totalCents,
-                depositCents,
-                remainingCents,
-      
-                planMonths: usingFull ? 0 : mths,
-                perMonthCents: usingFull ? 0 : perMonthCents,
-                lastPaymentCents: usingFull ? 0 : lastPaymentCents,
-      
-                nextChargeAt: usingFull ? null : nextChargeAtISO,
-                finalDueAt: finalDueISO,
-      
-                stripeCustomerId:
-                  localStorage.getItem("stripeCustomerId") || null,
-      
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-      
-              "progress.yumYum.step": "rubiDessertThankYou",
-            });
+      await updateDoc(userRef, {
+        purchases: arrayUnion(purchaseEntry),
+        spendTotal: increment(amountDueTodayRounded),
+
+        // 🔹 normalized dessert totals for guest scroll / Budget Wand
+        "totals.dessert.contractTotal": contractTotalRounded,
+        "totals.dessert.amountPaid": increment(
+          amountDueTodayRounded
+        ),
+        "totals.dessert.guestCountAtBooking": guestCount,
+        "totals.dessert.perGuest":
+          guestCount > 0
+            ? round2(contractTotalRounded / guestCount)
+            : 0,
+        "totals.dessert.venueSlug": "rubi",
+        "totals.dessert.style": selectedStyle || null,
+        "totals.dessert.flavorCombo":
+          selectedFlavorCombo || null,
+        "totals.dessert.lastUpdatedAt":
+          new Date().toISOString(),
+
+        // 🔹 human-readable dessert plan snapshot
+        paymentPlanDessert: usingFull
+          ? {
+              product: "dessert_rubi",
+              type: "paid_in_full",
+              total: contractTotalRounded,
+              depositPercent: 1,
+              paidNow: contractTotalRounded,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "dessert_rubi",
+              type: "deposit",
+              total: contractTotalRounded,
+              depositPercent: 0.25,
+              paidNow: amountDueTodayRounded,
+              remainingBalance: round2(
+                contractTotalRounded - amountDueTodayRounded
+              ),
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueISO,
+              createdAt: new Date().toISOString(),
+            },
+
+        // 🔹 robot-friendly dessert auto-pay snapshot
+        paymentPlanDessertAuto: {
+          version: 1,
+          product: "dessert_rubi",
+          status: usingFull
+            ? "complete"
+            : remainingBalance > 0
+            ? "active"
+            : "complete",
+          strategy: usingFull
+            ? "paid_in_full"
+            : "monthly_until_final",
+          currency: "usd",
+
+          totalCents,
+          depositCents,
+          remainingCents,
+
+          planMonths: usingFull ? 0 : mths,
+          perMonthCents: usingFull ? 0 : perMonthCents,
+          lastPaymentCents: usingFull ? 0 : lastPaymentCents,
+
+          nextChargeAt: usingFull ? null : nextChargeAtISO,
+          finalDueAt: finalDueISO,
+
+          stripeCustomerId:
+            customerId ||
+            localStorage.getItem("stripeCustomerId") ||
+            null,
+
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+
+        "progress.yumYum.step": "rubiDessertThankYou",
+      });
 
       // 🔹 Dessert pricing snapshot for guest-count delta math
       await setDoc(
@@ -324,7 +487,9 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
           totalBooked: Number(totalEffective.toFixed(2)),
           perGuest:
             guestCount > 0
-              ? Number((totalEffective / guestCount).toFixed(2))
+              ? Number(
+                  (totalEffective / guestCount).toFixed(2)
+                )
               : 0,
           venueId: "rubi",
           style: selectedStyle || null,
@@ -350,7 +515,12 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (usingFull
-            ? `You're paying $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} today.`
+            ? `You're paying $${Number(
+                amountDueToday
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} today.`
             : `You're paying $${amountDueToday.toFixed(
                 2
               )} today, then ${mths} monthly payments of about $${(
@@ -361,9 +531,15 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
         lineItems,
       });
 
-      const storage = getStorage(app, "gs://wedndonev2.firebasestorage.app");
+      const storage = getStorage(
+        app,
+        "gs://wedndonev2.firebasestorage.app"
+      );
       const filename = `YumDessertAgreement_${Date.now()}.pdf`;
-      const fileRef = ref(storage, `public_docs/${user.uid}/${filename}`);
+      const fileRef = ref(
+        storage,
+        `public_docs/${user.uid}/${filename}`
+      );
       await uploadBytes(fileRef, pdfBlob);
       const publicUrl = await getDownloadURL(fileRef);
 
@@ -376,57 +552,126 @@ const RubiDessertCheckout: React.FC<RubiDessertCheckoutProps> = ({
       });
 
       // 📧 Centralized booking email — Yum Dessert @ Rubi
-try {
-  const current = getAuth().currentUser;
+      try {
+        const current = getAuth().currentUser;
 
-  const user_full_name = checkoutName || fullName || "Magic User";
-  const payment_now = amountDueToday.toFixed(2);
-  const remaining_balance = (usingFull ? 0 : Math.max(0, totalEffective - amountDueToday)).toFixed(2);
+        const user_full_name =
+          checkoutName || fullName || "Magic User";
+        const payment_now = amountDueToday.toFixed(2);
+        const remaining_balance = (
+          usingFull ? 0 : Math.max(0, totalEffective - amountDueToday)
+        ).toFixed(2);
 
-  await notifyBooking("yum_dessert", {
-    // who
-    user_email: current?.email || "unknown@wedndone.com",
-    user_full_name,
+        await notifyBooking("yum_dessert", {
+          // who
+          user_email:
+            current?.email ||
+            (userDoc?.email as string) ||
+            "unknown@wedndone.com",
+          user_full_name,
 
-    // details
-    wedding_date: (typeof weddingYMD === "string" && weddingYMD) ? weddingYMD : "TBD",
-    total: totalEffective.toFixed(2),
-    line_items: (lineItems || []).join(", "),
+          // details
+          wedding_date:
+            typeof weddingYMD === "string" && weddingYMD
+              ? weddingYMD
+              : "TBD",
+          total: totalEffective.toFixed(2),
+          line_items: (lineItems || []).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Yum Yum Dessert Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Yum Yum Dessert Agreement",
 
-    // payment breakdown
-    payment_now,
-    remaining_balance,
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now,
+          remaining_balance,
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Rubi Dessert",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_dessert) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${
+            import.meta.env.BASE_URL
+          }dashboard`,
+          product_name: "Rubi Dessert",
+        });
+      } catch (mailErr) {
+        console.error(
+          "❌ notifyBooking(yum_dessert) failed:",
+          mailErr
+        );
+      }
 
       window.dispatchEvent(new Event("purchaseMade"));
       window.dispatchEvent(new Event("dessertCompletedNow"));
       window.dispatchEvent(
-        new CustomEvent("bookingsChanged", { detail: { dessert: true } })
+        new CustomEvent("bookingsChanged", {
+          detail: { dessert: true },
+        })
       );
+      window.dispatchEvent(new Event("documentsUpdated"));
 
       setStep("rubiDessertThankYou");
     } catch (err) {
-      console.error("❌ [Rubi][DessertCheckout] finalize error:", err);
+      console.error(
+        "❌ [Rubi][DessertCheckout] finalize error:",
+        err
+      );
     } finally {
       setLocalGenerating(false);
     }
   };
 
+  // ========== Spinner mode ==========
+  if (isGenerating) {
+    return (
+      <div className="pixie-card pixie-card--modal">
+        <button
+          className="pixie-card__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+            alt="Close"
+          />
+        </button>
+
+        <div
+          className="pixie-card__body"
+          style={{ textAlign: "center" }}
+        >
+          <video
+            src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: "100%",
+              maxWidth: 340,
+              borderRadius: 12,
+              margin: "0 auto 14px",
+              display: "block",
+            }}
+          />
+          <h3
+            className="px-title"
+            style={{ margin: 0, color: "#2c62ba" }}
+          >
+            Madge is icing your cake... one sec!
+          </h3>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== Main checkout card ==========
   return (
     <div className="pixie-card pixie-card--modal">
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
         <img
           src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
           alt="Close"
@@ -449,31 +694,168 @@ try {
           }}
         />
 
-        <h2 className="px-title" style={{ fontFamily: "'Jenna Sue', cursive", fontSize: "1.9rem", marginBottom: 8, textAlign: "center" }}>
+        <h2
+          className="px-title"
+          style={{
+            fontFamily: "'Jenna Sue', cursive",
+            fontSize: "1.9rem",
+            marginBottom: 8,
+            textAlign: "center",
+          }}
+        >
           Dessert Checkout
         </h2>
 
-        <p className="px-prose-narrow" style={{ marginBottom: 16, textAlign: "center" }}>
+        <p
+          className="px-prose-narrow"
+          style={{ marginBottom: 16, textAlign: "center" }}
+        >
           {paymentMessage}
         </p>
 
+        {/* Saved card toggle + Stripe form */}
         <div className="px-elements">
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid #e2e6f0",
+              background: "#f7f8ff",
+            }}
+          >
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this
+                  Rubi dessert plan —{" "}
+                  <strong>
+                    {savedCardSummary!.brand.toUpperCase()}
+                  </strong>{" "}
+                  •••• {savedCardSummary!.last4} (exp{" "}
+                  {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year}). If you need to
+                  change cards later, you can update your saved
+                  card in your Wed&amp;Done account before the
+                  next payment.
+                </p>
+              ) : (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Rubi
+                  dessert plan. This card will be saved on file
+                  and used for your monthly payments and final
+                  balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="rubiDessertPaymentMode"
+                    checked={mode === "saved"}
+                    onChange={() => setMode("saved")}
+                  />
+                  <span>
+                    Saved card on file —{" "}
+                    <strong>
+                      {savedCardSummary!.brand.toUpperCase()}
+                    </strong>{" "}
+                    •••• {savedCardSummary!.last4} (exp{" "}
+                    {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="rubiDessertPaymentMode"
+                    checked={mode === "new"}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              </>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "default",
+                }}
+              >
+                <input type="radio" checked readOnly />
+                <span>Enter your card details</span>
+              </label>
+            )}
+          </div>
+
           <CheckoutForm
             total={amountDueToday}
             onSuccess={handleSuccess}
+            setStepSuccess={() => {
+              /* we advance to TY in handleSuccess */
+            }}
             isAddon={false}
             customerEmail={getAuth().currentUser?.email || undefined}
             customerName={checkoutName}
-            customerId={localStorage.getItem("stripeCustomerId") || undefined}
+            customerId={(() => {
+              try {
+                return (
+                  localStorage.getItem("stripeCustomerId") ||
+                  undefined
+                );
+              } catch {
+                return undefined;
+              }
+            })()}
+            useSavedCard={
+              requiresCardOnFile
+                ? hasSavedCard
+                : hasSavedCard && mode === "saved"
+            }
           />
         </div>
 
-        <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <div
+          style={{ marginTop: "1rem", textAlign: "center" }}
+        >
           <button
             className="boutique-back-btn"
             style={{ width: 250 }}
             onClick={onBack}
-            disabled={isGenerating}
           >
             ⬅ Back
           </button>

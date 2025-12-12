@@ -24,6 +24,9 @@ function ensureSpace(doc: jsPDF, y: number, needed = 12): number {
   if (y + needed > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    // reset body styling on new page so we never inherit grey footer text
+    doc.setFontSize(12);
+    doc.setTextColor(0);
     return TOP_Y;
   }
   return y;
@@ -143,6 +146,7 @@ const generateEncanterraAgreementPDF = async ({
     loadImage(`${import.meta.env.BASE_URL}assets/images/lock_grey.jpg`),
   ]);
 
+  // watermark only on page 1
   doc.addImage(lock, "JPEG", 40, 60, 130, 130);
   doc.addImage(logo, "JPEG", 75, 10, 60, 60);
 
@@ -168,6 +172,7 @@ const generateEncanterraAgreementPDF = async ({
 
   // Header basics
   doc.setFontSize(12);
+  doc.setTextColor(0);
   let y = 90;
   doc.text(`Name: ${fullName}`, MARGIN_X, y);
   y += LINE_GAP;
@@ -195,6 +200,7 @@ const generateEncanterraAgreementPDF = async ({
   ) {
     y = ensureSpace(doc, y, PARA_GAP + LINE_GAP);
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Included Items:", MARGIN_X, y);
     y += PARA_GAP;
     doc.setFontSize(12);
@@ -272,7 +278,7 @@ const generateEncanterraAgreementPDF = async ({
     }
   }
 
-  // Additional explicit lines (still fine to keep – they reinforce totals)
+  // Additional explicit lines – reinforces deposit vs full
   if (hasDepositPlan) {
     doc.text(
       `Deposit Paid Today: $${Number(deposit).toLocaleString(undefined, {
@@ -340,8 +346,18 @@ const generateEncanterraAgreementPDF = async ({
   writeParagraph(
     "Key terms",
     `Final balance is due by ${dueByPretty || "TBD"} (35 days before your wedding). ` +
-      `You may pay in full today, or place a 25% deposit now and pay the remaining balance in monthly installments ` +
-      `until the due date. Final guest counts lock 30 days before your wedding.`
+      `You may pay in full today, or place a 25% non-refundable deposit now and pay the remaining balance in monthly installments ` +
+      `so that your total catering amount is paid in full by that date. Any unpaid balance on that date will be automatically charged ` +
+      `to your saved card. Final guest counts lock 30 days before your wedding. You may increase your guest count starting 45 days ` +
+      `before your wedding, but it cannot be lowered after booking.`
+  );
+
+  writeParagraph(
+    "Card authorization & saved card",
+    "By completing this purchase, you authorize Wed&Done and our payment processor (Stripe) to securely store your card for Encanterra " +
+      "catering installment payments and any remaining catering balance due under this agreement, as well as future Wed&Done bookings " +
+      "you choose to make. Your card details are encrypted and handled by Stripe, and you can update or replace your saved card at any " +
+      "time through your Wed&Done account."
   );
 
   writeParagraph(
@@ -374,6 +390,8 @@ const generateEncanterraAgreementPDF = async ({
   if (y + SIG_BLOCK_H > FOOTER_Y - 12) {
     addFooter(doc);
     doc.addPage();
+    doc.setFontSize(12);
+    doc.setTextColor(0);
     y = TOP_Y;
   }
 
@@ -382,16 +400,19 @@ const generateEncanterraAgreementPDF = async ({
   doc.setFontSize(12);
   doc.text("Signature", MARGIN_X, sigTop);
 
+  // detect image format for safety
+  const detectFormat = (url: string): "PNG" | "JPEG" | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith("data:image/png")) return "PNG";
+    if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/jpg"))
+      return "JPEG";
+    return undefined;
+  };
+
   try {
     if (signatureImageUrl) {
-      doc.addImage(
-        signatureImageUrl,
-        "PNG",
-        MARGIN_X,
-        sigTop + 5,
-        80,
-        SIG_IMG_H
-      );
+      const fmt = detectFormat(signatureImageUrl) || "PNG";
+      doc.addImage(signatureImageUrl, fmt as any, MARGIN_X, sigTop + 5, 80, SIG_IMG_H);
     }
   } catch (err) {
     console.error("❌ Failed to add signature image:", err);

@@ -19,12 +19,23 @@ import generateOcotilloAgreementPDF from "../../../../utils/generateOcotilloAgre
 
 import { notifyBooking } from "../../../../utils/email/email";
 
+// 🔗 Stripe v2 base (same as other Pass 3 checkouts)
+const API_BASE =
+  "https://us-central1-wedndonev2.cloudfunctions.net/stripeapiV2";
+
 // helpers
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const toPretty = (d: Date) =>
   d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
 type OcotilloTier = "Tier 1" | "Tier 2" | "Tier 3";
+
+type CardSummary = {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+};
 
 interface OcotilloCheckoutProps {
   total: number; // grand total from Ocotillo cart
@@ -140,6 +151,7 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
   const amountDueTodayCents = payFull ? totalCents : depositCents;
   const amountDueToday = round2(amountDueTodayCents / 100);
   const remainingBalance = round2(Math.max(0, total - amountDueToday));
+  const requiresCardOnFile = !payFull;
 
   // final due pretty label
   const finalDueDateStr = (() => {
@@ -175,7 +187,68 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
     })();
   }, []);
 
-  // === 4) On successful payment ===
+  // === 4) Saved card selection (Pass 3 pattern) ===
+  const [savedCardSummary, setSavedCardSummary] = useState<CardSummary | null>(null);
+  const [mode, setMode] = useState<"saved" | "new">("new");
+  const hasSavedCard = !!savedCardSummary;
+
+  useEffect(() => {
+    (async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Fetch default payment method via Stripe helper
+      try {
+        const res = await fetch(`${API_BASE}/payments/get-default`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.warn(
+            "[OcotilloCateringCheckout] get-default failed:",
+            res.status,
+            t
+          );
+          setSavedCardSummary(null);
+          setMode("new");
+          return;
+        }
+
+        const data = await res.json();
+        if (
+          data?.card &&
+          data.card.brand &&
+          data.card.last4 &&
+          data.card.exp_month &&
+          data.card.exp_year
+        ) {
+          setSavedCardSummary({
+            brand: data.card.brand,
+            last4: data.card.last4,
+            exp_month: data.card.exp_month,
+            exp_year: data.card.exp_year,
+          });
+          setMode("saved");
+        } else {
+          setSavedCardSummary(null);
+          setMode("new");
+        }
+      } catch (err) {
+        console.warn(
+          "[OcotilloCateringCheckout] No saved card found:",
+          err
+        );
+        setSavedCardSummary(null);
+        setMode("new");
+      }
+    })();
+  }, []);
+
+  // === 5) On successful payment ===
   const handleSuccess = async ({ customerId }: { customerId?: string } = {}) => {
     if (didRunRef.current) {
       console.warn("[OcotilloCateringCheckout] handleSuccess already ran — ignoring re-entry");
@@ -202,7 +275,37 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
         });
         try {
           localStorage.setItem("stripeCustomerId", customerId);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // Ensure default PM for off-session charges (only if plan requires it)
+      try {
+        const shouldStoreCard = requiresCardOnFile;
+        if (shouldStoreCard) {
+          await fetch(`${API_BASE}/ensure-default-payment-method`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId:
+                customerId || localStorage.getItem("stripeCustomerId"),
+              firebaseUid: user.uid,
+            }),
+          });
+          console.log(
+            "✅ ensure-default-payment-method called for Ocotillo catering"
+          );
+        } else {
+          console.log(
+            "ℹ️ Skipping ensure-default-payment-method (Ocotillo paid in full)."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "❌ ensure-default-payment-method failed (Ocotillo catering):",
+          err
+        );
       }
 
       // ---------- Resolve the REAL guest count ----------
@@ -253,7 +356,10 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
         paymentSummary:
           paymentSummaryText ||
           (payFull
-            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+            ? `Paid in full today: $${Number(amountDueToday).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )}.`
             : `Deposit today: $${amountDueToday.toFixed(
                 2
               )}. Remaining $${remainingBalance.toFixed(
@@ -307,170 +413,171 @@ const OcotilloCateringCheckout: React.FC<OcotilloCheckoutProps> = ({
           ? new Date(Date.now() + 60 * 1000).toISOString()
           : null;
 
-          const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
-          const contractTotalRounded = Number(total.toFixed(2));
-          const perMonthDollars = round2((perMonthCents || 0) / 100);
+      const amountDueTodayRounded = Number(amountDueToday.toFixed(2));
+      const contractTotalRounded = Number(total.toFixed(2));
+      const perMonthDollars = round2((perMonthCents || 0) / 100);
 
-            // Build a normalized purchase entry for Guest Scroll / admin
-            const purchaseEntry = {
-              label: "Yum Yum Catering",
-              category: "catering",
-              boutique: "catering",
-              source: "W&D",
-              venueId: "ocotillo",
-      
-              amount: amountDueTodayRounded,
-              amountChargedToday: amountDueTodayRounded,
-              contractTotal: contractTotalRounded,
-      
-              payFull: payFull,
-              deposit: payFull ? amountDueTodayRounded : amountDueTodayRounded,
-              monthlyAmount: payFull ? 0 : perMonthDollars,
-              months: payFull ? 0 : planMonths,
-              method: payFull ? "paid_in_full" : "deposit",
-      
-              items: lineItems?.length ? lineItems : ocLineItems,
-              date: purchaseDate,
-            };
-      
-            await updateDoc(userRef, {
-              // 🔹 Document list
-              documents: arrayUnion({
-                title: "Ocotillo Catering Agreement",
-                url: publicUrl,
-                uploadedAt: new Date().toISOString(),
-              }),
-      
-              // 🔹 Booking flags
-              "bookings.catering": true,
-              weddingDateLocked: true,
-              lastPurchaseAt: serverTimestamp(),
-      
-              // 🔹 Purchases array + global spend
-              purchases: arrayUnion(purchaseEntry),
-              spendTotal: increment(amountDueTodayRounded),
-      
-              // 🔹 Category totals for Guest Scroll / admin
-              "totals.catering.totalPaid": increment(amountDueTodayRounded),
-              "totals.catering.lastPurchaseAt": serverTimestamp(),
-              "totals.catering.lastVenueId": "ocotillo",
-              "totals.catering.lastContractTotal": contractTotalRounded,
-              "totals.catering.guestCount": guestCountFinal,
-      
-              // 🔹 Human-readable plan snapshot (last purchase)
-              paymentPlan: payFull
-                ? {
-                    product: "catering_ocotillo",
-                    type: "paid_in_full",
-                    total,
-                    depositPercent: 1,
-                    paidNow: amountDueTodayRounded,
-                    remainingBalance: 0,
-                    finalDueDate: null,
-                    finalDueAt: null,
-                    createdAt: new Date().toISOString(),
-                  }
-                : {
-                    product: "catering_ocotillo",
-                    type: "deposit",
-                    total,
-                    depositPercent: 0.25,
-                    paidNow: amountDueTodayRounded,
-                    remainingBalance,
-                    finalDueDate: finalDueDateStr,
-                    finalDueAt: finalDueAtISO,
-                    createdAt: new Date().toISOString(),
-                  },
-      
-              // 🔹 Robot-facing plan snapshot for auto-pay
-              paymentPlanAuto: payFull
-                ? {
-                    version: 1,
-                    product: "catering_ocotillo",
-                    status: "complete",
-                    strategy: "paid_in_full",
-                    currency: "usd",
-      
-                    totalCents,
-                    depositCents: totalCents,
-                    remainingCents: 0,
-      
-                    planMonths: 0,
-                    perMonthCents: 0,
-                    lastPaymentCents: 0,
-      
-                    nextChargeAt: null,
-                    finalDueAt: null,
-      
-                    stripeCustomerId:
-                      customerId || localStorage.getItem("stripeCustomerId") || null,
-      
-                    venueCaterer: "ocotillo",
-                    tier: ocotilloTier,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }
-                : {
-                    version: 1,
-                    product: "catering_ocotillo",
-                    status: remainingBalance > 0 ? "active" : "complete",
-                    strategy: "monthly_until_final",
-                    currency: "usd",
-      
-                    totalCents,
-                    depositCents,
-                    remainingCents: Math.max(0, totalCents - depositCents),
-      
-                    planMonths,
-                    perMonthCents,
-                    lastPaymentCents,
-      
-                    nextChargeAt,
-                    finalDueAt: finalDueAtISO,
-      
-                    stripeCustomerId:
-                      customerId || localStorage.getItem("stripeCustomerId") || null,
-      
-                    venueCaterer: "ocotillo",
-                    tier: ocotilloTier,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  },
-      
-              // 🔹 Overlay restore
-              "progress.yumYum.step": "ocotilloCateringThankYou",
-            });
+      // Build a normalized purchase entry for Guest Scroll / admin
+      const purchaseEntry = {
+        label: "Yum Yum Catering",
+        category: "catering",
+        boutique: "catering",
+        source: "W&D",
+        venueId: "ocotillo",
+
+        amount: amountDueTodayRounded,
+        amountChargedToday: amountDueTodayRounded,
+        contractTotal: contractTotalRounded,
+
+        payFull: payFull,
+        deposit: amountDueTodayRounded,
+        monthlyAmount: payFull ? 0 : perMonthDollars,
+        months: payFull ? 0 : planMonths,
+        method: payFull ? "paid_in_full" : "deposit",
+
+        items: lineItems?.length ? lineItems : ocLineItems,
+        date: purchaseDate,
+      };
+
+      await updateDoc(userRef, {
+        // 🔹 Document list
+        documents: arrayUnion({
+          title: "Ocotillo Catering Agreement",
+          url: publicUrl,
+          uploadedAt: new Date().toISOString(),
+        }),
+
+        // 🔹 Booking flags
+        "bookings.catering": true,
+        weddingDateLocked: true,
+        lastPurchaseAt: serverTimestamp(),
+
+        // 🔹 Purchases array + global spend
+        purchases: arrayUnion(purchaseEntry),
+        spendTotal: increment(amountDueTodayRounded),
+
+        // 🔹 Category totals for Guest Scroll / admin
+        "totals.catering.totalPaid": increment(amountDueTodayRounded),
+        "totals.catering.lastPurchaseAt": serverTimestamp(),
+        "totals.catering.lastVenueId": "ocotillo",
+        "totals.catering.lastContractTotal": contractTotalRounded,
+        "totals.catering.guestCount": guestCountFinal,
+
+        // 🔹 Human-readable plan snapshot (last purchase)
+        paymentPlan: payFull
+          ? {
+              product: "catering_ocotillo",
+              type: "paid_in_full",
+              total,
+              depositPercent: 1,
+              paidNow: amountDueTodayRounded,
+              remainingBalance: 0,
+              finalDueDate: null,
+              finalDueAt: null,
+              createdAt: new Date().toISOString(),
+            }
+          : {
+              product: "catering_ocotillo",
+              type: "deposit",
+              total,
+              depositPercent: 0.25,
+              paidNow: amountDueTodayRounded,
+              remainingBalance,
+              finalDueDate: finalDueDateStr,
+              finalDueAt: finalDueAtISO,
+              createdAt: new Date().toISOString(),
+            },
+
+        // 🔹 Robot-facing plan snapshot for auto-pay
+        paymentPlanAuto: payFull
+          ? {
+              version: 1,
+              product: "catering_ocotillo",
+              status: "complete",
+              strategy: "paid_in_full",
+              currency: "usd",
+
+              totalCents,
+              depositCents: totalCents,
+              remainingCents: 0,
+
+              planMonths: 0,
+              perMonthCents: 0,
+              lastPaymentCents: 0,
+
+              nextChargeAt: null,
+              finalDueAt: null,
+
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
+
+              venueCaterer: "ocotillo",
+              tier: ocotilloTier,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              version: 1,
+              product: "catering_ocotillo",
+              status: remainingBalance > 0 ? "active" : "complete",
+              strategy: "monthly_until_final",
+              currency: "usd",
+
+              totalCents,
+              depositCents,
+              remainingCents: Math.max(0, totalCents - depositCents),
+
+              planMonths,
+              perMonthCents,
+              lastPaymentCents,
+
+              nextChargeAt,
+              finalDueAt: finalDueAtISO,
+
+              stripeCustomerId:
+                customerId || localStorage.getItem("stripeCustomerId") || null,
+
+              venueCaterer: "ocotillo",
+              tier: ocotilloTier,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+
+        // 🔹 Overlay restore
+        "progress.yumYum.step": "ocotilloCateringThankYou",
+      });
 
       // 📧 Centralized booking email for Yum Catering @ Ocotillo
-try {
-  const current = getAuth().currentUser;
-  await notifyBooking("yum_catering", {
-    // who + basics
-    user_email: current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
-    user_full_name: fullName,
-    firstName: safeFirst,
+      try {
+        const current = getAuth().currentUser;
+        await notifyBooking("yum_catering", {
+          // who + basics
+          user_email:
+            current?.email || (userDoc as any)?.email || "unknown@wedndone.com",
+          user_full_name: fullName,
+          firstName: safeFirst,
 
-    // details
-    wedding_date: wedding || "TBD",
-    total: total.toFixed(2),
-    line_items: (lineItems && lineItems.length ? lineItems : ocLineItems).join(", "),
+          // details
+          wedding_date: wedding || "TBD",
+          total: total.toFixed(2),
+          line_items: (lineItems && lineItems.length ? lineItems : ocLineItems).join(", "),
 
-    // pdf info
-    pdf_url: publicUrl || "",
-    pdf_title: "Ocotillo Catering Agreement",
+          // pdf info
+          pdf_url: publicUrl || "",
+          pdf_title: "Ocotillo Catering Agreement",
 
-    // payment breakdown
-    payment_now: amountDueToday.toFixed(2),
-    remaining_balance: remainingBalance.toFixed(2),
-    final_due: finalDueDateStr,
+          // payment breakdown
+          payment_now: amountDueToday.toFixed(2),
+          remaining_balance: remainingBalance.toFixed(2),
+          final_due: finalDueDateStr,
 
-    // UX link + label
-    dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
-    product_name: "Ocotillo Catering",
-  });
-} catch (mailErr) {
-  console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
-}
+          // UX link + label
+          dashboardUrl: `${window.location.origin}${import.meta.env.BASE_URL}dashboard`,
+          product_name: "Ocotillo Catering",
+        });
+      } catch (mailErr) {
+        console.error("❌ notifyBooking(yum_catering) failed:", mailErr);
+      }
 
       // Nudge any doc viewers to refresh
       window.dispatchEvent(new Event("documentsUpdated"));
@@ -509,12 +616,6 @@ try {
           <h3 className="px-title" style={{ margin: 0, color: "#2c62ba" }}>
             Madge is working her magic…
           </h3>
-
-          <div style={{ marginTop: 12 }}>
-            <button className="boutique-back-btn" style={{ width: 250 }} onClick={onBack} disabled>
-              ← Back to Cart
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -522,10 +623,16 @@ try {
 
   // UI copy for above the form
   const summaryText = payFull
-    ? `Total due today: $${Number((amountDueTodayCents / 100)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}.`
+    ? `Total due today: $${Number(amountDueTodayCents / 100).toLocaleString(
+        undefined,
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      )}.`
     : `Deposit due today: $${(amountDueTodayCents / 100).toFixed(
         2
-      )} (25%). Remaining $${Number(remainingBalance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} due by ${finalDueDateStr}.`;
+      )} (25%). Remaining $${Number(remainingBalance).toLocaleString(
+        undefined,
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+      )} due by ${finalDueDateStr}.`;
 
   // ========== Main checkout card ==========
   return (
@@ -567,8 +674,104 @@ try {
           {summaryText}
         </p>
 
-        {/* Stripe form */}
+        {/* Saved card toggle + Stripe form */}
         <div className="px-elements">
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px solid #e2e6f0",
+              background: "#f7f8ff",
+            }}
+          >
+            {requiresCardOnFile ? (
+              hasSavedCard ? (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  We&apos;ll use your saved card on file for this Ocotillo catering plan —{" "}
+                  <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
+                  {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+                  {savedCardSummary!.exp_year}). If you need to change cards later, you can
+                  update your saved card in your Wed&amp;Done account before the next payment.
+                </p>
+              ) : (
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    margin: 0,
+                    textAlign: "left",
+                  }}
+                >
+                  Enter your card details to start your Ocotillo catering plan. This card will
+                  be saved on file and used for your monthly payments and final balance.
+                </p>
+              )
+            ) : hasSavedCard ? (
+              <>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="ocotilloCateringPaymentMode"
+                    checked={mode === "saved"}
+                    onChange={() => setMode("saved")}
+                  />
+                  <span>
+                    Saved card on file —{" "}
+                    <strong>{savedCardSummary!.brand.toUpperCase()}</strong> ••••{" "}
+                    {savedCardSummary!.last4} (exp {savedCardSummary!.exp_month}/
+                    {savedCardSummary!.exp_year})
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: ".95rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="ocotilloCateringPaymentMode"
+                    checked={mode === "new"}
+                    onChange={() => setMode("new")}
+                  />
+                  <span>Pay with a different card</span>
+                </label>
+              </>
+            ) : (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: ".95rem",
+                  cursor: "default",
+                }}
+              >
+                <input type="radio" checked readOnly />
+                <span>Enter your card details</span>
+              </label>
+            )}
+          </div>
+
           <CheckoutForm
             total={amountDueToday} // dollars (not cents)
             onSuccess={handleSuccess}
@@ -583,6 +786,9 @@ try {
                 return undefined;
               }
             })()}
+            useSavedCard={
+              requiresCardOnFile ? hasSavedCard : hasSavedCard && mode === "saved"
+            }
           />
         </div>
 

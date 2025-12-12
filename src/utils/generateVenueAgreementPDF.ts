@@ -58,7 +58,7 @@ const sanitizeText = (s: string) =>
 const setBodyFont = (
   doc: jsPDF,
   size = 12,
-  color: [number, number, number] | number = 50
+  color: [number, number, number] | number = 0 // 🔁 default: black body text
 ) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(size);
@@ -101,12 +101,12 @@ function writeBulletedLines(
       renderFooter(doc);
       doc.addPage();
       // consistent base font on new page
-      setBodyFont(doc, 12, 50);
+      setBodyFont(doc, 12, 0);
       y = 30;
     }
   };
 
-  setBodyFont(doc, 12, 50);
+  setBodyFont(doc, 12, 0);
 
   for (const raw of lines || []) {
     const clean = sanitizeText(raw);
@@ -213,7 +213,7 @@ export const generateVenueAgreementPDF = async ({
       renderFooter(doc);
       doc.addPage();
       // reset base font/colors for next page to avoid font drift
-      setBodyFont(doc, 12, 50);
+      setBodyFont(doc, 12, 0);
       // optional: watermark again
       doc.addImage(lock, "JPEG", 40, 60, 130, 130);
       y = 30;
@@ -259,7 +259,7 @@ export const generateVenueAgreementPDF = async ({
   setHeader(doc, "Venue Specific Details", w, y);
   y += 10;
 
-  setBodyFont(doc, 12, 50);
+  setBodyFont(doc, 12, 0);
   y = writeBulletedLines(doc, venueSpecificDetails, 20, y, w - 40);
 
   // ————— Booking Terms —————
@@ -267,7 +267,7 @@ export const generateVenueAgreementPDF = async ({
   setHeader(doc, "Booking Terms", w, y);
   y += 10;
 
-  setBodyFont(doc, 12, 50);
+  setBodyFont(doc, 12, 0);
   y = writeBulletedLines(doc, bookingTerms, 20, y, w - 40);
 
   // ---------- signature block on the LAST page ----------
@@ -276,7 +276,7 @@ export const generateVenueAgreementPDF = async ({
     renderFooter(doc);
     doc.addPage();
     // keep font consistent on the new page
-    setBodyFont(doc, 12, 50);
+    setBodyFont(doc, 12, 0);
     doc.addImage(lock, "JPEG", 40, 60, 130, 130);
     y = 30;
   }

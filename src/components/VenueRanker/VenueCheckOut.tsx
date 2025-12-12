@@ -9,6 +9,7 @@ import {
   arrayUnion,
   updateDoc,
   serverTimestamp,
+  increment,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { useUser } from "../../contexts/UserContext";
@@ -257,6 +258,10 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
     ? fmtPretty(finalDueDate)
     : `${FINAL_DUE_DAYS} days before your wedding date`;
 
+  const prettyContractDate = weddingDateObj
+    ? fmtPretty(weddingDateObj)
+    : "your reserved wedding date";
+
   // For venues, monthly plan => card on file required
   const requiresCardOnFile = !isPayingFull;
 
@@ -390,15 +395,10 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
         : [];
 
       // 🧾 Fallback booking terms if nothing came from the contract payload.
-      // These mirror the standardized venue + payment terms you just added.
       const defaultBookingTerms: string[] = [
-        `Date & availability. Booking is for ${new Date(
-          `${weddingDate}T12:00:00`
-        ).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })} at ${venueName}. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
+        `Date & availability. Booking is for ${prettyContractDate} at ${
+          venueName || venueNameFromLS || "your venue"
+        }. If the venue is unable to host due to force majeure or venue closure, we’ll work in good faith to reschedule or refund venue fees paid to Wed&Done.`,
         `Guest count lock. Your guest count for this booking is ${
           userData.guestCount ?? "the number on file"
         }. The venue’s capacity and pricing are based on that number. Guest count may be increased (subject to capacity and pricing changes) but cannot be decreased after booking.`,
@@ -497,6 +497,13 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
           uploadedAt: new Date().toISOString(),
         }),
         purchases: arrayUnion(purchase),
+
+        // 🔢 Budget Wand: record what actually hit the card today
+        spendTotal: increment(
+          Number(
+            isPayingFull ? total || 0 : amountDueToday || 0
+          )
+        ),
 
         "bookings.venue": true,
         "bookings.venueSlug": venueSlug,
@@ -754,8 +761,8 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
             )}
           </p>
 
-                    {/* Payment Method Selection — GOLD STANDARD */}
-                    <div
+          {/* Payment Method Selection — GOLD STANDARD */}
+          <div
             style={{
               marginTop: "12px",
               marginBottom: "20px",
@@ -884,7 +891,10 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
               total={amountDueToday}
               useSavedCard={mode === "saved"}
               onSuccess={handleSuccess}
-              setStepSuccess={setStepSuccess}
+              // We advance to thank-you inside handleSuccess
+              setStepSuccess={() => {
+                /* no-op; wizard handled above */
+              }}
               isAddon={false}
               customerEmail={userData.email || undefined}
               customerName={`${firstNameLocal || firstName || "Magic"} ${

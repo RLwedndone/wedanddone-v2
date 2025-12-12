@@ -39,7 +39,6 @@ interface PlannerCheckOutProps {
 
 // money utils
 const toCents = (n: number) => Math.round((Number(n) || 0) * 100);
-const fromCents = (c: number) => (Number(c) || 0) / 100;
 
 // helper: first second of that day (UTC) for cron safety
 const asStartOfDayUTC = (d: Date) =>
@@ -56,6 +55,26 @@ const asStartOfDayUTC = (d: Date) =>
 
 const FINAL_DUE_DAYS = 35;
 
+// monthly count inclusive (partial months count as 1)
+const monthsBetweenInclusive = (from: Date, to: Date) => {
+  const a = new Date(from.getFullYear(), from.getMonth(), 1);
+  const b = new Date(to.getFullYear(), to.getMonth(), 1);
+  let months =
+    (b.getFullYear() - a.getFullYear()) * 12 +
+    (b.getMonth() - a.getMonth());
+  if (to.getDate() >= from.getDate()) months += 1;
+  return Math.max(1, months);
+};
+
+// schedule first auto-charge ~ one month after booking, start of day UTC
+const firstMonthlyChargeAtUTC = (from = new Date()): string => {
+  const y = from.getUTCFullYear();
+  const m = from.getUTCMonth();
+  const d = from.getUTCDate();
+  const dt = new Date(Date.UTC(y, m + 1, d, 0, 0, 1));
+  return dt.toISOString();
+};
+
 const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
   onClose,
   onBackToContract,
@@ -65,7 +84,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
   paymentSummary,
   signatureImage,
   onSuccess,
-  setStepSuccess,
+  setStepSuccess, // kept in props for compatibility, but CheckoutForm gets a no-op
   firstName,
   lastName,
   weddingDate,
@@ -78,6 +97,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
   const { userData } = useUser();
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const finishedOnceRef = useRef(false);
 
   if (!userData) {
     return (
@@ -143,15 +163,6 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
   // Build a monthly plan (even spread, last payment adjusted) if not paying in full
   const today = new Date();
-  const monthsBetweenInclusive = (from: Date, to: Date) => {
-    const a = new Date(from.getFullYear(), from.getMonth(), 1);
-    const b = new Date(to.getFullYear(), to.getMonth(), 1);
-    let months =
-      (b.getFullYear() - a.getFullYear()) * 12 +
-      (b.getMonth() - a.getMonth());
-    if (to.getDate() >= from.getDate()) months += 1;
-    return Math.max(1, months);
-  };
 
   let planMonths = 0,
     perMonthCents = 0,
@@ -164,7 +175,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
     const base = Math.floor(remCents / Math.max(1, planMonths));
     perMonthCents = base;
     lastPaymentCents = remCents - base * Math.max(0, planMonths - 1);
-    nextChargeAtISO = asStartOfDayUTC(new Date(today)).toISOString();
+    nextChargeAtISO = firstMonthlyChargeAtUTC(today);
   }
 
   // ───────────────── Success handler (Stripe) ─────────────────
@@ -173,6 +184,12 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
   }: {
     customerId?: string;
   } = {}) => {
+    if (finishedOnceRef.current) {
+      console.warn("[PlannerCheckOut] handleSuccess already ran — ignoring re-entry");
+      return;
+    }
+    finishedOnceRef.current = true;
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (!user) return;
@@ -361,74 +378,74 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
       await updateDoc(userRef, updates);
 
-            // ---------- 4) Email notifications (user + admin) ----------
-            try {
-              const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-              if (publicKey) {
-                const serviceId = "service_xayel1i";
-      
-                const fullName = `${firstName || data?.firstName || "Magic"} ${
-                  lastName || data?.lastName || "User"
-                }`.trim();
-      
-                const userEmail =
-                  userData?.email ||
-                  getAuth().currentUser?.email ||
-                  "unknown@wedndone.com";
-      
-                // Format wedding date nicely and avoid timezone slip
-                const emailWeddingDate = (() => {
-                  const ymd = weddingDateSafe;
-                  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-                    const d = new Date(`${ymd}T12:00:00`);
-                    return d.toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    });
-                  }
-                  return ymd || "TBD";
-                })();
-      
-                const commonParams = {
-                  user_email: userEmail,
-                  user_full_name: fullName,
-                  firstName: firstName || data?.firstName || "",
-                  wedding_date: emailWeddingDate,
-                  pdf_url: url || "",
-                  pdf_title: "Pixie Planner Agreement",
-                  total: total.toFixed(2),
-                  line_items: `Pixie Planner coordination for ${guestCount} guests`,
-                  payment_now: amountDueToday.toFixed(2),
-                  remaining_balance: remainingBalance.toFixed(2),
-                  final_due: finalDueDateStr,
-                  dashboardUrl: `${window.location.origin}${
-                    import.meta.env.BASE_URL
-                  }dashboard`,
-                  product_name: "Pixie Planner",
-                };
-      
-                // user-facing email
-                const userPromise = emailjs.send(
-                  serviceId,
-                  "template_ima4r4n",
-                  commonParams,
-                  publicKey
-                );
-      
-                // admin notification email
-                const adminPromise = emailjs.send(
-                  serviceId,
-                  "template_4fdximn",
-                  commonParams,
-                  publicKey
-                );
-      
-                await Promise.all([userPromise, adminPromise]);
-              }
-            } catch (mailErr) {
-              console.warn("Planner EmailJS failed:", mailErr);
+      // ---------- 4) Email notifications (user + admin) ----------
+      try {
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        if (publicKey) {
+          const serviceId = "service_xayel1i";
+
+          const fullName = `${firstName || data?.firstName || "Magic"} ${
+            lastName || data?.lastName || "User"
+          }`.trim();
+
+          const userEmail =
+            userData?.email ||
+            getAuth().currentUser?.email ||
+            "unknown@wedndone.com";
+
+          // Format wedding date nicely and avoid timezone slip
+          const emailWeddingDate = (() => {
+            const ymd = weddingDateSafe;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+              const d = new Date(`${ymd}T12:00:00`);
+              return d.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
             }
+            return ymd || "TBD";
+          })();
+
+          const commonParams = {
+            user_email: userEmail,
+            user_full_name: fullName,
+            firstName: firstName || data?.firstName || "",
+            wedding_date: emailWeddingDate,
+            pdf_url: url || "",
+            pdf_title: "Pixie Planner Agreement",
+            total: total.toFixed(2),
+            line_items: `Pixie Planner coordination for ${guestCount} guests`,
+            payment_now: amountDueToday.toFixed(2),
+            remaining_balance: remainingBalance.toFixed(2),
+            final_due: finalDueDateStr,
+            dashboardUrl: `${window.location.origin}${
+              import.meta.env.BASE_URL
+            }dashboard`,
+            product_name: "Pixie Planner",
+          };
+
+          // user-facing email
+          const userPromise = emailjs.send(
+            serviceId,
+            "template_ima4r4n",
+            commonParams,
+            publicKey
+          );
+
+          // admin notification email
+          const adminPromise = emailjs.send(
+            serviceId,
+            "template_4fdximn",
+            commonParams,
+            publicKey
+          );
+
+          await Promise.all([userPromise, adminPromise]);
+        }
+      } catch (mailErr) {
+        console.warn("Planner EmailJS failed:", mailErr);
+      }
 
       // ---------- 5) UI updates
       window.dispatchEvent(new Event("purchaseMade"));
@@ -540,7 +557,9 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
               <CheckoutForm
                 total={amountDueToday}
                 onSuccess={handleSuccess} // receives { customerId }
-                setStepSuccess={onSuccess}
+                setStepSuccess={() => {
+                  // We advance via handleSuccess → onSuccess()
+                }}
                 isAddon={false}
                 customerEmail={getAuth().currentUser?.email || undefined}
                 customerName={`${firstName || "Magic"} ${lastName || "User"}`}
