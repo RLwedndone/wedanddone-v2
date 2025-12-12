@@ -7,6 +7,29 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React + TS</title>
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KB25N966BV"></script>
+    <script>
+      // Enable GA only on allowed domains
+      const allowedHosts = [
+        "localhost",
+        "127.0.0.1",
+        "rlwedndone.github.io",
+        "wedndone.com",
+        "www.wedndone.com"
+      ];
+
+      if (allowedHosts.includes(location.hostname)) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){ dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-KB25N966BV', {
+          send_page_view: false // React Router will handle this manually
+        });
+      }
+    </script>
+
   </head>
   <body>
     <div id="root"></div>

@@ -10,7 +10,7 @@ export default function useAnalytics() {
     const gtag = (window as any).gtag;
     if (!gtag) return;
 
-    gtag("config", gaId, {
+    gtag("event", "page_view", {
       page_path: location.pathname + location.search,
       page_title: document.title,
     });

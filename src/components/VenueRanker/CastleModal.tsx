@@ -59,6 +59,12 @@ const CastleModal: React.FC<CastleModalProps> = ({
     // does this venue require manual confirmation before contract/payment?
     const isManualConfirm = !!venueInfo?.manualConfirm;
 
+    const isInstaBook = !isManualConfirm;
+
+const bookSealSrc = isInstaBook
+  ? `${import.meta.env.BASE_URL}assets/images/book_gold_seal_insta.png`
+  : `${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`;
+
   // planner credit ($ already paid toward planner)
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
 
@@ -977,21 +983,28 @@ try {
         </h3>
 
         <p
-          style={{
-            lineHeight: 1.5,
-            color: "#444",
-            margin: "0 12px 8px",
-            fontSize: "1rem",
-          }}
-        >
-          Most Wed&Done venues are instant-book.{" "}
-          <b>{details.title}</b> is a special partner whose team
-          double-checks availability manually.
-          <br />
-          <br />
-          If you continue, we’ll <b>request your exact date</b> and let
-          you know when it’s confirmed.
-        </p>
+  style={{
+    lineHeight: 1.5,
+    color: "#444",
+    margin: "0 12px 8px",
+    fontSize: "1rem",
+  }}
+>
+  ✨ <strong>Heads up from Madge:</strong> ✨ 
+  <br />
+  <br />
+  While many Wed&amp;Done venues allow you to book instantly <b>{details.title}</b> is one of
+  our magical partners who asks us to double-check{" "}
+  <strong>availability and pricing</strong> before we open the booking seal.
+  <br />
+  <br />
+  If you continue, we’ll <strong>request your exact date</strong> and email you
+  as soon as it’s confirmed.
+  <br />
+  <br />
+  Want that instant “done and dusted” feeling? Pick a venue marked as {" "}
+  <strong>Pixie Perfect • Insta-Book!</strong> 🪄
+</p>
 
         <div
   style={{
@@ -1098,27 +1111,27 @@ try {
         ✅ Approved by {details.title}! You can book now.
       </p>
       <img
-        src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
-        alt="Book It Now"
-        onClick={handleBookItClick}
-        style={{
-          width: "120px",
-          height: "auto",
-          cursor: "pointer",
-          transition: "transform 0.3s ease, filter 0.3s ease",
-          filter: "drop-shadow(0 0 4px gold)",
-          display: "block",
-          margin: "0 auto",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.1)";
-          e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "scale(1)";
-          e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
-        }}
-      />
+  src={bookSealSrc}
+  alt={isManualConfirm ? "Book It Now" : "Pixie Perfect • Insta-Book!"}
+  onClick={handleBookItClick}
+  style={{
+    width: "120px",
+    height: "auto",
+    cursor: "pointer",
+    transition: "transform 0.3s ease, filter 0.3s ease",
+    filter: "drop-shadow(0 0 4px gold)",
+    display: "block",
+    margin: "0 auto",
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.1)";
+    e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+  }}
+/>
     </>
   ) : approvalStatus === "requested" ? (
     <>
@@ -1137,9 +1150,9 @@ try {
     // approvalStatus === "none" (default) → prompt to check availability
     <>
       <img
-        src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
-        alt="Check Availability"
-        onClick={() => setShowManualConfirmModal(true)}  // or handleBookItClick (it opens the modal when not approved)
+  src={bookSealSrc}
+  alt="Check Availability"
+  onClick={() => setShowManualConfirmModal(true)}  // or handleBookItClick (it opens the modal when not approved)
         style={{
           width: "120px",
           height: "auto",
@@ -1163,27 +1176,29 @@ try {
 ) : (
   // Not a manual venue → normal immediate booking UI
   <img
-    src={`${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`}
-    alt="Book It Now"
-    onClick={handleBookItClick}
-    style={{
-      width: "120px",
-      height: "auto",
-      cursor: "pointer",
-      transition: "transform 0.3s ease, filter 0.3s ease",
-      filter: "drop-shadow(0 0 4px gold)",
-      display: "block",
-      margin: "0 auto",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "scale(1.1)";
-      e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "scale(1)";
-      e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
-    }}
-  />
+  src={bookSealSrc}
+  alt="Pixie Perfect • Insta-Book!"
+  onClick={handleBookItClick}
+  style={{
+    width: "180px", // ✨ BIGGER for insta-book
+    height: "auto",
+    cursor: "pointer",
+    transition: "transform 0.3s ease, filter 0.3s ease",
+    filter: "drop-shadow(0 0 12px rgba(80,160,255,0.9))", // 💙 light blue glow
+    display: "block",
+    margin: "0 auto",
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.12)";
+    e.currentTarget.style.filter =
+      "drop-shadow(0 0 22px rgba(120,190,255,1))";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.filter =
+      "drop-shadow(0 0 12px rgba(80,160,255,0.9))";
+  }}
+/>
 )}
     </div>
   )}

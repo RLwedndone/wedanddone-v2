@@ -45,14 +45,20 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
 
   const handleForgotPassword = async () => {
     setResetMessage(null);
-
+  
     if (!email.trim()) {
       setError("Please enter your email first so we know where to send the reset link.");
       return;
     }
-
+  
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      const continueUrl = `${window.location.origin}${import.meta.env.BASE_URL}login`;
+  
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: continueUrl,
+        handleCodeInApp: false,
+      });
+  
       setError(null);
       setResetMessage(
         "📩 Your password reset link is on its way! If you don’t see it soon, check your spam or junk folder — sometimes magic lands there first."

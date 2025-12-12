@@ -32,6 +32,9 @@ function getStripe(): Stripe | null {
 const db = admin.firestore();
 const cents = (d: number) => Math.round(Number(d) * 100);
 
+// 🔒 Global safety cap: max per-charge amount (in USD)
+const MAX_SINGLE_CHARGE_USD = 65000; // $65,000
+
 async function getOrCreateCustomerId(uid: string): Promise<string> {
   const ref = db.collection("users").doc(uid);
   const snap = await ref.get();
@@ -114,7 +117,38 @@ async function getOrCreateCustomerId(uid: string): Promise<string> {
 const app = express();
 
 // Allow all origins at Express level (fine because we also restrict at function wrapper)
-app.use(cors({ origin: true }));
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+
+  // Firebase Hosting
+  "https://wedndonev2.web.app",
+  "https://wedndonev2.firebaseapp.com",
+
+  // Production
+  "https://wedndone.com",
+  "https://www.wedndone.com",
+
+  // Staging
+  "https://rlwedndone.github.io",
+
+  // Legacy / marketing domain (if still used)
+  "https://wedanddone.com",
+  "https://www.wedanddone.com",
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  next();
+});
+
 app.use(express.json());
 
 app.get("/health", (_req: Request, res: Response): void => {
@@ -154,6 +188,17 @@ app.post(
         res.status(400).json({ error: "Invalid amount" });
         return;
       }
+
+      // 🔒 Global upper bound for a single charge (amount is in *cents*)
+if (amount > MAX_SINGLE_CHARGE_USD * 100) {
+  res.status(400).json({
+    error: "amount_too_large",
+    message:
+      `For now we can only process single payments up to $${MAX_SINGLE_CHARGE_USD.toLocaleString()}. ` +
+      "If you need a larger booking, please contact Wed&Done support.",
+  });
+  return;
+}
 
             // Try to derive firebase uid from metadata (CheckoutForm sends this)
             const firebaseUid =
@@ -534,6 +579,17 @@ async function chargeDefaultHandler(
       return;
     }
 
+    // 🔒 Global upper bound for manual/saved-card charges (amount is in USD)
+if (amount > MAX_SINGLE_CHARGE_USD) {
+  res.status(400).json({
+    error: "amount_too_large",
+    message:
+      `For now we can only process single payments up to $${MAX_SINGLE_CHARGE_USD.toLocaleString()}. ` +
+      "If you need a larger booking, please contact Wed&Done support.",
+  });
+  return;
+}
+
     const customerId = await getOrCreateCustomerId(uid);
 
     const customer = (await s.customers.retrieve(
@@ -618,9 +674,22 @@ export const stripeapiV2 = onRequest(
   {
     cors: [
       "http://localhost:5173",
+      "http://127.0.0.1:5173",
+    
+      // Firebase Hosting
       "https://wedndonev2.web.app",
+      "https://wedndonev2.firebaseapp.com",
+    
+      // Production
       "https://wedndone.com",
       "https://www.wedndone.com",
+    
+      // Staging
+      "https://rlwedndone.github.io",
+    
+      // Legacy / marketing domain (if still used)
+      "https://wedanddone.com",
+      "https://www.wedanddone.com",
     ],
   },
   app

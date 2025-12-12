@@ -201,6 +201,10 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     usesSantis: true,
     cateringAddOn: 0,
     maxCapacity: 250,
+
+    manualConfirm: true,
+
+
     weekdayPricing: {
       monday: 0,
       tuesday: 0,
@@ -280,6 +284,9 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     usesSantis: false,
     customCaterer: "Farmhouse In-House Catering",
     maxCapacity: 150,
+
+    manualConfirm: true,
+
     cateringAddOn: 1000,
     weekdayPricing: {
       monday: 5500,
@@ -318,6 +325,9 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     usesSantis: false,
     cateringAddOn: 1000,
     maxCapacity: 150,
+
+    manualConfirm: true,
+
     weekdayPricing: {
       monday: 0,
       tuesday: 0,
@@ -344,6 +354,9 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     displayName: "Schnepf's Big Red Barn",
     usesSantis: false,
     maxCapacity: 250,
+
+    manualConfirm: true,
+
     cateringAddOn: 1000,
     weekdayPricing: {
       monday: 5400,
@@ -381,6 +394,9 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     displayName: "Hacienda Del Sol",
     usesSantis: false,
     maxCapacity: 150,
+
+    manualConfirm: true,
+
     customCaterer: "Hacienda Del Sol In-House Catering",
     cateringAddOn: 1000,
     weekdayPricing: {
@@ -578,6 +594,9 @@ valleyho: {
     displayName: "The Sunkist Warehouse",
     usesSantis: true,
     maxCapacity: 250,
+
+    manualConfirm: true,
+    
     cateringAddOn: 0,
     siteFeeFlat: 7576.5,
     marginTiers: [
