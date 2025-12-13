@@ -33,7 +33,7 @@ jobs:
         env:
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
         run: |
-          npm run build
+          npm run build -- --mode gh
           npm run postbuild
 
       - name: Upload build output
