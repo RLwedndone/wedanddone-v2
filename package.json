@@ -41,11 +41,11 @@
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
   },
- "scripts": {
+"scripts": {
   "dev": "vite",
   "build": "vite build",
+  "build:gh": "vite build --mode gh",
   "postbuild": "cp dist/index.html dist/404.html || true",
-  "lint": "echo 'Skipping lint step for deployment'",
   "preview": "vite preview",
   "emulate": "firebase emulators:start --only functions",
   "kill-ports": "lsof -ti:5173,5001,4000,4400 | xargs kill -9 || true",

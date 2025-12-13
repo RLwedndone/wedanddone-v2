@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   getAuth,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
@@ -19,51 +21,50 @@ interface JamAccountModalProps {
   currentStep: string;
 }
 
-// 🔹 Human-friendly Firebase auth error mapper
-function getFriendlyAuthError(err: any): string {
-  const code = err?.code || "";
-
-  switch (code) {
-    case "auth/email-already-in-use":
-      return "Looks like there’s already an account with this email. Try logging in instead, or use a different email address.";
-    case "auth/invalid-email":
-      return "That email doesn’t look quite right. Double-check the spelling and try again.";
-    case "auth/weak-password":
-      return "For security, your password needs to be at least 6 characters. Try something a bit stronger.";
-    case "auth/operation-not-allowed":
-      return "Email/password sign-in isn’t available at the moment. Please try again later or use another sign-in option.";
-    case "auth/popup-blocked":
-    case "auth/popup-closed-by-user":
-      return "The sign-in popup was closed before we could finish. Try again when you’re ready.";
-    case "auth/account-exists-with-different-credential":
-      return "There’s already an account with this email using a different sign-in method. Try logging in with email + password.";
-    default:
-      return (
-        "We ran into a hiccup creating your account. " +
-        "Double-check your details and try again in a moment."
-      );
-  }
-}
+type Step = "choice" | "signup" | "login";
 
 const JamAccountModal: React.FC<JamAccountModalProps> = ({
   onSuccess,
   onClose,
   currentStep,
 }) => {
-  const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [email,     setEmail]     = useState("");
-  const [password,  setPassword]  = useState("");
-  const [error,     setError]     = useState("");
+  const [step, setStep] = useState<Step>("choice");
 
-  // NEW: Google flow may need a name capture
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  // Google name gate
   const [needNameCapture, setNeedNameCapture] = useState(false);
   const [pendingFirst, setPendingFirst] = useState("");
-  const [pendingLast,  setPendingLast]  = useState("");
+  const [pendingLast, setPendingLast] = useState("");
 
   const auth = getAuth();
 
-  // carry over any guest Jam data after signup
+  const clearNotices = () => {
+    setError("");
+    setMessage("");
+  };
+
+  const goChoice = () => {
+    setStep("choice");
+    clearNotices();
+    // keep inputs (nice if they tapped wrong button)
+  };
+
+  // ---------------------------
+  // Jam: carry over any guest Jam data after signup/login
+  // ---------------------------
   const migrateGuestJamGrooveData = async (uid: string) => {
     const userRef = doc(db, "users", uid);
     const jamGrooveData: any = {};
@@ -90,26 +91,20 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
     }
   };
 
-  // Checks Firestore for an existing (and/or locked) wedding date and
-  // stores lightweight flags for the Jam flow to react to.
+  // Jam: cache existing wedding date flags for flow shortcuts
   const cacheExistingWeddingDateFlags = async (uid: string) => {
     const ref = doc(db, "users", uid);
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : {};
     const locked = Boolean((data as any)?.weddingDateLocked);
-    const ymd =
-      (data as any)?.weddingDate ||
-      (data as any)?.wedding?.date ||
-      null;
+    const ymd = (data as any)?.weddingDate || (data as any)?.wedding?.date || null;
 
     try {
       if (ymd) {
         localStorage.setItem("weddingDate", ymd);
-        // Use this to skip date entry and show confirm immediately
         localStorage.setItem("jamSkipDateCapture", "true");
       }
       if (locked && ymd) {
-        // Optional: a stronger flag if you need to treat "locked" differently
         localStorage.setItem("jamHasLockedWeddingDate", "true");
       }
     } catch {
@@ -117,69 +112,169 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
     }
   };
 
+  // Jam: always keep the "where they were" breadcrumb
+  const saveJamStep = async (uid: string) => {
+    await setDoc(
+      doc(db, "users", uid),
+      { jamGrooveSavedStep: currentStep || "intro" },
+      { merge: true }
+    );
+  };
+
+  // ---------------------------
+  // Email/password create
+  // ---------------------------
   const handleSignup = async () => {
+    clearNotices();
+
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedFirst || !trimmedLast) {
+      setError("Please add both your first and last name so we can personalize your booking.");
+      return;
+    }
+    if (!trimmedEmail || !password) {
+      setError("Email and password are required to create your account.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Your password needs at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Your passwords don’t match.");
+      return;
+    }
+
     try {
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCred = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
 
       await updateProfile(userCred.user, {
-        displayName: `${firstName} ${lastName}`,
+        displayName: `${trimmedFirst} ${trimmedLast}`,
       });
 
       await saveUserProfile({
-        firstName,
-        lastName,
-        email,
+        firstName: trimmedFirst,
+        lastName: trimmedLast,
+        email: trimmedEmail,
         uid: userCred.user.uid,
       });
 
-      await setDoc(
-        doc(db, "users", userCred.user.uid),
-        { jamGrooveSavedStep: currentStep || "intro" },
-        { merge: true }
-      );
-
+      await saveJamStep(userCred.user.uid);
       await migrateGuestJamGrooveData(userCred.user.uid);
       await cacheExistingWeddingDateFlags(userCred.user.uid);
 
       onSuccess();
     } catch (err: any) {
-      console.error("[JamAccountModal] Email signup error:", err);
-      setError(getFriendlyAuthError(err));
+      console.error("[JamAccountModal] signup failed:", err);
+
+      let msg = "We couldn’t create your account yet. Please try again.";
+      switch (err?.code) {
+        case "auth/email-already-in-use":
+          msg = "You already have an account with this email — choose Log In instead.";
+          break;
+        case "auth/weak-password":
+          msg = "Password is too weak (6+ characters).";
+          break;
+        case "auth/invalid-email":
+          msg = "That email address doesn’t look valid yet.";
+          break;
+        case "auth/network-request-failed":
+          msg = "Network hiccup — check your connection and try again.";
+          break;
+      }
+      setError(msg);
     }
   };
 
-  const handleGoogleSignup = async () => {
+  // ---------------------------
+  // Email/password login
+  // ---------------------------
+  const handleLogin = async () => {
+    clearNotices();
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError("Email and password are required to log in.");
+      return;
+    }
+
     try {
-      // ✅ Use shared helper so we *always* end up with a single user,
-      // and get first/last/email in one place.
-      const result = await signInWithGoogleAndEnsureUser();
-      // result: { uid, email, firstName, lastName, missingName }
+      const cred = await signInWithEmailAndPassword(auth, trimmedEmail, password);
 
-      const uid = result.uid || "";
-
-      await saveUserProfile({
-        firstName: result.firstName || "",
-        lastName: result.lastName || "",
-        email: result.email || "",
-        uid,
-      });
-
-      if (uid) {
-        await setDoc(
-          doc(db, "users", uid),
-          { jamGrooveSavedStep: currentStep || "intro" },
-          { merge: true }
-        );
-
-        await migrateGuestJamGrooveData(uid);
-        await cacheExistingWeddingDateFlags(uid);
+      // Jam-specific: on login, still migrate any guest data + cache date + save step
+      if (cred?.user?.uid) {
+        await saveJamStep(cred.user.uid);
+        await migrateGuestJamGrooveData(cred.user.uid);
+        await cacheExistingWeddingDateFlags(cred.user.uid);
       }
 
-      // If Google didn't give us full name, flip to NameCapture
+      onSuccess();
+    } catch (err: any) {
+      console.error("[JamAccountModal] login failed:", err);
+
+      let msg = "We couldn’t log you in. Double-check your email + password.";
+      switch (err?.code) {
+        case "auth/user-not-found":
+          msg = "No account found for that email. Choose Create Account instead.";
+          break;
+        case "auth/wrong-password":
+        case "auth/invalid-credential":
+          msg = "That password doesn’t match. Try again (or reset it).";
+          break;
+        case "auth/too-many-requests":
+          msg = "Too many tries — give it a minute (or reset your password).";
+          break;
+        case "auth/network-request-failed":
+          msg = "Network hiccup — check your connection and try again.";
+          break;
+      }
+      setError(msg);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    clearNotices();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Enter your email first so we know where to send the reset link.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, trimmedEmail);
+      setMessage("Reset link sent! Check your inbox (and spam, because spam is rude).");
+    } catch (err: any) {
+      console.error("[JamAccountModal] reset failed:", err);
+      setError("Couldn’t send the reset email. Double-check the email and try again.");
+    }
+  };
+
+  // ---------------------------
+  // Google signup/login + name gate
+  // ---------------------------
+  const handleGoogle = async () => {
+    clearNotices();
+
+    try {
+      const result = await signInWithGoogleAndEnsureUser();
+
+      if (result.uid) {
+        await saveUserProfile({
+          firstName: result.firstName || "",
+          lastName: result.lastName || "",
+          email: result.email || "",
+          uid: result.uid,
+        });
+
+        // Jam-specific: save step + migrate + cache date after Google
+        await saveJamStep(result.uid);
+        await migrateGuestJamGrooveData(result.uid);
+        await cacheExistingWeddingDateFlags(result.uid);
+      }
+
       if (result.missingName) {
         setPendingFirst(result.firstName || "");
         setPendingLast(result.lastName || "");
@@ -189,18 +284,18 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
 
       onSuccess();
     } catch (err: any) {
-      console.error("[JamAccountModal] Google signup error:", err);
+      console.error("[JamAccountModal] Google sign-in failed:", err);
+      if (err?.code === "auth/popup-closed-by-user") return;
 
-      if (err?.code === "auth/popup-closed-by-user") {
-        // user bailed, don't scream at them
+      if (err?.code === "auth/account-exists-with-different-credential") {
+        setError("This email exists with a different sign-in method. Try email + password.");
         return;
       }
 
-      setError(getFriendlyAuthError(err));
+      setError(err?.message || "Google sign-in failed. Please try again.");
     }
   };
 
-  // If we still need first/last after Google, temporarily swap in NameCapture
   if (needNameCapture) {
     return (
       <NameCapture
@@ -213,7 +308,6 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
   }
 
   return (
-    // Backdrop + proper stacking (click outside to close)
     <div
       className="pixie-overlay"
       style={{ zIndex: 2000 }}
@@ -221,25 +315,15 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
       role="dialog"
       aria-modal="true"
     >
-      {/* Card */}
       <div
-        className="pixie-card"
+        className={`pixie-card ${step === "choice" ? "account-card--compact" : "account-card--expanded"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Pink X */}
-        <button
-          className="pixie-card__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-            alt="Close"
-          />
+        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
-        <div className="pixie-card__body" style={{ textAlign: "center" }}>
-          {/* Header image */}
+        <div className="pixie-card__body">
           <img
             src={`${import.meta.env.BASE_URL}assets/images/account_bar.png`}
             alt="Account"
@@ -247,138 +331,349 @@ const JamAccountModal: React.FC<JamAccountModalProps> = ({
             style={{ maxWidth: 240, marginBottom: "1rem" }}
           />
 
-          {/* Title + copy */}
-          <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
-            Ready to rock the perfect soundtrack?
-          </h2>
+          {/* Step 1: Choice */}
+          {step === "choice" && (
+            <>
+              <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
+                Ready to rock the perfect soundtrack? 🎵
+              </h2>
 
-          <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
-            Create an account to save your groove and pick up anytime.
-          </p>
+              <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
+                Great! First, create an account or log in to continue.
+              </p>
 
-          <p
-            className="px-prose-narrow"
-            style={{
-              marginBottom: "1.5rem",
-              fontSize: "0.9rem",
-              color: "#666",
-            }}
-          >
-            🎵 Quick heads-up: all of our DJs and music magic are based in
-            Arizona. Wed&amp;Done is currently booking Arizona weddings only,
-            but we&apos;ll be jamming into more states soon!
-          </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 14 }}>
+                <button
+                  className="boutique-back-btn"
+                  style={{ width: 190 }}
+                  onClick={() => {
+                    clearNotices();
+                    setStep("signup");
+                  }}
+                >
+                  Create Account
+                </button>
 
-          {/* Inputs */}
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              margin: "0 auto 1.25rem",
-            }}
-          >
-            <div style={{ display: "grid", gap: 12 }}>
-              <input
-                className="px-input"
-                type="text"
-                placeholder="First Name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
-              <input
-                className="px-input"
-                type="text"
-                placeholder="Last Name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-              <input
-                className="px-input"
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <input
-                className="px-input"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
+                <button
+                  className="boutique-primary-btn"
+                  style={{ width: 190 }}
+                  onClick={() => {
+                    clearNotices();
+                    setStep("login");
+                  }}
+                >
+                  Log In
+                </button>
+              </div>
 
-          {error && (
-            <p
-              style={{
-                color: "#e53935",
-                marginBottom: "1rem",
-                fontWeight: 600,
-              }}
-            >
-              {error}
-            </p>
+              {error && (
+                <p style={{ color: "#e53935", marginTop: 8, fontWeight: 600, textAlign: "center" }}>
+                  {error}
+                </p>
+              )}
+              {message && (
+                <p style={{ color: "#2c62ba", marginTop: 8, fontWeight: 600, textAlign: "center" }}>
+                  {message}
+                </p>
+              )}
+            </>
           )}
 
-          {/* CTA */}
-          <button
-            className="boutique-primary-btn"
-            onClick={handleSignup}
-            style={{
-              width: "80%",
-              maxWidth: 300,
-              marginBottom: "1rem",
-            }}
-          >
-            Create Account
-          </button>
+          {/* Step 2: Signup */}
+          {step === "signup" && (
+            <>
+              <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
+                Ready to rock the perfect soundtrack?
+              </h2>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
-            <button
-              onClick={handleGoogleSignup}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "10px",
-                width: "80%",
-                maxWidth: 300,
-                minHeight: 44,
-                backgroundColor: "#fff",
-                border: "1px solid #dadce0",
-                borderRadius: "6px",
-                boxShadow:
-                  "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
-                fontSize: "15px",
-                fontWeight: 500,
-                color: "#3c4043",
-                lineHeight: 1.2,
-                cursor: "pointer",
-                padding: "0 16px",
-                boxSizing: "border-box",
-                backgroundClip: "padding-box",
-              }}
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}assets/images/google.png`}
-                alt="Google icon"
-                style={{
-                  width: 20,
-                  height: 20,
-                  objectFit: "contain",
-                  flexShrink: 0,
-                }}
-              />
-              <span>Sign in with Google</span>
-            </button>
-          </div>
+              <p className="px-prose-narrow" style={{ marginBottom: "0.5rem" }}>
+                Create your account below.
+              </p>
+
+              {/* ✅ Arizona note ONLY here */}
+              <p
+                className="px-prose-narrow"
+                style={{ marginBottom: "1.25rem", fontSize: "0.9rem", color: "#666" }}
+              >
+                🎵 Quick heads-up: all of our DJs and music magic are based in Arizona.
+                Wed&amp;Done is currently booking Arizona weddings only, but we&apos;ll be jamming into more states soon!
+              </p>
+
+              <div style={{ width: "100%", maxWidth: 440, margin: "0 auto 1.25rem" }}>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <input
+                    className="px-input"
+                    type="text"
+                    placeholder="First Name"
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      clearNotices();
+                    }}
+                  />
+                  <input
+                    className="px-input"
+                    type="text"
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChange={(e) => {
+                      setLastName(e.target.value);
+                      clearNotices();
+                    }}
+                  />
+                  <input
+                    className="px-input"
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      clearNotices();
+                    }}
+                  />
+
+                  {/* Password + eye */}
+                  <div style={{ position: "relative" }}>
+                    <input
+                      className="px-input"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearNotices();
+                      }}
+                      style={{ paddingRight: 46 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "1.05rem",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+
+                  {/* Confirm + eye */}
+                  <div style={{ position: "relative" }}>
+                    <input
+                      className="px-input"
+                      type={showConfirm ? "text" : "password"}
+                      placeholder="Confirm Password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        clearNotices();
+                      }}
+                      style={{ paddingRight: 46 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      aria-label={showConfirm ? "Hide password" : "Show password"}
+                      style={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "1.05rem",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {showConfirm ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <p style={{ color: "#e53935", marginBottom: "0.75rem", fontWeight: 600, textAlign: "center" }}>
+                  {error}
+                </p>
+              )}
+
+              <button
+                className="boutique-primary-btn"
+                onClick={handleSignup}
+                style={{ width: "80%", maxWidth: 300, marginBottom: "1rem" }}
+              >
+                Create Account
+              </button>
+
+              {/* Google only here (signup path) */}
+              <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 10 }}>
+                <button
+                  onClick={handleGoogle}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    width: "80%",
+                    maxWidth: 300,
+                    minHeight: 44,
+                    backgroundColor: "#fff",
+                    border: "1px solid #dadce0",
+                    borderRadius: "6px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.1)",
+                    fontSize: "15px",
+                    fontWeight: 500,
+                    color: "#3c4043",
+                    lineHeight: 1.2,
+                    cursor: "pointer",
+                    padding: "0 16px",
+                    boxSizing: "border-box",
+                    backgroundClip: "padding-box",
+                  }}
+                >
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                    alt="Google icon"
+                    style={{ width: 20, height: 20, objectFit: "contain", flexShrink: 0 }}
+                  />
+                  <span>Create account with Google</span>
+                </button>
+              </div>
+
+              <button type="button" className="linklike" onClick={goChoice}>
+                ← Back
+              </button>
+            </>
+          )}
+
+          {/* Step 2: Login */}
+          {step === "login" && (
+            <>
+              <h2 className="px-title-lg" style={{ marginBottom: "0.5rem" }}>
+                Welcome back ✨
+              </h2>
+
+              <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
+                Log in to continue.
+              </p>
+
+              <div style={{ width: "100%", maxWidth: 440, margin: "0 auto 1.25rem" }}>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <input
+                    className="px-input"
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      clearNotices();
+                    }}
+                  />
+
+                  <div style={{ position: "relative" }}>
+                    <input
+                      className="px-input"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearNotices();
+                      }}
+                      style={{ paddingRight: 46 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      style={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "1.05rem",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                  <button type="button" className="linklike" onClick={handleForgotPassword}>
+                    Forgot password?
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <p style={{ color: "#e53935", marginBottom: "0.75rem", fontWeight: 600, textAlign: "center" }}>
+                  {error}
+                </p>
+              )}
+              {message && (
+                <p style={{ color: "#2c62ba", marginBottom: "0.75rem", fontWeight: 600, textAlign: "center" }}>
+                  {message}
+                </p>
+              )}
+
+              <button
+                className="boutique-primary-btn"
+                onClick={handleLogin}
+                style={{ width: "80%", maxWidth: 300, marginBottom: "0.75rem" }}
+              >
+                Log In
+              </button>
+
+              <div style={{ display: "flex", justifyContent: "center", marginTop: "0.75rem" }}>
+                <button
+                  onClick={handleGoogle}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 14px",
+                    minHeight: 38,
+                    width: "auto",
+                    backgroundColor: "#fff",
+                    border: "1px solid #dadce0",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    color: "#3c4043",
+                    cursor: "pointer",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/images/google.png`}
+                    alt=""
+                    style={{ width: 18, height: 18 }}
+                  />
+                  <span>Log in with Google</span>
+                </button>
+              </div>
+
+              <br />
+
+              <button type="button" className="linklike" onClick={goChoice}>
+                ← Back
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

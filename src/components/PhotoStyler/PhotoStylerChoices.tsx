@@ -132,18 +132,15 @@ const PhotoStylerChoices: React.FC<PhotoStylerChoicesProps> = ({
             </button>
 
             <button
-              onClick={() => handleSwipe("left")}
-              className="px-btn-200"
-              style={{
-                background: "#e5e7eb",
-                color: "#1f2a44",
-                borderRadius: 12,
-                fontWeight: 600,
-                padding: "var(--pixie-btn-pad-y) var(--pixie-btn-pad-x)",
-              }}
-            >
-              Not My Vibe
-            </button>
+  onClick={() => handleSwipe("left")}
+  className="boutique-primary-btn px-btn-200"
+  style={{
+    background: "#e5e7eb",
+    color: "#1f2a44",
+  }}
+>
+  Not My Vibe
+</button>
 
             <button
               className="boutique-back-btn px-btn-200"

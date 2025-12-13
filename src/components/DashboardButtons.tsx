@@ -33,6 +33,7 @@ interface DashboardButtonsProps {
   onPixiePlannerClick: () => void;
 
   hasPixieNotifications?: boolean;
+  hasDocsNotifications?: boolean;
 
   // HUD handlers
   onOpenMenu?: () => void;
@@ -125,6 +126,7 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   onOpenMadge = () => {},
   onOpenBudget = () => {},
   onOpenMagicBook = () => {},
+  hasDocsNotifications = false,
   hasPixieNotifications = false,
 }) => {
   const navigate = useNavigate();
@@ -273,9 +275,9 @@ const wandIconSrc =
   // Icons
   const ICONS = {
     madge: `${import.meta.env.BASE_URL}assets/images/question_mark.png`,
-    menu: hasPixieNotifications
-    ? `${import.meta.env.BASE_URL}assets/images/golden_menu_tab_alert.png`
-    : `${import.meta.env.BASE_URL}assets/images/golden_menu_tab.png`,
+    menu: (hasPixieNotifications || hasDocsNotifications)
+  ? `${import.meta.env.BASE_URL}assets/images/golden_menu_tab_alert.png`
+  : `${import.meta.env.BASE_URL}assets/images/golden_menu_tab.png`,
     goldKey: `${import.meta.env.BASE_URL}assets/images/gold_key.png`,
     budgetWand: wandIconSrc,
     magicBook: `${import.meta.env.BASE_URL}assets/images/magic_book.png`,

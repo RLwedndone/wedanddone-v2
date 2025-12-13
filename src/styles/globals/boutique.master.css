@@ -186,6 +186,17 @@
    @media (max-width: 380px) {
      .pixie-card--modal { --pixie-card-min-h: 680px; }
    }
+
+   /* Account modal: compact choice screen, expand once a path is chosen */
+.pixie-card.account-card--compact {
+  min-height: 360px;      /* smaller first view */
+  max-height: 70vh;
+}
+
+.pixie-card.account-card--expanded {
+  min-height: 640px;      /* normal big form view */
+  max-height: 88vh;
+}
    
    /* =========================================================
       5) Card Controls — Close “X”

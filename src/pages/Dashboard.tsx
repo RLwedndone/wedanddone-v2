@@ -466,6 +466,7 @@ const Dashboard: React.FC = () => {
 
   const [pixiePurchases, setPixiePurchases] = useState<PixiePurchase[]>([]);
   const [hasPixieNotifications, setHasPixieNotifications] = useState(false);
+  const [hasDocsNotifications, setHasDocsNotifications] = useState(false);
 
   // auth / user
   const [user, setUser] = useState<User | null>(null);
@@ -763,6 +764,13 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
         if (!docSnap.exists()) return;
   
         const data = docSnap.data() as any;
+
+        // 📄 Docs “new items” alert
+const docs = Array.isArray(data.documents) ? data.documents : [];
+const docsLastViewedAt = data.docsLastViewedAt || null;
+
+const newDocs = computeHasNewDocs(docs, docsLastViewedAt);
+setHasDocsNotifications(newDocs);
   
         const flags = deriveCompletionFlags(data);
         console.log("[REFRESH] derived flags:", flags);
@@ -839,6 +847,11 @@ setPixiePurchases(pixData);
 
 const unpaid = pixData.some((p) => p.status === "pending");
 setHasPixieNotifications(unpaid);
+
+// 📄 Docs notification logic
+setHasDocsNotifications(
+  computeHasNewDocs(data.documents, data.docsLastViewedAt)
+);
   
         // 💰 Mag-o-Meter totals
         const purchases = data.purchases || [];
@@ -866,6 +879,7 @@ setHasPixieNotifications(unpaid);
     window.addEventListener("jamCompletedNow", handleRefresh);
     window.addEventListener("budgetUpdated", handleRefresh);
     window.addEventListener("outsidePurchaseMade", handleRefresh);
+    window.addEventListener("documentsUpdated", handleRefresh);
   
     handleRefresh();
   
@@ -876,6 +890,7 @@ setHasPixieNotifications(unpaid);
       window.removeEventListener("jamCompletedNow", handleRefresh);
       window.removeEventListener("budgetUpdated", handleRefresh);
       window.removeEventListener("outsidePurchaseMade", handleRefresh);
+      window.removeEventListener("documentsUpdated", handleRefresh);
     };
   }, [isAuthReady, user]);
 
@@ -888,6 +903,33 @@ setHasPixieNotifications(unpaid);
       "[Dashboard] Mounting MenuController with startAt:",
       menuStartAt
     );
+  }
+
+  function computeHasNewDocs(
+    documents: any[] | undefined,
+    docsLastViewedAt: any | undefined
+  ) {
+    const docs = Array.isArray(documents) ? documents : [];
+    if (!docs.length) return false;
+  
+    // If they've never opened Docs before, anything counts as "new"
+    if (!docsLastViewedAt) return true;
+  
+    const lastViewedMs =
+      typeof docsLastViewedAt?.toDate === "function"
+        ? docsLastViewedAt.toDate().getTime() // Firestore Timestamp
+        : new Date(docsLastViewedAt).getTime(); // ISO string fallback
+  
+    const newestDocMs = Math.max(
+      ...docs
+        .map((d) => d?.uploadedAt)
+        .filter(Boolean)
+        .map((v) => new Date(v).getTime())
+        .filter((n) => Number.isFinite(n))
+    );
+  
+    if (!Number.isFinite(newestDocMs)) return false;
+    return newestDocMs > lastViewedMs;
   }
 
   return (
@@ -995,13 +1037,14 @@ setHasPixieNotifications(unpaid);
             dessertCompleted,
             showGuestListButton,
           })}
+
           <UserMenu
   onClose={() => setActiveUserMenuScreen(null)}
   onSelect={handleMenuSelect}
   onLogout={handleLogout}
   showGuestListScroll={showGuestListButton}
-  // 🧚 NEW: only show Pixie tile if there’s something to pay
   showPixiePurchases={hasPixieNotifications}
+  hasDocsNotifications={hasDocsNotifications}
 />
         </>
       )}
@@ -1012,11 +1055,32 @@ setHasPixieNotifications(unpaid);
         />
       )}
 
-      {activeUserMenuScreen === "docs" && (
-        <DocumentsScreen
-          onClose={() => setActiveUserMenuScreen("menu")}
-        />
-      )}
+{activeUserMenuScreen === "docs" && (
+  <DocumentsScreen
+    onClose={() => setActiveUserMenuScreen("menu")}
+    onViewed={async () => {
+      const u = auth.currentUser;
+      if (!u) return;
+
+      try {
+        // ✅ mark the last time they opened Docs
+        await setDoc(
+          doc(db, "users", u.uid),
+          { docsLastViewedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn("⚠️ Failed to set docsLastViewedAt:", e);
+      }
+
+      // ✅ clear UI alerts immediately (don’t wait for refresh)
+      setHasDocsNotifications(false);
+      try {
+        localStorage.setItem("wd_docs_last_viewed_at", new Date().toISOString());
+      } catch {}
+    }}
+  />
+)}
 
       {activeUserMenuScreen === "bookings" && (
         <Bookings
@@ -1204,6 +1268,7 @@ setHasPixieNotifications(unpaid);
 
  // 🧚 NEW:
  hasPixieNotifications={hasPixieNotifications}
+ hasDocsNotifications={hasDocsNotifications}
         
         /* HUD handlers */
         onOpenMenu={() => setActiveUserMenuScreen("menu")}
