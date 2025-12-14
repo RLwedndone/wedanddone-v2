@@ -235,7 +235,7 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
 
   return (
     <div className="pixie-overlay">
-      <div className="pixie-card" style={{ maxWidth: "700px", textAlign: "center" }}>
+      <div className="pixie-card wd-page-turn" style={{ maxWidth: "700px", textAlign: "center" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Dessert Icon"

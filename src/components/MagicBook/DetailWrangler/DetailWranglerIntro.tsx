@@ -12,7 +12,7 @@ const DetailWranglerIntro: React.FC<DetailWranglerIntroProps> = ({
 }) => {
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: "600px",
         margin: "0 auto",

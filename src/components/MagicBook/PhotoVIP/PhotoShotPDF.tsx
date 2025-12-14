@@ -178,7 +178,7 @@ const PhotoShotPDF: React.FC<Props> = ({ onBack, onClose, goToTOC }) => {
     <>
       <div
         ref={cardRef}
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{
           maxWidth: 780,
           margin: "0 auto",

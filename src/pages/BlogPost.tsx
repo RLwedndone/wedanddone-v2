@@ -80,7 +80,7 @@ const BlogPost: React.FC = () => {
           }}
         />
 
-        <div className="pixie-card" style={cardStyle}>
+        <div className="pixie-card wd-page-turn" style={cardStyle}>
           {/* pink X inside card */}
           <Link
             to="/dashboard"
@@ -135,7 +135,7 @@ const BlogPost: React.FC = () => {
         }}
       />
 
-      <div className="pixie-card" style={cardStyle}>
+      <div className="pixie-card wd-page-turn" style={cardStyle}>
         {/* 🩷 Pink X Close → back to dashboard */}
         <Link
           to="/dashboard"

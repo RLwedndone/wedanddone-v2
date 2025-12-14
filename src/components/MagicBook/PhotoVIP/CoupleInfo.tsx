@@ -130,7 +130,7 @@ const CoupleInfo: React.FC<CoupleInfoProps> = ({ onNext, onBack, goToTOC }) => {
   return (
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
     >
       {/* Pink X (Back to TOC) */}

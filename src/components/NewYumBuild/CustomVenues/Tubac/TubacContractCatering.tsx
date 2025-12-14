@@ -388,7 +388,7 @@ const horsList: string[] =
   /* -------------------- RENDER -------------------- */
   return (
     // Parent overlay supplies the backdrop
-    <div className="pixie-card" style={{ maxWidth: 700 }}>
+    <div className="pixie-card wd-page-turn" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />

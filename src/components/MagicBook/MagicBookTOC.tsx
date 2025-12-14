@@ -51,7 +51,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, onClose }) => {
 
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img
@@ -173,7 +173,7 @@ const MagicBookTOC: React.FC<Props> = ({ setStep, onClose }) => {
     }}
   >
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       onClick={(e) => e.stopPropagation()}
       style={{
         background: "#fff",

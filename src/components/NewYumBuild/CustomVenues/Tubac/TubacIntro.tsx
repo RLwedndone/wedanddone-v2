@@ -8,7 +8,7 @@ interface TubacIntroProps {
 
 const TubacIntro: React.FC<TubacIntroProps> = ({ onContinue, onClose }) => {
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* 🩷 Pink X Close (consistent with other boutiques) */}
       {onClose && (
         <button

@@ -105,7 +105,7 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
       }}
     >
       <div
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{
           background: "#fff",
           borderRadius: 18,
@@ -246,7 +246,7 @@ const PaymentSettingsOverlay: React.FC<Props> = ({ onClose }) => {
           }}
         >
           <div
-            className="pixie-card"
+            className="pixie-card wd-page-turn"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "#fff",

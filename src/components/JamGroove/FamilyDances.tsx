@@ -128,7 +128,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
   // While we don’t know initial values yet, show nothing / small loader
   if (!initialData) {
     return (
-      <div className="pixie-card">
+      <div className="pixie-card wd-page-turn">
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
           <p className="px-prose-narrow">Loading your family dances…</p>
         </div>
@@ -213,7 +213,7 @@ const FamilyDances: React.FC<FamilyDancesProps> = ({
   };
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink X Close Button */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />

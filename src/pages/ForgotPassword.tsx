@@ -57,7 +57,7 @@ const ForgotPassword: React.FC = () => {
       style={{ justifyContent: "center", alignItems: "center" }}
     >
       <div
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{ maxWidth: 520, width: "100%", minHeight: "auto" }}
       >
         <div className="pixie-card__body" style={{ textAlign: "center" }}>

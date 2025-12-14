@@ -159,7 +159,7 @@ const PhotoVIPList1: React.FC<PhotoVIPListProps1> = ({ onNext, onBack, goToTOC }
   return (
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         paddingTop: "1.25rem",
         paddingBottom: "1.25rem",

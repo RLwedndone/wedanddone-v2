@@ -436,7 +436,7 @@ const grandTotal = subtotal + taxesAndFees;
   // ───────────────── Render ─────────────────
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: "700px",
         textAlign: "center",

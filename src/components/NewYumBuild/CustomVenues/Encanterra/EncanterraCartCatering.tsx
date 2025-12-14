@@ -297,7 +297,7 @@ const EncanterraCartCatering: React.FC<Props> = ({
 
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{ maxWidth: 720, textAlign: "center", position: "relative" }}
     >
       {/* 🩷 Pink X */}

@@ -364,7 +364,7 @@ useEffect(() => {
   /* -------------------- UI -------------------- */
   return (
     <div className="pixie-overlay">
-      <div className="pixie-card" style={{ maxWidth: 700, textAlign: "center" }}>
+      <div className="pixie-card wd-page-turn" style={{ maxWidth: 700, textAlign: "center" }}>
         <img
           src={`${import.meta.env.BASE_URL}assets/images/yum_yum_button.png`}
           alt="Catering Seal"

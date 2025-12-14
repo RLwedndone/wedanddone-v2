@@ -204,7 +204,7 @@ const PhotoVIPList2: React.FC<PhotoVIPListProps2> = ({
     // ✅ Card only — overlay comes from MagicBookOverlay
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
     >
       {/* 💗 Pink X close → TOC */}

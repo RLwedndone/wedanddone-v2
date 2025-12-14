@@ -8,7 +8,7 @@ interface PlannerExplainerProps {
 
 const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose }) => {
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink Close X */}
       <button
         className="pixie-card__close"

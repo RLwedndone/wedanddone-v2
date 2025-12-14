@@ -361,7 +361,7 @@ const PhotoShotList1: React.FC<PhotoShotList1Props> = ({ onNext, onBack, goToTOC
     <>
       <div
         ref={cardRef}
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{ paddingTop: "1.25rem", paddingBottom: "1.25rem", position: "relative" }}
       >
         {/* Pink X (Back to TOC) */}

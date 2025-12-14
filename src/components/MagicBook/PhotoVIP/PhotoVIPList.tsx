@@ -62,7 +62,7 @@ const PhotoVIPList: React.FC<PhotoVIPListProps> = ({ onNext, onBack, goToTOC }) 
     // ✅ use the white card container; overlay wrapper is provided by MagicBookOverlay
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         backgroundColor: "#fff",
         maxWidth: 700,

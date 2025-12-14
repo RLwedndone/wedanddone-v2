@@ -226,7 +226,7 @@ useEffect(() => {
 
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{ maxWidth: 700, paddingTop: 28, paddingBottom: 28, margin: "0 auto" }}
     >
       {/* Pink X */}

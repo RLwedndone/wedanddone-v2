@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { auth, db } from "../../firebase/firebaseConfig";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 interface PlannerContractProps {
@@ -179,11 +179,22 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
 
     const user = auth.currentUser;
     if (user) {
-      await setDoc(
-        doc(db, "users", user.uid),
-        { pixiePlannerSigned: true, signatureImageUrl: finalSignature },
-        { merge: true }
-      );
+      const payload: any = {
+        pixiePlannerSigned: true,
+        signatureImageUrl: finalSignature,
+      };
+      
+      // If first-time consent is being given right now, record it globally
+      if (!hasCardOnFileConsent && cardConsentChecked) {
+        payload.cardOnFileConsent = true;
+        payload.cardOnFileConsentAt = serverTimestamp();
+        try {
+          localStorage.setItem(`cardOnFileConsent_${user.uid}`, "true");
+        } catch {}
+        setHasCardOnFileConsent(true);
+      }
+      
+      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
     }
   };
 
@@ -205,8 +216,51 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     return () => unsubscribe();
   }, []);
 
+  // global card-on-file consent status
+const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+const [cardConsentChecked, setCardConsentChecked] = useState(false);
+const needsCardConsent = !hasCardOnFileConsent;
+const canSign = agreeChecked && (!needsCardConsent || cardConsentChecked);
+
+// 🔍 One unified check for cardOnFileConsent (localStorage + Firestore)
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const key = `cardOnFileConsent_${user.uid}`;
+
+  // 1) LocalStorage quick check
+  let localFlag = false;
+  try {
+    localFlag = localStorage.getItem(key) === "true";
+  } catch {}
+
+  if (localFlag) {
+    setHasCardOnFileConsent(true);
+    return;
+  }
+
+  // 2) Firestore check
+  (async () => {
+    try {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        if (data?.cardOnFileConsent) {
+          setHasCardOnFileConsent(true);
+          try {
+            localStorage.setItem(key, "true");
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to load cardOnFileConsent:", err);
+    }
+  })();
+}, []);
+
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* 🩷 Pink X — closes the planner overlay */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img
@@ -278,20 +332,24 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
               }}
             >
               <li>
-                You may pay in full today or make a ${DEPOSIT_DOLLARS}{" "}
-                non-refundable deposit. Any remaining balance will be divided
-                into monthly installments and must be fully paid{" "}
-                <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
-                Any unpaid balance on that date will be automatically charged.
-              </li>
+  <strong>Payment Options:</strong> You may pay in full today, or place a{" "}
+  <strong>non-refundable deposit</strong> and pay the remaining balance in monthly
+  installments. All installments must be completed no later than{" "}
+  <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>, and any unpaid
+  balance will be automatically charged on that date.
+</li>
+<br />
 
-              <li>
-                By signing, you authorize Wed&amp;Done to securely store your
-                payment method and automatically process scheduled payments,
-                including add-ons or increases to your guest count that you
-                approve during planning.
-              </li>
-
+<li>
+  <strong>Card Authorization:</strong> By signing this agreement, you authorize
+  Wed&Done to securely store your card for recurring or future payments. Once a
+  card is on file, all <strong>Deposit + Monthly</strong> plans will use that saved
+  card for every installment and the final balance. Paid-in-full purchases may be
+  made using your saved card or a new card. Your card details are encrypted and
+  processed by Stripe, and you may update or replace your saved card at any time
+  through your Wed&Done account.
+</li>
+<br />
               <li>
                 <strong>Refunds &amp; Cancellations:</strong> At minimum, $
                 {DEPOSIT_DOLLARS} is non-refundable. If you cancel more than{" "}
@@ -347,6 +405,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
               onClick={() => {
                 setPayFull(true);
                 setSignatureSubmitted(false);
+                setCardConsentChecked(false);
                 try {
                   localStorage.setItem("plannerPayPlan", "full");
                 } catch {}
@@ -363,6 +422,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
               onClick={() => {
                 setPayFull(false);
                 setSignatureSubmitted(false);
+                setCardConsentChecked(false);
                 try {
                   localStorage.setItem("plannerPayPlan", "monthly");
                 } catch {}
@@ -403,7 +463,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
           </p>
 
           {/* Auto-pay warning */}
-          {!payFull && (
+          {!payFull && hasCardOnFileConsent && (
             <div
               style={{
                 marginTop: "0.25rem",
@@ -419,10 +479,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
                 marginInline: "auto",
               }}
             >
-              <strong>Heads up:</strong> Choosing the deposit + monthly option
-              means your saved card will be{" "}
-              <strong>automatically charged each month</strong> for your planner
-              plan until the balance is paid in full
+              Monthly plans will be charged to your saved card on file. If you want to use a different card, choose Pay Full Amount instead.
               {finalDuePretty ? (
                 <>
                   {" "}
@@ -456,17 +513,44 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
               I agree to the terms above
             </label>
           </div>
+          {needsCardConsent && (
+  <div
+    style={{
+      margin: "0.25rem 0 0.75rem",
+      fontSize: ".9rem",
+      textAlign: "left",
+      maxWidth: 560,
+      marginInline: "auto",
+    }}
+  >
+    <label>
+      <input
+        type="checkbox"
+        checked={cardConsentChecked}
+        onChange={(e) => setCardConsentChecked(e.target.checked)}
+        style={{ marginRight: 8 }}
+      />
+      I authorize Wed&amp;Done and our payment processor (Stripe) to securely store
+      my card and to charge it for planner installments, any remaining planner
+      balance, and future Wed&amp;Done bookings I choose to make, as described in
+      the payment terms above.
+    </label>
+  </div>
+)}
 
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             {!signatureSubmitted ? (
-              <button
-                className="boutique-primary-btn"
-                onClick={() => agreeChecked && setShowSignatureModal(true)}
-                disabled={!agreeChecked}
-                style={{ width: 260 }}
-              >
-                Sign Contract
-              </button>
+             <button
+             className="boutique-primary-btn"
+             onClick={() => {
+               if (!canSign) return;
+               setShowSignatureModal(true);
+             }}
+             disabled={!canSign}
+             style={{ width: 260 }}
+           >
+             Sign Contract
+           </button>
             ) : (
               <>
                 <img

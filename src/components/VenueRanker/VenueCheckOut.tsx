@@ -698,7 +698,7 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
       ) : (
         <div
           ref={scrollRef}
-          className="pixie-card"
+          className="pixie-card wd-page-turn"
           style={{
             marginTop: "2.5rem",
             padding: "1.5rem",

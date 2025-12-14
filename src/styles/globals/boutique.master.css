@@ -832,20 +832,42 @@
   transform: scale(1.06);
 }
 
-/* Subtle page-turn style entrance for all pixie cards */
-.pixie-card {
-  animation: venuePageTurnIn 260ms ease-out;
-  transform-origin: right center; /* feels like flipping from the right edge */
+/* =========================================================
+   ✨ Wed&Done Card Entrance — Sparkle Pop-In (GLOBAL)
+   ========================================================= */
+
+/* Shared animation hook (already applied via wd-page-turn) */
+.wd-page-turn {
+  animation: wdPixieShimmerIn 420ms cubic-bezier(.22,.61,.36,1) both;
+  transform-origin: center;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
 }
 
-@keyframes venuePageTurnIn {
-  from {
-    transform: rotateY(-10deg) translateX(12px);
+@keyframes wdPixieShimmerIn {
+  0% {
     opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    filter: drop-shadow(0 0 0 rgba(44, 98, 186, 0));
   }
-  to {
-    transform: rotateY(0deg) translateX(0);
+  55% {
     opacity: 1;
+    transform: translateY(0) scale(1.01);
+    filter:
+      drop-shadow(0 0 22px rgba(44, 98, 186, 0.38))
+      drop-shadow(0 0 14px rgba(247, 154, 196, 0.22));
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0 rgba(44, 98, 186, 0));
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .wd-page-turn {
+    animation: none;
   }
 }
 

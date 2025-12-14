@@ -48,7 +48,7 @@ const SaveTheDatePage: React.FC<SaveTheDatePageProps> = ({
   return (
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         position: "relative",
         // 🧽 give the card its inner padding

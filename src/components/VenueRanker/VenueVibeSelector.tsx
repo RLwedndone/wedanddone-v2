@@ -102,7 +102,7 @@ const VenueVibeSelector: React.FC<VenueVibeSelectorProps> = ({
   const liked = selectedVibes.includes(currentVibe.id);
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />

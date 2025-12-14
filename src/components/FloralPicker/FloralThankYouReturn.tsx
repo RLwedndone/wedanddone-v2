@@ -5,7 +5,7 @@ interface Props { onClose: () => void; onAddMore: () => void; }
 const FloralThankYouReturn: React.FC<Props> = ({ onClose, onAddMore }) => {
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         ["--pixie-card-w" as any]: "680px",
         ["--pixie-card-min-h" as any]: "420px",

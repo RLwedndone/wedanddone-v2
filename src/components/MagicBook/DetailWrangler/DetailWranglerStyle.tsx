@@ -65,7 +65,7 @@ const DetailWranglerStyle: React.FC<DetailWranglerStyleProps> = ({
     // ✅ standard pixie card with normal padding and scrollable content
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         position: "relative",
         maxWidth: 700,

@@ -53,7 +53,7 @@ const VenueGuestCountScreen: React.FC<VenueGuestCountScreenProps> = ({ onContinu
 
   return (
     // Standard white card (overlay is provided by VenueRankerOverlay)
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />

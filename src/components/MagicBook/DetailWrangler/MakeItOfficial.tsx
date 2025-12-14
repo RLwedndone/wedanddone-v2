@@ -39,7 +39,7 @@ const MakeItOfficial: React.FC<MakeItOfficialProps> = ({
   return (
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         textAlign: "center",
         padding: "2rem 3.0rem",

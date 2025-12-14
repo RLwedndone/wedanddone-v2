@@ -253,7 +253,7 @@ const fnbProgress = showFnbProgress
 
   return (
     <div className="pixie-overlay">
-      <div className="pixie-card" style={{ maxWidth: 720, textAlign: "center" }}>
+      <div className="pixie-card wd-page-turn" style={{ maxWidth: 720, textAlign: "center" }}>
         <video
           src={`${import.meta.env.BASE_URL}assets/videos/yum_cart.mp4`}
           autoPlay

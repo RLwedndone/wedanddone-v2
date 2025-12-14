@@ -205,7 +205,7 @@ const RubiBBQMenuBuilder: React.FC<Props> = ({
     localSel.bbqSides.length === maxSides;
 
   return (
-    <div className="pixie-card" style={{ maxWidth: 780, margin: "0 auto" }}>
+    <div className="pixie-card wd-page-turn" style={{ maxWidth: 780, margin: "0 auto" }}>
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />

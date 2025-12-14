@@ -212,7 +212,7 @@ const WDPartners: React.FC<WDPartnersProps> = ({ onBack }) => {
       <div style={{ textAlign: "center", marginTop: "2rem" }}>
         <p style={{ fontSize: "0.9rem", color: "#666" }}>
           Interested in becoming a partner?{" "}
-          <a href="mailto:hello@wedanddone.com">partners@wedanddone.com</a>
+          <a href="mailto:hello@wedanddone.com">hello@wedanddone.com</a>
         </p>
       </div>
 

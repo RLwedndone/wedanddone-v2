@@ -96,7 +96,7 @@ const SetTables: React.FC<SetTablesProps> = ({ onNext, onBack, goToTOC }) => {
   return (
     // ⬇️ Card only – overlay comes from MagicBookOverlay
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: 700,
         margin: "0 auto",

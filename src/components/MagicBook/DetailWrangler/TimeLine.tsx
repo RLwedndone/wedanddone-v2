@@ -95,7 +95,7 @@ const TimeLine: React.FC<TimeLineProps> = ({ onNext, onBack, goToTOC }) => {
   return (
     // ⬇️ card only; the overlay is provided by MagicBookOverlay
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: 700,
         margin: "0 auto",

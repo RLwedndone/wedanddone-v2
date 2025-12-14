@@ -48,7 +48,7 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
   };
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* 🔸 Pink X close */}
       <button
         className="pixie-card__close"

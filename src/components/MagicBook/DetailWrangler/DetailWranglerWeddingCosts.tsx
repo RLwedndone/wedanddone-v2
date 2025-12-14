@@ -74,7 +74,7 @@ const DetailWranglerWeddingCosts: React.FC<DetailWranglerWeddingCostsProps> = ({
   return (
     <div
       ref={cardRef}
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         padding: "2rem 3.5rem", 
         position: "relative",

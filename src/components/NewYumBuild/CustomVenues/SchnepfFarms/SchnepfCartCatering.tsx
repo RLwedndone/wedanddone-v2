@@ -750,7 +750,7 @@ const entreeLine = `${selections.entrees[0] || "Entrée"} — $${Number(perGuest
 
 return (
   <div
-    className="pixie-card"
+    className="pixie-card wd-page-turn"
     style={{ maxWidth: 700, margin: "0 auto", padding: "24px 24px 28px", textAlign: "center" }}
   >
     <video

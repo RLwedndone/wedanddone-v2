@@ -90,7 +90,7 @@ const BlogIndex: React.FC = () => {
       />
 
       {/* White card */}
-      <div className="pixie-card" style={cardStyle}>
+      <div className="pixie-card wd-page-turn" style={cardStyle}>
         {/* Pink X = always returns to Dashboard */}
         <button
           onClick={() => navigate("/dashboard")}

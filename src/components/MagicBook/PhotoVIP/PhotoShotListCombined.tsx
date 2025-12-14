@@ -531,7 +531,7 @@ const PhotoShotListCombined: React.FC<PhotoShotListCombinedProps> = ({
       {/* MAIN CARD */}
       <div
         ref={cardRef}
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{ padding: "1.25rem 0", position: "relative" }}
       >
         {/* Pink X = Back to TOC */}

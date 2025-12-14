@@ -57,6 +57,7 @@ const MagicCloud: React.FC<MagicCloudProps> = ({ isMobile, onClose }) => {
   const [outsidePurchases, setOutsidePurchases] = useState<OutsidePurchase[]>([]);
   const [showOutsideModal, setShowOutsideModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [pendingBudget, setPendingBudget] = useState<number | null>(null);
 
   // ─────────────────────────────────────────────
   // Helpers
@@ -141,30 +142,32 @@ const MagicCloud: React.FC<MagicCloudProps> = ({ isMobile, onClose }) => {
   // ─────────────────────────────────────────────
   // Save budget
   // ─────────────────────────────────────────────
-  // ─────────────────────────────────────────────
-// Save budget
-// ─────────────────────────────────────────────
-const handleSave = async () => {
-  const numericValue = parseInt(customBudget);
-  if (!numericValue) return;
-
-  setSavedBudget(numericValue);
-  localStorage.setItem("magicBudget", numericValue.toString());
-  setMode("overview");
-
-  try {
+  const handleSave = async () => {
+    const numericValue = parseInt(customBudget);
+    if (!numericValue) return;
+  
     const user = getAuth().currentUser;
-    if (user) {
+  
+    // ✅ If NOT logged in: stash it and force account flow
+    if (!user) {
+      setPendingBudget(numericValue);
+      setShowSignupModal(true);
+      return;
+    }
+  
+    // ✅ Logged in: save immediately
+    setSavedBudget(numericValue);
+    localStorage.setItem("magicBudget", numericValue.toString());
+    setMode("overview");
+    playMagicSound();
+  
+    try {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, { budget: numericValue });
-    } else {
-      setShowSignupModal(true);
+    } finally {
+      window.dispatchEvent(new Event("budgetUpdated"));
     }
-  } finally {
-    // ✅ Tell the rest of the app that the budget changed
-    window.dispatchEvent(new Event("budgetUpdated"));
-  }
-};
+  };
 
   const updateOutsidePurchases = async () => {
     const stored = localStorage.getItem("outsidePurchases");
@@ -176,6 +179,19 @@ const handleSave = async () => {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, { "budgetData.outsidePurchases": parsed });
     }
+  };
+
+  const magicSparkleAudio = new Audio(
+    `${import.meta.env.BASE_URL}assets/sounds/sparkle.MP3`
+  );
+  
+  magicSparkleAudio.volume = 0.55;
+  
+  const playMagicSound = () => {
+    try {
+      magicSparkleAudio.currentTime = 0; // allow rapid replays
+      magicSparkleAudio.play().catch(() => {});
+    } catch {}
   };
 
   // ─────────────────────────────────────────────
@@ -532,14 +548,38 @@ const handleSave = async () => {
 
       {/* 👤 Signup Modal */}
       {showSignupModal && (
-        <MagicWandAccountModal
-          onClose={() => setShowSignupModal(false)}
-          onSuccess={() => {
-            setShowSignupModal(false);
-            setMode("overview");
-          }}
-        />
-      )}
+  <MagicWandAccountModal
+    onClose={() => {
+      setShowSignupModal(false);
+      setPendingBudget(null);
+      setMode("entry"); // ✅ back to budget entry
+    }}
+    onSuccess={async () => {
+      setShowSignupModal(false);
+
+      const user = getAuth().currentUser;
+      if (!user || pendingBudget == null) {
+        setPendingBudget(null);
+        setMode("entry");
+        return;
+      }
+
+      // ✅ Commit the budget NOW that they have an account
+      setSavedBudget(pendingBudget);
+      localStorage.setItem("magicBudget", pendingBudget.toString());
+      setMode("overview");
+      playMagicSound();
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { budget: pendingBudget });
+      } finally {
+        window.dispatchEvent(new Event("budgetUpdated"));
+        setPendingBudget(null);
+      }
+    }}
+  />
+)}
 
       {/* 🧾 Outside Purchase Modal */}
       {showOutsideModal && (

@@ -113,7 +113,7 @@ const SchnepfApps: React.FC<SchnepfAppsProps> = ({
   };
 
   return (
-    <div className="pixie-card" style={{ maxWidth: 720, textAlign: "center" }}>
+    <div className="pixie-card wd-page-turn" style={{ maxWidth: 720, textAlign: "center" }}>
       <img
         src={`${import.meta.env.BASE_URL}assets/images/YumYum/Schnepf/apps.png`}
         alt="Appetizers"

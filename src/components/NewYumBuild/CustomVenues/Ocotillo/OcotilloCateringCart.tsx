@@ -312,7 +312,7 @@ const OcotilloCateringCart: React.FC<Props> = ({
   /* ────────── Render ────────── */
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: 720,
         textAlign: "center",

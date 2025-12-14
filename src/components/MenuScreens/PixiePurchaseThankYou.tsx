@@ -19,7 +19,7 @@ const PixiePurchaseThankYou: React.FC<Props> = ({ onClose }) => {
   }, []);
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       <button
         className="pixie-card__close"
         onClick={onClose}

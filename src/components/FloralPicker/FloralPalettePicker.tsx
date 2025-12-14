@@ -40,7 +40,7 @@ const FloralPalettePicker: React.FC<FloralPalettePickerProps> = ({
   };
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* ✖ Pink close button (standardized) */}
       <button
         className="pixie-card__close"

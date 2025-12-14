@@ -26,7 +26,7 @@ const PhotoStyleResults: React.FC<PhotoStyleResultsProps> = ({
   );
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink X closes entire Photo Styler */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img

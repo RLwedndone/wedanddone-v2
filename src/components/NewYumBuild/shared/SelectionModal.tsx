@@ -112,7 +112,7 @@ const SelectionModal: React.FC<SelectionModalProps> = ({
       }}
     >
       <div
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{
           background: "#fff",
           borderRadius: "18px",

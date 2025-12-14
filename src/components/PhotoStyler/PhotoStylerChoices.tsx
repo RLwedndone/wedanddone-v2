@@ -71,7 +71,7 @@ const PhotoStylerChoices: React.FC<PhotoStylerChoicesProps> = ({
   const currentImage = photoStyleImages[index];
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink close X */}
       <button
   className="pixie-card__close"

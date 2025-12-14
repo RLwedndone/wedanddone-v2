@@ -402,7 +402,7 @@ const OcotilloCateringContract: React.FC<Props> = ({
     <>
       {/* Boutique white card wrapper */}
       <div
-        className="pixie-card"
+        className="pixie-card wd-page-turn"
         style={{
           maxWidth: 600,
           width: "100%",

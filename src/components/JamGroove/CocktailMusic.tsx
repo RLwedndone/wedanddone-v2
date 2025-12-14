@@ -82,7 +82,7 @@ const CocktailMusic: React.FC<CocktailMusicProps> = ({
   };
 
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* Pink X Close */}
       {onClose && (
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">

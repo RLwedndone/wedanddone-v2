@@ -470,7 +470,7 @@ const canSign =
 
   return (
     // ⛔️ no pixie-overlay here — parent overlay handles backdrop
-    <div className="pixie-card" style={{ maxWidth: 700 }}>
+    <div className="pixie-card wd-page-turn" style={{ maxWidth: 700 }}>
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"

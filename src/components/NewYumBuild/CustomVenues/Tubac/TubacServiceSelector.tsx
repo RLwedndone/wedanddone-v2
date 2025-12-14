@@ -62,7 +62,7 @@ const TubacServiceSelector: React.FC<TubacServiceSelectorProps> = ({
 
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         maxWidth: 700,
         textAlign: "center",

@@ -115,7 +115,7 @@ const ValleyHoServiceSelector: React.FC<ValleyHoServiceSelectorProps> = ({
 
   return (
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{ maxWidth: 700, textAlign: "center", paddingBottom: 32, paddingTop: 28, margin: "0 auto" }}
     >
       <style

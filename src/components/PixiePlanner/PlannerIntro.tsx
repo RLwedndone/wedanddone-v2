@@ -46,7 +46,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
   // ── CASE 1: Venue already booked → planner included
   if (hasVenue) {
     return (
-      <div className="pixie-card">
+      <div className="pixie-card wd-page-turn">
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
@@ -70,7 +70,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
   // ── CASE 2: Planner already booked → steer to venues
   if (hasPlanner) {
     return (
-      <div className="pixie-card">
+      <div className="pixie-card wd-page-turn">
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
@@ -105,7 +105,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
 
   // ── CASE 3: Neither booked → standard intro with two CTAs
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
       </button>

@@ -84,7 +84,7 @@ const YumThankYouCateringOnly: React.FC<YumThankYouProps> = ({ onClose, setStep 
   return (
     // ⛔️ No overlay here — the parent flow already renders it
     <div
-      className="pixie-card"
+      className="pixie-card wd-page-turn"
       style={{
         ["--pixie-card-w" as any]: "680px",
         ["--pixie-card-min-h" as any]: "420px",

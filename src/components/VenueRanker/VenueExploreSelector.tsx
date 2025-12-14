@@ -11,7 +11,7 @@ const VenueExploreSelector: React.FC<VenueExploreSelectorProps> = ({
   onClose,
 }) => {
   return (
-    <div className="pixie-card">
+    <div className="pixie-card wd-page-turn">
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"
