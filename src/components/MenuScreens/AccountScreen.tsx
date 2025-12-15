@@ -62,6 +62,13 @@ function prettyWeddingDate(ymd: string | null | undefined) {
 
   return `${month} ${dayNum}${suffix}, ${year}`;
 }
+const reqStar: React.CSSProperties = {
+  color: "#2c62ba",
+  fontWeight: 700,
+  marginLeft: 4,
+};
+
+const Required = () => <span style={reqStar}>*</span>;
 
 type AccountScreenProps = {
   onClose: () => void;
@@ -560,7 +567,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         {/* Fields */}
         <div style={{ textAlign: "left" }}>
           {/* First Name */}
-          <label>First Name</label>
+          <label>
+  First Name {isGuest && <Required />}
+</label>
           <input
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
@@ -580,7 +589,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           )}
 
           {/* Last Name */}
-          <label>Last Name</label>
+          <label>
+  Last Name {isGuest && <Required />}
+</label>
           <input
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
@@ -600,7 +611,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           )}
 
           {/* Email */}
-          <label>Email</label>
+          <label>
+  Email {isGuest && <Required />}
+</label>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -624,7 +637,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           {isGuest && (
             <>
               {/* Password */}
-              <label>Password</label>
+              <label>
+  Password <Required />
+</label>
               <div style={{ position: "relative", marginBottom: "0.5rem" }}>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -664,7 +679,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               )}
 
               {/* Confirm Password */}
-              <label>Confirm Password</label>
+              <label>
+  Confirm Password <Required />
+</label>
               <div style={{ position: "relative", marginBottom: "0.5rem" }}>
                 <input
                   type={showConfirmPassword ? "text" : "password"}

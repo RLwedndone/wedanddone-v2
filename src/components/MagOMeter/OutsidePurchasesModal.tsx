@@ -102,79 +102,80 @@ const OutsidePurchasesModal: React.FC<OutsidePurchasesModalProps> = ({
   };
 
   // 🔐 Single commit: add all valid line items to Budget Wand + Firestore
-  const saveAndClose = async () => {
-    setError(null);
+const saveAndClose = async () => {
+  setError(null);
 
-    // 1) Gather valid new purchases from rows
-    const newPurchases: Purchase[] = rows
-      .map((r) => ({
-        label: r.label.trim(),
-        amount: parseFloat(r.amount),
-      }))
-      .filter(
-        (p) =>
-          p.label &&
-          !Number.isNaN(p.amount) &&
-          Number.isFinite(p.amount) &&
-          p.amount > 0
-      );
+  // 1) Gather valid new purchases from rows
+  const newPurchases: Purchase[] = rows
+    .map((r) => ({
+      label: r.label.trim(),
+      amount: parseFloat(r.amount),
+    }))
+    .filter(
+      (p) =>
+        p.label &&
+        !Number.isNaN(p.amount) &&
+        Number.isFinite(p.amount) &&
+        p.amount > 0
+    );
 
-    if (newPurchases.length === 0) {
-      setError("Add at least one purchase with a label and amount.");
-      return;
-    }
+  if (newPurchases.length === 0) {
+    setError("Add at least one purchase with a label and amount.");
+    return;
+  }
 
-    // 2) Merge with existing purchases
-    const updatedPurchases = [...existingPurchases, ...newPurchases];
-    setExistingPurchases(updatedPurchases);
+  // 2) Merge with existing purchases
+  const updatedPurchases = [...existingPurchases, ...newPurchases];
+  setExistingPurchases(updatedPurchases);
 
-    // 3) Persist to localStorage so guests still see totals
-    try {
-      localStorage.setItem("outsidePurchases", JSON.stringify(updatedPurchases));
-    } catch {
-      // non-blocking
-    }
+  // 3) Persist to localStorage so guests still see totals
+  try {
+    localStorage.setItem(
+      "outsidePurchases",
+      JSON.stringify(updatedPurchases)
+    );
+  } catch {
+    // non-blocking
+  }
 
-    // 4) Persist to Firestore at the SAME path MagicCloud uses
-    const user = auth.currentUser;
-    if (user) {
-      const docRef = doc(db, "users", user.uid);
-      await setDoc(
-        docRef,
-        { budgetData: { outsidePurchases: updatedPurchases } },
-        { merge: true }
-      );
+  // ✨ 3.5) Sparkle sound for ANY successful add (guest or logged-in)
+  try {
+    const sparkle = new Audio(
+      `${import.meta.env.BASE_URL}assets/sounds/sparkle.MP3`
+    );
+    sparkle.volume = 0.7;
+    sparkle.play().catch((err) =>
+      console.warn("✨ Sparkle sound blocked:", err)
+    );
+  } catch (err) {
+    console.warn("✨ Sparkle sound error:", err);
+  }
 
-      // 5) Fire ONE canonical event the rest of the app listens for
-      window.dispatchEvent(new Event("purchaseMade"));
+  // 4) Persist to Firestore at the SAME path MagicCloud uses
+  const user = auth.currentUser;
+  if (user) {
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(
+      docRef,
+      { budgetData: { outsidePurchases: updatedPurchases } },
+      { merge: true }
+    );
 
-      // 6) Sparkle sound ✨
-      try {
-        const sparkle = new Audio(
-          `${import.meta.env.BASE_URL}assets/sounds/sparkle.mp3`
-        );
-        sparkle.volume = 0.7;
-        sparkle
-          .play()
-          .catch((err) => console.warn("✨ Sparkle sound blocked:", err));
-      } catch (err) {
-        console.warn("✨ Sparkle sound error:", err);
-      }
-    }
+    // 5) Fire ONE canonical event the rest of the app listens for
+    window.dispatchEvent(new Event("purchaseMade"));
+  }
 
-    // 7) Clear draft rows now that they’ve been committed
-    try {
-      localStorage.removeItem("outsidePurchasesRowsDraft");
-    } catch {
-      // ignore
-    }
+  // 6) Clear draft rows now that they’ve been committed
+  try {
+    localStorage.removeItem("outsidePurchasesRowsDraft");
+  } catch {}
 
-    // 8) Let parent refresh (MagicCloud calls onSave -> updateOutsidePurchases)
-    onSave?.();
+  // 7) Let parent refresh
+  onSave?.();
 
-    // 9) Close modal
-    onClose();
-  };
+  // 8) Close modal
+  onClose();
+};
 
   return (
     <div
