@@ -592,7 +592,10 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
   // Spinner state (unified "magic" card)
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      <div
+  className="pixie-card pixie-card--modal is-generating"
+  style={{ maxWidth: 700 }}
+>
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img
             src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
@@ -646,7 +649,12 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
     requiresCardOnFile && hasSavedCard ? true : mode === "saved";
 
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div
+  className={`pixie-card pixie-card--modal ${
+    isGenerating ? "is-generating" : ""
+  }`}
+  style={{ maxWidth: 700 }}
+>
       {/* 🩷 Pink X Close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img
@@ -757,9 +765,7 @@ const PhotoCheckOut: React.FC<PhotoCheckOutProps> = ({
                     color: "#333",
                   }}
                 >
-                  Monthly plans will be charged to your saved card on file. If you want
-                  to use a different card, choose <strong>Pay Full Amount</strong>{" "}
-                  instead.
+                  Monthly plans will be charged to your saved card on file. If you don't have one on file yet, you'll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
                 </p>
               )}
             </>

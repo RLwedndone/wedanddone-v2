@@ -461,9 +461,9 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   if (isGenerating) {
     return (
       <div
-        className="pixie-card pixie-card--modal"
-        style={{ maxWidth: 720 }}
-      >
+  className="pixie-card pixie-card--modal is-generating"
+  style={{ maxWidth: 720 }}
+>
         <div
           className="pixie-card__body"
           style={{ textAlign: "center" }}
@@ -495,7 +495,11 @@ const TubacCheckOutCatering: React.FC<TubacCheckOutProps> = ({
   }
 
   return (
-    <div className="pixie-card pixie-card--modal">
+    <div
+  className={`pixie-card pixie-card--modal ${
+    isGenerating ? "is-generating" : ""
+  }`}
+>
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"

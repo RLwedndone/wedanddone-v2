@@ -35,7 +35,11 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
   onBack,
   onClose,
 }) => {
-  const { guestCount: guestCountFromProps, weddingDate, dayOfWeek } = bookingData;
+  const {
+    guestCount: guestCountFromProps,
+    weddingDate,
+    dayOfWeek,
+  } = bookingData;
 
   // UI state
   const [agreeChecked, setAgreeChecked] = useState(false);
@@ -45,8 +49,16 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
   // pulled-from-profile fallbacks
-  const [fetchedWeddingDate, setFetchedWeddingDate] = useState<string | null>(null);
-  const [fetchedGuestCount, setFetchedGuestCount] = useState<number | null>(null);
+  const [fetchedWeddingDate, setFetchedWeddingDate] = useState<string | null>(
+    null
+  );
+  const [fetchedGuestCount, setFetchedGuestCount] = useState<number | null>(
+    null
+  );
+
+  // ✅ global card-on-file consent status (MUST be declared before any useEffect)
+  const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+  const [cardConsentChecked, setCardConsentChecked] = useState(false);
 
   // ---- derive inputs (with safe fallbacks) ----
   const storedGuestCountStr = localStorage.getItem("guestCount");
@@ -85,7 +97,10 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
       maximumFractionDigits: 2,
     })}`;
 
-  const grandTotalCents = Math.max(0, Math.round((bookingData.total || 0) * 100));
+  const grandTotalCents = Math.max(
+    0,
+    Math.round((bookingData.total || 0) * 100)
+  );
   const depositCents = Math.min(grandTotalCents, DEPOSIT_DOLLARS * 100);
   const remainingCents = Math.max(0, grandTotalCents - depositCents);
 
@@ -114,12 +129,18 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
 
   const planMonths =
     weddingDateObj && finalDue ? monthsBetweenInclusive(today, finalDue) : 1;
+
   const perMonthCents =
     planMonths > 0 ? Math.floor(remainingCents / planMonths) : remainingCents;
+
   const lastPaymentCents = Math.max(
     0,
     remainingCents - perMonthCents * Math.max(0, planMonths - 1)
   );
+
+  // 🔐 Consent rule (same shape as Floral)
+  const needsCardConsent = !hasCardOnFileConsent;
+  const canSign = agreeChecked && (!needsCardConsent || cardConsentChecked);
 
   // ---- signature helpers ----
   const generateImageFromText = (text: string): string => {
@@ -134,7 +155,11 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     ctx.font = "64px 'Jenna Sue', 'Pacifico', cursive";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText((text || "").trim() || " ", canvas.width / 2, canvas.height / 2);
+    ctx.fillText(
+      (text || "").trim() || " ",
+      canvas.width / 2,
+      canvas.height / 2
+    );
     return canvas.toDataURL("image/png");
   };
 
@@ -173,6 +198,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     try {
       localStorage.setItem("plannerSignature", finalSignature);
     } catch {}
+
     setSignatureImage(finalSignature);
     setSignatureSubmitted(true);
     setShowSignatureModal(false);
@@ -183,8 +209,9 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
         pixiePlannerSigned: true,
         signatureImageUrl: finalSignature,
       };
-      
-      // If first-time consent is being given right now, record it globally
+
+      // ✅ If this is the first time they’re giving card-on-file consent,
+      // record it globally (only when they explicitly check the box).
       if (!hasCardOnFileConsent && cardConsentChecked) {
         payload.cardOnFileConsent = true;
         payload.cardOnFileConsentAt = serverTimestamp();
@@ -193,7 +220,7 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
         } catch {}
         setHasCardOnFileConsent(true);
       }
-      
+
       await setDoc(doc(db, "users", user.uid), payload, { merge: true });
     }
   };
@@ -216,51 +243,46 @@ const PlannerContract: React.FC<PlannerContractProps> = ({
     return () => unsubscribe();
   }, []);
 
-  // global card-on-file consent status
-const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
-const [cardConsentChecked, setCardConsentChecked] = useState(false);
-const needsCardConsent = !hasCardOnFileConsent;
-const canSign = agreeChecked && (!needsCardConsent || cardConsentChecked);
+  // ✅ Robust consent load: wait for auth, then check localStorage, then Firestore
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
 
-// 🔍 One unified check for cardOnFileConsent (localStorage + Firestore)
-useEffect(() => {
-  const user = auth.currentUser;
-  if (!user) return;
+      const key = `cardOnFileConsent_${user.uid}`;
 
-  const key = `cardOnFileConsent_${user.uid}`;
+      // 1) LocalStorage quick check
+      let localFlag = false;
+      try {
+        localFlag = localStorage.getItem(key) === "true";
+      } catch {}
 
-  // 1) LocalStorage quick check
-  let localFlag = false;
-  try {
-    localFlag = localStorage.getItem(key) === "true";
-  } catch {}
-
-  if (localFlag) {
-    setHasCardOnFileConsent(true);
-    return;
-  }
-
-  // 2) Firestore check
-  (async () => {
-    try {
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        const data = snap.data() as any;
-        if (data?.cardOnFileConsent) {
-          setHasCardOnFileConsent(true);
-          try {
-            localStorage.setItem(key, "true");
-          } catch {}
-        }
+      if (localFlag) {
+        setHasCardOnFileConsent(true);
+        return;
       }
-    } catch (err) {
-      console.error("❌ Failed to load cardOnFileConsent:", err);
-    }
-  })();
-}, []);
+
+      // 2) Firestore check
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          if (data?.cardOnFileConsent) {
+            setHasCardOnFileConsent(true);
+            try {
+              localStorage.setItem(key, "true");
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error("❌ Failed to load cardOnFileConsent:", err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <div className="pixie-card wd-page-turn">
+    <div className="pixie-card">
       {/* 🩷 Pink X — closes the planner overlay */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img
@@ -285,10 +307,7 @@ useEffect(() => {
           </h2>
 
           {/* Lead copy */}
-          <p
-            className="px-prose-narrow"
-            style={{ marginBottom: hasDate ? "1rem" : 8 }}
-          >
+          <p className="px-prose-narrow" style={{ marginBottom: hasDate ? "1rem" : 8 }}>
             You’re booking planning services for <strong>{formattedDate}</strong>
             {dayOfWeek ? ` (${dayOfWeek})` : ""} for{" "}
             <strong>{finalGuestCount} guests</strong>. The total is{" "}
@@ -315,12 +334,10 @@ useEffect(() => {
 
           {/* Booking Terms */}
           <div className="px-section" style={{ maxWidth: 620 }}>
-            <h3
-              className="px-title-lg"
-              style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
-            >
+            <h3 className="px-title-lg" style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
               Booking Terms
             </h3>
+
             <ul
               style={{
                 textAlign: "left",
@@ -332,69 +349,67 @@ useEffect(() => {
               }}
             >
               <li>
-  <strong>Payment Options:</strong> You may pay in full today, or place a{" "}
-  <strong>non-refundable deposit</strong> and pay the remaining balance in monthly
-  installments. All installments must be completed no later than{" "}
-  <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>, and any unpaid
-  balance will be automatically charged on that date.
-</li>
-<br />
+                <strong>Payment Options:</strong> You may pay in full today, or place a{" "}
+                <strong>non-refundable deposit</strong> and pay the remaining balance in monthly
+                installments. All installments must be completed no later than{" "}
+                <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>, and any unpaid
+                balance will be automatically charged on that date.
+              </li>
+              <br />
 
-<li>
-  <strong>Card Authorization:</strong> By signing this agreement, you authorize
-  Wed&Done to securely store your card for recurring or future payments. Once a
-  card is on file, all <strong>Deposit + Monthly</strong> plans will use that saved
-  card for every installment and the final balance. Paid-in-full purchases may be
-  made using your saved card or a new card. Your card details are encrypted and
-  processed by Stripe, and you may update or replace your saved card at any time
-  through your Wed&Done account.
-</li>
-<br />
               <li>
-                <strong>Refunds &amp; Cancellations:</strong> At minimum, $
-                {DEPOSIT_DOLLARS} is non-refundable. If you cancel more than{" "}
-                {FINAL_DUE_DAYS} days prior, amounts paid beyond the
-                non-refundable portion are refundable (less non-recoverable
-                costs already incurred). Cancel &le;{FINAL_DUE_DAYS} days:
-                payments are non-refundable.
+                <strong>Card Authorization:</strong> By signing this agreement, you authorize
+                Wed&Done to securely store your card for recurring or future payments. Once a
+                card is on file, all <strong>Deposit + Monthly</strong> plans will use that saved
+                card for every installment and the final balance. Paid-in-full purchases may be
+                made using your saved card or a new card. Your card details are encrypted and
+                processed by Stripe, and you may update or replace your saved card at any time
+                through your Wed&Done account.
               </li>
               <br />
+
               <li>
-                <strong>Rescheduling:</strong> May be possible based on vendor
-                availability and may incur additional fees.
+                <strong>Refunds &amp; Cancellations:</strong> At minimum, ${DEPOSIT_DOLLARS} is
+                non-refundable. If you cancel more than {FINAL_DUE_DAYS} days prior, amounts paid
+                beyond the non-refundable portion are refundable (less non-recoverable costs already
+                incurred). Cancel &le;{FINAL_DUE_DAYS} days: payments are non-refundable.
               </li>
               <br />
+
               <li>
-                <strong>Missed Payments:</strong> We’ll retry your card
-                automatically. After 7 days a $25 late fee may apply; after 14
-                days, services may be suspended and the agreement may be in
-                default (amounts paid, incl. the deposit, may be retained).
+                <strong>Rescheduling:</strong> May be possible based on vendor availability and may
+                incur additional fees.
               </li>
               <br />
+
               <li>
-                <strong>Liability &amp; Substitutions:</strong> Wed&amp;Done
-                isn’t responsible for venue restrictions or consequential
-                damages. Reasonable substitutions may be made as needed.
-                Liability is limited to amounts paid for coordination services
-                under this agreement.
+                <strong>Missed Payments:</strong> We’ll retry your card automatically. After 7 days
+                a $25 late fee may apply; after 14 days, services may be suspended and the agreement
+                may be in default (amounts paid, incl. the deposit, may be retained).
               </li>
               <br />
+
               <li>
-                <strong>Force Majeure:</strong> Neither party is liable for
-                delays beyond reasonable control. We’ll work in good faith to
-                reschedule; if not possible, we’ll refund amounts paid beyond
-                non-recoverable costs.
+                <strong>Liability &amp; Substitutions:</strong> Wed&amp;Done isn’t responsible for
+                venue restrictions or consequential damages. Reasonable substitutions may be made as
+                needed. Liability is limited to amounts paid for coordination services under this
+                agreement.
+              </li>
+              <br />
+
+              <li>
+                <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable
+                control. We’ll work in good faith to reschedule; if not possible, we’ll refund
+                amounts paid beyond non-recoverable costs.
               </li>
             </ul>
           </div>
 
           {/* Pay plan toggle */}
-          <h4
-            className="px-title"
-            style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}
-          >
+          <h4 className="px-title" style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
             Choose how you’d like to pay:
           </h4>
+
           <div className="px-toggle" style={{ marginBottom: 12 }}>
             <button
               type="button"
@@ -413,6 +428,7 @@ useEffect(() => {
             >
               Pay Full Amount
             </button>
+
             <button
               type="button"
               className={`px-toggle__btn ${
@@ -440,8 +456,8 @@ useEffect(() => {
               </>
             ) : (
               <>
-                You’re paying <strong>{fmtUSD(depositCents)}</strong> today,
-                then about <strong>{fmtUSD(perMonthCents)}</strong> monthly
+                You’re paying <strong>{fmtUSD(depositCents)}</strong> today, then about{" "}
+                <strong>{fmtUSD(perMonthCents)}</strong> monthly
                 {finalDuePretty ? (
                   <>
                     {" "}
@@ -462,7 +478,7 @@ useEffect(() => {
             )}
           </p>
 
-          {/* Auto-pay warning */}
+          {/* UX note: monthly after card is on file uses that card and you can't swap at checkout */}
           {!payFull && hasCardOnFileConsent && (
             <div
               style={{
@@ -479,25 +495,7 @@ useEffect(() => {
                 marginInline: "auto",
               }}
             >
-              Monthly plans will be charged to your saved card on file. If you want to use a different card, choose Pay Full Amount instead.
-              {finalDuePretty ? (
-                <>
-                  {" "}
-                  by <strong>{finalDuePretty}</strong>.
-                </>
-              ) : (
-                <>
-                  {" "}
-                  by{" "}
-                  <strong>
-                    {FINAL_DUE_DAYS} days before your wedding date
-                  </strong>
-                  .
-                </>
-              )}{" "}
-              You can update your card on file in your Wed&amp;Done dashboard.
-              If you’d prefer to pay with a different card, choose “Pay Full
-              Amount” instead.
+              Monthly plans will be charged to your saved card on file. If you don't have one on file yet, you'll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
             </div>
           )}
 
@@ -513,44 +511,46 @@ useEffect(() => {
               I agree to the terms above
             </label>
           </div>
+
+          {/* Global card-on-file consent (only appears if they haven't consented yet) */}
           {needsCardConsent && (
-  <div
-    style={{
-      margin: "0.25rem 0 0.75rem",
-      fontSize: ".9rem",
-      textAlign: "left",
-      maxWidth: 560,
-      marginInline: "auto",
-    }}
-  >
-    <label>
-      <input
-        type="checkbox"
-        checked={cardConsentChecked}
-        onChange={(e) => setCardConsentChecked(e.target.checked)}
-        style={{ marginRight: 8 }}
-      />
-      I authorize Wed&amp;Done and our payment processor (Stripe) to securely store
-      my card and to charge it for planner installments, any remaining planner
-      balance, and future Wed&amp;Done bookings I choose to make, as described in
-      the payment terms above.
-    </label>
-  </div>
-)}
+            <div
+              style={{
+                margin: "0.25rem 0 0.75rem",
+                fontSize: ".9rem",
+                textAlign: "left",
+                maxWidth: 560,
+                marginInline: "auto",
+              }}
+            >
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cardConsentChecked}
+                  onChange={(e) => setCardConsentChecked(e.target.checked)}
+                  style={{ marginRight: 8 }}
+                />
+                I authorize Wed&amp;Done and our payment processor (Stripe) to securely store my
+                card and to charge it for planner installments, any remaining planner balance, and
+                future Wed&amp;Done bookings I choose to make, as described in the payment terms
+                above.
+              </label>
+            </div>
+          )}
 
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             {!signatureSubmitted ? (
-             <button
-             className="boutique-primary-btn"
-             onClick={() => {
-               if (!canSign) return;
-               setShowSignatureModal(true);
-             }}
-             disabled={!canSign}
-             style={{ width: 260 }}
-           >
-             Sign Contract
-           </button>
+              <button
+                className="boutique-primary-btn"
+                onClick={() => {
+                  if (!canSign) return;
+                  setShowSignatureModal(true);
+                }}
+                disabled={!canSign}
+                style={{ width: 260 }}
+              >
+                Sign Contract
+              </button>
             ) : (
               <>
                 <img
@@ -593,10 +593,7 @@ useEffect(() => {
                             ).toISOString()
                           : ""
                       );
-                      localStorage.setItem(
-                        "plannerPlanMonths",
-                        String(planMonths)
-                      );
+                      localStorage.setItem("plannerPlanMonths", String(planMonths));
                       localStorage.setItem(
                         "plannerPerMonthCents",
                         String(perMonthCents)

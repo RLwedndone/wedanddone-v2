@@ -567,9 +567,9 @@ const BatesDessertCheckout: React.FC<BatesDessertCheckoutProps> = ({
       }}
     >
       <div
-        className="pixie-card pixie-card--modal"
-        style={{ maxWidth: 700, position: "relative" }}
-      >
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{ maxWidth: 700, position: "relative" }}
+>
         {/* 🩷 Pink X Close */}
         <button
           className="pixie-card__close"

@@ -667,9 +667,9 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         }}
       >
         <div
-          className="pixie-card pixie-card--modal"
-          style={{ maxWidth: 700, position: "relative" }}
-        >
+  className={`pixie-card pixie-card--modal ${(isGenerating || isZeroTotal) ? "is-generating" : ""}`}
+  style={{ maxWidth: 700, position: "relative" }}
+>
           {/* 🩷 Pink X Close */}
           <button
             className="pixie-card__close"
@@ -738,10 +738,10 @@ const BatesCheckOutCatering: React.FC<BatesCheckOutProps> = ({
         boxSizing: "border-box",
       }}
     >
-      <div
-        className="pixie-card pixie-card--modal"
-        style={{ maxWidth: 700, position: "relative" }}
-      >
+     <div
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{ maxWidth: 700, position: "relative" }}
+>
         {/* 🩷 Pink X Close */}
         <button
           className="pixie-card__close"

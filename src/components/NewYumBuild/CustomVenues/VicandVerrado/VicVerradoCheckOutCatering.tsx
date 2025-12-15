@@ -495,7 +495,10 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
   // ========== Spinner card ==========
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      <div
+  className="pixie-card pixie-card--modal is-generating"
+  style={{ maxWidth: 700 }}
+>
         {/* 🩷 Pink X */}
         <button
           className="pixie-card__close"
@@ -559,7 +562,10 @@ const VicVerradoCheckOutCatering: React.FC<VicVerradoCheckOutProps> = ({
 
   // ========== Main checkout card ==========
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{ maxWidth: 700 }}
+>
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"

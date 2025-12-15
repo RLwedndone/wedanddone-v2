@@ -577,12 +577,12 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
   // 🔮 MAGIC-IN-PROGRESS / CHECKOUT CARD
   return (
     <div
-      className="pixie-card pixie-card--modal"
-      style={{
-        ["--pixie-card-w" as any]: isGenerating ? "520px" : "680px",
-        ["--pixie-card-min-h" as any]: isGenerating ? "360px" : "520px",
-      }}
-    >
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{
+    ["--pixie-card-w" as any]: isGenerating ? "520px" : "680px",
+    ["--pixie-card-min-h" as any]: isGenerating ? "360px" : "520px",
+  }}
+>
       {/* 🩷 Pink X Close */}
       <button
         className="pixie-card__close"

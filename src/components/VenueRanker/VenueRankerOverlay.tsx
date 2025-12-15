@@ -407,11 +407,21 @@ const handleSelectExploreMode = (mode: "all" | "vibe") => {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        overflow: "auto",
+        overflow: "hidden",
       }}
     >
-      {/* IMPORTANT: not a pixie-card, just a scroll host */}
-      <div ref={cardRef} style={{ width: "100%" }}>
+      {/* IMPORTANT: stage container */}
+<div
+  ref={cardRef}
+  style={{
+    width: "min(980px, 94vw)",
+    maxHeight: "92vh",
+    overflowY: "auto",
+    borderRadius: "22px",
+    position: "relative",
+    margin: "0 auto",
+  }}
+>
         {/* Intro */}
         {currentScreen === "intro" && (
           <VenueRankerIntro onContinue={() => setCurrentScreen("explore")} onClose={onClose} />

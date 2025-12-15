@@ -605,12 +605,12 @@ const SchnepfCheckOutCatering: React.FC<Props> = ({
     // Single modal card (no extra overlay) to avoid double darkening
     return (
       <div
-        className="pixie-card pixie-card--modal"
-        style={{
-          maxWidth: 420,
-          position: "relative",
-        }}
-      >
+  className="pixie-card pixie-card--modal is-generating"
+  style={{
+    maxWidth: 420,
+    position: "relative",
+  }}
+>
         <div className="pixie-card__body" style={{ textAlign: "center" }}>
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/magic_clock.mp4`}
@@ -652,9 +652,9 @@ const SchnepfCheckOutCatering: React.FC<Props> = ({
   // ── Main checkout card (no overlay wrapper) ──
   return (
     <div
-      className="pixie-card pixie-card--modal"
-      style={{ maxWidth: 700 }}
-    >
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{ maxWidth: 700 }}
+>
       {/* 🩷 Pink X Close */}
       <button
         className="pixie-card__close"

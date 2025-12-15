@@ -548,7 +548,7 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
   if (isGenerating) {
     return (
       <div
-        className="pixie-card pixie-card--modal"
+        className="pixie-card pixie-card--modal is-generating"
         style={{ maxWidth: 720 }}
       >
         <button
@@ -592,7 +592,11 @@ const ValleyHoCheckOutCatering: React.FC<ValleyHoCheckOutProps> = ({
   }
 
   return (
-    <div className="pixie-card pixie-card--modal">
+    <div
+  className={`pixie-card pixie-card--modal ${
+    isGenerating ? "is-generating" : ""
+  }`}
+>
       {/* 🩷 Pink X */}
       <button
         className="pixie-card__close"

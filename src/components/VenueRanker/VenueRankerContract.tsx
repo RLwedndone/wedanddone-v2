@@ -772,12 +772,7 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
               }}
             >
               <strong>Heads up:</strong>{" "}
-              Because you&apos;ve chosen{" "}
-              <strong>Deposit + Monthly</strong>, your venue installments will
-              use a card on file. If you don&apos;t have one saved yet, we&apos;ll
-              securely add one at checkout and use it for your monthly payments
-              and final balance. You can update your saved card anytime from
-              your Wed&amp;Done account.
+              Monthly plans will be charged to your saved card on file. If you don't have one on file yet, you'll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
             </div>
           )}
 

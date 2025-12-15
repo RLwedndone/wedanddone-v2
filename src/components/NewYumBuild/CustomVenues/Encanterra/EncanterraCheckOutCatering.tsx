@@ -551,7 +551,10 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
   // Spinner view (standardized – no Back button)
   if (isGenerating) {
     return (
-      <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+      <div
+  className="pixie-card pixie-card--modal is-generating"
+  style={{ maxWidth: 700 }}
+>
         {/* 🩷 Pink X */}
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img
@@ -596,7 +599,10 @@ const EncanterraCheckOutCatering: React.FC<EncanterraCheckOutProps> = ({
       )} — final payment due ${finalDueDateStr}.`;
 
   return (
-    <div className="pixie-card pixie-card--modal" style={{ maxWidth: 700 }}>
+    <div
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  style={{ maxWidth: 700 }}
+>
       {/* 🩷 Pink X */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
         <img

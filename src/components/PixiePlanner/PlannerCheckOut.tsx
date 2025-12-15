@@ -101,7 +101,7 @@ const PlannerCheckOut: React.FC<PlannerCheckOutProps> = ({
 
   if (!userData) {
     return (
-      <div className="pixie-card pixie-card--modal">
+      <div className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}>
         <button className="pixie-card__close" onClick={onClose} aria-label="Close">
           <img
             src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}

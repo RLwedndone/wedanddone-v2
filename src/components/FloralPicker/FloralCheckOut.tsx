@@ -564,17 +564,19 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
   const isMonthlyPlan = requiresCardOnFile;
 
   return (
-    <div className="pixie-card pixie-card--modal">
-      <button
-        className="pixie-card__close"
-        onClick={onClose}
-        aria-label="Close"
-      >
-        <img
-          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-          alt="Close"
-        />
-      </button>
+    <div className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}>
+      {!isGenerating && (
+  <button
+    className="pixie-card__close"
+    onClick={onClose}
+    aria-label="Close"
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+      alt="Close"
+    />
+  </button>
+)}
 
       <div className="pixie-card__body">
         {isGenerating ? (

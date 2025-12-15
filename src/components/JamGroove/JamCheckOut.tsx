@@ -772,7 +772,10 @@ const isMonthlyPlan = requiresCardOnFile;
   };
 
   return (
-    <div className="pixie-card pixie-card--modal" ref={scrollRef}>
+    <div
+  className={`pixie-card pixie-card--modal ${isGenerating ? "is-generating" : ""}`}
+  ref={scrollRef}
+>
       {/* Pink X */}
       <button
         className="pixie-card__close"

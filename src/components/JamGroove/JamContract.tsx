@@ -555,8 +555,7 @@ const JamContractScreen: React.FC<JamContractProps> = ({
                 textAlign: "left",
               }}
             >
-              Monthly plans will be charged to your saved card on file. If you
-              want to use a different card, choose Pay Full Amount instead.
+              Monthly plans will be charged to your saved card on file. If you don't have one on file yet, you'll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
             </div>
           )}
 

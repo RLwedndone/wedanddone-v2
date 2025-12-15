@@ -35,7 +35,7 @@ export const DESKTOP_POS = {
 export const MOBILE_POS = {
   hud: {
     logoCloud: { topPct: 13, leftPct: 50, widthPct: 45 },
-    madge:      { topPct: 92, leftPct: 86, widthPct: 20 },
+    madge:      { topPct: 89, leftPct: 86, widthPct: 20 },
     menu:       { topPct:  6, leftPct: 90, widthPct: 16 },
     goldKey:    { topPct: 14, leftPct: 88, widthPct: 12 },
     budgetWand: { topPct: 12, leftPct: 15, widthPct: 36 },
