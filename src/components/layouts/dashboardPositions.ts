@@ -11,6 +11,7 @@ export const DESKTOP_POS = {
     // HUD items (feel free to tweak later)
     madge:      { topPct: 88, leftPct: 94, widthPct: 9  },
     menu:       { topPct:  10, leftPct: 93, widthPct: 7 },
+    avatar:     { topPct: 23, leftPct: 93, widthPct: 6 },
     goldKey:    { topPct: 22, leftPct: 92, widthPct: 6  },
     budgetWand: { topPct: 20, leftPct:  8, widthPct: 16 },
     magicBook:  { topPct: 20, leftPct: 18, widthPct: 13 },
@@ -37,6 +38,7 @@ export const MOBILE_POS = {
     logoCloud: { topPct: 13, leftPct: 50, widthPct: 45 },
     madge:      { topPct: 89, leftPct: 86, widthPct: 20 },
     menu:       { topPct:  6, leftPct: 90, widthPct: 16 },
+    avatar:     { topPct: 14, leftPct: 89, widthPct: 12 },
     goldKey:    { topPct: 14, leftPct: 88, widthPct: 12 },
     budgetWand: { topPct: 12, leftPct: 15, widthPct: 36 },
     magicBook:  { topPct: 78, leftPct: 50, widthPct: 30 },

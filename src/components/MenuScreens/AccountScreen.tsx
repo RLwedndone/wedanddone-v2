@@ -1,7 +1,7 @@
 // src/components/Account/AccountScreen.tsx
 import React, { useState, useEffect } from "react";
 import { db } from "../../firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -9,6 +9,7 @@ import {
   sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
+  onAuthStateChanged,
 } from "firebase/auth";
 import { saveUserProfile } from "../../utils/saveUserProfile";
 import {
@@ -16,6 +17,10 @@ import {
   setGuestCount,
   type GuestLockReason,
 } from "../../utils/guestCountStore";
+
+// ✅ Use non-resumable upload to avoid “Saving photo… 0%” hangs
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../firebase/firebaseConfig";
 
 const DEFAULT_AVATAR = `${import.meta.env.BASE_URL}assets/images/profile_placeholder.png`;
 
@@ -50,7 +55,6 @@ function prettyWeddingDate(ymd: string | null | undefined) {
   const dayNum = d.getDate();
   const year = d.getFullYear();
 
-  // suffix logic
   const suffix =
     dayNum % 10 === 1 && dayNum !== 11
       ? "st"
@@ -62,12 +66,12 @@ function prettyWeddingDate(ymd: string | null | undefined) {
 
   return `${month} ${dayNum}${suffix}, ${year}`;
 }
+
 const reqStar: React.CSSProperties = {
   color: "#2c62ba",
   fontWeight: 700,
   marginLeft: 4,
 };
-
 const Required = () => <span style={reqStar}>*</span>;
 
 type AccountScreenProps = {
@@ -80,6 +84,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -119,55 +124,122 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     lastName?: string;
   }>({});
 
+  // ✅ Helper: if img is a base64 data URL, resize + upload to Storage and return URL
+  // (Uses uploadBytes to avoid resumable “stuck at 0%” issues.)
+  const uploadProfileImageIfDataUrl = async (uid: string, img: string) => {
+    if (!img || !img.startsWith("data:image/")) return img;
+
+    // base64 -> blob
+    const res = await fetch(img);
+    const originalBlob = await res.blob();
+    const bitmap = await createImageBitmap(originalBlob);
+
+    const MAX = 512;
+    const scale = Math.min(MAX / bitmap.width, MAX / bitmap.height, 1);
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+    ctx.drawImage(bitmap, 0, 0, w, h);
+
+    const jpegBlob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Image conversion failed"))),
+        "image/jpeg",
+        0.85
+      );
+    });
+
+    const fileRef = ref(storage, `users/${uid}/profile.jpg`);
+
+    await uploadBytes(fileRef, jpegBlob, {
+      contentType: "image/jpeg",
+      cacheControl: "public,max-age=3600",
+    });
+
+    return await getDownloadURL(fileRef);
+  };
+
   // ─────────────────────────────────────────────────────────────
-  // Load profile (names, contact, date, etc.)
+  // Load profile (auth-safe)
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const auth = getAuth();
-    const user = auth.currentUser;
 
-    if (!user) {
-      setIsGuest(true);
-      return;
-    }
-
-    (async () => {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) return;
-
-      const data = userDoc.data() as any;
-
-      setFirstName(data.firstName || "");
-      setLastName(data.lastName || "");
-      setEmail(data.email || user.email || "");
-      setProfileImage(data.profileImage || DEFAULT_AVATAR);
-      setFianceFirst(data.fianceFirst || "");
-      setFianceLast(data.fianceLast || "");
-      setPhone(data.phone || "");
-
-      const savedDate = data.weddingDate || "";
-      setWeddingDate(savedDate);
-
-      if (savedDate) {
-        const parsedDate = new Date(savedDate + "T12:00:00");
-        const weekday = parsedDate.toLocaleDateString("en-US", {
-          weekday: "long",
-        });
-        setDayOfWeek(weekday);
-      } else {
-        setDayOfWeek("");
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      // default: not loaded yet (only set true once we finish this callback)
+      try {
+        if (!user) {
+          setIsGuest(true);
+    
+          // guest photo draft restore
+          try {
+            const draft = localStorage.getItem("wd_profileImageDraft");
+            if (draft) setProfileImage(draft);
+          } catch {}
+    
+          setProfileLoaded(true);
+          return;
+        }
+    
+        setIsGuest(false);
+    
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+    
+        // ✅ Even if their Firestore doc doesn't exist yet, we still finish loading
+        if (!userDoc.exists()) {
+          // (Optional) keep defaults, but at least keep email in sync
+          setEmail(user.email || "");
+          setProfileLoaded(true);
+          return;
+        }
+    
+        const data = userDoc.data() as any;
+    
+        setFirstName(data.firstName || "");
+        setLastName(data.lastName || "");
+        setEmail(data.email || user.email || "");
+        setProfileImage(data.profileImage || DEFAULT_AVATAR);
+        setFianceFirst(data.fianceFirst || "");
+        setFianceLast(data.fianceLast || "");
+        setPhone(data.phone || "");
+    
+        const savedDate = data.weddingDate || "";
+        setWeddingDate(savedDate);
+    
+        if (savedDate) {
+          const parsedDate = new Date(savedDate + "T12:00:00");
+          const weekday = parsedDate.toLocaleDateString("en-US", {
+            weekday: "long",
+          });
+          setDayOfWeek(weekday);
+        } else {
+          setDayOfWeek("");
+        }
+    
+        setDateLocked(!!data.weddingDateLocked);
+    
+        setFinalLocked(!!data.guestCountFinalLocked);
+        setIncreaseRequested(
+          typeof data.guestCountIncreaseRequested === "number"
+            ? data.guestCountIncreaseRequested
+            : null
+        );
+    
+        setProfileLoaded(true);
+      } catch (err) {
+        console.error("❌ AccountScreen profile load failed:", err);
+        // ✅ Don’t trap the UI in loading if Firestore hiccups
+        setProfileLoaded(true);
       }
+    });
 
-      setDateLocked(!!data.weddingDateLocked);
-
-      // 🔒 guest-count final lock + increase request status
-      setFinalLocked(!!data.guestCountFinalLocked);
-      if (typeof data.guestCountIncreaseRequested === "number") {
-        setIncreaseRequested(data.guestCountIncreaseRequested);
-      } else {
-        setIncreaseRequested(null);
-      }
-    })();
+    return () => unsub();
   }, []);
 
   // ─────────────────────────────────────────────────────────────
@@ -196,10 +268,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       const st = await getGuestState();
       if (!mounted) return;
 
-      const current = Number((st as any).value ?? 0); // guest count
-      const isLocked = Boolean((st as any).locked); // lock flag
+      const current = Number((st as any).value ?? 0);
+      const isLocked = Boolean((st as any).locked);
 
-      // normalize reasons from any key the store might use
       const reasons =
         ((st as any).lockedReasons ??
           (st as any).guestCountLockedBy ??
@@ -230,30 +301,104 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
   }, []);
 
   // ─────────────────────────────────────────────────────────────
-  // Handlers
+  // Photo autosave handler
   // ─────────────────────────────────────────────────────────────
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result) setProfileImage(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+
+    // allow re-selecting same file
+    event.currentTarget.value = "";
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    // Guests: just keep a local draft preview
+    if (!user) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        if (!dataUrl) return;
+        setProfileImage(dataUrl);
+        try {
+          localStorage.setItem("wd_profileImageDraft", dataUrl);
+        } catch {}
+        setBannerMsg("Photo saved for now — create your account to lock it in. ✨");
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    try {
+      setBannerMsg("Saving photo…");
+      setChangesSaved(false);
+
+      // Resize client-side so uploads are fast
+      const bitmap = await createImageBitmap(file);
+
+      const MAX = 512;
+      const scale = Math.min(MAX / bitmap.width, MAX / bitmap.height, 1);
+      const w = Math.round(bitmap.width * scale);
+      const h = Math.round(bitmap.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not supported");
+      ctx.drawImage(bitmap, 0, 0, w, h);
+
+      const blob: Blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Image conversion failed"))),
+          "image/jpeg",
+          0.85
+        );
+      });
+
+      const fileRef = ref(storage, `users/${user.uid}/profile.jpg`);
+
+      await uploadBytes(fileRef, blob, {
+        contentType: "image/jpeg",
+        cacheControl: "public,max-age=3600",
+      });
+
+      const url = await getDownloadURL(fileRef);
+
+      // Update UI + Firestore
+      setProfileImage(url);
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        { profileImage: url },
+        { merge: true }
+      );
+
+      setBannerMsg("✅ Photo saved!");
+      setChangesSaved(true);
+      window.setTimeout(() => setChangesSaved(false), 1500);
+    } catch (err: any) {
+      console.error("❌ Photo save failed:", err);
+      const code = err?.code ? ` (${err.code})` : "";
+      setBannerMsg(`Couldn’t save your photo${code}.`);
+    }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Guest account creation
+  // ─────────────────────────────────────────────────────────────
   const handleGuestSignup = async () => {
-    // clear old errors
     setFieldErrors({});
     setBannerMsg(null);
 
-    // 🚫 prevent saving a past wedding date
     if (weddingDate && isPastYMD(weddingDate)) {
       setDateError("Please choose a future date.");
       return;
     }
 
-    // Basic field validation
     const errors: {
       email?: string;
       password?: string;
@@ -262,31 +407,20 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       lastName?: string;
     } = {};
 
-    if (!firstName.trim()) {
-      errors.firstName = "First name is required.";
-    }
+    if (!firstName.trim()) errors.firstName = "First name is required.";
+    if (!lastName.trim()) errors.lastName = "Last name is required.";
 
-    if (!lastName.trim()) {
-      errors.lastName = "Last name is required.";
-    }
-
-    if (!email.trim()) {
-      errors.email = "Email is required.";
-    } else if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+    if (!email.trim()) errors.email = "Email is required.";
+    else if (!/^\S+@\S+\.\S+$/.test(email.trim()))
       errors.email = "Please enter a valid email address.";
-    }
 
-    if (!password) {
-      errors.password = "Password is required.";
-    } else if (password.length < 6) {
+    if (!password) errors.password = "Password is required.";
+    else if (password.length < 6)
       errors.password = "Password must be at least 6 characters.";
-    }
 
-    if (!confirmPassword) {
-      errors.confirmPassword = "Please confirm your password.";
-    } else if (password && confirmPassword !== password) {
+    if (!confirmPassword) errors.confirmPassword = "Please confirm your password.";
+    else if (password && confirmPassword !== password)
       errors.confirmPassword = "Passwords do not match.";
-    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -305,12 +439,27 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         displayName: `${firstName.trim()} ${lastName.trim()}`,
       });
 
+      // If guest picked an image, it might be base64 → upload + use URL
+      let finalProfileImage = profileImage;
+      try {
+        finalProfileImage = await uploadProfileImageIfDataUrl(
+          userCred.user.uid,
+          profileImage
+        );
+        setProfileImage(finalProfileImage);
+        try {
+          localStorage.removeItem("wd_profileImageDraft");
+        } catch {}
+      } catch (e) {
+        console.warn("⚠️ Photo upload during signup failed (non-blocking):", e);
+      }
+
       await saveUserProfile({
         uid: userCred.user.uid,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
-        profileImage,
+        profileImage: finalProfileImage,
         fianceFirst,
         fianceLast,
         phone,
@@ -319,7 +468,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         guestCount: null,
       });
 
-      // push guest count into the shared store
       const n = Math.max(0, Math.min(250, Math.floor(Number(gc) || 0)));
       await setGuestCount(n);
 
@@ -330,18 +478,21 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       console.error("❌ Failed to create account:", err);
-    
+
       let message = "Account creation failed. Please try again.";
-    
+
       if (err?.code === "auth/email-already-in-use") {
         message =
           "Looks like you already have an account with this email. Try logging in or resetting your password.";
       }
-    
+
       setBannerMsg(message);
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Google signup
+  // ─────────────────────────────────────────────────────────────
   const handleGoogleSignup = async () => {
     const auth = getAuth();
     const provider = new GoogleAuthProvider();
@@ -350,7 +501,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       const result = await signInWithPopup(auth, provider);
       const u = result.user;
 
-      // Derive a first/last from displayName (fallbacks are friendly)
       const [given, ...rest] = (u.displayName || "Magic User").split(" ");
       const first = given || "Magic";
       const last = rest.join(" ") || "User";
@@ -380,19 +530,22 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setAccountCreated(false), 3000);
     } catch (err: any) {
       if (err?.code === "auth/popup-closed-by-user") return;
-    
+
       let message = "Google sign-up failed. Please try again.";
-    
+
       if (err?.code === "auth/account-exists-with-different-credential") {
         message =
           "An account with this email already exists under a different sign-in method. Try signing in with email and password instead.";
       }
-    
+
       console.error("❌ Google sign-up failed:", err);
       setBannerMsg(message);
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // Save changes (logged-in)
+  // ─────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setBannerMsg(null);
 
@@ -403,7 +556,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       return;
     }
 
-    // 🚫 block saving a past date (if editable)
     if (!dateLocked && weddingDate && isPastYMD(weddingDate)) {
       setDateError("Please choose a future date.");
       setBannerMsg(
@@ -413,13 +565,29 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
     }
 
     try {
-      // 1) profile core (NOT guest count)
+      // Ensure profileImage is a URL (not base64) before writing profile
+      let finalProfileImage = profileImage;
+      if (finalProfileImage?.startsWith("data:image/")) {
+        setBannerMsg("Saving photo…");
+        finalProfileImage = await uploadProfileImageIfDataUrl(
+          user.uid,
+          finalProfileImage
+        );
+        setProfileImage(finalProfileImage);
+        await setDoc(
+          doc(db, "users", user.uid),
+          { profileImage: finalProfileImage },
+          { merge: true }
+        );
+        setBannerMsg(null);
+      }
+
       await saveUserProfile({
         uid: user.uid,
         firstName,
         lastName,
         email,
-        profileImage,
+        profileImage: finalProfileImage,
         fianceFirst,
         fianceLast,
         phone,
@@ -428,15 +596,11 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         guestCount: null,
       });
 
-      // 2) Guest-count logic
       const gcChanged = Number(gc) !== Number(originalGC);
 
       if (locked && gcChanged) {
-        // they tried to change while locked → open scroll
         window.dispatchEvent(
-          new CustomEvent("openUserMenuScreen", {
-            detail: "guestListScroll",
-          })
+          new CustomEvent("openUserMenuScreen", { detail: "guestListScroll" })
         );
         setBannerMsg(
           "Guest count is locked after a booking. Use the Guest Count Scroll to request a change."
@@ -450,7 +614,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         if (n < 0) n = 0;
         if (n > GLOBAL_MAX) n = GLOBAL_MAX;
 
-        await setGuestCount(n); // writes firestore/store & emits events
+        await setGuestCount(n);
         setGC(n);
         setOriginalGC(n);
       }
@@ -459,9 +623,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
       setTimeout(() => setChangesSaved(false), 3000);
     } catch (error) {
       console.error("❌ Failed to save account info:", error);
-      setBannerMsg(
-        "Something went wrong saving your changes. Please try again."
-      );
+      setBannerMsg("Something went wrong saving your changes. Please try again.");
     }
   };
 
@@ -533,16 +695,28 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
             }}
             onClick={() => document.getElementById("fileInput")?.click()}
           >
-            <img
-              src={profileImage || DEFAULT_AVATAR}
-              alt="Profile"
-              style={{
-                width: 120,
-                height: 120,
-                borderRadius: "50%",
-                objectFit: "cover",
-              }}
-            />
+            {!profileLoaded ? (
+  <div
+    style={{
+      width: 120,
+      height: 120,
+      borderRadius: "50%",
+      background: "#eee",
+      display: "inline-block",
+    }}
+  />
+) : (
+  <img
+    src={profileImage || DEFAULT_AVATAR}
+    alt="Profile"
+    style={{
+      width: 120,
+      height: 120,
+      borderRadius: "50%",
+      objectFit: "cover",
+    }}
+  />
+)}
             <img
               src={`${import.meta.env.BASE_URL}assets/images/camera_overlay.png`}
               alt=""
@@ -567,9 +741,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         {/* Fields */}
         <div style={{ textAlign: "left" }}>
           {/* First Name */}
-          <label>
-  First Name {isGuest && <Required />}
-</label>
+          <label>First Name {isGuest && <Required />}</label>
           <input
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
@@ -589,9 +761,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           )}
 
           {/* Last Name */}
-          <label>
-  Last Name {isGuest && <Required />}
-</label>
+          <label>Last Name {isGuest && <Required />}</label>
           <input
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
@@ -611,9 +781,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           )}
 
           {/* Email */}
-          <label>
-  Email {isGuest && <Required />}
-</label>
+          <label>Email {isGuest && <Required />}</label>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -636,10 +804,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           {/* Guest sign-up only: password + confirm password */}
           {isGuest && (
             <>
-              {/* Password */}
               <label>
-  Password <Required />
-</label>
+                Password <Required />
+              </label>
               <div style={{ position: "relative", marginBottom: "0.5rem" }}>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -678,10 +845,9 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                 </p>
               )}
 
-              {/* Confirm Password */}
               <label>
-  Confirm Password <Required />
-</label>
+                Confirm Password <Required />
+              </label>
               <div style={{ position: "relative", marginBottom: "0.5rem" }}>
                 <input
                   type={showConfirmPassword ? "text" : "password"}
@@ -765,8 +931,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   marginBottom: "1.5rem",
                 }}
               >
-                Your date is locked after a booking. Contact us if you need to
-                make a change!
+                Your date is locked after a booking. Contact us if you need to make a change!
               </p>
             </>
           ) : (
@@ -780,19 +945,17 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                   setWeddingDate(date);
 
                   if (date && !isNaN(new Date(`${date}T12:00:00`).getTime())) {
-                    const weekday = new Date(
-                      `${date}T12:00:00`
-                    ).toLocaleDateString("en-US", { weekday: "long" });
+                    const weekday = new Date(`${date}T12:00:00`).toLocaleDateString(
+                      "en-US",
+                      { weekday: "long" }
+                    );
                     setDayOfWeek(weekday);
                   } else {
                     setDayOfWeek("");
                   }
 
-                  if (date && isPastYMD(date)) {
-                    setDateError("Please choose a future date.");
-                  } else {
-                    setDateError(null);
-                  }
+                  if (date && isPastYMD(date)) setDateError("Please choose a future date.");
+                  else setDateError(null);
                 }}
                 style={{
                   ...inputStyle,
@@ -829,7 +992,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
             </>
           )}
 
-          {/* Guest Count section (single source of truth) */}
+          {/* Guest Count section */}
           <section style={{ marginTop: "1rem" }}>
             <label
               style={{
@@ -855,44 +1018,20 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                     marginBottom: ".5rem",
                   }}
                 />
-                <div
-                  style={{
-                    fontSize: ".9rem",
-                    color: "#666",
-                    marginBottom: ".5rem",
-                  }}
-                >
+                <div style={{ fontSize: ".9rem", color: "#666", marginBottom: ".5rem" }}>
                   Locked after:{" "}
-                  <strong>
-                    {(lockReasons || []).join(", ") || "a booking"}
-                  </strong>
-                  .
+                  <strong>{(lockReasons || []).join(", ") || "a booking"}</strong>.
                 </div>
 
-                {/* Final lock / increase status */}
                 {finalLocked && increaseRequested == null && (
-                  <div
-                    style={{
-                      fontSize: ".9rem",
-                      color: "#2c62ba",
-                      marginBottom: ".75rem",
-                    }}
-                  >
-                    Guest count confirmed:{" "}
-                    <strong>{gc || 0}</strong> guests
+                  <div style={{ fontSize: ".9rem", color: "#2c62ba", marginBottom: ".75rem" }}>
+                    Guest count confirmed: <strong>{gc || 0}</strong> guests
                   </div>
                 )}
 
                 {!finalLocked && increaseRequested != null && (
-                  <div
-                    style={{
-                      fontSize: ".9rem",
-                      color: "#c0392b",
-                      marginBottom: ".75rem",
-                    }}
-                  >
-                    Guest count increase requested:{" "}
-                    <strong>{increaseRequested}</strong> guests
+                  <div style={{ fontSize: ".9rem", color: "#c0392b", marginBottom: ".75rem" }}>
+                    Guest count increase requested: <strong>{increaseRequested}</strong> guests
                   </div>
                 )}
               </>
@@ -934,7 +1073,7 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
           </section>
         </div>
 
-        {/* Status banners (under the form, above CTA buttons) */}
+        {/* Status banners */}
         {bannerMsg && (
           <div
             style={{
@@ -953,40 +1092,19 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
         )}
 
         {accountCreated && (
-          <p
-            style={{
-              color: "#2c62ba",
-              fontWeight: "bold",
-              marginBottom: "1rem",
-              fontSize: "1rem",
-            }}
-          >
+          <p style={{ color: "#2c62ba", fontWeight: "bold", marginBottom: "1rem", fontSize: "1rem" }}>
             ✨ Account created!
           </p>
         )}
         {changesSaved && (
-          <p
-            style={{
-              color: "#2c62ba",
-              fontWeight: "bold",
-              marginBottom: "1rem",
-              fontSize: "1rem",
-            }}
-          >
+          <p style={{ color: "#2c62ba", fontWeight: "bold", marginBottom: "1rem", fontSize: "1rem" }}>
             ✅ Changes saved!
           </p>
         )}
 
         {/* Logged-in: Save + Reset Password */}
         {!isGuest && (
-          <div
-            style={{
-              display: "flex",
-              gap: "0.75rem",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
             <button
               className="boutique-primary-btn"
               onClick={handleSave}
@@ -1037,8 +1155,6 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
               Create Account
             </button>
 
-            
-
             <div style={{ marginTop: "1rem" }}>
               <img
                 src={`${import.meta.env.BASE_URL}assets/images/google_signup.png`}
@@ -1053,37 +1169,32 @@ const AccountScreen: React.FC<AccountScreenProps> = ({ onClose }) => {
                 }}
               />
 
-                      {/* Arizona-only notice */}
-        <div
-          style={{
-            marginTop: "2rem",
-            textAlign: "center",
-          }}
-        >
-          <img
-            src={`${import.meta.env.BASE_URL}assets/images/AZLogo.png`}
-            alt="Wed&Done Arizona logo"
-            style={{
-              width: "140px",
-              maxWidth: "60%",
-              display: "block",
-              margin: "0 auto 0.5rem",
-            }}
-          />
-          <p
-            style={{
-              fontSize: "0.85rem",
-              lineHeight: 1.4,
-              color: "#666",
-              maxWidth: "360px",
-              margin: "0 auto",
-            }}
-          >
-            ✨ Just a note: Wed&Done is currently all about Arizona weddings.
-            We&apos;re growing our magic, but for now, we&apos;re sprinkling
-            fairy dust only in Arizona! ✨
-          </p>
-        </div>
+              {/* Arizona-only notice */}
+              <div style={{ marginTop: "2rem", textAlign: "center" }}>
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/images/AZLogo.png`}
+                  alt="Wed&Done Arizona logo"
+                  style={{
+                    width: "140px",
+                    maxWidth: "60%",
+                    display: "block",
+                    margin: "0 auto 0.5rem",
+                  }}
+                />
+                <p
+                  style={{
+                    fontSize: "0.85rem",
+                    lineHeight: 1.4,
+                    color: "#666",
+                    maxWidth: "360px",
+                    margin: "0 auto",
+                  }}
+                >
+                  ✨ Just a note: Wed&Done is currently all about Arizona weddings.
+                  We&apos;re growing our magic, but for now, we&apos;re sprinkling
+                  fairy dust only in Arizona! ✨
+                </p>
+              </div>
             </div>
           </>
         )}

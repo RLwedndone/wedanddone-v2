@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "../firebase/firebaseConfig";
 import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import VenueAvailabilityAdmin from "../components/admin/VenueAvailabilityAdmin"; // adjust path
 import AdminPixiePurchasePanel from "../components/admin/AdminPixiePurchasePanel";
 import { useLocation } from "react-router-dom";
@@ -481,6 +481,7 @@ const Dashboard: React.FC = () => {
   } | null>(null);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
 
   // completion flags
   const [floralCompleted, setFloralCompleted] = useState(false);
@@ -628,14 +629,46 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // auth listener
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setIsAuthReady(true);
-    });
-    return () => unsub();
-  }, []);
+  // auth listener + live profile image subscription
+useEffect(() => {
+  let unsubUserDoc: (() => void) | null = null;
+
+  const unsubAuth = onAuthStateChanged(auth, (u) => {
+    setUser(u);
+    setIsAuthReady(true);
+
+    // stop listening to previous user's doc
+    if (unsubUserDoc) {
+      unsubUserDoc();
+      unsubUserDoc = null;
+    }
+
+    if (!u) {
+      setProfileImageUrl(null);
+      return;
+    }
+
+    // ✅ live sync: updates immediately after AccountScreen writes profileImage
+    unsubUserDoc = onSnapshot(
+      doc(db, "users", u.uid),
+      (snap) => {
+        const data = snap.exists() ? (snap.data() as any) : null;
+
+        // prefer Firestore profileImage, then auth.photoURL
+        setProfileImageUrl(data?.profileImage || u.photoURL || null);
+      },
+      (err) => {
+        console.warn("⚠️ Profile image listener failed:", err);
+        setProfileImageUrl(u.photoURL || null);
+      }
+    );
+  });
+
+  return () => {
+    if (unsubUserDoc) unsubUserDoc();
+    unsubAuth();
+  };
+}, []);
 
   // sync guest count (from guestCountStore)
   useEffect(() => {
@@ -1174,6 +1207,8 @@ setHasDocsNotifications(
       {/* MAIN HUD + BOUTIQUE BUTTONS */}
       <DashboardButtons
         isMobile={isMobile}
+        isLoggedIn={!!user}
+        profileImageUrl={profileImageUrl ?? user?.photoURL ?? undefined}
         floralCompleted={floralCompleted}
         jamGrooveCompleted={jamGrooveComplete}
         photoCompleted={photoCompleted}
@@ -1281,7 +1316,13 @@ setHasDocsNotifications(
                 "intro") as any,
           })
         }
-        onOpenLogin={() => setShowLoginModal(true)}
+        onOpenAccount={() => {
+          if (user) {
+            setActiveUserMenuScreen("account"); // opens AccountScreen.tsx
+          } else {
+            setShowLoginModal(true);            // opens LoginModal
+          }
+        }}
         /* video wand tuning */
         wandScaleDesktop={0.9}
         wandNudgeXPctDesktop={-8}

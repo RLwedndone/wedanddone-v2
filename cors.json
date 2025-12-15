@@ -1,8 +1,25 @@
 [
-    {
-      "origin": ["http://localhost:5173", "https://wedndonev2.web.app", "https://wedndonev2.firebaseapp.com"],
-      "method": ["GET", "PUT", "POST"],
-      "maxAgeSeconds": 3600,
-      "responseHeader": ["Content-Type", "Content-Disposition"]
-    }
-  ]
+  {
+    "origin": [
+      "http://localhost:5173",
+      "https://wedndonev2.web.app",
+      "https://wedndonev2.firebaseapp.com",
+      "https://wedndone.com",
+      "https://www.wedndone.com",
+      "https://wedanddone.com",
+      "https://www.wedanddone.com"
+    ],
+    "method": ["GET", "POST", "PUT", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "x-goog-resumable",
+      "x-goog-meta-*",
+      "x-goog-algorithm",
+      "x-goog-credential",
+      "x-goog-date",
+      "x-goog-signature"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

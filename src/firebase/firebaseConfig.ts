@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBy5mXND_So9Fu88PqE8mrxcUvL6I31oyA",
   authDomain: "wedndonev2.firebaseapp.com",
   projectId: "wedndonev2",
-  storageBucket: "wedndonev2.appspot.com", // ✅ bucket ID (not the .firebasestorage.app host)
+  storageBucket: "wedndonev2.firebasestorage.app",
   messagingSenderId: "927810222422",
   appId: "1:927810222422:web:1aff9f90e13b95ebc33ef7",
 };
