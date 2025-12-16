@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { db } from "../../firebase/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
@@ -13,7 +13,7 @@ interface FloralCartProps {
   setLineItems: (items: string[]) => void;
   buttonLabel?: string;
   onContinue: () => void;
-  onStartOver: () => void;
+  onBack?: () => void;
   setQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   selectedPalette?: string | null;
   selectedArrangement?: string | null;
@@ -31,6 +31,7 @@ const fmt = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
 const unitPrice = (base: number) => base * (1 + MARGIN_RATE);
 
 const floralItems: FloralItem[] = [
@@ -46,12 +47,19 @@ const floralItems: FloralItem[] = [
   { name: "Cake Flowers", basePrice: 50 },
 ];
 
+const buildEmptyQty = () =>
+  floralItems.reduce((acc: Record<string, number>, item) => {
+    acc[item.name] = 0;
+    return acc;
+  }, {});
+
+
 const FloralCart: React.FC<FloralCartProps> = ({
   setTotal,
   setLineItems,
   buttonLabel = "Confirm & Book",
   onContinue,
-  onStartOver,
+  onBack,
   setQuantities,
   selectedPalette,
   selectedArrangement,
@@ -59,23 +67,26 @@ const FloralCart: React.FC<FloralCartProps> = ({
   onClose,
 }) => {
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>(
-    floralItems.reduce((acc: Record<string, number>, item) => {
-      acc[item.name] = 0;
-      return acc;
-    }, {})
+    buildEmptyQty()
   );
 
+  useEffect(() => {
+    console.log("🔥 RUNNING FloralCart from:", import.meta.url);
+  }, []);
+
   const handleQuantityChange = (itemName: string, value: string) => {
-    const newQuantities = { ...localQuantities, [itemName]: parseInt(value) || 0 };
+    const newQuantities = {
+      ...localQuantities,
+      [itemName]: parseInt(value) || 0,
+    };
     setLocalQuantities(newQuantities);
     setQuantities(newQuantities);
   };
 
   const subtotal = useMemo(() => {
     return floralItems.reduce((sum, item) => {
-      const qty = Number(localQuantities[item.name] ?? 0); // ✅ hard default to 0
-      const itemTotal = unitPrice(item.basePrice) * qty;
-      return sum + itemTotal;
+      const qty = Number(localQuantities[item.name] ?? 0);
+      return sum + unitPrice(item.basePrice) * qty;
     }, 0);
   }, [localQuantities]);
 
@@ -91,9 +102,9 @@ const FloralCart: React.FC<FloralCartProps> = ({
     const user = auth.currentUser;
 
     const selectedItems = floralItems
-      .filter((item) => localQuantities[item.name] > 0)
+      .filter((item) => (localQuantities[item.name] ?? 0) > 0)
       .map((item) => {
-        const qty = localQuantities[item.name];
+        const qty = localQuantities[item.name] ?? 0;
         return `${item.name} - $${fmt(unitPrice(item.basePrice))} (x${qty})`;
       });
 
@@ -116,24 +127,29 @@ const FloralCart: React.FC<FloralCartProps> = ({
       try {
         await setDoc(
           doc(db, "users", user.uid),
-          { floralProgress: "checkout", floralQuantities: localQuantities },
+          {
+            floralProgress: "calendar",
+            floralQuantities: localQuantities,
+          },
           { merge: true }
         );
-        onContinue();
       } catch (error) {
         console.error("❌ Error saving floral progress:", error);
-        onContinue();
+        // non-fatal
       }
-    } else {
-      onContinue();
     }
+
+    onContinue();
   };
 
   return (
     <div className="pixie-card wd-page-turn">
       {/* 🔸 Pink X close */}
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       {/* ---------- Body ---------- */}
@@ -192,7 +208,7 @@ const FloralCart: React.FC<FloralCartProps> = ({
                   <input
                     type="number"
                     min="0"
-                    value={localQuantities[item.name]}
+                    value={localQuantities[item.name] ?? 0}
                     onChange={(e) => handleQuantityChange(item.name, e.target.value)}
                     className="px-input-number"
                     inputMode="numeric"
@@ -218,17 +234,23 @@ const FloralCart: React.FC<FloralCartProps> = ({
           })}
         </div>
 
-        <div className="px-totals">
-  Total (includes taxes &amp; fees): ${fmt(grandTotal)}
-</div>
+        <div className="px-totals">Total (includes taxes &amp; fees): ${fmt(grandTotal)}</div>
 
         <div className="px-cta-col">
           <button className="boutique-primary-btn" onClick={handleContinue}>
             {buttonLabel}
           </button>
-          <button className="boutique-back-btn" onClick={onStartOver}>
-            ⬅ Start Over
-          </button>
+
+          {/* ✅ Back button (does NOT wipe choices) */}
+        <button
+  type="button"
+  className="boutique-back-btn"
+  onClick={() => {
+    if (typeof onBack === "function") onBack();
+  }}
+>
+  ← Back
+</button>
         </div>
       </div>
     </div>

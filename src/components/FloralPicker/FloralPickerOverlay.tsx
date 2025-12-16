@@ -248,15 +248,16 @@ setDateLocked(!!data.weddingDateLocked);
               />
             )}
   
-            {step === "arrangements" && (
-              <TableArrangementPicker
-                onContinue={(arrangementName) => {
-                  setSelectedArrangement(arrangementName);
-                  setStep("cart");
-                }}
-                onClose={onClose}
-              />
-            )}
+  {step === "arrangements" && (
+  <TableArrangementPicker
+    onContinue={(arrangementName) => {
+      setSelectedArrangement(arrangementName);
+      setStep("cart");
+    }}
+    onBack={() => setStep("palette")}
+    onClose={onClose}
+  />
+)}
   
             {/* Return-user friendly prompt — inside a pixie card */}
             {step === "returnPrompt" && (
@@ -266,36 +267,30 @@ setDateLocked(!!data.weddingDateLocked);
   />
 )}
   
-            {step === "cart" && (
-              <FloralCart
-                setTotal={(grandTotal) => {
-                  setTotal(grandTotal);
-                  setBookingData((prev) => ({ ...prev, total: grandTotal }));
-                }}
-                setLineItems={(items) => {
-                  setLineItems(items);
-                  setBookingData((prev) => ({ ...prev, lineItems: items }));
-                }}
-                buttonLabel="Confirm & Book"
-                setQuantities={setQuantities}
-                selectedPalette={selectedPalette}
-                selectedArrangement={selectedArrangement}
-                onStartOver={() => {
-                  setSelectedPalette(null);
-                  setSelectedArrangement(null);
-                  setQuantities({});
-                  if (isReturningFloralUser) setStep("returnPrompt");
-                  else setStep("palette");
-                }}
-                onContinue={() => {
-                  const user = getAuth().currentUser;
-                  if (isAddonFlow) setStep("checkout");
-                  else if (user) setStep("calendar");
-                  else setShowAccountModal(true);
-                }}
-                onClose={onClose}
-              />
-            )}
+  {step === "cart" && (
+  <FloralCart
+    setTotal={(grandTotal) => {
+      setTotal(grandTotal);
+      setBookingData((prev) => ({ ...prev, total: grandTotal }));
+    }}
+    setLineItems={(items) => {
+      setLineItems(items);
+      setBookingData((prev) => ({ ...prev, lineItems: items }));
+    }}
+    buttonLabel="Confirm & Book"
+    setQuantities={setQuantities}
+    selectedPalette={selectedPalette}
+    selectedArrangement={selectedArrangement}
+    onBack={() => setStep("arrangements")}
+    onContinue={() => {
+      const user = getAuth().currentUser;
+      if (isAddonFlow) setStep("checkout");
+      else if (user) setStep("calendar");
+      else setShowAccountModal(true);
+    }}
+    onClose={onClose}
+  />
+)}
   
             {step === "calendar" && userHasLockedDate && (
               <WeddingDateConfirmScreen

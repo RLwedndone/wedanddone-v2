@@ -1,29 +1,86 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
+const FLORAL_LS_PREFS_KEY = "floralSelections";
+
 const arrangements = [
-  { label: "Airy Garden Style", image: `${import.meta.env.BASE_URL}assets/images/garden_style.jpg` },
-  { label: "Bud Vase Clusters", image: `${import.meta.env.BASE_URL}assets/images/bud_vases.jpg` },
-  { label: "Pave Arrangement", image: `${import.meta.env.BASE_URL}assets/images/pave.jpg` },
+  {
+    label: "Airy Garden Style",
+    image: `${import.meta.env.BASE_URL}assets/images/garden_style.jpg`,
+  },
+  {
+    label: "Bud Vase Clusters",
+    image: `${import.meta.env.BASE_URL}assets/images/bud_vases.jpg`,
+  },
+  {
+    label: "Pave Arrangement",
+    image: `${import.meta.env.BASE_URL}assets/images/pave.jpg`,
+  },
 ];
 
 interface TableArrangementPickerProps {
   onContinue: (arrangementName: string) => void;
-  onClose: () => void; // 👈 added for the pink X
+  onBack: () => void; // ✅ NEW: go back to palette
+  onClose: () => void; // pink X
 }
 
 const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
   onContinue,
+  onBack,
   onClose,
 }) => {
-  const [selectedArrangement, setSelectedArrangement] = useState<string | null>(null);
+  const [selectedArrangement, setSelectedArrangement] = useState<string | null>(
+    null
+  );
+
+  // ✅ Restore saved selection (guest + logged-in)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.selectedArrangement === "string") {
+        setSelectedArrangement(parsed.selectedArrangement);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // ✅ Persist selection whenever it changes
+  useEffect(() => {
+    if (!selectedArrangement) return;
+    try {
+      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        FLORAL_LS_PREFS_KEY,
+        JSON.stringify({ ...prev, selectedArrangement })
+      );
+    } catch {
+      // ignore
+    }
+  }, [selectedArrangement]);
 
   const handleSaveAndContinue = async () => {
     if (!selectedArrangement) {
       alert("Please choose a table arrangement before continuing!");
       return;
+    }
+
+    // ✅ Always save local progress step for consistency
+    try {
+      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        FLORAL_LS_PREFS_KEY,
+        JSON.stringify({ ...prev, selectedArrangement })
+      );
+      localStorage.setItem("floralSavedStep", "cart"); // helps guest resume
+    } catch {
+      // ignore
     }
 
     const auth = getAuth();
@@ -38,12 +95,17 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
     try {
       await setDoc(
         doc(db, "users", user.uid),
-        { tableArrangement: selectedArrangement, floralProgress: "cart" },
+        {
+          tableArrangement: selectedArrangement,
+          floralProgress: "cart",
+        },
         { merge: true }
       );
       onContinue(selectedArrangement);
     } catch (error) {
       console.error("❌ Error saving table arrangement:", error);
+      // still let them proceed (local already saved)
+      onContinue(selectedArrangement);
     }
   };
 
@@ -55,7 +117,10 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
         onClick={onClose}
         aria-label="Close"
       >
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       {/* ---------- Body ---------- */}
@@ -64,7 +129,8 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
           Pick your table style!
         </h2>
         <p className="px-prose-narrow" style={{ marginBottom: "1.25rem" }}>
-          What type of design do you want your floral artist to use for your table flowers?
+          What type of design do you want your floral artist to use for your
+          table flowers?
         </p>
 
         {/* Arrangement options grid */}
@@ -114,15 +180,29 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
           ))}
         </div>
 
-        {/* Continue CTA */}
-        <button
-          className="boutique-primary-btn"
-          onClick={handleSaveAndContinue}
-          disabled={!selectedArrangement}
-        >
-          Continue
-        </button>
-      </div>
+        <div className="px-cta-col">
+  <button
+    className="boutique-primary-btn"
+    onClick={handleSaveAndContinue}
+    disabled={!selectedArrangement}
+  >
+    Continue
+  </button>
+
+  <button
+  type="button"
+  className="boutique-back-btn"
+  onClick={() => {
+    try {
+      localStorage.setItem("floralSavedStep", "palette");
+    } catch {}
+    onBack();
+  }}
+>
+  ← Back
+</button>
+</div>
+</div>
     </div>
   );
 };

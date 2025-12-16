@@ -38,8 +38,8 @@ const FloralIntro: React.FC<FloralIntroProps> = ({ onContinue, onClose }) => {
         />
 
         {/* Description */}
-        <p className="px-prose-narrow">
         <h2 className="px-intro-title">Get ready to bloom!</h2>
+        <p className="px-prose-narrow">
           In this boutique, you’ll pick a floral palette for your bouquet and
           personal flowers, as well as a style for your reception tables.
           <br />

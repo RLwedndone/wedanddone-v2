@@ -78,15 +78,6 @@ const PhotoStyleResults: React.FC<PhotoStyleResultsProps> = ({
 
             {/* Manual style selector */}
             <div style={{ marginBottom: 14 }}>
-              <p
-                className="px-prose-narrow"
-                style={{
-                  fontSize: ".9rem",
-                  marginBottom: 8,
-                }}
-              >
-                Want to pick your style yourself?
-              </p>
               <div
                 style={{
                   display: "flex",
@@ -145,14 +136,6 @@ const PhotoStyleResults: React.FC<PhotoStyleResultsProps> = ({
                 marginInline: "auto",
               }}
             >
-              <p
-                className="px-prose-narrow"
-                style={{ fontSize: ".9rem", marginBottom: 10 }}
-              >
-                Not totally sold on our match? Totally fine—style quizzes are more{" "}
-                <em>suggestions</em> than commandments. Lock in the style that feels most
-                like you, or swipe again and play with more options.
-              </p>
 
               <div
                 className="px-cta-col"
@@ -175,7 +158,7 @@ const PhotoStyleResults: React.FC<PhotoStyleResultsProps> = ({
                   className="boutique-back-btn"
                   onClick={onSwipeAgain}
                 >
-                  🔁 Swipe Again & Retake Quiz
+                  🔁 Retake the Quiz
                 </button>
               </div>
             </div>
