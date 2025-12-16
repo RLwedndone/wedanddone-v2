@@ -66,6 +66,36 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
 
   const userHasLockedDate = !!userWeddingDate && !!userDayOfWeek;
 
+  useEffect(() => {
+    // addon mode shouldn’t jump to results
+    if (mode === "addon") return;
+  
+    // if they already booked, your existing booking check will push them to cart anyway
+    const alreadyBooked = isReturningUser;
+    if (alreadyBooked) return;
+  
+    try {
+      const savedStep = localStorage.getItem("photoStylerStep");
+      const savedAiry = Number(localStorage.getItem("photoStylerAiryScore") || 0);
+      const savedTTL = Number(localStorage.getItem("photoStylerTrueToLifeScore") || 0);
+      const savedStyle = localStorage.getItem("photoStyle") || "";
+  
+      const hasResults =
+        savedStep === "results" &&
+        (savedAiry > 0 || savedTTL > 0 || savedStyle.length > 0);
+  
+      if (hasResults) {
+        setAiryScore(savedAiry);
+        setTrueToLifeScore(savedTTL);
+        if (savedStyle) {
+          setBookingData((prev) => ({ ...prev, styleChoice: savedStyle }));
+        }
+        setStep("results");
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 🔍 Check if user already booked photo
   useEffect(() => {
     const auth = getAuth();
@@ -165,19 +195,24 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
 
             {step === "styling" && (
               <PhotoStylerChoices
-                onContinue={(results) => {
-                  const styleChoice =
-                    results.airy > results.trueToLife
-                      ? "Light & Airy"
-                      : "True to Life";
-                  setBookingData((prev) => ({
-                    ...prev,
-                    styleChoice,
-                  }));
-                  setAiryScore(results.airy);
-                  setTrueToLifeScore(results.trueToLife);
-                  setStep("results");
-                }}
+              onContinue={(results) => {
+                const styleChoice =
+                  results.airy > results.trueToLife ? "Light & Airy" : "True to Life";
+              
+                setBookingData((prev) => ({ ...prev, styleChoice }));
+                setAiryScore(results.airy);
+                setTrueToLifeScore(results.trueToLife);
+              
+                // ✅ persist “results exist” so re-entry can jump to results
+                try {
+                  localStorage.setItem("photoStylerStep", "results");
+                  localStorage.setItem("photoStylerAiryScore", String(results.airy));
+                  localStorage.setItem("photoStylerTrueToLifeScore", String(results.trueToLife));
+                  localStorage.setItem("photoStyle", styleChoice); // you already use this elsewhere
+                } catch {}
+              
+                setStep("results");
+              }}
                 onBack={() => setStep("intro")}
                 onClose={onClose}
               />
@@ -225,7 +260,8 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
                   buttonLabel="Confirm & Book"
                   onStartOver={() => setStep("intro")}
                   onContinue={() => {
-                    if (userWeddingDate) setStep("calendar");
+                    const user = getAuth().currentUser;
+                    if (user) setStep("calendar");
                     else setShowAccountModal(true);
                   }}
                   onClose={onClose}
@@ -237,7 +273,7 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
                 formattedDate={userWeddingDate || ""}
                 dayOfWeek={userDayOfWeek || ""}
                 userHasDate={!!userWeddingDate}
-                weddingDateLocked={!!userWeddingDate && !!userDayOfWeek}
+                weddingDateLocked={dateLocked}
                 onConfirm={() => {
                   setBookingData((prev) => ({
                     ...prev,
@@ -257,7 +293,6 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
                   setBookingData((prev) => ({ ...prev, ...data }));
                   setUserWeddingDate(data.weddingDate);
                   setUserDayOfWeek(data.dayOfWeek);
-                  setDateLocked(true);
                   setStep("contract");
                 }}
                 onClose={onClose}
@@ -270,7 +305,6 @@ const PhotoStylerOverlay: React.FC<PhotoStylerOverlayProps> = ({
                   setBookingData((prev) => ({ ...prev, ...data }));
                   setUserWeddingDate(data.weddingDate);
                   setUserDayOfWeek(data.dayOfWeek);
-                  setDateLocked(true);
                   setStep("contract");
                 }}
                 onClose={onClose}

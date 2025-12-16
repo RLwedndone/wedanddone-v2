@@ -408,7 +408,8 @@
       ========================================================= */
    .boutique-primary-btn,
    .boutique-back-btn,
-   .boutique-brightblue-btn {
+   .boutique-brightblue-btn,
+   .boutique-tertiary-btn {  
      width: var(--pixie-btn-w);
      padding-block: var(--pixie-btn-pad-y);
      padding-inline: var(--pixie-btn-pad-x);
@@ -894,4 +895,19 @@
   animation: pixiePulse 1.6s ease-in-out infinite;
   filter: drop-shadow(0 0 18px rgba(120,190,255,0.95));
   border-radius: 999px;
+}
+.pixie-card.is-generating .pixie-card__close {
+  display: none !important;
+}
+
+/* 🩶 Tertiary / neutral action (Not My Vibe) */
+button.boutique-tertiary-btn {
+  background: #e5e7eb;
+  color: #1f2a44;
+  border: none;
+  box-shadow: none;
+}
+
+button.boutique-tertiary-btn:hover {
+  background: #cfd3da;
 }

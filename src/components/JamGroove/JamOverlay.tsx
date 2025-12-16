@@ -120,8 +120,8 @@ const JamOverlay: React.FC<JamOverlayProps> = ({
   const [userWeddingDate, setUserWeddingDate] = useState<string | null>(null);
   const [userDayOfWeek, setUserDayOfWeek] = useState<string | null>(null);
   const [dateLocked, setDateLocked] = useState<boolean>(false);
-  const userHasLockedDate =
-    dateLocked || (!!userWeddingDate && !!userDayOfWeek);
+  const hasWeddingDate = !!userWeddingDate;
+const userHasLockedDate = hasWeddingDate; // controls: confirm vs entry
   const [jamAddOnQuantities, setJamAddOnQuantities] = useState<
     Record<string, number>
   >({});

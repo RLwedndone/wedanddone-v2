@@ -34,6 +34,7 @@ import PixiePurchaseCenter from "../components/MenuScreens/PixiePurchaseCenter";
 import PixiePurchaseCheckout from "../components/MenuScreens/PixiePurchaseCheckout";
 import type { PixiePurchase } from "../utils/pixiePurchaseTypes";
 
+
 import "../styles/globals/boutique.master.css";
 import "./Dashboard.css";
 
@@ -521,15 +522,19 @@ const Dashboard: React.FC = () => {
   const [showGuestCountFlow, setShowGuestCountFlow] = useState(false);
 
   // mini overlay system (separate from activeOverlay state)
-  type InlineOverlay =
-  | {
-      type: "venueRanker" | "photo" | "floral" | "planner" | "yumyum" | "jam";
-      startAt?: string;
-    }
-  | {
-      type: "pixiePurchaseCheckout";
-      purchase: PixiePurchase;
-    };
+type InlineOverlay =
+| {
+    type: "venueRanker" | "photo" | "floral" | "planner" | "jam";
+    startAt?: string;
+  }
+| {
+    type: "menuController";
+    startAt?: YumStep;
+  }
+| {
+    type: "pixiePurchaseCheckout";
+    purchase: PixiePurchase;
+  };
 
 const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
@@ -541,17 +546,18 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
   // launcher used by Bookings modal buttons
   const handleLaunchBoutique = (
-    type:
-      | "venueRanker"
-      | "photo"
-      | "floral"
-      | "planner"
-      | "yumyum"
-      | "jam",
+    type: "venueRanker" | "photo" | "floral" | "planner" | "yumyum" | "jam",
     startAt?: string
   ) => {
-    const normalized = type === "yumyum" ? "menuController" : type;
-    setOverlay({ type: normalized as any, startAt });
+    if (type === "yumyum") {
+      setOverlay({
+        type: "menuController",
+        startAt: (startAt as YumStep) || "intro",
+      });
+      return;
+    }
+  
+    setOverlay({ type, startAt });
   };
 
   // allow other parts of app to fire window.dispatchEvent(new CustomEvent("openOverlay", { detail: {type,...} }))
@@ -559,10 +565,18 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
       if (!detail?.type) return;
-      const normalized =
-        detail.type === "yumyum" ? "menuController" : detail.type;
-      setOverlay({ type: normalized, startAt: detail.startAt });
+  
+      if (detail.type === "yumyum") {
+        setOverlay({
+          type: "menuController",
+          startAt: (detail.startAt as YumStep) || "intro",
+        });
+        return;
+      }
+  
+      setOverlay({ type: detail.type, startAt: detail.startAt });
     };
+  
     window.addEventListener("openOverlay", onOpen as EventListener);
     return () =>
       window.removeEventListener("openOverlay", onOpen as EventListener);
@@ -695,18 +709,6 @@ useEffect(() => {
       window.removeEventListener("guestCountLocked", sync);
       window.removeEventListener("guestCountUnlocked", sync);
     };
-  }, []);
-
-  // listen for "openOverlay" simple string events (legacy path)
-  useEffect(() => {
-    const handleOverlayOpen = (e: Event) => {
-      const customEvent = e as CustomEvent<OverlayType>;
-      console.log("✨ Overlay Event Received:", customEvent.detail);
-      setActiveOverlay(customEvent.detail);
-    };
-    window.addEventListener("openOverlay", handleOverlayOpen);
-    return () =>
-      window.removeEventListener("openOverlay", handleOverlayOpen);
   }, []);
 
   // load saved boutique steps (resume points)
@@ -1129,58 +1131,48 @@ setHasDocsNotifications(
       )}
 
       {/* Inline one-off overlay launcher results */}
-      {overlay && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 2000 }}>
-          {overlay.type === "photo" && (
-            <PhotoStylerOverlay
-              onClose={closeOverlay}
-              startAt="intro"
-            />
-          )}
-          {overlay.type === "floral" && (
-            <FloralPickerOverlay
-              onClose={closeOverlay}
-              startAt="intro"
-            />
-          )}
-          {overlay.type === "planner" && (
-            <PixiePlannerOverlay
-              onClose={closeOverlay}
-              startAt="intro"
-            />
-          )}
-          {overlay.type === "jam" && (
-            <JamOverlay
-              onClose={closeOverlay}
-              startAt="intro"
-            />
-          )}
-          {overlay.type === "venueRanker" && (
-            <VenueRankerOverlay
-              onClose={closeOverlay}
-              startAt="intro"
-            />
-          )}
-          {overlay.type === "pixiePurchaseCheckout" && (
-  <PixiePurchaseCheckout
-    purchase={overlay.purchase}
-    onClose={closeOverlay}
-    onMarkPaid={() => {
-      window.dispatchEvent(new Event("purchaseMade"));
-      closeOverlay();
-    }}
-  />
+{overlay && (
+  <div style={{ position: "fixed", inset: 0, zIndex: 2000 }}>
+    {overlay.type === "photo" && (
+      <PhotoStylerOverlay onClose={closeOverlay} startAt="intro" />
+    )}
+
+    {overlay.type === "floral" && (
+      <FloralPickerOverlay onClose={closeOverlay} startAt="intro" />
+    )}
+
+    {overlay.type === "planner" && (
+      <PixiePlannerOverlay onClose={closeOverlay} startAt="intro" />
+    )}
+
+    {overlay.type === "jam" && (
+      <JamOverlay onClose={closeOverlay} startAt="intro" />
+    )}
+
+    {overlay.type === "venueRanker" && (
+      <VenueRankerOverlay onClose={closeOverlay} startAt="intro" />
+    )}
+
+    {overlay.type === "pixiePurchaseCheckout" && (
+      <PixiePurchaseCheckout
+        purchase={overlay.purchase}
+        onClose={closeOverlay}
+        onMarkPaid={() => {
+          window.dispatchEvent(new Event("purchaseMade"));
+          closeOverlay();
+        }}
+      />
+    )}
+
+{overlay.type === "menuController" && (
+  <MenuController onClose={closeOverlay} startAt={overlay.startAt || "intro"} />
+)}
+  </div>
 )}
 
-          {/* overlay.type === "menuController" would be handled by showingMenuController below */}
-        </div>
-      )}
-
-      {activeUserMenuScreen === "guestListScroll" && (
-        <GuestListScroll
-          onClose={() => setActiveUserMenuScreen("menu")}
-        />
-      )}
+{activeUserMenuScreen === "guestListScroll" && (
+  <GuestListScroll onClose={() => setActiveUserMenuScreen("menu")} />
+)}
 
       {/* Logout "goodbye" modal */}
       {showLogoutModal && (

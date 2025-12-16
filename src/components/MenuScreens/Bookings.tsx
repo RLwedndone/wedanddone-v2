@@ -128,8 +128,8 @@ const LAUNCH_MAP: Record<
   photography: { type: "photo" },
   floral: { type: "floral" },
   planner: { type: "planner" },
-  catering: { type: "yumyum", startAt: "cateringCuisine" },
-  desserts: { type: "yumyum", startAt: "dessertStyle" },
+  catering: { type: "yumyum" },
+desserts: { type: "yumyum" },
   jam: { type: "jam" },
 };
 
@@ -151,51 +151,41 @@ const Bookings: React.FC<BookingsScreenProps> = ({
     const fromFS = Boolean((bookings as any)?.[fsKey]);
 
     // LocalStorage fallbacks ONLY for catering/desserts
-    if (key === "catering") {
-      const fromLS =
-        localStorage.getItem("yumCateringBooked") === "true" ||
-        localStorage.getItem("yumBookedCatering") === "true" ||
-        localStorage.getItem("schnepfCateringBooked") === "true" ||
-        localStorage.getItem("vvCateringBooked") === "true" ||
-        localStorage.getItem("batesCateringBooked") === "true" ||
-        // generic catch-all like "*CateringBooked"
-        (() => {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i) || "";
-            if (
-              /cateringBooked$/i.test(k) &&
-              localStorage.getItem(k) === "true"
-            )
-              return true;
-          }
-          return false;
-        })();
-
-      return fromFS || fromLS;
+const scanForBookedFlag = (regex: RegExp) => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || "";
+      if (regex.test(k) && localStorage.getItem(k) === "true") return true;
     }
+  } catch {}
+  return false;
+};
 
-    if (key === "desserts") {
-      const fromLS =
-        localStorage.getItem("yumDessertBooked") === "true" ||
-        localStorage.getItem("yumBookedDessert") === "true" ||
-        localStorage.getItem("schnepfDessertBooked") === "true" ||
-        localStorage.getItem("vvDessertBooked") === "true" ||
-        localStorage.getItem("batesDessertBooked") === "true" ||
-        // generic catch-all like "*DessertBooked"
-        (() => {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i) || "";
-            if (
-              /dessertBooked$/i.test(k) &&
-              localStorage.getItem(k) === "true"
-            )
-              return true;
-          }
-          return false;
-        })();
+if (key === "catering") {
+  const fromLS =
+    localStorage.getItem("yumCateringBooked") === "true" ||
+    localStorage.getItem("yumBookedCatering") === "true" ||
+    localStorage.getItem("schnepfCateringBooked") === "true" ||
+    localStorage.getItem("vvCateringBooked") === "true" ||
+    localStorage.getItem("batesCateringBooked") === "true" ||
+    // generic catch-all like "*CateringBooked"
+    scanForBookedFlag(/cateringBooked$/i);
 
-      return fromFS || fromLS;
-    }
+  return fromFS || fromLS;
+}
+
+if (key === "desserts") {
+  const fromLS =
+    localStorage.getItem("yumDessertBooked") === "true" ||
+    localStorage.getItem("yumBookedDessert") === "true" ||
+    localStorage.getItem("schnepfDessertBooked") === "true" ||
+    localStorage.getItem("vvDessertBooked") === "true" ||
+    localStorage.getItem("batesDessertBooked") === "true" ||
+    // generic catch-all like "*DessertBooked"
+    scanForBookedFlag(/dessertBooked$/i);
+
+  return fromFS || fromLS;
+}
 
     // All other stones: rely on Firestore only (unchanged behavior)
     return fromFS;
@@ -262,7 +252,11 @@ const Bookings: React.FC<BookingsScreenProps> = ({
 
     // Prefer parent launcher; otherwise dispatch a generic event
     if (onLaunchBoutique) {
-      onLaunchBoutique(target.type, target.startAt);
+      if (key === "catering" || key === "desserts") {
+        onLaunchBoutique(target.type); // ✅ let Dashboard/MenuController decide
+      } else {
+        onLaunchBoutique(target.type, target.startAt);
+      }
     } else {
       window.dispatchEvent(
         new CustomEvent("openOverlay", {

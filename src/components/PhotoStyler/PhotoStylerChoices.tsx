@@ -125,29 +125,25 @@ const PhotoStylerChoices: React.FC<PhotoStylerChoicesProps> = ({
         {!isMobile && (
           <div className="px-cta-col" style={{ marginTop: 8 }}>
             <button
-              onClick={() => handleSwipe("right")}
-              className="boutique-primary-btn px-btn-200"
-            >
-              Love It 💙
-            </button>
-
-            <button
-  onClick={() => handleSwipe("left")}
+  onClick={() => handleSwipe("right")}
   className="boutique-primary-btn px-btn-200"
-  style={{
-    background: "#e5e7eb",
-    color: "#1f2a44",
-  }}
+>
+  Love It 💙
+</button>
+
+<button
+  onClick={() => handleSwipe("left")}
+  className="boutique-tertiary-btn px-btn-200"
 >
   Not My Vibe
 </button>
 
-            <button
-              className="boutique-back-btn px-btn-200"
-              onClick={handleBackSwipe}
-            >
-              ⬅ Back
-            </button>
+<button
+  onClick={onBack}
+  className="boutique-back-btn px-btn-200"
+>
+  ← Back
+</button>
           </div>
         )}
       </div>

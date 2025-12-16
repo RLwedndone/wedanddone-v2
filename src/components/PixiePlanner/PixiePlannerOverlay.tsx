@@ -1,4 +1,3 @@
-
 import PlannerIntro from "./PlannerIntro";
 import PlannerExplainer from "./PlannerExplainer";
 import PlannerCart from "./PlannerCart";
@@ -20,6 +19,7 @@ type PlannerStep =
   | "explainer"
   | "guestcount"
   | "calendar"
+  | "editdate"
   | "contract"
   | "checkout"
   | "thankyou";
@@ -39,9 +39,9 @@ const PixiePlannerOverlay: React.FC<PixiePlannerOverlayProps> = ({
   const [step, setStepRaw] = useState<PlannerStep>(defaultStep);
 
   // 🔝 Scroll-to-top helpers
-const cardRef = useRef<HTMLDivElement | null>(null);
-useOverlayOpen(cardRef); // lock body + snap to top on open
-useScrollToTopOnChange([step], { targetRef: cardRef }); // snap to top when step changes
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  useOverlayOpen(cardRef);
+  useScrollToTopOnChange([step], { targetRef: cardRef });
 
   const [guestCount, setGuestCount] = useState<number>(0);
   const [plannerTotal, setPlannerTotal] = useState<number>(0);
@@ -60,28 +60,30 @@ useScrollToTopOnChange([step], { targetRef: cardRef }); // snap to top when step
   const [signatureSubmitted, setSignatureSubmitted] = useState(false);
 
   // NEW: track full bookings map + derived lock flag
-const [bookings, setBookings] = useState<Partial<{
-  venue: boolean;
-  planner: boolean;
-  photography: boolean;
-  floral: boolean;
-  catering: boolean;
-  dessert: boolean;
-  jam: boolean;
-}>>({});
+  const [bookings, setBookings] = useState<
+    Partial<{
+      venue: boolean;
+      planner: boolean;
+      photography: boolean;
+      floral: boolean;
+      catering: boolean;
+      dessert: boolean;
+      jam: boolean;
+    }>
+  >({});
 
-const hasAnyBooking = Boolean(
-  bookings.venue ||
-  bookings.planner ||
-  bookings.photography ||
-  bookings.floral ||
-  bookings.catering ||
-  bookings.dessert ||
-  bookings.jam ||
-  localStorage.getItem("yumBookedCatering") === "true" ||
-  localStorage.getItem("yumBookedDessert") === "true" ||
-  localStorage.getItem("jamBooked") === "true"
-);
+  const hasAnyBooking = Boolean(
+    bookings.venue ||
+      bookings.planner ||
+      bookings.photography ||
+      bookings.floral ||
+      bookings.catering ||
+      bookings.dessert ||
+      bookings.jam ||
+      localStorage.getItem("yumBookedCatering") === "true" ||
+      localStorage.getItem("yumBookedDessert") === "true" ||
+      localStorage.getItem("jamBooked") === "true"
+  );
 
   // NEW: track booking flags we care about
   const [hasVenue, setHasVenue] = useState<boolean>(false);
@@ -162,7 +164,6 @@ const hasAnyBooking = Boolean(
           setPlannerTotal(hydrateTotalsFromCount(gc));
         }
 
-        // NEW: derive booking flags
         setHasVenue(!!d?.bookings?.venue);
         setHasPlanner(!!d?.bookings?.planner);
       } catch (e) {
@@ -179,9 +180,10 @@ const hasAnyBooking = Boolean(
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         if (!snap.exists()) return;
-        const d = snap.data() as any;
-        setBookings(d?.bookings || {});
 
+        const d = snap.data() as any;
+
+        setBookings(d?.bookings || {});
         setUserWeddingDate(d.weddingDate || "");
         setUserDayOfWeek(d.dayOfWeek || null);
         setDateLocked(!!d.dateLocked);
@@ -192,7 +194,6 @@ const hasAnyBooking = Boolean(
           setPlannerTotal(hydrateTotalsFromCount(gc));
         }
 
-        // NEW: keep booking flags in sync
         setHasVenue(!!d?.bookings?.venue);
         setHasPlanner(!!d?.bookings?.planner);
       } catch (e) {
@@ -202,7 +203,7 @@ const hasAnyBooking = Boolean(
     return () => unsubscribe();
   }, []);
 
-  // NEW: refresh when a purchase completes (e.g., venue booking just happened)
+  // refresh when purchases complete
   useEffect(() => {
     const pull = async () => {
       const u = getAuth().currentUser;
@@ -214,7 +215,7 @@ const hasAnyBooking = Boolean(
       setHasVenue(!!d?.bookings?.venue);
       setHasPlanner(!!d?.bookings?.planner);
     };
-  
+
     const events = [
       "purchaseMade",
       "venueCompletedNow",
@@ -225,7 +226,7 @@ const hasAnyBooking = Boolean(
       "plannerCompletedNow",
       "cateringCompletedNow",
     ];
-  
+
     events.forEach((e) => window.addEventListener(e, pull));
     return () => events.forEach((e) => window.removeEventListener(e, pull));
   }, []);
@@ -243,58 +244,65 @@ const hasAnyBooking = Boolean(
     onClose();
   };
 
-  const userHasLockedDate = !!userWeddingDate && !!userDayOfWeek;
-const weddingDateLocked = Boolean(dateLocked || hasAnyBooking);
+  const userHasDate = !!userWeddingDate;
+  const weddingDateLocked = Boolean(dateLocked || hasAnyBooking);
 
-return (
-  <>
-    {/* Main flow overlay — render ONLY when the account modal is NOT open */}
-    {!showAccountModal && (
-      <div className="pixie-overlay">
-        {/* scrollable area (no pixie-card wrapper here) */}
-        <div ref={cardRef} style={{ width: "100%" }}>
-          {/* Intro → Explainer */}
-          {step === "intro" && (
-            <PlannerIntro
-              hasVenue={hasVenue}
-              onContinue={() => {
-                // If venue already booked (planning included) OR planner already purchased,
-                // do not allow starting the planner flow.
-                if (hasVenue || hasPlanner) return;
-                setStep("explainer");
-              }}
-              onClose={onClose}
-            />
-          )}
+  // shared helper for saving date
+  const persistWeddingDate = (weddingDate: string, dayOfWeek: string) => {
+    const user = getAuth().currentUser;
+    if (user) {
+      // ✅ merge:true is correct: updates these fields without wiping other user fields
+      return setDoc(
+        doc(db, "users", user.uid),
+        { weddingDate, dayOfWeek, dateLocked: false },
+        { merge: true }
+      );
+    } else {
+      localStorage.setItem("weddingDate", weddingDate);
+      localStorage.setItem("dayOfWeek", dayOfWeek);
+      return Promise.resolve();
+    }
+  };
 
-          {step === "explainer" && (
-            <PlannerExplainer onContinue={() => setStep("guestcount")} 
-            onClose={onClose}/>
-          )}
+  return (
+    <>
+      {!showAccountModal && (
+        <div className="pixie-overlay">
+          <div ref={cardRef} style={{ width: "100%" }}>
+            {step === "intro" && (
+              <PlannerIntro
+                hasVenue={hasVenue}
+                onContinue={() => {
+                  if (hasVenue || hasPlanner) return;
+                  setStep("explainer");
+                }}
+                onClose={onClose}
+              />
+            )}
 
-          {/* Cart (guest count + live pricing) */}
-          {step === "guestcount" && (
-            <PlannerCart
-              onContinue={(count, total) => {
-                setGuestCount(count);
-                setPlannerTotal(total);
+            {step === "explainer" && (
+              <PlannerExplainer
+                onContinue={() => setStep("guestcount")}
+                onClose={onClose}
+              />
+            )}
 
-                const user = getAuth().currentUser;
-                if (user) {
-                  // already logged in → next we confirm/set date
-                  setStep("calendar");
-                } else {
-                  // guest → create account first (collects date as part of flow)
-                  setShowAccountModal(true);
-                }
-              }}
-              onClose={() => setStep("explainer")}
-            />
-          )}
+            {step === "guestcount" && (
+              <PlannerCart
+                onContinue={(count, total) => {
+                  setGuestCount(count);
+                  setPlannerTotal(total);
 
-          {/* Calendar (set or confirm date) */}
-          {step === "calendar" && getAuth().currentUser && (
-            userHasLockedDate ? (
+                  const user = getAuth().currentUser;
+                  if (user) setStep("calendar");
+                  else setShowAccountModal(true);
+                }}
+                onClose={() => setStep("explainer")}
+              />
+            )}
+
+            {/* Calendar confirm (only needs a date, NOT “locked”) */}
+            {step === "calendar" && getAuth().currentUser && userHasDate && (
               <WeddingDateConfirmScreen
                 formattedDate={userWeddingDate}
                 dayOfWeek={userDayOfWeek || ""}
@@ -302,106 +310,109 @@ return (
                 weddingDateLocked={weddingDateLocked}
                 onConfirm={() => setStep("contract")}
                 onEditDate={() => {
-                  if (weddingDateLocked) return; // locked by any booking → do not allow edits
-                  setUserWeddingDate("");
-                  setUserDayOfWeek(null);
-                  setDateLocked(false);
+                  if (weddingDateLocked) return;
+                  setStep("editdate");
                 }}
                 onClose={onClose}
               />
-            ) : (
+            )}
+
+            {/* Calendar entry (no date yet) */}
+            {step === "calendar" && getAuth().currentUser && !userHasDate && (
               <WeddingDateScreen
                 onContinue={(data) => {
                   const { weddingDate, dayOfWeek } = data;
-
-                  // put in state so Contract sees it immediately
                   setUserWeddingDate(weddingDate);
                   setUserDayOfWeek(dayOfWeek);
 
-                  // persist (user or guest)
-                  const user = getAuth().currentUser;
-                  if (user) {
-                    setDoc(
-                      doc(db, "users", user.uid),
-                      { weddingDate, dayOfWeek, dateLocked: true },
-                      { merge: true }
-                    ).catch((err) => console.error("❌ Failed to save date:", err));
-                  } else {
-                    localStorage.setItem("weddingDate", weddingDate);
-                    localStorage.setItem("dayOfWeek", dayOfWeek);
-                  }
+                  persistWeddingDate(weddingDate, dayOfWeek).catch((err) =>
+                    console.error("❌ Failed to save date:", err)
+                  );
 
                   setStep("contract");
                 }}
                 onClose={onClose}
               />
-            )
-          )}
+            )}
 
-          {/* Contract (uses its own card) */}
-          {step === "contract" && (
-            <PlannerContract
-              bookingData={{
-                guestCount,
-                weddingDate: userWeddingDate,
-                dayOfWeek: userDayOfWeek ?? "",
-                total: plannerTotal,
-              }}
-              payFull={payFull}
-              setPayFull={setPayFull}
-              setSignatureImage={setSignatureImage}
-              signatureSubmitted={signatureSubmitted}
-              setSignatureSubmitted={setSignatureSubmitted}
-              onContinue={() => setStep("checkout")}
-              onBack={() => setStep("guestcount")}
-              onClose={onClose} 
-              // If your PlannerContract accepts onClose, pass it:
-              // onClose={onClose}
-            />
-          )}
+            {/* Edit date (Floral-style) */}
+            {step === "editdate" && (
+              <WeddingDateScreen
+                onContinue={(data) => {
+                  const { weddingDate, dayOfWeek } = data;
 
-          {/* Checkout */}
-          {step === "checkout" && (
-            <PlannerCheckOut
-              total={plannerTotal}
-              payFull={payFull}
-              signatureImage={signatureImage}
-              onSuccess={handlePlannerSuccess}
-              firstName={firstName}
-              lastName={lastName}
-              weddingDate={userWeddingDate}
-              guestCount={guestCount ?? 0}
-              uid={getAuth().currentUser?.uid || ""}
-              onClose={onClose}
-              depositAmount={depositAmount}
-              paymentSummary={paymentSummary}
-              onBackToContract={() => setStep("contract")}
-            />
-          )}
+                  setUserWeddingDate(weddingDate);
+                  setUserDayOfWeek(dayOfWeek);
+                  setDateLocked(false);
 
-          {/* Thank You */}
-          {step === "thankyou" && <PlannerThankYou onClose={handleThankYouClose} />}
+                  persistWeddingDate(weddingDate, dayOfWeek).catch((err) =>
+                    console.error("❌ Failed to save edited date:", err)
+                  );
+
+                  setStep("contract");
+                }}
+                onClose={onClose}
+              />
+            )}
+
+            {step === "contract" && (
+              <PlannerContract
+                bookingData={{
+                  guestCount,
+                  weddingDate: userWeddingDate,
+                  dayOfWeek: userDayOfWeek ?? "",
+                  total: plannerTotal,
+                }}
+                payFull={payFull}
+                setPayFull={setPayFull}
+                setSignatureImage={setSignatureImage}
+                signatureSubmitted={signatureSubmitted}
+                setSignatureSubmitted={setSignatureSubmitted}
+                onContinue={() => setStep("checkout")}
+                onBack={() => setStep("guestcount")}
+                onClose={onClose}
+              />
+            )}
+
+            {step === "checkout" && (
+              <PlannerCheckOut
+                total={plannerTotal}
+                payFull={payFull}
+                signatureImage={signatureImage}
+                onSuccess={handlePlannerSuccess}
+                firstName={firstName}
+                lastName={lastName}
+                weddingDate={userWeddingDate}
+                guestCount={guestCount ?? 0}
+                uid={getAuth().currentUser?.uid || ""}
+                onClose={onClose}
+                depositAmount={depositAmount}
+                paymentSummary={paymentSummary}
+                onBackToContract={() => setStep("contract")}
+              />
+            )}
+
+            {step === "thankyou" && (
+              <PlannerThankYou onClose={handleThankYouClose} />
+            )}
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    {/* Account modal overlay — rendered separately when open */}
-    {showAccountModal && (
-      <PlannerAccountModal
-        onSuccess={() => {
-          setShowAccountModal(false);
-          // After account creation, always go collect/confirm the date
-          setStep("calendar");
-        }}
-        onClose={() => {
-          setShowAccountModal(false);
-          // Keep them on Cart if they back out
-          setStep("guestcount");
-        }}
-      />
-    )}
-  </>
-);
+      {showAccountModal && (
+        <PlannerAccountModal
+          onSuccess={() => {
+            setShowAccountModal(false);
+            setStep("calendar");
+          }}
+          onClose={() => {
+            setShowAccountModal(false);
+            setStep("guestcount");
+          }}
+        />
+      )}
+    </>
+  );
 };
 
 export default PixiePlannerOverlay;
