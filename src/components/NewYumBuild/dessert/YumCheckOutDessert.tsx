@@ -539,11 +539,14 @@ const YumCheckOutDessert: React.FC<YumCheckOutDessertProps> = ({
         ? "thankyouBoth"
         : "thankyouDessertOnly") as YumStep;
 
-      try {
-        localStorage.setItem("yumStep", nextStep);
-      } catch {
-        /* ignore */
-      }
+        try {
+          localStorage.setItem("yumStep", nextStep);
+        
+          // ✅ stop future “resume cart” behavior once dessert checkout is complete
+          localStorage.removeItem("yumResumeCartStep");
+        } catch {
+          /* ignore */
+        }
 
       setStep(nextStep);
       onComplete();

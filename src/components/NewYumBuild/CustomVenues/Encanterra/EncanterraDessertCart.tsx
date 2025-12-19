@@ -190,6 +190,24 @@ const EncanterraDessertCart: React.FC<Props> = ({
     localStorage.setItem("yumGuestCount", String(next));
   };
 
+  // --- Mark that we've reached the Encanterra dessert cart (mount-only)
+useEffect(() => {
+  try {
+    localStorage.setItem("yumStep", "dessertCart"); // ✅ must match EncanterraOverlay step name
+    localStorage.setItem("encanterraHasHitDessertCart", "true");
+  } catch {}
+
+  const user = getAuth().currentUser;
+  if (user) {
+    setDoc(
+      doc(db, "users", user.uid),
+      { progress: { yumYum: { step: "dessertCart" } } },
+      { merge: true }
+    ).catch(() => {});
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
   // ===== Quantities (auto-filled, editable) =====
 
   // Per-flavor cupcake quantities (title -> each)
@@ -404,8 +422,9 @@ const EncanterraDessertCart: React.FC<Props> = ({
     setTotal,
   ]);
 
-  // ===== Persist mirrors =====
-  useEffect(() => {
+  // ===== Persist mirrors (LS + Firestore) =====
+useEffect(() => {
+  try {
     localStorage.setItem("yumGuestCount", String(gc));
     localStorage.setItem("yumDessertStyle", dessertStyle);
     localStorage.setItem("yumFlavorFilling", JSON.stringify(flavorFilling));
@@ -415,41 +434,42 @@ const EncanterraDessertCart: React.FC<Props> = ({
     localStorage.setItem("yumGoodies", JSON.stringify(goodies));
     localStorage.setItem("yumNvCupcakeEachByFlavor", JSON.stringify(cupcakeEachByFlavor || {}));
     localStorage.setItem("yumNvGoodieDozens", JSON.stringify(goodieDozens || {}));
-    localStorage.setItem("yumStep", "cart");
+  } catch {}
 
-    onAuthStateChanged(getAuth(), async (user) => {
-      if (!user) return;
-      try {
-        await setDoc(
-          doc(db, "users", user.uid, "yumYumData", "cartDessertData"),
-          {
-            guestCount: gc,
-            dessertStyle,
-            flavorFilling,
-            cakeStyle: cakeStyle || "",
-            treatType: treatType || "",
-            cupcakes,
-            goodies,
-            cupcakeEachByFlavor,
-            goodieDozens,
-          },
-          { merge: true }
-        );
-        await setDoc(
-          doc(db, "users", user.uid),
-          { progress: { yumYum: { step: "cart" } } },
-          { merge: true }
-        );
-      } catch (err) {
-        console.error("❌ Failed to save dessert cart data:", err);
-      }
-    });
-  }, [gc, dessertStyle, flavorFilling, cakeStyle, treatType, cupcakes, goodies, cupcakeEachByFlavor, goodieDozens]);
+  const user = getAuth().currentUser;
+  if (!user) return;
+
+  setDoc(
+    doc(db, "users", user.uid, "yumYumData", "cartDessertData"),
+    {
+      guestCount: gc,
+      dessertStyle,
+      flavorFilling,
+      cakeStyle: cakeStyle || "",
+      treatType: treatType || "",
+      cupcakes,
+      goodies,
+      cupcakeEachByFlavor,
+      goodieDozens,
+    },
+    { merge: true }
+  ).catch((err) => console.error("❌ Failed to save dessert cart data:", err));
+}, [
+  gc,
+  dessertStyle,
+  flavorFilling,
+  cakeStyle,
+  treatType,
+  cupcakes,
+  goodies,
+  cupcakeEachByFlavor,
+  goodieDozens,
+]);
 
   // ===== Continue → lock GC & stash plan hints =====
   const handleContinue = async () => {
     try {
-      if (!locked) await setAndLockGuestCount(gc || 0, "dessert");
+      if (!locked) await setAndLockGuestCount(gc || 0, "yum:dessert");
     } catch (e) {
       console.error("⚠️ Could not lock guest count for dessert:", e);
     }

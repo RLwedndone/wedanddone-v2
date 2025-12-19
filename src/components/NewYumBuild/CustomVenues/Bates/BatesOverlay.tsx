@@ -45,14 +45,39 @@ export type BatesStep =
   | "batesDessertThankYou"
   | "batesBothDoneThankYou";
 
+  const BATES_STEPS: BatesStep[] = [
+    "intro",
+    "cateringMenu",
+    "cateringCart",
+    "cateringContract",
+    "cateringCheckout",
+    "batesCateringThankYou",
+    "dessertStyle",
+    "dessertMenu",
+    "dessertCart",
+    "dessertContract",
+    "dessertCheckout",
+    "batesDessertThankYou",
+    "batesBothDoneThankYou",
+  ];
+  
+  const isBatesStep = (v: any): v is BatesStep =>
+    typeof v === "string" && (BATES_STEPS as string[]).includes(v);
+
 interface BatesOverlayProps {
   onClose: () => void;
   startAt?: BatesStep;
 }
 
-const BatesOverlay: React.FC<BatesOverlayProps> = ({ onClose, startAt = "intro" }) => {
+const BatesOverlay: React.FC<BatesOverlayProps> = ({ onClose, startAt }) => {
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState<BatesStep>(startAt);
+  const [step, setStep] = useState<BatesStep>(startAt ?? "intro");
+
+  useEffect(() => {
+    if (startAt && isBatesStep(startAt)) {
+      setStep(startAt);
+    }
+  }, [startAt]);
 
   // User context
   const [userWeddingDate, setUserWeddingDate] = useState<string | null>(null);
@@ -107,12 +132,32 @@ const BatesOverlay: React.FC<BatesOverlayProps> = ({ onClose, startAt = "intro" 
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const data = (snap.data() || {}) as any;
-        const catering = !!data?.bookings?.catering;
-        const dessert = !!data?.bookings?.dessert;
+        // ✅ 1) Only honor startAt if it's NOT "intro"
+// (MenuController/Dashboard defaults to "intro" and that should not override resume)
+if (startAt && isBatesStep(startAt) && startAt !== "intro") {
+  setStep(startAt);
+} else {
+  // ✅ 2) Resume from saved progress first (Firestore → localStorage)
+  const fsStep = data?.progress?.yumYum?.step;
+  const lsStep = localStorage.getItem("yumStep");
 
-        if (!catering && !dessert) setStep("intro");
-        else if (catering && !dessert) setStep("batesCateringThankYou");
-        else setStep("batesBothDoneThankYou");
+  const resumeStep: BatesStep | null =
+    (isBatesStep(fsStep) && fsStep) ||
+    (isBatesStep(lsStep) && lsStep) ||
+    null;
+
+  if (resumeStep) {
+    setStep(resumeStep);
+  } else {
+    // ✅ 3) Only if no resume exists, fall back to booking-based landing
+    const catering = !!data?.bookings?.catering;
+    const dessert = !!data?.bookings?.dessert;
+
+    if (!catering && !dessert) setStep("intro");
+    else if (catering && !dessert) setStep("batesCateringThankYou");
+    else setStep("batesBothDoneThankYou");
+  }
+}
 
         // hydrate wedding date if present
         const ymd =
@@ -136,7 +181,7 @@ const BatesOverlay: React.FC<BatesOverlayProps> = ({ onClose, startAt = "intro" 
       }
     });
     return () => unsub();
-  }, []);
+  }, [startAt]);
 
   if (loading) return null;
 

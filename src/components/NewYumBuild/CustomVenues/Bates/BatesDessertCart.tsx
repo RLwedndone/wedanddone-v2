@@ -626,10 +626,7 @@ const BatesDessertCart: React.FC<Props> = ({
         goodieDozens || {}
       )
     );
-    localStorage.setItem(
-      "yumStep",
-      "cart"
-    );
+    localStorage.setItem("yumStep", "dessertCart");
 
     onAuthStateChanged(getAuth(), async (user) => {
       if (!user) return;
@@ -659,7 +656,7 @@ const BatesDessertCart: React.FC<Props> = ({
           doc(db, "users", user.uid),
           {
             progress: {
-              yumYum: { step: "cart" },
+              yumYum: { step: "dessertCart" },
             },
           },
           { merge: true }

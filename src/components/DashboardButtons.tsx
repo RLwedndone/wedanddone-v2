@@ -37,6 +37,8 @@ interface DashboardButtonsProps {
   hasPixieNotifications?: boolean;
   hasDocsNotifications?: boolean;
 
+  onOpenWedAndDoneInfo?: () => void;
+
   // HUD handlers
   onOpenMenu?: () => void;
   onOpenMadge?: () => void;
@@ -123,7 +125,7 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   plannerCompleted,
   venueRankerCompleted,
   onPixiePlannerClick,
-
+  onOpenWedAndDoneInfo = () => {},
   onOpenAccount,
 
   onOpenMenu = () => {},
@@ -132,6 +134,7 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
   onOpenMagicBook = () => {},
   hasDocsNotifications = false,
   hasPixieNotifications = false,
+  
 }) => {
   // ✅ Use the prop, not auth.currentUser (avoids auth race + double-icons)
   const loggedIn = isLoggedIn;
@@ -379,7 +382,7 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
           try {
             localStorage.setItem("wd_seen_logo_glow", "true");
           } catch {}
-          window.dispatchEvent(new CustomEvent("openOverlay", { detail: "wedanddoneinfo" }));
+          onOpenWedAndDoneInfo();
         },
         zIndex: 5,
       }

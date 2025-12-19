@@ -67,6 +67,9 @@ const BatesContractCatering: React.FC<BatesContractCateringProps> = ({
 
   // UI state
   const [agreeChecked, setAgreeChecked] = useState(false);
+  // Saved-card UX (match Floral)
+const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState(false);
+const [hasCardOnFile, setHasCardOnFile] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [useTextSignature, setUseTextSignature] = useState(false);
   const [typedSignature, setTypedSignature] = useState("");
@@ -100,6 +103,39 @@ const BatesContractCatering: React.FC<BatesContractCateringProps> = ({
         const userRef = doc(db, "users", user.uid);
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
+
+        const consentKey = `cardOnFileConsent_${user.uid}`;
+
+        let localConsent = false;
+        try {
+          localConsent = localStorage.getItem(consentKey) === "true";
+        } catch {}
+        
+        const fsConsent = !!(data as any)?.cardOnFileConsent;
+        
+        if (localConsent || fsConsent) {
+          setHasCardOnFileConsent(true);
+          try {
+            localStorage.setItem(consentKey, "true");
+          } catch {}
+        } else {
+          setHasCardOnFileConsent(false);
+        }
+
+// be permissive about legacy keys + Stripe customer id (most reliable)
+const cardOnFile =
+  !!(data as any)?.hasSavedCard ||
+  !!(data as any)?.cardOnFile ||
+  !!(data as any)?.stripeCardOnFile ||
+  !!(data as any)?.billing?.hasCardOnFile ||
+  !!(data as any)?.stripe?.hasCardOnFile ||
+  !!(data as any)?.stripeCustomerId ||
+  !!(data as any)?.billing?.stripeCustomerId ||
+  !!(data as any)?.stripe?.customerId;
+
+setHasCardOnFile(cardOnFile);
+
+setHasCardOnFile(cardOnFile);
 
         setFirstName((data as any).firstName || "");
         setLastName((data as any).lastName || "");
@@ -544,6 +580,24 @@ const BatesContractCatering: React.FC<BatesContractCateringProps> = ({
               >
                 {paymentSummaryText}
               </p>
+              {/* UX note: monthly after card is on file uses that card and you can't swap at checkout */}
+  {!payFull && (hasCardOnFile || hasCardOnFileConsent) && (
+  <div
+    className="px-note"
+    style={{
+      margin: "0.75rem auto",
+      background: "#f7f8ff",
+      border: "1px solid #d9ddff",
+      borderRadius: 10,
+      padding: "8px 12px",
+      fontSize: ".9rem",
+      maxWidth: 560,
+      textAlign: "left",
+    }}
+  >
+    Monthly plans will be charged to your saved card on file. If you don&apos;t have one on file yet, you&apos;ll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
+  </div>
+)}
             </>
           )}
 

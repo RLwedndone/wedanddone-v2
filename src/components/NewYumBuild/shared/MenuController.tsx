@@ -43,6 +43,22 @@ function normalizeSlug(input?: string | null): string {
     .replace(/[^a-z0-9-]/g, ""); // drop weird punctuation (&, ’, etc)
 }
 
+function resolveStartAt<T extends string>(
+  explicit?: T,
+  storageKey?: string
+): T | undefined {
+  if (explicit) return explicit;
+
+  if (!storageKey) return undefined;
+
+  try {
+    const v = localStorage.getItem(storageKey);
+    return (v as T) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** normalizeName: lowercase plain name for fuzzy matching */
 function normalizeName(input?: string | null): string {
   return (input || "").toString().trim().toLowerCase();
@@ -257,15 +273,15 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
 
   /* ───────────────── Routing logic by venue ───────────────── */
 
-  // Bates Mansion branch
-  if (venueSlug === "batesmansion") {
-    return (
-      <BatesOverlay
-        onClose={onClose}
-        startAt={(startAt as BatesStep) || "intro"}
-      />
-    );
-  }
+ // Bates Mansion branch
+if (venueSlug === "batesmansion") {
+  return (
+    <BatesOverlay
+      onClose={onClose}
+      startAt={resolveStartAt<BatesStep>(startAt as BatesStep, "yumStep")}
+    />
+  );
+}
 
   // Schnepf Farms branch
   if (
@@ -468,7 +484,7 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
   return (
     <NoVenueOverlay
       onClose={onClose}
-      startAt={(startAt as YumStep) || "intro"}
+      startAt={resolveStartAt<YumStep>(startAt as YumStep, "yumStep")}
       isSharedFlowBookedVenue={isSharedFlowBookedVenue}
       bookedVenueSlug={bookedVenueSlug}
       bookedVenueName={bookedVenuePrettyName}

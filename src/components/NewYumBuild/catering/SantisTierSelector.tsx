@@ -211,16 +211,18 @@ const SantiTierSelector: React.FC<Props> = ({
                   }}
                 >
                   <img
-                    src={tier.heroImg}
-                    alt={`${tier.name} option`}
-                    style={{
-                      width: "100%",
-                      height: "auto",
-                      display: "block",
-                      borderRadius: 20,
-                      objectFit: "contain",
-                    }}
-                  />
+  src={tier.heroImg}
+  alt={`${tier.name} option`}
+  style={{
+    width: "100%",
+    maxWidth: 260,      // 👈 about half size
+    height: "auto",
+    display: "block",
+    margin: "0 auto",   // 👈 keeps it centered
+    borderRadius: 20,
+    objectFit: "contain",
+  }}
+/>
                 </button>
 
                 {isExpanded && (

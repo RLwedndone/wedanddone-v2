@@ -57,6 +57,16 @@ const BatesCartCatering: React.FC<BatesCartProps> = ({
   const [miniDessertIncluded, setMiniDessertIncluded] = useState<boolean>(false);
   const [miniDessertGuests, setMiniDessertGuests] = useState<number>(0);
 
+  // ✅ Stamp resume + active booking type immediately on mount (NoVenue pattern)
+useEffect(() => {
+  try {
+    localStorage.setItem("yumStep", "cateringCart");
+    localStorage.setItem("yumResumeCartStep", "cateringCart");
+    localStorage.setItem("yumActiveBookingType", "catering");
+    localStorage.setItem("yumBookingType", "catering");
+  } catch {}
+}, []);
+
   // 🔄 hydrate from LS / Firestore
   useEffect(() => {
     const unsub = onAuthStateChanged(getAuth(), async (user) => {
@@ -154,6 +164,8 @@ const BatesCartCatering: React.FC<BatesCartProps> = ({
     );
     localStorage.setItem("batesAddonsSubtotal", String(addonsSubtotal));
     localStorage.setItem("yumStep", "cateringCart");
+    // ✅ resume target (THIS is the missing piece)
+  localStorage.setItem("yumResumeCartStep", "cateringCart");
 
     // Firestore mirrors
     const user = getAuth().currentUser;

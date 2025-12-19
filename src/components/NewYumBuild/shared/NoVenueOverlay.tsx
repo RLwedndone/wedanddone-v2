@@ -33,6 +33,14 @@ import { SantiCuisineKey } from "../catering/santisMenuConfig";
 import { useOverlayOpen } from "../../../hooks/useOverlayOpen";
 import { useScrollToTopOnChange } from "../../../hooks/useScrollToTop";
 
+const YUM_RESUME_CART_KEY = "yumResumeCartStep"; // "cateringCart" | "dessertCart"
+
+const clearYumResumeCart = () => {
+  try {
+    localStorage.removeItem(YUM_RESUME_CART_KEY);
+  } catch {}
+};
+
 interface NoVenueOverlayProps {
   onClose: () => void;
   startAt?: YumStep; // optional
@@ -108,6 +116,20 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
       ).catch(() => {});
     }
   };
+
+    // ✅ Remember which cart to resume if they close after reaching cart
+    const markResumeCart = (cartStep: "cateringCart" | "dessertCart") => {
+      try {
+        localStorage.setItem(YUM_RESUME_CART_KEY, cartStep);
+      } catch {}
+    };
+  
+    // ✅ Clear resume marker once they successfully complete checkout
+    const clearResumeCart = () => {
+      try {
+        localStorage.removeItem(YUM_RESUME_CART_KEY);
+      } catch {}
+    };
 
   const savedDessert = localStorage.getItem("yumDessertSelections");
   const parsed = savedDessert
@@ -401,6 +423,17 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
     }
   };
 
+  const handleOverlayClose = () => {
+    try {
+      const resume = localStorage.getItem(YUM_RESUME_CART_KEY);
+      if (resume === "cateringCart" || resume === "dessertCart") {
+        // force next open to resume at the cart
+        localStorage.setItem("yumStep", resume);
+      }
+    } catch {}
+    onClose();
+  };
+
   const handleDessertCartContinue = async () => {
     const user = getAuth().currentUser;
     if (!user) {
@@ -497,8 +530,26 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
     });
   }, [startAt]);
 
+  useEffect(() => {
+    if (step === "cateringCart") {
+      markResumeCart("cateringCart");
+    } else if (step === "dessertCart") {
+      markResumeCart("dessertCart");
+    }
+  }, [step]);
+
   const [cateringBooked, setCateringBooked] = useState(false);
   const [dessertBooked, setDessertBooked] = useState(false);
+
+  useEffect(() => {
+    if (
+      step === "thankyouCateringOnly" ||
+      step === "thankyouDessertOnly" ||
+      step === "thankyouBoth"
+    ) {
+      clearYumResumeCart();
+    }
+  }, [step]);
 
   // ── RENDER ────────────────────────────────────────────────
   return (
@@ -523,7 +574,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                   localStorage.setItem("yumStep", "dessertStyle");
                   setStep("dessertStyle");
                 }}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 // NEW: shared-venue awareness for wording
                 isSharedFlowBookedVenue={isSharedFlowBookedVenue}
                 bookedVenueName={bookedVenueName}
@@ -554,7 +605,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
       localStorage.setItem("yumStep", "intro");
       setStep("intro");
     }}
-    onClose={onClose}
+    onClose={handleOverlayClose}
     // if your selector supports a default/current id:
     // defaultSelectedId={cateringTier ?? undefined}
   />
@@ -571,7 +622,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
       localStorage.setItem("yumStep", "cateringTier");
       setStep("cateringTier");
     }}
-    onClose={onClose}
+    onClose={handleOverlayClose}
   />
 )}
 
@@ -581,18 +632,22 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
     selectedCuisine={selectedCuisine as SantiCuisineKey}
     menuSelections={menuSelections}
     setMenuSelections={setMenuSelections}
-    onContinue={() => setStep("cateringCart")}
+    onContinue={() => {
+      localStorage.setItem("yumStep", "cateringCart");
+      setStep("cateringCart");
+    }}
     onBack={() => {
       clearMenuSelections();
       localStorage.setItem("yumStep", "cateringCuisine");
       setStep("cateringCuisine");
     }}
-    onClose={onClose}
+    onClose={handleOverlayClose}
   />
 )}
 
 {step === "cateringCart" && (
-              <YumCart
+  <>
+    <YumCart
                 guestCount={guestCount}
                 onGuestCountChange={setGuestCount}
                 addCharcuterie={addCharcuterie}
@@ -606,10 +661,11 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                 setPaymentSummaryText={setPaymentSummaryText}
                 onContinueToCheckout={handleCartContinue}
                 onStartOver={() => setStep("cateringMenu")}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 tier={cateringTier}
-              />
-            )}
+                />
+                </>
+              )}
 
             {step === "calendar" && bookingsReady && (
               <>
@@ -627,7 +683,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                         data.weddingDate
                       );
                     }}
-                    onClose={onClose}
+                    onClose={handleOverlayClose}
                   />
                 ) : (
                   <WeddingDateConfirmScreen
@@ -645,7 +701,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                       setStep("calendar");
                       localStorage.setItem("yumStep", "calendar");
                     }}
-                    onClose={onClose}
+                    onClose={handleOverlayClose}
                   />
                 )}
               </>
@@ -666,7 +722,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                 signatureSubmitted={signatureSubmitted}
                 setSignatureSubmitted={setSignatureSubmitted}
                 setStep={(s: YumStep) => setStep(s)}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 onComplete={() => {
                   setStep("cateringCheckout");
                   localStorage.setItem("yumStep", "cateringCheckout");
@@ -691,17 +747,16 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                   setStep("cateringContract");
                 }}
                 onComplete={() => {
+                  clearYumResumeCart(); // ✅ stop resuming to cart after purchase
                   localStorage.setItem("yumBookedCatering", "true");
                   const dessertAlready =
                     Boolean(bookings?.dessert) ||
                     localStorage.getItem("yumBookedDessert") === "true";
-                  const next = dessertAlready
-                    ? "thankyouBoth"
-                    : "thankyouCateringOnly";
+                  const next = dessertAlready ? "thankyouBoth" : "thankyouCateringOnly";
                   localStorage.setItem("yumStep", next);
                   setStep(next);
                 }}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 isGenerating={isGenerating}
               />
             )}
@@ -722,7 +777,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                   localStorage.setItem("yumStep", "intro");
                   setStep("intro");
                 }}
-                onClose={onClose}
+                onClose={handleOverlayClose}
               />
             )}
 
@@ -732,30 +787,30 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                 flavorFilling={flavorFilling}
                 setFlavorFilling={setFlavorFilling}
                 onContinue={(sel) => {
+                  try {
+                    localStorage.setItem("yumStep", "dessertCart");
+                  } catch {}
+                
                   setFlavorFilling(sel.flavorFilling || []);
-                  setCakeStyle(
-                    typeof sel.cakeStyle === "string" ? sel.cakeStyle : ""
-                  );
-                  setTreatType(
-                    Array.isArray(sel.treatType)
-                      ? sel.treatType[0]
-                      : sel.treatType || ""
-                  );
+                  setCakeStyle(typeof sel.cakeStyle === "string" ? sel.cakeStyle : "");
+                  setTreatType(Array.isArray(sel.treatType) ? sel.treatType[0] : sel.treatType || "");
                   setGoodies(sel.goodies || []);
                   setCupcakes(sel.cupcakes || []);
-                  localStorage.setItem(
-                    "yumDessertSelections",
-                    JSON.stringify(sel)
-                  );
+                
+                  try {
+                    localStorage.setItem("yumDessertSelections", JSON.stringify(sel));
+                  } catch {}
+                
                   setStep("dessertCart");
                 }}
                 onBack={() => setStep("dessertStyle")}
-                onClose={onClose}
+                onClose={handleOverlayClose}
               />
             )}
 
-            {step === "dessertCart" && (
-              <YumCartDessert
+{step === "dessertCart" && (
+  <>
+    <YumCartDessert
                 guestCount={guestCount}
                 onGuestCountChange={setGuestCount}
                 dessertStyle={dessertType}
@@ -772,10 +827,11 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                   localStorage.setItem("yumStep", "dessertStyle");
                   setStep("dessertStyle");
                 }}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 weddingDate={userWeddingDate}
-              />
-            )}
+                />
+                </>
+              )}
 
             {step === "dessertContract" && (
               <YumContractDessert
@@ -789,7 +845,7 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                 dessertStyle={dessertType}
                 flavorCombo={flavorFilling.join(" + ")}
                 setStep={(s: YumStep) => setStep(s)}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 onComplete={(sig) => {
                   setSignatureImage(sig);
                   localStorage.setItem("yumStep", "dessertCheckout");
@@ -820,13 +876,12 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
                   localStorage.setItem("yumStep", "dessertContract");
                 }}
                 onComplete={() => {
-                  const next = bookings.catering
-                    ? "thankyouBoth"
-                    : "thankyouDessertOnly";
+                  clearYumResumeCart(); // ✅ stop resuming to cart after purchase
+                  const next = bookings.catering ? "thankyouBoth" : "thankyouDessertOnly";
                   setStep(next);
                   localStorage.setItem("yumStep", next);
                 }}
-                onClose={onClose}
+                onClose={handleOverlayClose}
                 isGenerating={isGenerating}
               />
             )}
@@ -875,7 +930,10 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
             setShowAccountModal(false);
             setStep("calendar");
           }}
-          onClose={() => setShowAccountModal(false)}
+          onClose={() => {
+            setShowAccountModal(false);
+            handleOverlayClose();
+          }}
         />
       )}
     </>

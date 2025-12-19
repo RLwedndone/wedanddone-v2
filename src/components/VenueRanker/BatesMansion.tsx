@@ -42,7 +42,7 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
   });
 
   const selections = safe(venueRankerSelections);
-  const selectedOption = Number(selections.rankings[venueId] ?? 0);
+  const selectedOption = (selections.rankings[venueId] ?? null) as number | null;
 
   const handleSelect = (value: number) => {
     setVenueRankerSelections((prev) => {
@@ -59,7 +59,7 @@ const BatesMansion: React.FC<BatesMansionProps> = ({
   };
 
   const handleContinue = () => {
-    if (!selectedOption) {
+    if (selectedOption === null) {
       setShowError(true);
       return;
     }

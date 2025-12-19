@@ -325,42 +325,36 @@ localStorage.setItem("ocotilloPerGuestExtrasCents", "0");
 function deriveCompletionFlags(data: any) {
   const b = data?.bookings ?? {};
 
+  // ✅ COMPLETED = PAID/BOOKED (not merely signed)
   const floral =
     b.floral === true ||
-    data?.floralSigned === true ||
-    localStorage.getItem("floralSigned") === "true";
+    localStorage.getItem("floralBooked") === "true";
 
   const jam =
     b.jam === true ||
-    data?.jamSigned === true ||
-    localStorage.getItem("jamGrooveCompleted") === "true";
+    localStorage.getItem("jamBooked") === "true";
 
   const photography =
     b.photography === true ||
-    data?.photoCompleted === true ||
-    localStorage.getItem("photoCompleted") === "true";
+    localStorage.getItem("photoBooked") === "true";
 
   const catering =
     b.catering === true ||
-    data?.yumCateringCompleted === true ||
     localStorage.getItem("yumBookedCatering") === "true" ||
     localStorage.getItem("yumCateringBooked") === "true";
 
   const dessert =
     b.dessert === true ||
-    data?.yumDessertCompleted === true ||
     localStorage.getItem("yumBookedDessert") === "true" ||
     localStorage.getItem("yumDessertBooked") === "true";
 
   const venue =
     b.venue === true ||
-    data?.venueCompleted === true ||
-    localStorage.getItem("venueCompleted") === "true";
+    localStorage.getItem("venueCompleted") === "true"; // only keep if this truly means paid
 
   const planner =
     b.planner === true ||
-    data?.plannerCompleted === true ||
-    localStorage.getItem("plannerCompleted") === "true";
+    localStorage.getItem("plannerBooked") === "true";
 
   return { floral, jam, photography, catering, dessert, venue, planner };
 }
@@ -552,7 +546,7 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
     if (type === "yumyum") {
       setOverlay({
         type: "menuController",
-        startAt: (startAt as YumStep) || "intro",
+        startAt: startAt as YumStep | undefined, // no default
       });
       return;
     }
@@ -569,7 +563,7 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
       if (detail.type === "yumyum") {
         setOverlay({
           type: "menuController",
-          startAt: (detail.startAt as YumStep) || "intro",
+          startAt: detail.startAt as YumStep | undefined, // no default
         });
         return;
       }
@@ -931,8 +925,7 @@ setHasDocsNotifications(
 
   // shortcut vars for showing MenuController
   const showingMenuController = activeOverlay === "menuController";
-  const menuStartAt =
-    (overlayProps?.startAt as YumStep) || "intro";
+  const menuStartAt = overlayProps?.startAt as YumStep | undefined;
   if (showingMenuController) {
     console.log(
       "[Dashboard] Mounting MenuController with startAt:",
@@ -1165,7 +1158,7 @@ setHasDocsNotifications(
     )}
 
 {overlay.type === "menuController" && (
-  <MenuController onClose={closeOverlay} startAt={overlay.startAt || "intro"} />
+  <MenuController onClose={closeOverlay} startAt={overlay.startAt} />
 )}
   </div>
 )}
@@ -1207,6 +1200,7 @@ setHasDocsNotifications(
         cateringCompleted={yumCompleted}
         plannerCompleted={plannerCompleted}
         venueRankerCompleted={venueCompleted}
+        onOpenWedAndDoneInfo={() => setActiveOverlay("wedanddoneinfo")}
         onPhotoStylerClick={() =>
           setActiveOverlay(
             photoCompleted ? "photostyler-addon" : "photostyler-initial",
@@ -1244,53 +1238,83 @@ setHasDocsNotifications(
         }}
         onYumClick={async () => {
           console.log("🍕 Yum Yum clicked");
-
+        
+          // ✅ 0) RESUME FIRST (cart/menu/contract/etc beats "return" screens)
+          const resumeStep = (() => {
+            try {
+              return (localStorage.getItem("yumStep") as YumStep) || null;
+            } catch {
+              return null;
+            }
+          })();
+        
+          const resumableSteps: YumStep[] = [
+            "cateringTier",
+            "cateringCuisine",
+            "cateringMenu",
+            "cateringCart",
+            "cateringContract",
+            "cateringCheckout",
+            "dessertStyle",
+            "dessertMenu",
+            "dessertCart",
+            "dessertContract",
+            "dessertCheckout",
+            "calendar",
+            "confirm",
+            "updateGuests",
+            
+          ];
+        
+          if (resumeStep && resumableSteps.includes(resumeStep)) {
+            setActiveOverlay("menuController", { startAt: resumeStep });
+            return;
+          }
+        
           const currentUser = auth.currentUser;
           let startStep: YumStep = "intro";
-
+        
           if (currentUser) {
             try {
               const userRef = doc(db, "users", currentUser.uid);
               const userSnap = await getDoc(userRef);
               const userData = userSnap.data() as any;
-
-              const hasCatering =
-                userData?.bookings?.catering === true;
-              const hasDessert =
-                userData?.bookings?.dessert === true;
-
-              if (hasCatering && !hasDessert)
-                startStep = "returnNoDessert";
-              else if (!hasCatering && hasDessert)
-                startStep = "returnNoCatering";
-              else if (hasCatering && hasDessert)
-                startStep = "returnBothBooked";
+        
+              const hasCatering = userData?.bookings?.catering === true;
+              const hasDessert = userData?.bookings?.dessert === true;
+        
+              if (hasCatering && !hasDessert) startStep = "returnNoDessert";
+              else if (!hasCatering && hasDessert) startStep = "returnNoCatering";
+              else if (hasCatering && hasDessert) startStep = "returnBothBooked";
             } catch (error) {
-              console.warn(
-                "🔥 Error fetching user bookings:",
-                error
-              );
+              console.warn("🔥 Error fetching user bookings:", error);
             }
           } else {
             const localCatering =
-         localStorage.getItem("yumBookedCatering") === "true" ||
-         localStorage.getItem("yumCateringBooked") === "true";
-         const localDessert =
-         localStorage.getItem("yumBookedDessert") === "true" ||
-        localStorage.getItem("yumDessertBooked") === "true";
-
-            if (localCatering && !localDessert)
-              startStep = "returnNoDessert";
-            else if (!localCatering && localDessert)
-              startStep = "returnNoCatering";
-            else if (localCatering && localDessert)
-              startStep = "returnBothBooked";
+              localStorage.getItem("yumBookedCatering") === "true" ||
+              localStorage.getItem("yumCateringBooked") === "true";
+            const localDessert =
+              localStorage.getItem("yumBookedDessert") === "true" ||
+              localStorage.getItem("yumDessertBooked") === "true";
+        
+            if (localCatering && !localDessert) startStep = "returnNoDessert";
+            else if (!localCatering && localDessert) startStep = "returnNoCatering";
+            else if (localCatering && localDessert) startStep = "returnBothBooked";
           }
-
-          localStorage.setItem("yumStep", startStep);
-          setActiveOverlay("menuController", {
-            startAt: startStep,
-          });
+        
+          const isReturn =
+            startStep === "returnNoDessert" ||
+            startStep === "returnNoCatering" ||
+            startStep === "returnBothBooked";
+        
+          if (isReturn) {
+            try {
+              localStorage.setItem("yumStep", startStep);
+            } catch {}
+            setActiveOverlay("menuController", { startAt: startStep });
+          } else {
+            setActiveOverlay("menuController", { startAt: "intro" });
+          }
         }}
 
  // 🧚 NEW:
@@ -1381,7 +1405,15 @@ setHasDocsNotifications(
           );
           await signOut(auth);
         }
-
+      
+        // ✅ explicit “booked” guest flags (belt + suspenders)
+        try {
+          localStorage.removeItem("floralBooked");
+          localStorage.removeItem("jamBooked");
+          localStorage.removeItem("photoBooked");
+          localStorage.removeItem("plannerBooked");
+        } catch {}
+      
         localStorage.clear();
         console.log("🧼 Fully reset system. Reloading as guest...");
         window.location.reload();
@@ -1394,55 +1426,47 @@ setHasDocsNotifications(
 
       {/* overlay stack driven by activeOverlay (new system) */}
       {activeOverlay === "jamgroove" && (
-        <JamOverlay
-          key="jamgroove"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setJamGrooveComplete(true)}
-          startAt={
-            (overlayProps?.startAt as JamStep) || "intro"
-          }
-        />
-      )}
+  <JamOverlay
+    key="jamgroove"
+    onClose={() => setActiveOverlay(null)}
+    startAt={(overlayProps?.startAt as JamStep) || "intro"}
+  />
+)}
 
-      {activeOverlay === "pixiegrooveaddoncart" && (
-        <JamOverlay
-          mode="addon"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setActiveOverlay(null)}
-        />
-      )}
+{activeOverlay === "pixiegrooveaddoncart" && (
+  <JamOverlay
+    mode="addon"
+    onClose={() => setActiveOverlay(null)}
+  />
+)}
 
-      {activeOverlay === "floralpicker-initial" && (
-        <FloralPickerOverlay
-          mode="initial"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setFloralCompleted(true)}
-        />
-      )}
+{activeOverlay === "floralpicker-initial" && (
+  <FloralPickerOverlay
+    mode="initial"
+    onClose={() => setActiveOverlay(null)}
+  />
+)}
 
-      {activeOverlay === "floralpicker-addon" && (
-        <FloralPickerOverlay
-          mode="addon"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setActiveOverlay(null)}
-        />
-      )}
+{activeOverlay === "floralpicker-addon" && (
+  <FloralPickerOverlay
+    mode="addon"
+    onClose={() => setActiveOverlay(null)}
+  />
+)}
 
-      {activeOverlay === "photostyler-initial" && (
-        <PhotoStylerOverlay
-          mode="initial"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setPhotoCompleted(true)}
-        />
-      )}
+{activeOverlay === "photostyler-initial" && (
+  <PhotoStylerOverlay
+    mode="initial"
+    onClose={() => setActiveOverlay(null)}
+  />
+)}
 
-      {activeOverlay === "photostyler-addon" && (
-        <PhotoStylerOverlay
-          mode="addon"
-          onClose={() => setActiveOverlay(null)}
-          onComplete={() => setActiveOverlay(null)}
-        />
-      )}
+{activeOverlay === "photostyler-addon" && (
+  <PhotoStylerOverlay
+    mode="addon"
+    onClose={() => setActiveOverlay(null)}
+  />
+)}
 
       {activeOverlay === "venueranker" && (
         <VenueRankerOverlay

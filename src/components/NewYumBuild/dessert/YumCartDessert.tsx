@@ -89,6 +89,8 @@ function lockBanner(reasons: GuestLockReason[] | undefined) {
   return `Guest count is locked due to ${parts.join(" & ")}.`;
 }
 
+const YUM_RESUME_CART_KEY = "yumResumeCartStep"; // "cateringCart" | "dessertCart"
+
 /** Normalize goodies keys: "Group::Label" → "Label". */
 const goodieLabel = (k: string) =>
   k.includes("::") ? k.split("::")[1] : k;
@@ -129,6 +131,16 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
   onClose,
   weddingDate,
 }) => {
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(YUM_RESUME_CART_KEY, "dessertCart");
+      localStorage.setItem("yumStep", "dessertCart");
+      localStorage.setItem("yumActiveBookingType", "dessert");
+      localStorage.setItem("yumBookingType", "dessert");
+    } catch {}
+  }, []);
+
   // ===== Guest Count (single source of truth) =====
   const [gc, setGC] = useState<number>(0);
   const [locked, setLocked] = useState<boolean>(false);
@@ -136,6 +148,7 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
     GuestLockReason[] | undefined
   >([]);
   const [banner, setBanner] = useState<string | null>(null);
+
 
   // ===== Booked venue (used for delivery fee lookup) =====
   const [bookedVenue, setBookedVenue] = useState<string | null>(
@@ -147,6 +160,12 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
     () => getDessertDeliveryFee(bookedVenue),
     [bookedVenue]
   );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("yumResumeCartStep", "dessertCart");
+    } catch {}
+  }, []);
 
   // hydrate guest count (localStorage / Firestore) + lock state
   useEffect(() => {
@@ -627,7 +646,7 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
         goodieDozens || {}
       )
     );
-    localStorage.setItem("yumStep", "cart");
+    localStorage.setItem("yumStep", "dessertCart");
 
     onAuthStateChanged(getAuth(), async (user) => {
       if (!user) return;
@@ -657,7 +676,7 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
           doc(db, "users", user.uid),
           {
             progress: {
-              yumYum: { step: "cart" },
+              yumYum: { step: "dessertCart" },
             },
           },
           { merge: true }

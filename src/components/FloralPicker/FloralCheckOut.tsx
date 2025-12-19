@@ -478,8 +478,8 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
                 nextApproxMonthUTC(nowUTC);
               const firstChargeAt = new Date(firstChargeAtISO);
               const finalISO = finalDueDate
-                ? asStartOfDayUTC(finalDueDate).toISOString()
-                : null;
+              ? finalDueDate.toISOString()
+              : null;
               const planMonths = finalDueDate
                 ? monthsBetweenInclusive(
                     firstChargeAt,
@@ -792,29 +792,22 @@ const FloralCheckOut: React.FC<FloralCheckOutProps> = ({
             </div>
 
             <div className="px-elements">
-              <CheckoutForm
-                total={amountDueToday}
-                useSavedCard={isMonthlyPlan ? hasSavedCard : mode === "saved"}
-                onSuccess={handleSuccess}
-                setStepSuccess={onSuccess}
-                isAddon={false}
-                customerEmail={
-                  getAuth().currentUser?.email || undefined
-                }
-                customerName={`${firstName || "Magic"} ${
-                  lastName || "User"
-                }`}
-                customerId={(() => {
-                  try {
-                    return (
-                      localStorage.getItem("stripeCustomerId") ||
-                      undefined
-                    );
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-              />
+            <CheckoutForm
+  total={amountDueToday}
+  useSavedCard={isMonthlyPlan ? hasSavedCard : mode === "saved"}
+  onSuccess={handleSuccess}
+  setStepSuccess={onSuccess}
+  isAddon={isAddon}   // ✅ FIX
+  customerEmail={getAuth().currentUser?.email || undefined}
+  customerName={`${firstName || "Magic"} ${lastName || "User"}`}
+  customerId={(() => {
+    try {
+      return localStorage.getItem("stripeCustomerId") || undefined;
+    } catch {
+      return undefined;
+    }
+  })()}
+/>
             </div>
           </>
         )}

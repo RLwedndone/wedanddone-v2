@@ -47,12 +47,29 @@ const FloralContract: React.FC<FloralContractProps> = ({
     ? new Date(weddingISO + "T12:00:00")
     : null;
 
-  // ✅ 35 days before wedding date
-  const finalDue = weddingDateObj
-    ? new Date(
-        weddingDateObj.getTime() - 35 * 24 * 60 * 60 * 1000
-      )
-    : null;
+    // ✅ 35 days before wedding date
+const finalDue = weddingDateObj
+? new Date(weddingDateObj.getTime() - 35 * 24 * 60 * 60 * 1000)
+: null;
+
+// ✅ Monthly allowed only if wedding is MORE than 35 days away
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const daysUntilWedding =
+weddingDateObj
+  ? Math.ceil((weddingDateObj.getTime() - today.getTime()) / MS_PER_DAY)
+  : null;
+
+const monthlyAllowed = daysUntilWedding == null ? true : daysUntilWedding > 35;
+
+useEffect(() => {
+if (!monthlyAllowed && !payFull) {
+  setPayFull(true);
+  try {
+    localStorage.setItem("floralPayPlan", "full");
+  } catch {}
+}
+}, [monthlyAllowed, payFull, setPayFull]);
 
   function monthsBetween(start: Date, end: Date) {
     if (end <= start) return 1;
@@ -219,11 +236,13 @@ const FloralContract: React.FC<FloralContractProps> = ({
     }
   };
 
-  // 🔐 New consent rule:
-// - If there is NO card on file yet, we must show/require consent (first purchase).
-// - Once cardOnFileConsent is true, we never show this checkbox again.
-// - payFull vs monthly does NOT change whether the checkbox appears; only
-//   whether we show extra reminder copy elsewhere.
+ // 🔐 Card-on-file consent rules:
+// - Consent is required the FIRST time a user authorizes Wed&Done to store a card.
+// - Once cardOnFileConsent is true, this checkbox is never shown again.
+// - Consent applies globally across all Wed&Done bookings.
+// - Monthly plans REQUIRE stored-card authorization.
+// - Pay-in-full purchases may use a saved card or a one-time card.
+
 const needsCardConsent = !hasCardOnFileConsent;
 
 const canSign =
@@ -376,23 +395,30 @@ const canSign =
               Pay Full Amount
             </button>
             <button
-              type="button"
-              className={`px-toggle__btn ${
-                !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
-              }`}
-              style={{ minWidth: 150, padding: "0.6rem 1rem", fontSize: ".9rem" }}
-              onClick={() => {
-                setPayFull(false);
-                setSignatureSubmitted(false);
-                setCardConsentChecked(false);
-                try {
-                  localStorage.setItem("floralPayPlan", "monthly");
-                } catch {}
-              }}
-            >
-              Deposit + Monthly
-            </button>
+  type="button"
+  disabled={!monthlyAllowed}
+  className={`px-toggle__btn ${
+    !payFull ? "px-toggle__btn--pink px-toggle__btn--active" : ""
+  } ${!monthlyAllowed ? "is-disabled" : ""}`}
+  onClick={() => {
+    if (!monthlyAllowed) return;
+    setPayFull(false);
+    setSignatureSubmitted(false);
+    setCardConsentChecked(false);
+    try {
+      localStorage.setItem("floralPayPlan", "monthly");
+    } catch {}
+  }}
+>
+  Deposit + Monthly
+</button>
           </div>
+
+          {!monthlyAllowed && hasDate && (
+  <div className="px-note" style={{ margin: "0.75rem auto", maxWidth: 560, textAlign: "left" }}>
+    Your wedding date is within <strong>35 days</strong>, so this booking must be paid in full today.
+  </div>
+)}
 
           {/* Summary line */}
           <p className="px-prose-narrow" style={{ marginTop: 4 }}>
@@ -490,10 +516,11 @@ const canSign =
                   onChange={(e) => setCardConsentChecked(e.target.checked)}
                   style={{ marginRight: 8 }}
                 />
-                I authorize Wed&amp;Done and our payment processor (Stripe) to securely
-                store my card and to charge it for floral installments, any remaining
-                floral balance, and future Wed&amp;Done bookings I choose to make, as
-                described in the payment terms above.
+                I authorize Wed&Done and our payment processor (Stripe) to securely store my card.
+If I choose a Deposit + Monthly plan, I authorize recurring charges for this booking,
+including any remaining balance due 35 days before my wedding date.
+For future Wed&Done bookings, I may choose to use this saved card at checkout for convenience.
+I understand I can update or remove my saved card from my account at any time.
               </label>
             </div>
           )}

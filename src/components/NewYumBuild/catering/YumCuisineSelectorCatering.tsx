@@ -184,7 +184,7 @@ const YumCuisineSelectorCatering: React.FC<YumCuisineSelectorCateringProps> = ({
           className="px-prose-narrow"
           style={{ marginBottom: "1.5rem" }}
         >
-          Select one of our delicious menu cuisines below — next you can customize your menu!
+          Select one of our delicious cuisines below — next you can customize your menu!
         </p>
 
         {/* Vertical stack of cuisine cards */}

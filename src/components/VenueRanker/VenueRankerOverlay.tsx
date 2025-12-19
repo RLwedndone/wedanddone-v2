@@ -366,22 +366,52 @@ useEffect(() => {
     return () => unsub();
   }, []);
 
+  const VENUE_COMPONENTS = useMemo<Record<string, React.ComponentType<any>>>(() => ({
+    batesmansion: BatesMansion,
+    desertfoothills: DesertFoothills,
+    encanterra: Encanterra,
+    fabric: Fabric,
+    farmhouse: FarmHouse,
+    haciendadelsol: HaciendaDelSol,
+    valleyho: HotelValleyHo,
+    lakehouse: LakeHouse,
+    ocotillo: Ocotillo,
+    rubihouse: RubiHouse,
+    schnepfbarn: SchnepfBarn,
+    soho63: Soho63,
+    sunkist: Sunkist,
+    themeadow: TheMeadow,
+    tubac: Tubac,
+    vic: TheVic,
+    verrado: VerradoGolfClub,
+    windmillbarn: WindmillBarn,
+  }), []);
+
+  const isVenueScreen = Object.prototype.hasOwnProperty.call(VENUE_COMPONENTS, currentScreen);
+
+  const isActivelyRanking = useMemo(() => {
+    return screenList.length > 0 && isVenueScreen;
+  }, [screenList, isVenueScreen]);
+
   const didAutoResumeRef = useRef(false);
 
-useEffect(() => {
-  if (didAutoResumeRef.current) return;
-  if (hasVenueBooked) return; // don't fight your booked -> thankyou redirect
-
-  const hasRankings = Object.keys(venueRankerSelections.rankings || {}).length > 0;
-
-  if (hasRankings) {
-    didAutoResumeRef.current = true;
-    try {
-      localStorage.setItem("venueRankerCheckpoint", "rankerComplete");
-    } catch {}
-    setCurrentScreen("rankerComplete");
-  }
-}, [venueRankerSelections.rankings, hasVenueBooked]);
+  useEffect(() => {
+    if (didAutoResumeRef.current) return;
+    if (hasVenueBooked) return;
+  
+    // 🚫 Do NOT auto-complete while user is actively ranking venues
+    if (isActivelyRanking) return;
+  
+    const hasRankings = Object.keys(venueRankerSelections.rankings || {}).length > 0;
+  
+    if (hasRankings) {
+      didAutoResumeRef.current = true;
+      try {
+        localStorage.setItem("venueRankerCheckpoint", "rankerComplete");
+      } catch {}
+      setCurrentScreen("rankerComplete");
+    }
+  }, [venueRankerSelections.rankings, hasVenueBooked, isActivelyRanking]);
 
   // If user already booked → go straight to thank you
   useEffect(() => {
@@ -496,28 +526,9 @@ const handleSelectExploreMode = (mode: "all" | "vibe") => {
    * This prevents React from treating the child as a different type
    * on every render, which stops the iframe from remounting (no flash).
    */
-  const VENUE_COMPONENTS = useMemo<Record<string, React.ComponentType<any>>>(() => ({
-    batesmansion: BatesMansion,
-    desertfoothills: DesertFoothills,
-    encanterra: Encanterra,
-    fabric: Fabric,
-    farmhouse: FarmHouse,
-    haciendadelsol: HaciendaDelSol,
-    valleyho: HotelValleyHo,
-    lakehouse: LakeHouse,
-    ocotillo: Ocotillo,
-    rubihouse: RubiHouse,
-    schnepfbarn: SchnepfBarn,
-    soho63: Soho63,
-    sunkist: Sunkist,
-    themeadow: TheMeadow,
-    tubac: Tubac,
-    vic: TheVic,
-    verrado: VerradoGolfClub,
-    windmillbarn: WindmillBarn,
-  }), []);
+  
 
-  const isVenueScreen = Object.prototype.hasOwnProperty.call(VENUE_COMPONENTS, currentScreen);
+  
   const VenueComp = isVenueScreen ? VENUE_COMPONENTS[currentScreen] : null;
 
   const formattedWeddingDate = weddingDate
