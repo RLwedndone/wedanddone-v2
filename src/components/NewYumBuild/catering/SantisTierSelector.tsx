@@ -69,12 +69,12 @@ const TIERS: SantiTier[] = [
   {
     id: "chef",
     name: "Chef’s Feast",
-    pricePerGuest: 78,
+    pricePerGuest: 86,
     heroImg: `${import.meta.env.BASE_URL}assets/images/YumYum/Santis/chef_seal.jpg`,
     blurb: "Elevated feast with extra choices and upgraded menu selections.",
     includes: [
       "2 appetizers",
-      "2 entrées (including premium options)",
+      "2 entrées",
       "2 sides",
       "2 salads",
       "Bread & butter",
@@ -301,6 +301,18 @@ const SantiTierSelector: React.FC<Props> = ({
                         <li key={i}>{line}</li>
                       ))}
                     </ul>
+                    {tier.id === "chef" && (
+  <div
+    style={{
+      marginTop: 10,
+      fontSize: "0.85rem",
+      color: "#555",
+      lineHeight: 1.4,
+    }}
+  >
+    <strong>Heads up:</strong> Premium entrées are available in certain cuisines. Entrée pricing is based on the highest prcied entrée selected.
+  </div>
+)}
                   </div>
                 )}
               </div>

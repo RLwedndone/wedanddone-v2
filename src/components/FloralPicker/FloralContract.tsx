@@ -516,11 +516,11 @@ const canSign =
                   onChange={(e) => setCardConsentChecked(e.target.checked)}
                   style={{ marginRight: 8 }}
                 />
-                I authorize Wed&Done and our payment processor (Stripe) to securely store my card.
-If I choose a Deposit + Monthly plan, I authorize recurring charges for this booking,
-including any remaining balance due 35 days before my wedding date.
-For future Wed&Done bookings, I may choose to use this saved card at checkout for convenience.
-I understand I can update or remove my saved card from my account at any time.
+                By checking this box, you authorize Wed&Done and Stripe to securely store your card.
+If you choose Deposit + Monthly, your card will be used for recurring payments for
+this booking, including the final balance due 35 days before your wedding date.
+You may also choose to use this saved card for future Wed&Done purchases.
+You can update or remove it at any time.
               </label>
             </div>
           )}

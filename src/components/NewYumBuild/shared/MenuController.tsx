@@ -274,7 +274,7 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
   /* ───────────────── Routing logic by venue ───────────────── */
 
  // Bates Mansion branch
-if (venueSlug === "batesmansion") {
+ if (venueSlug && ["batesmansion", "bates-mansion"].includes(venueSlug)) {
   return (
     <BatesOverlay
       onClose={onClose}
@@ -304,9 +304,9 @@ if (venueSlug === "batesmansion") {
   ) {
     return (
       <SchnepfOverlay
-        onClose={onClose}
-        startAt={(startAt as any) || "schnepfIntro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<any>(startAt as any, "yumStep") || "schnepfIntro"}
+/>
     );
   }
 
@@ -314,15 +314,20 @@ if (venueSlug === "batesmansion") {
   if (venueSlug === "encanterra") {
     return (
       <EncanterraOverlay
-        onClose={onClose}
-        startAt={(startAt as EncanterraStep) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<EncanterraStep>(startAt as EncanterraStep, "yumStep") || "intro"}
+/>
     );
   }
 
   // Vic / Verrado branch
   if (rawUserData && isVicOrVerrado(rawUserData)) {
-    return <VicVerradoOverlay onClose={onClose} />;
+    return (
+      <VicVerradoOverlay
+        onClose={onClose}
+        startAt={resolveStartAt<any>(startAt as any, "yumStep")}
+      />
+    );
   }
 
   // Valley Ho by slug
@@ -334,9 +339,9 @@ if (venueSlug === "batesmansion") {
   ) {
     return (
       <ValleyHoOverlay
-        onClose={onClose}
-        startAt={(startAt as any) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<any>(startAt as any, "yumStep") || "intro"}
+/>
     );
   }
 
@@ -366,9 +371,9 @@ if (venueSlug === "batesmansion") {
   if (isRubiBySlug(venueSlug)) {
     return (
       <RubiOverlay
-        onClose={onClose}
-        startAt={(startAt as RubiStep) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<RubiStep>(startAt as RubiStep, "yumStep") || "intro"}
+/>
     );
   }
 
@@ -403,9 +408,9 @@ if (venueSlug === "batesmansion") {
   ) {
     return (
       <TubacOverlay
-        onClose={onClose}
-        startAt={(startAt as any) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<any>(startAt as any, "yumStep") || "intro"}
+/>
     );
   }
 
@@ -425,9 +430,9 @@ if (venueSlug === "batesmansion") {
   if (venueNameLower.includes("tubac")) {
     return (
       <TubacOverlay
-        onClose={onClose}
-        startAt={(startAt as any) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<any>(startAt as any, "yumStep") || "intro"}
+/>
     );
   }
 
@@ -435,9 +440,9 @@ if (venueSlug === "batesmansion") {
   if (isOcotilloBySlug(venueSlug)) {
     return (
       <OcotilloOverlay
-        onClose={onClose}
-        startAt={(startAt as OcotilloStep) || "intro"}
-      />
+  onClose={onClose}
+  startAt={resolveStartAt<OcotilloStep>(startAt as OcotilloStep, "yumStep") || "intro"}
+/>
     );
   }
 

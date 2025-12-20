@@ -55,23 +55,74 @@ export interface SantiMenuConfig {
   extras: SantiExtrasConfig;
 }
 
+const SHARED_APPETIZERS: SantiMenuItem[] = [
+  // Bruschettas
+  {
+    name: "Smoked Salmon Bruschetta",
+    description: "With brie cheese.",
+  },
+  {
+    name: "Roasted Red Bell Pepper Bruschetta",
+    description: "With goat cheese.",
+  },
+  {
+    name: "Grilled Asparagus Bruschetta",
+    description: "Wrapped in prosciutto.",
+  },
+
+  // Kabobs / Skewers
+  { name: "Lemon Cilantro Chicken Kabob" },
+  { name: "Pineapple Hawaiian Chicken Kabob" },
+  { name: "Sirloin Steak Skewers" },
+  { name: "Salami Caprese Skewer" },
+
+  // Mexican appetizers (available to all cuisines)
+  {
+    name: "Sopecitos",
+    description:
+      "Chorizo con papas (chopped potatoes) served on a handmade sope topped with sour cream and cotija cheese.",
+  },
+  {
+    name: "Mini Tinga Tostada",
+    description:
+      "Shredded chicken with chipotle adobo topped with sour cream and cotija cheese.",
+  },
+  {
+    name: "Stuffed Jalapeños",
+    description:
+      "Stuffed jalapeños wrapped in bacon and filled with cream cheese and cheddar cheese.",
+  },
+  {
+    name: "Poblano Cheese Dip",
+    description: "Creamy roasted poblano cheese dip. (Includes chips.)",
+  },
+  {
+    name: "Cream Cheese Balls",
+    description: "Deep fried cream cheese balls.",
+  },
+  {
+    name: "Mexican Shrimp or Fish Ceviche",
+    description: "(Includes individual chip.)",
+  },
+];
+
 export const santisMenuConfig: SantiMenuConfig = {
   basePricePerGuest: {
     signature: 44,
-    chef: 78,
+    chef: 86,
   },
 
   allowances: {
     // Signature Feast – 1 of each
     signature: {
-      appetizers: 0, // we’re not offering apps yet
+      appetizers: 1, 
       entrees: 1,
       sides: 1,
       salads: 1,
     },
     // Chef’s Feast – 2 of each
     chef: {
-      appetizers: 0,
+      appetizers: 2,
       entrees: 2,
       sides: 2,
       salads: 2,
@@ -83,7 +134,7 @@ export const santisMenuConfig: SantiMenuConfig = {
 
         italian: {
           label: "Italian Bounty",
-          appetizers: [],
+          appetizers: SHARED_APPETIZERS,
     
           entrees: [
             {
@@ -189,7 +240,7 @@ export const santisMenuConfig: SantiMenuConfig = {
 
     mexican: {
       label: "Mexican Fiesta",
-      appetizers: [],
+      appetizers: SHARED_APPETIZERS,
 
       entrees: [
         {
@@ -285,7 +336,7 @@ export const santisMenuConfig: SantiMenuConfig = {
 
     american: {
       label: "Classic American",
-      appetizers: [],
+      appetizers: SHARED_APPETIZERS,
 
       entrees: [
         {
@@ -391,7 +442,7 @@ export const santisMenuConfig: SantiMenuConfig = {
 
     taco: {
       label: "Taco Bar",
-      appetizers: [],
+      appetizers: SHARED_APPETIZERS,
 
       entrees: [
         {

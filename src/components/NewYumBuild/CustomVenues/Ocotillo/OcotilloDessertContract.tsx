@@ -289,50 +289,71 @@ const [signatureSubmitted, setSignatureSubmitted] = useState<boolean>(
             Booking Terms
           </h3>
           <ul
-            style={{
-              fontSize: "0.95rem",
-              lineHeight: 1.6,
-              paddingLeft: "1.25rem",
-              textAlign: "left",
-              margin: "0 auto",
-              maxWidth: "540px",
-            }}
-          >
-            <li>
-              By signing, you confirm either (a) your venue allows outside bakers, or (b) you’ll book a venue that
-              does.
-            </li>
-            <li>
-              You may pay in full today, or place a{" "}
-              <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>. Any remaining balance will be
-              split into monthly installments and must be fully paid{" "}
-              <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>.
-            </li>
-            <li>
-              Final guest count is due 30 days before your wedding. You may increase your guest count starting 45 days
-              before your wedding, but the count can not be lowered after booking.
-            </li>
-            <li>
-              <strong>Cancellation &amp; Refunds:</strong> If you cancel more than {FINAL_DUE_DAYS} days prior, amounts
-              paid beyond the non-refundable portion will be refunded less any non-recoverable costs already incurred.
-              Within {FINAL_DUE_DAYS} days, all payments are non-refundable.
-            </li>
-            <li>
-              <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days, a $25 late fee
-              applies; after 14 days, services may be suspended and this agreement may be in default.
-            </li>
-            <li>
-              <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard food-safety guidelines and comply
-              with venue rules, which may limit display/location options.
-            </li>
-            <li>
-              <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable control (e.g.,
-              natural disasters, government actions, labor disputes, epidemics/pandemics, utility outages). We’ll work
-              in good faith to reschedule; if not possible, we’ll refund amounts paid beyond non-recoverable costs
-              already incurred.
-            </li>
-            <li>In the unlikely event of our cancellation or issue, liability is limited to a refund of payments made.</li>
-          </ul>
+  style={{
+    fontSize: "0.95rem",
+    lineHeight: 1.6,
+    paddingLeft: "1.25rem",
+    textAlign: "left",
+    margin: "0 auto",
+    maxWidth: "540px",
+  }}
+>
+  <li>
+    <strong>Payment Options.</strong> You may pay your Ocotillo dessert total in full
+    today, or place a{" "}
+    <strong>{Math.round(DEPOSIT_PCT * 100)}% non-refundable deposit</strong>. Any
+    remaining balance will be split into monthly installments so that the full amount is
+    paid <strong>{FINAL_DUE_DAYS} days before your wedding date</strong>. Any unpaid
+    balance on that date will be automatically charged.
+  </li>
+
+  <li>
+    <strong>Card Authorization &amp; Saved Card.</strong> By completing this booking,
+    you authorize Wed&amp;Done and our payment processor (Stripe) to securely store your
+    card for: (a) Ocotillo dessert installment payments and any remaining balance under
+    this agreement, and (b) future Wed&amp;Done bookings you choose to make, for your
+    convenience. Your card details are encrypted and handled by Stripe, and you may
+    update your saved card at any time in your Wed&amp;Done account.
+  </li>
+
+  <li>
+    Final guest count is due 30 days before your wedding. You may increase your guest
+    count starting 45 days before your wedding, but the count cannot be lowered after
+    booking.
+  </li>
+
+  <li>
+    <strong>Cancellation &amp; Refunds:</strong> If you cancel more than{" "}
+    {FINAL_DUE_DAYS} days prior, amounts paid beyond the non-refundable portion will be
+    refunded less any non-recoverable costs already incurred. Within{" "}
+    {FINAL_DUE_DAYS} days, all payments are non-refundable.
+  </li>
+
+  <li>
+    <strong>Missed Payments:</strong> We’ll automatically retry your card. After 7 days,
+    a $25 late fee applies; after 14 days, services may be suspended and this agreement
+    may be in default.
+  </li>
+
+  <li>
+    <strong>Food Safety &amp; Venue Policies:</strong> We’ll follow standard
+    food-safety guidelines and comply with venue rules, which may limit
+    service/display/location options.
+  </li>
+
+  <li>
+    <strong>Force Majeure:</strong> Neither party is liable for delays beyond reasonable
+    control (e.g., natural disasters, government actions, labor disputes,
+    epidemics/pandemics, utility outages). We’ll work in good faith to reschedule; if
+    not possible, we’ll refund amounts paid beyond non-recoverable costs already
+    incurred.
+  </li>
+
+  <li>
+    In the unlikely event of our cancellation or issue, liability is limited to a refund
+    of payments made.
+  </li>
+</ul>
         </div>
 
         {/* Pay options */}

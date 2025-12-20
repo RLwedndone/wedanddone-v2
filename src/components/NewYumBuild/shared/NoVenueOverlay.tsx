@@ -84,38 +84,42 @@ const NoVenueOverlay: React.FC<NoVenueOverlayProps> = ({
   // ── Menu + dessert state ───────────────────────────────────
   const [selectedCuisine, setSelectedCuisine] =
   useState<SantiCuisineKey | null>(null);
-  const [menuSelections, setMenuSelections] = useState<{
+  type CateringMenuSelections = {
+    appetizers: string[];
     mains: string[];
     sides: string[];
     salads: string[];
-  }>({
+  };
+  
+  const [menuSelections, setMenuSelections] = useState<CateringMenuSelections>({
+    appetizers: [],
     mains: [],
     sides: [],
     salads: [],
   });
 
   // 🔄 Clear menu selections when backing up to cuisine / tier
-  const clearMenuSelections = () => {
-    const empty = { mains: [], sides: [], salads: [] };
+const clearMenuSelections = () => {
+  const empty = { appetizers: [], mains: [], sides: [], salads: [] };
 
-    // React state
-    setMenuSelections(empty);
+  // React state
+  setMenuSelections(empty);
 
-    // LocalStorage
-    try {
-      localStorage.removeItem("yumMenuSelections");
-    } catch {}
+  // LocalStorage
+  try {
+    localStorage.removeItem("yumMenuSelections");
+  } catch {}
 
-    // Firestore (best-effort)
-    const user = getAuth().currentUser;
-    if (user) {
-      setDoc(
-        doc(db, "users", user.uid, "yumYumData", "menuSelections"),
-        empty,
-        { merge: true }
-      ).catch(() => {});
-    }
-  };
+  // Firestore (best-effort)
+  const user = getAuth().currentUser;
+  if (user) {
+    setDoc(
+      doc(db, "users", user.uid, "yumYumData", "menuSelections"),
+      empty,
+      { merge: true }
+    ).catch(() => {});
+  }
+};
 
     // ✅ Remember which cart to resume if they close after reaching cart
     const markResumeCart = (cartStep: "cateringCart" | "dessertCart") => {
@@ -648,22 +652,21 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
 {step === "cateringCart" && (
   <>
     <YumCart
-                guestCount={guestCount}
-                onGuestCountChange={setGuestCount}
-                addCharcuterie={addCharcuterie}
-                setAddCharcuterie={setAddCharcuterie}
-                selectedCuisine={selectedCuisine}
-                menuSelections={menuSelections} // { mains, sides, salads }
-                setMenuSelections={setMenuSelections}
-                weddingDate={userWeddingDate}
-                setTotal={setTotal}
-                setLineItems={setLineItems}
-                setPaymentSummaryText={setPaymentSummaryText}
-                onContinueToCheckout={handleCartContinue}
-                onStartOver={() => setStep("cateringMenu")}
-                onClose={handleOverlayClose}
-                tier={cateringTier}
-                />
+  guestCount={guestCount}
+  onGuestCountChange={setGuestCount}
+  setAddCharcuterie={() => {}}
+  selectedCuisine={selectedCuisine}
+  menuSelections={menuSelections}
+  setMenuSelections={setMenuSelections}
+  weddingDate={userWeddingDate}
+  setTotal={setTotal}
+  setLineItems={setLineItems}
+  setPaymentSummaryText={setPaymentSummaryText}
+  onContinueToCheckout={handleCartContinue}
+  onStartOver={() => setStep("cateringMenu")}
+  onClose={handleOverlayClose}
+  tier={cateringTier}
+/>
                 </>
               )}
 

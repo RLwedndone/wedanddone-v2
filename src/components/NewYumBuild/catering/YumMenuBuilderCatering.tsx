@@ -12,25 +12,22 @@ import {
   SantiMenuItem,
 } from "./santisMenuConfig";
 
+type MenuSelections = {
+  appetizers: string[];
+  mains: string[];
+  sides: string[];
+  salads: string[];
+};
+
 interface YumMenuBuilderCateringProps {
   selectedCuisine: SantiCuisineKey | null;
-  menuSelections: {
-    mains: string[];
-    sides: string[];
-    salads: string[];
-  };
-  setMenuSelections: (data: {
-    mains: string[];
-    sides: string[];
-    salads: string[];
-  }) => void;
+  menuSelections: MenuSelections;
+  setMenuSelections: (data: MenuSelections) => void;
   onContinue: () => void;
   onBack: () => void;
   onClose: () => void;
   tier: "signature" | "chef";
 }
-
-
 
 const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
   tier,
@@ -44,8 +41,9 @@ const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
   console.log("🧪 YumMenuBuilderCatering mounted");
   console.log("🍽️ selectedCuisine:", selectedCuisine, "tier:", tier);
 
-  const [showModal, setShowModal] =
-    useState<"mains" | "sides" | "salads" | null>(null);
+  const [showModal, setShowModal] = useState<
+    "appetizers" | "mains" | "sides" | "salads" | null
+  >(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
   // ───────────────── Restore from Firestore / localStorage ─────────────────
@@ -63,10 +61,18 @@ const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
             "menuSelections"
           );
           const snap = await getDoc(docRef);
+
           if (snap.exists()) {
-            const saved = snap.data();
-            if (saved?.mains || saved?.sides || saved?.salads) {
+            const saved = snap.data() as Partial<MenuSelections>;
+
+            if (
+              saved?.appetizers ||
+              saved?.mains ||
+              saved?.sides ||
+              saved?.salads
+            ) {
               setMenuSelections({
+                appetizers: saved.appetizers || [],
                 mains: saved.mains || [],
                 sides: saved.sides || [],
                 salads: saved.salads || [],
@@ -83,8 +89,9 @@ const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
       const local = localStorage.getItem("yumMenuSelections");
       if (local) {
         try {
-          const parsed = JSON.parse(local);
+          const parsed = JSON.parse(local) as Partial<MenuSelections>;
           setMenuSelections({
+            appetizers: parsed.appetizers || [],
             mains: parsed.mains || [],
             sides: parsed.sides || [],
             salads: parsed.salads || [],
@@ -99,11 +106,7 @@ const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
   }, [setMenuSelections]);
 
   // ───────────────── Save helper ─────────────────
-  const saveSelections = (next: {
-    mains: string[];
-    sides: string[];
-    salads: string[];
-  }) => {
+  const saveSelections = (next: MenuSelections) => {
     setMenuSelections(next);
 
     // LS – always
@@ -143,19 +146,17 @@ const YumMenuBuilderCatering: React.FC<YumMenuBuilderCateringProps> = ({
     });
   };
 
-  const handleModalClose = (
-    type: "mains" | "sides" | "salads",
-    selections: string[]
-  ) => {
-    const next = {
+  const handleModalClose = (type: keyof MenuSelections, selections: string[]) => {
+    const next: MenuSelections = {
       ...menuSelections,
       [type]: selections,
-    };
+    } as MenuSelections;
+
     saveSelections(next);
     setShowModal(null);
   };
 
-    // ───────────────── Guard: need valid cuisine ─────────────────
+  // ───────────────── Guard: need valid cuisine ─────────────────
 if (!selectedCuisine) {
   console.log("🚫 No cuisine selected for Santi menu");
   return null;
@@ -179,11 +180,13 @@ const entreeMax =
 
 const sideMax = santisMenuConfig.allowances[tier].sides;
 const saladMax = santisMenuConfig.allowances[tier].salads;
+const appMax = santisMenuConfig.allowances[tier].appetizers;
 
 // actual menu items for this cuisine
 const entreeItems = cuisine.entrees;
 const sideItems   = cuisine.sides;
 const saladItems  = cuisine.salads;
+const appetizerItems = cuisine.appetizers;
 
 // modal just wants strings – use the dish name so cart can match upgrades
 const mapToOptions = (items: SantiMenuItem[]) =>
@@ -225,25 +228,22 @@ const mapToOptions = (items: SantiMenuItem[]) =>
         />
 
         {/* ─────────── Three sections: mains, sides, salads ─────────── */}
-        {(["mains", "sides", "salads"] as const).map((type) => {
+        {(["appetizers","mains","sides","salads"] as const).map((type) => {
   const label =
-    type === "mains"
-      ? (isTacoCuisine ? "Meats" : "Entrées")
-      : type === "sides"
-      ? "Sides"
-      : "Salads";
+  type === "appetizers" ? "Appetizers" :
+  type === "mains" ? (isTacoCuisine ? "Meats" : "Entrées") :
+  type === "sides" ? "Sides" : "Salads";
 
-          // 🎨 Use specific banner images per section
-          const bannerSrc =
-          type === "mains"
-            ? (
-                isTacoCuisine
-                  ? `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/meats.png`
-                  : `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`
-              )
-            : type === "sides"
-            ? `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`
-            : `${import.meta.env.BASE_URL}assets/images/YumYum/salads_yellow.png`;
+const bannerSrc =
+  type === "appetizers"
+    ? `${import.meta.env.BASE_URL}assets/images/YumYum/apps.png` // <- your new PNG
+    : type === "mains"
+    ? (isTacoCuisine
+        ? `${import.meta.env.BASE_URL}assets/images/YumYum/Rubi/meats.png`
+        : `${import.meta.env.BASE_URL}assets/images/YumYum/Entrees.png`)
+    : type === "sides"
+    ? `${import.meta.env.BASE_URL}assets/images/YumYum/sides.png`
+    : `${import.meta.env.BASE_URL}assets/images/YumYum/salads_yellow.png`;
 
           return (
             <div
@@ -314,6 +314,65 @@ const mapToOptions = (items: SantiMenuItem[]) =>
       </div>
 
             {/* ─────────── Modals ─────────── */}
+
+            {/* APPETIZERS – show name + description (no upgrade fee) */}
+{showModal === "appetizers" && (
+  <SelectionModal
+    title={`Select up to ${appMax} appetizer(s)`}
+    options={mapToOptions(appetizerItems)}
+    max={appMax}
+    selected={menuSelections.appetizers}
+    onChange={(selections) => handleModalClose("appetizers", selections)}
+    onClose={() => setShowModal(null)}
+    renderOption={({ option, selected, setSelected, disabled }) => {
+      const item = appetizerItems.find((i) => i.name === option);
+      if (!item) return null;
+
+      const isChecked = selected.includes(option);
+
+      const handleToggle = () => {
+        if (disabled) return;
+        const next = isChecked
+          ? selected.filter((s) => s !== option)
+          : selected.length < appMax
+          ? [...selected, option]
+          : selected;
+        setSelected(next);
+      };
+
+      return (
+        <label
+          key={option}
+          style={{
+            display: "block",
+            padding: "0.75rem 0",
+            borderBottom: "1px solid #eee",
+            cursor: disabled ? "not-allowed" : "pointer",
+            opacity: disabled ? 0.5 : 1,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+            <input
+              type="checkbox"
+              checked={isChecked}
+              disabled={disabled}
+              onChange={handleToggle}
+              style={{ marginTop: "0.2rem" }}
+            />
+            <div>
+              <div style={{ fontWeight: 600 }}>{item.name}</div>
+              {item.description && (
+                <div style={{ fontSize: "0.9rem", color: "#555", marginTop: "0.25rem" }}>
+                  {item.description}
+                </div>
+              )}
+            </div>
+          </div>
+        </label>
+      );
+    }}
+  />
+)}
 
       {/* MAINS (ENTRÉES) – show name, description, and upgrade fee */}
       {showModal === "mains" && (

@@ -3,8 +3,6 @@ import { getAuth } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
-const FLORAL_LS_PREFS_KEY = "floralSelections";
-
 const arrangements = [
   {
     label: "Airy Garden Style",
@@ -35,52 +33,12 @@ const TableArrangementPicker: React.FC<TableArrangementPickerProps> = ({
     null
   );
 
-  // ✅ Restore saved selection (guest + logged-in)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (typeof parsed?.selectedArrangement === "string") {
-        setSelectedArrangement(parsed.selectedArrangement);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // ✅ Persist selection whenever it changes
-  useEffect(() => {
-    if (!selectedArrangement) return;
-    try {
-      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
-      const prev = raw ? JSON.parse(raw) : {};
-      localStorage.setItem(
-        FLORAL_LS_PREFS_KEY,
-        JSON.stringify({ ...prev, selectedArrangement })
-      );
-    } catch {
-      // ignore
-    }
-  }, [selectedArrangement]);
+  
 
   const handleSaveAndContinue = async () => {
     if (!selectedArrangement) {
       alert("Please choose a table arrangement before continuing!");
       return;
-    }
-
-    // ✅ Always save local progress step for consistency
-    try {
-      const raw = localStorage.getItem(FLORAL_LS_PREFS_KEY);
-      const prev = raw ? JSON.parse(raw) : {};
-      localStorage.setItem(
-        FLORAL_LS_PREFS_KEY,
-        JSON.stringify({ ...prev, selectedArrangement })
-      );
-      localStorage.setItem("floralSavedStep", "cart"); // helps guest resume
-    } catch {
-      // ignore
     }
 
     const auth = getAuth();

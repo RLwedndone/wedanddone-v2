@@ -702,16 +702,18 @@ const YumCartDessert: React.FC<YumCartDessertProps> = ({
 
   // ===== Continue → lock GC & stash plan hints =====
   const handleContinue = async () => {
+    // ✅ keep the count saved, but DO NOT lock yet
     try {
-      if (!locked)
-        await setAndLockGuestCount(gc || 0, "dessert");
+      const st = await getGuestState();
+      const value = Number(st.value ?? gc ?? 0);
+      await setGuestCount(value);
+  
+      // Optional: mark intent so we can lock later *after* payment success
+      localStorage.setItem("yumPendingGuestLock", "dessert");
     } catch (e) {
-      console.error(
-        "⚠️ Could not lock guest count for dessert:",
-        e
-      );
+      console.warn("⚠️ Could not persist guest count before checkout:", e);
     }
-
+  
     try {
       // store the FINAL total (delivery + tax + stripe)
       localStorage.setItem(

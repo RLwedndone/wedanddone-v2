@@ -289,6 +289,54 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
       const wedding = weddingDate || userDoc?.weddingDate || "TBD";
       const purchaseDate = new Date().toISOString();
 
+// ✅ Pull latest cart details from localStorage right before PDF gen
+let menuSelectionsForPdf: any = menuSelections;
+let plattersForPdf: any = undefined;
+
+try {
+  // menu selections (now includes appetizers too)
+  const rawSel =
+    localStorage.getItem("yumMenuSelections") ||
+    localStorage.getItem("yumMenuSelectionsCatering") || // if you ever used a venue-specific key
+    "";
+
+  if (rawSel) {
+    const parsed = JSON.parse(rawSel);
+    menuSelectionsForPdf = {
+      appetizers: parsed?.appetizers || [],
+      mains: parsed?.mains || [],
+      sides: parsed?.sides || [],
+      salads: parsed?.salads || [],
+    };
+  } else {
+    // fallback to whatever props/state you already have
+    menuSelectionsForPdf = {
+      appetizers: (menuSelections as any)?.appetizers || [],
+      mains: (menuSelections as any)?.mains || [],
+      sides: (menuSelections as any)?.sides || [],
+      salads: (menuSelections as any)?.salads || [],
+    };
+  }
+
+  // platters
+  const rawPlat = localStorage.getItem("yumPlatters") || "";
+  if (rawPlat) {
+    const p = JSON.parse(rawPlat);
+
+    // only include if a type is actually chosen
+    if (p?.platterType) {
+      plattersForPdf = {
+        platterType: p.platterType,                 // keep as string; generator types can be loosened later
+        platterSize: p.platterSize ?? null,         // ok inside the object
+        platterFlorals: Boolean(p.platterFlorals),
+        platterTotal: Number(p.platterTotal || 0),  // if you store it; otherwise 0 is fine
+      };
+    }
+  }
+} catch {
+  // if LS is messy, don't block checkout
+}
+
       // 🧾 Generate agreement PDF
       const pdfBlob = await generateYumAgreementPDF({
         fullName,
@@ -554,6 +602,11 @@ const YumCheckOutCatering: React.FC<YumCheckOutCateringProps> = ({
       } catch (mailErr) {
         console.error("❌ notifyBooking failed:", mailErr);
       }
+
+      // ✅ stop future “resume cart” behavior once checkout is complete
+      try {
+        localStorage.removeItem("yumResumeCartStep");
+      } catch {}
 
       onComplete();
     } catch (err) {

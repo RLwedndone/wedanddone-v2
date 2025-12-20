@@ -62,6 +62,7 @@ interface YumContractCateringProps {
   guestCount: number;
   charcuterieCount: number;
   weddingDate: string | null;
+  tier: "signature" | "chef";
   dayOfWeek: string | null;
   lineItems: string[];
 
@@ -70,6 +71,7 @@ interface YumContractCateringProps {
 
   // 👇 mains / sides / salads only
   menuSelections: {
+    appetizers: string[];
     mains: string[];
     sides: string[];
     salads: string[];
@@ -98,6 +100,7 @@ const YumContractCatering: React.FC<YumContractCateringProps> = ({
   lineItems,
   selectedCuisine,
   menuSelections,
+  tier,
   signatureImage,
   setSignatureImage,
   signatureSubmitted,
@@ -415,20 +418,27 @@ const canSign =
     try {
       setIsGenerating(true);
 
-      const pdfBlob = await generateYumAgreementPDF({
-        fullName: `${firstName} ${lastName}`,
-        total,
-        deposit: depositAmount,
-        guestCount,
-        charcuterieCount,
-        weddingDate: prettyWedding,
-        signatureImageUrl: signatureImage || "",
-        paymentSummary: paymentSummaryText,
-        lineItems,
-        cuisineType: selectedCuisine || undefined,
-        // 👇 now mains / sides / salads
-        menuSelections,
-      });
+const pdfBlob = await generateYumAgreementPDF({
+  fullName: `${firstName} ${lastName}`.trim(),
+  total,
+  deposit: payFull ? 0 : depositAmount,
+  guestCount,
+  charcuterieCount,
+  weddingDate: prettyWedding,
+  signatureImageUrl: signatureImage || "",
+  paymentSummary: paymentSummaryText,
+  lineItems,
+
+  cuisineType: selectedCuisine ? String(selectedCuisine) : "Cuisine Not Selected",
+
+  menuSelections: {
+    appetizers: menuSelections?.appetizers || [],
+    mains: menuSelections?.mains || [],
+    sides: menuSelections?.sides || [],
+    salads: menuSelections?.salads || [],
+  },
+
+});
 
       await uploadPdfBlob(pdfBlob, userId, "Yum Yum Catering Agreement");
 
@@ -695,8 +705,7 @@ const canSign =
       textAlign: "left",
     }}
   >
-    Monthly plans will be charged to your saved card on file.  
-    If you want to use a different card, choose Pay Full Amount instead.
+    Monthly plans will be charged to your saved card on file. If you don't have one on file yet, you'll add one during checkout. If you want to use a different card for this purchase, choose Pay Full Amount instead.
   </div>
 )}
 
