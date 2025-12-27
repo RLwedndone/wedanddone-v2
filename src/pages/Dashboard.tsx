@@ -395,6 +395,19 @@ type UserMenuScreenType =
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
+
+const isIos = () => {
+  const ua = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(ua);
+};
+
+const isStandalone = () => {
+  return (
+    (window.navigator as any).standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches
+  );
+};
+
 // helpers for guest list timing logic
 function parseLocalYMD(ymd?: string | null): Date | null {
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
@@ -514,6 +527,12 @@ const Dashboard: React.FC = () => {
 
   // guest confirmation flow
   const [showGuestCountFlow, setShowGuestCountFlow] = useState(false);
+
+  const [showA2HS, setShowA2HS] = useState(false);
+const [a2hsStep, setA2hsStep] = useState<"ask" | "howto">("ask");
+const [hideA2hsIcon, setHideA2hsIcon] = useState(false);
+
+
 
   // mini overlay system (separate from activeOverlay state)
 type InlineOverlay =
@@ -774,6 +793,20 @@ useEffect(() => {
     return () =>
       window.removeEventListener("openUserMenuScreen", openMenuScreen);
   }, []);
+
+  useEffect(() => {
+    // Only show on mobile iOS Safari, not already installed, and not previously "yes"-dismissed
+    try {
+      const yesClicked = localStorage.getItem("wd_a2hs_yes_clicked") === "true";
+      const shouldHide =
+        !isMobile || !isIos() || isStandalone() || yesClicked;
+  
+      setHideA2hsIcon(shouldHide);
+    } catch {
+      // if localStorage fails, just don't block it
+      setHideA2hsIcon(!isMobile || !isIos() || isStandalone());
+    }
+  }, [isMobile]);
 
   // pull completion flags, totals, and guest list timing
   useEffect(() => {
@@ -1316,6 +1349,7 @@ setHasDocsNotifications(
             setActiveOverlay("menuController", { startAt: "intro" });
           }
         }}
+        
 
  // 🧚 NEW:
  hasPixieNotifications={hasPixieNotifications}
@@ -1347,6 +1381,138 @@ setHasDocsNotifications(
         wandNudgeXPctMobile={-15.3}
         wandNudgeYPctMobile={2.0}
       />
+
+      {/* 📱 Add to Home Screen (mobile iOS) */}
+{!hideA2hsIcon && (
+  <>
+    {/* Phone HUD icon */}
+    <button
+      onClick={() => {
+        setA2hsStep("ask");
+        setShowA2HS(true);
+      }}
+      style={{
+        position: "fixed",
+        left: 14,
+        bottom: 14,
+        zIndex: 9999,
+        border: "none",
+        background: "transparent",
+        padding: 0,
+        cursor: "pointer",
+      }}
+      aria-label="Add Wed&Done to Home Screen"
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}assets/images/add_to_home_phone.png`}
+        alt=""
+        style={{
+          width: 54,
+          height: 54,
+          display: "block",
+          filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.35))",
+        }}
+      />
+    </button>
+
+    {/* Modal */}
+    {showA2HS && (
+      <div
+        onClick={() => setShowA2HS(false)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          background: "rgba(0,0,0,0.45)",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          padding: "14px",
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            background: "rgba(255,255,255,0.96)",
+            borderRadius: 16,
+            padding: 16,
+            boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+          }}
+        >
+          {a2hsStep === "ask" ? (
+            <>
+              <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>
+                Add Wed&Done to your Home Screen?
+              </div>
+              <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.35 }}>
+                It’ll feel like a real app and open faster (and Madge approves).
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <button
+                  className="px-button"
+                  style={{ flex: 1 }}
+                  onClick={() => setA2hsStep("howto")}
+                >
+                  Yes ✨
+                </button>
+
+                <button
+                  className="px-button px-button--ghost"
+                  style={{ flex: 1 }}
+                  onClick={() => setShowA2HS(false)}
+                >
+                  Not now
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>
+                Quick iPhone steps
+              </div>
+
+              <ol style={{ margin: "10px 0 0 18px", fontSize: 14, lineHeight: 1.4 }}>
+                <li>Tap the <b>Share</b> button in Safari</li>
+                <li>Tap <b>Add to Home Screen</b></li>
+              </ol>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <button
+                  className="px-button"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    // We can’t auto-install on iOS — this just hides the icon after they said “Yes”
+                    try {
+                      localStorage.setItem("wd_a2hs_yes_clicked", "true");
+                    } catch {}
+                    setHideA2hsIcon(true);
+                    setShowA2HS(false);
+                  }}
+                >
+                  Got it
+                </button>
+
+                <button
+                  className="px-button px-button--ghost"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    // Let them close without hiding icon permanently
+                    setShowA2HS(false);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+  </>
+)}
 
       {/* Guest Count Reminder ribbon (timing logic already handled in setShowGuestListButton) */}
       <GuestCountReminderModal

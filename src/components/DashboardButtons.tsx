@@ -9,6 +9,7 @@ import {
 import { useMagometerTotals } from "./MagOMeter/useMagometerTotals";
 import React, { useMemo, useState, useEffect } from "react";
 import "./DashboardButtons.css";
+import { track, trackBoutiqueOpened } from "../utils/analytics";
 
 interface DashboardButtonsProps {
   isMobile: boolean;
@@ -138,6 +139,17 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
 }) => {
   // ✅ Use the prop, not auth.currentUser (avoids auth race + double-icons)
   const loggedIn = isLoggedIn;
+
+  const device = isMobile ? "mobile" : "desktop";
+
+const trackHudClick = (item: string) => {
+  track("hud_click", { item, device, logged_in: loggedIn });
+};
+
+const trackBoutiqueClick = (boutique: string) => {
+  trackBoutiqueOpened(boutique);
+  track("boutique_click", { boutique, device, logged_in: loggedIn });
+};
 
   const bg = isMobile
     ? `${import.meta.env.BASE_URL}assets/images/dashboard_bg_mobile.jpg`
@@ -345,8 +357,26 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
     const hs: Hotspot[] = [];
 
     hs.push(
-      { id: "hud-madge", ...POS.hud.madge, iconSrc: ICONS.madge, onClick: onOpenMadge, zIndex: 3 },
-      { id: "hud-menu", ...POS.hud.menu, iconSrc: ICONS.menu, onClick: onOpenMenu, zIndex: 3 },
+      {
+        id: "hud-madge",
+        ...POS.hud.madge,
+        iconSrc: ICONS.madge,
+        onClick: () => {
+          trackHudClick("madge");
+          onOpenMadge();
+        },
+        zIndex: 3,
+      },
+      {
+        id: "hud-madge",
+        ...POS.hud.madge,
+        iconSrc: ICONS.madge,
+        onClick: () => {
+          trackHudClick("madge");
+          onOpenMadge();
+        },
+        zIndex: 3,
+      },
 
       // ✅ Auth indicator:
       // - logged out: gold key opens account modal
@@ -356,7 +386,10 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
             id: "hud-avatar",
             ...POS.hud.avatar,
             iconSrc: profileImageUrl || DEFAULT_AVATAR,
-            onClick: onOpenAccount,
+            onClick: () => {
+              trackHudClick("account");
+              onOpenAccount();
+            },
             zIndex: 4,
             className: "hud-avatar",
           }]
@@ -364,20 +397,42 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
             id: "hud-goldkey",
             ...POS.hud.avatar,
             iconSrc: ICONS.goldKey,
-            onClick: onOpenAccount,
+            onClick: () => {
+              trackHudClick("account");
+              onOpenAccount();
+            },
             zIndex: 3,
             className: "hud-avatar",
           }]
       ),
 
-      { id: "hud-wand", ...POS.hud.budgetWand, iconSrc: ICONS.budgetWand, onClick: onOpenBudget, zIndex: 3 },
-      { id: "hud-book", ...POS.hud.magicBook, iconSrc: ICONS.magicBook, onClick: onOpenMagicBook, zIndex: 3 },
+      {
+        id: "hud-wand",
+        ...POS.hud.budgetWand,
+        iconSrc: ICONS.budgetWand,
+        onClick: () => {
+          trackHudClick("budget_wand");
+          onOpenBudget();
+        },
+        zIndex: 3,
+      },
+      {
+        id: "hud-book",
+        ...POS.hud.magicBook,
+        iconSrc: ICONS.magicBook,
+        onClick: () => {
+          trackHudClick("magic_book");
+          onOpenMagicBook();
+        },
+        zIndex: 3,
+      },
       {
         id: "hud-logo",
         ...POS.hud.logoCloud,
         iconSrc: ICONS.logoCloud,
         className: logoIntroGlow ? "logoIntroGlow" : "",
         onClick: () => {
+          trackHudClick("logo_cloud");
           setLogoIntroGlow(false);
           try {
             localStorage.setItem("wd_seen_logo_glow", "true");
@@ -385,17 +440,65 @@ const DashboardButtons: React.FC<DashboardButtonsProps> = ({
           onOpenWedAndDoneInfo();
         },
         zIndex: 5,
-      }
+      },
     );
 
     // Boutiques
     hs.push(
-      { id: "btn-venue", ...POS.boutiques.venue, iconSrc: ICONS.venue, onClick: onVenueRankerClick },
-      { id: "btn-photo", ...POS.boutiques.photo, iconSrc: ICONS.photo, onClick: onPhotoStylerClick || (() => {}) },
-      { id: "btn-floral", ...POS.boutiques.floral, iconSrc: ICONS.floral, onClick: onFloralClick },
-      { id: "btn-yum", ...POS.boutiques.yum, iconSrc: ICONS.yum, onClick: onYumClick },
-      { id: "btn-jam", ...POS.boutiques.jam, iconSrc: ICONS.jam, onClick: onJamGrooveClick || (() => {}) },
-      { id: "btn-planner", ...POS.boutiques.planner, iconSrc: ICONS.planner, onClick: onPixiePlannerClick }
+      {
+        id: "btn-venue",
+        ...POS.boutiques.venue,
+        iconSrc: ICONS.venue,
+        onClick: () => {
+          trackBoutiqueClick("venue_ranker");
+          onVenueRankerClick();
+        },
+      },
+      {
+        id: "btn-photo",
+        ...POS.boutiques.photo,
+        iconSrc: ICONS.photo,
+        onClick: () => {
+          trackBoutiqueClick("photo_styler");
+          onPhotoStylerClick?.();
+        },
+      },
+      {
+        id: "btn-floral",
+        ...POS.boutiques.floral,
+        iconSrc: ICONS.floral,
+        onClick: () => {
+          trackBoutiqueClick("floral_picker");
+          onFloralClick();
+        },
+      },
+      {
+        id: "btn-yum",
+        ...POS.boutiques.yum,
+        iconSrc: ICONS.yum,
+        onClick: () => {
+          trackBoutiqueClick("yum_yum");
+          onYumClick();
+        },
+      },
+      {
+        id: "btn-jam",
+        ...POS.boutiques.jam,
+        iconSrc: ICONS.jam,
+        onClick: () => {
+          trackBoutiqueClick("jam_groove");
+          onJamGrooveClick?.();
+        },
+      },
+      {
+        id: "btn-planner",
+        ...POS.boutiques.planner,
+        iconSrc: ICONS.planner,
+        onClick: () => {
+          trackBoutiqueClick("pixie_planner");
+          onPixiePlannerClick();
+        },
+      },
     );
 
     return hs;

@@ -5,6 +5,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
+import { registerSW } from "virtual:pwa-register";
+registerSW({ immediate: true });
+
 // Google Analytics Loader (production only)
 const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID;
 
