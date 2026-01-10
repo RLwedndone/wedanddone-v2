@@ -126,6 +126,41 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
 
   const slug = venueSlug || localStorage.getItem("venueSlug") || "";
 
+    // 🎟️ Invite discount (applies ONLY at contract stage, not in CastleModal)
+  // Expected localStorage keys set by the referral/booking-link flow:
+  // - wd_inviteVenueSlug: string (venueSlug the invite is tied to)
+  // - wd_inviteDiscountDollars: string/number ("500")
+  const getInviteDiscountDollars = () => {
+    try {
+      // Preferred: derive from invite code (what your overlay actually saves)
+      const code = localStorage.getItem("wd_inviteCode") || "";
+  
+      // If code is literally a number like "500", use it
+      const numeric = Number(code);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  
+      // Otherwise, your current system is “invite = $500 off”
+      // (If you later make different tiers, we can map codes to amounts here.)
+      return code ? 500 : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const getInviteVenueSlug = () => {
+    try {
+      return localStorage.getItem("wd_inviteVenueSlug") || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const inviteVenueSlug = getInviteVenueSlug();
+  const inviteDiscountDollars =
+    inviteVenueSlug && inviteVenueSlug === slug ? getInviteDiscountDollars() : 0;
+
+  const hasInviteDiscount = inviteDiscountDollars > 0;
+
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
 
   // 🔐 Global card-on-file consent (shared across boutiques, but stored per user)
@@ -150,8 +185,9 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
       weddingDate: currentWeddingDateISO,
       payFull,
       plannerPaidCents,
+      inviteDiscountDollars, // ✅ NEW
     });
-  }, [slug, guestCount, currentWeddingDateISO, payFull, plannerPaidCents]);
+  }, [slug, guestCount, currentWeddingDateISO, payFull, plannerPaidCents, inviteDiscountDollars]);
 
   const [lineItems, setLocalLineItems] = useState<string[]>([]);
   const [paymentSummary, setLocalPaymentSummary] = useState<string>("");
@@ -245,6 +281,9 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
     console.log("👉 venueName:", name);
     console.log("👉 venueWeddingDate:", date);
     console.log("👉 venuePrice:", price);
+    console.log("🎟️ wd_inviteVenueSlug:", localStorage.getItem("wd_inviteVenueSlug"));
+console.log("🎟️ wd_inviteCode:", localStorage.getItem("wd_inviteCode"));
+console.log("🎟️ wd_inviteDiscountDollars:", localStorage.getItem("wd_inviteDiscountDollars"));
 
     setStoredVenueName(name);
     setStoredWeddingDate(date);
@@ -413,6 +452,9 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
       `Venue: ${venueName}`,
       `${guestCount} guests`,
       `Wedding Date: ${currentWeddingDateISO || venueWeddingDate}`,
+      ...(hasInviteDiscount
+        ? [`Invite discount: -$${formatMoney(inviteDiscountDollars)}`]
+        : []),
       `Total: $${Number(plan.total || 0).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -516,8 +558,15 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
               You’re booking <strong>{storedVenueName || venueName}</strong> for{" "}
               <strong>{formattedFullDate}</strong> ({formattedWeekday}).
             </p>
-            <p>
-              The total venue cost is{" "}
+            {hasInviteDiscount && (
+              <p style={{ marginTop: 8, marginBottom: 0 }}>
+                Invite discount applied:{" "}
+                <strong>- ${formatMoney(inviteDiscountDollars)}</strong>
+              </p>
+            )}
+
+            <p style={{ marginTop: hasInviteDiscount ? 6 : 0 }}>
+              Your final venue total is{" "}
               <strong>${formatMoney(plan.total || 0)}</strong>.
             </p>
           </div>

@@ -1,3 +1,4 @@
+// src/components/VenueRanker/RankerCompleteScreen.tsx
 import React from "react";
 import { getAuth } from "firebase/auth";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -6,6 +7,10 @@ import { db } from "../../firebase/firebaseConfig";
 interface RankerCompleteScreenProps {
   weddingDateSet: boolean;
   guestCountSet: boolean;
+
+  // ✅ NEW: direct booking vs ranking flow
+  isDirectBooking: boolean;
+
   onStartScroll: () => void;
   onEditRankings: () => void;
   onClose: () => void;
@@ -14,6 +19,7 @@ interface RankerCompleteScreenProps {
 const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
   weddingDateSet,
   guestCountSet,
+  isDirectBooking,
   onStartScroll,
   onEditRankings,
   onClose,
@@ -45,8 +51,15 @@ const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
   return (
     <div className="pixie-card wd-page-turn">
       {/* 🩷 Pink close (standard) */}
-      <button className="pixie-card__close" onClick={onClose} aria-label="Close">
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+      <button
+        className="pixie-card__close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       <div className="pixie-card__body" style={{ textAlign: "center" }}>
@@ -68,13 +81,26 @@ const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
 
         {/* Title */}
         <h2 className="px-title px-title--lg" style={{ marginBottom: 12 }}>
-          Woohoo! You’ve ranked your favorite venues!
+          {isDirectBooking
+            ? "Perfect! Let’s get you ready to book."
+            : "Woohoo! You’ve ranked your favorite venues!"}
         </h2>
 
         {/* Copy */}
         <p className="px-prose-narrow" style={{ margin: "0 auto 18px" }}>
-          Based on your rankings, we’ve prepared your magical scroll of possibilities.
-          Let’s lock in your guest count and wedding date so we can show you the best fits!
+          {isDirectBooking ? (
+            <>
+              Next, we’ll lock in your guest count and wedding date so we can show
+              you the exact booking details for your chosen venue — then you’ll be
+              one step away from making it official.
+            </>
+          ) : (
+            <>
+              Based on your rankings, we’ve prepared your magical scroll of
+              possibilities. Let’s lock in your guest count and wedding date so we
+              can show you the best fits!
+            </>
+          )}
         </p>
 
         {/* CTAs (standard buttons) */}
@@ -84,7 +110,7 @@ const RankerCompleteScreen: React.FC<RankerCompleteScreenProps> = ({
           </button>
 
           <button className="boutique-back-btn" onClick={onEditRankings}>
-            ⬅ Check Other Vibes
+            {isDirectBooking ? "← Back to the beginning" : "← Check Other Vibes"}
           </button>
         </div>
       </div>

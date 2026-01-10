@@ -16,6 +16,7 @@
     "jspdf": "^3.0.1",
     "lucide-react": "^0.344.0",
     "pdf-lib": "^1.17.1",
+    "posthog-js": "^1.311.0",
     "react": "^18.3.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-calendar": "^6.0.0",

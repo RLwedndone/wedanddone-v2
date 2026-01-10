@@ -41,6 +41,7 @@ interface CastleModalProps {
     weddingDate: string;
     price: number;
   }) => void;
+  onBackToIntro: () => void;
 }
 
 const CastleModal: React.FC<CastleModalProps> = ({
@@ -48,6 +49,7 @@ const CastleModal: React.FC<CastleModalProps> = ({
   onClose,
   onBook,
   handleStartContract,
+  onBackToIntro,
 }) => {
   /* ───────────────────────── State ───────────────────────── */
 
@@ -116,6 +118,17 @@ const CastleModal: React.FC<CastleModalProps> = ({
   const [approvalStatus, setApprovalStatus] = useState<
     "none" | "requested" | "approved" | "declined"
   >("none");
+
+  const lockedVenueSlug =
+  (() => {
+    try {
+      return localStorage.getItem("wd_lockedVenueSlug");
+    } catch {
+      return null;
+    }
+  })();
+
+const isVenueLocked = Boolean(lockedVenueSlug);
 
   /* ───────────────────────── Helpers ───────────────────────── */
 
@@ -377,7 +390,11 @@ const CastleModal: React.FC<CastleModalProps> = ({
   // 5. Recompute availability
   useEffect(() => {
     const activeDate =
-      selectedDate || weddingDate || localStorage.getItem("weddingDate") || null;
+  selectedDate ||
+  weddingDate ||
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("weddingDate") || // legacy fallback ok
+  null;
 
     if (!activeDate) {
       setIsAvailable(null);
@@ -403,7 +420,11 @@ const CastleModal: React.FC<CastleModalProps> = ({
     if (!user) return;
 
     const activeDate =
-      selectedDate || weddingDate || localStorage.getItem("weddingDate") || null;
+  selectedDate ||
+  weddingDate ||
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("weddingDate") ||
+  null;
 
     if (!activeDate) {
       setApprovalStatus("none");
@@ -446,7 +467,7 @@ const CastleModal: React.FC<CastleModalProps> = ({
   const handleDateChange = async (date: Date) => {
     setNewDate(date);
     const formatted = date.toISOString().split("T")[0];
-    localStorage.setItem("weddingDate", formatted);
+    localStorage.setItem("venueWeddingDate", formatted);
     setSelectedDate(formatted);
 
     if (auth.currentUser) {
@@ -802,10 +823,19 @@ const CastleModal: React.FC<CastleModalProps> = ({
                   }}
                 >
                   <p style={{ fontSize: "1rem", color: "#b30000", fontWeight: 500 }}>
-                    Your guest count is locked due to an existing booking, so you can’t lower it
-                    here. Please choose a different venue, or email Madge if you need help:{" "}
-                    <a href="mailto:madge@wedanddone.com">madge@wedanddone.com</a>
-                  </p>
+  Your guest count is locked due to an existing booking, so you can’t lower it here.
+  {isVenueLocked ? (
+    <>
+      {" "}If you need help, email Madge:{" "}
+      <a href="mailto:madge@wedanddone.com">madge@wedanddone.com</a>
+    </>
+  ) : (
+    <>
+      {" "}Please pick another venue that fits your guest count — or email Madge:{" "}
+      <a href="mailto:madge@wedanddone.com">madge@wedanddone.com</a>
+    </>
+  )}
+</p>
                 </div>
               ) : (
                 <button
@@ -942,23 +972,33 @@ const CastleModal: React.FC<CastleModalProps> = ({
                     }}
                   >
                     <button
-                      onClick={() => setShowManualConfirmModal(false)}
-                      style={{
-                        padding: "10px 18px",
-                        borderRadius: 10,
-                        border: "none",
-                        background: "#e86b95",
-                        color: "#fff",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                        fontSize: "0.95rem",
-                        boxShadow:
-                          "0 4px 12px rgba(232,107,149,0.35), 0 0 10px rgba(232,107,149,0.4)",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      Nevermind, I’ll pick a different venue
-                    </button>
+  onClick={() => {
+    setShowManualConfirmModal(false);
+  
+    // Exploring mode → stay in scroll, compare other venues
+    if (!isVenueLocked) {
+      onClose();
+      return;
+    }
+  
+    // Direct booking → hard reset to intro screen
+    onBackToIntro();
+  }}
+  style={{
+    padding: "10px 18px",
+    borderRadius: 10,
+    border: "none",
+    background: "#e86b95",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "0.95rem",
+    boxShadow: "0 4px 12px rgba(232,107,149,0.35), 0 0 10px rgba(232,107,149,0.4)",
+    transition: "all 0.2s ease",
+  }}
+>
+  {isVenueLocked ? "Back to the beginning" : "Nevermind, I’ll compare other venues"}
+</button>
 
                     <button
                       onClick={async () => {

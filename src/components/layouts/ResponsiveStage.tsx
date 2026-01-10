@@ -106,7 +106,7 @@ const ResponsiveStage: React.FC<Props> = ({ bg, aspectW, aspectH, hotspots }) =>
   <img
     src={h.iconSrc}
     alt={h.ariaLabel ?? h.id}
-    className={h.className ?? ""}   // ✅ animate the image, not the button
+    className={`hotspot-icon ${h.className ?? ""}`}  // ✅ animate the image, not the button
     style={{
       display: "block",
       width: "100%",

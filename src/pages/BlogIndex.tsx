@@ -146,7 +146,7 @@ const BlogIndex: React.FC = () => {
               textAlign: "center",
             }}
           >
-            Deep dives, real talk, and a little pixie dust to help you plan
+            Deep dives, real talk, and a little pixie dust to help you book and plan
             smarter inside Wed&Done.
           </p>
 

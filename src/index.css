@@ -10,10 +10,35 @@
   font-style: normal;
 }
 
-/* 🌐 Root Variables */
+/* ✅ iOS viewport + safe-area helpers */
 :root {
+  /* existing vars... */
   --font-title: 'Jenna Sue', cursive;
   --font-body: 'Nunito', sans-serif;
+
+  /* ✅ safe-area insets (iPhone notch / home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* ✅ prevent iOS “100vh” clipping + weird scroll bounce */
+html, body {
+  width: 100%;
+  min-height: 100%;
+  overscroll-behavior: none;
+}
+
+/* ✅ Let #root be at least the visible viewport height (iOS toolbar-safe) */
+#root {
+  min-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  #root {
+    min-height: 100dvh;
+  }
 }
 
 /* 🔄 Global Reset */
@@ -69,4 +94,18 @@ button:not([class]) {
 .transition-fade-out {
   opacity: 0;
   pointer-events: none;
+}
+
+/* =========================
+   🍎 iOS PNG "halo" fix
+   (Safari alpha fringe + GPU compositing)
+========================= */
+@supports (-webkit-touch-callout: none) {
+  /* Force better compositing for transparent images */
+  img {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
 }

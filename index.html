@@ -12,46 +12,80 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Wed&Done" />
+    <meta name="application-name" content="Wed&Done" />
     <link rel="manifest" href="/site.webmanifest" />
 
-   <!-- 🔗 Open Graph / iMessage / Facebook / Slack -->
-<meta property="og:type" content="website" />
-<meta property="og:title" content="Wed & Done" />
-<meta property="og:description" content="Book everything you need for your wedding, without the chaos. Venues, vendors, contracts, and magic — all in one place." />
-<meta property="og:image" content="https://wedndone.com/assets/og/wedanddone-share.jpg" />
-<meta property="og:url" content="https://wedndone.com" />
-<meta property="og:site_name" content="Wed & Done" />
-
-<!-- 🐦 Twitter / X -->
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Wed & Done" />
-<meta name="twitter:description" content="Book and plan your wedding without the chaos. Venues, vendors, contracts, and magic — all in one place." />
-<meta name="twitter:image" content="https://wedndone.com/assets/og/wedanddone-share.jpg" />
-
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KB25N966BV"></script>
-    <script>
-      // Enable GA only on allowed domains
-      const allowedHosts = [
-        "localhost",
-        "127.0.0.1",
-        "rlwedndone.github.io",
-        "wedndone.com",
-        "www.wedndone.com"
-      ];
-
-      if (allowedHosts.includes(location.hostname)) {
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-        gtag('js', new Date());
-        gtag('config', 'G-KB25N966BV', {
-          send_page_view: false // React Router will handle this manually
-        });
+    <!-- ✅ Madge splash screen styles -->
+    <style>
+      html, body {
+        background: #ffffff;
       }
-    </script>
+    
+      /* Hide the app UI until we say it's ready */
+      #root {
+        opacity: 0;
+      }
+      body.app-ready #root {
+        opacity: 1;
+        transition: opacity 200ms ease;
+      }
+    
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        background: #ffffff; /* ✅ solid white */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        opacity: 1;
+      }
+    
+      #splash-screen img {
+        width: 240px;
+        max-width: 70vw;
+        height: auto;
+        filter: drop-shadow(0 14px 28px rgba(0,0,0,0.18));
+      }
+    
+      .splash-text {
+        margin-top: 14px;
+        font-family: "Nunito", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        font-size: 14px;
+        opacity: 0.85;
+      }
+    
+      body.app-ready #splash-screen {
+        opacity: 0;
+        transition: opacity 250ms ease;
+        pointer-events: none;
+      }
+    </style>
 
+    <!-- 🔗 Open Graph / iMessage / Facebook / Slack -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Wed & Done" />
+    <meta property="og:description" content="Book everything you need for your wedding, without the chaos. Venues, vendors, contracts, and magic — all in one place." />
+    <meta property="og:image" content="https://wedndone.com/assets/og/wedanddone-share.jpg" />
+    <meta property="og:url" content="https://wedndone.com" />
+    <meta property="og:site_name" content="Wed & Done" />
+
+    <!-- 🐦 Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wed & Done" />
+    <meta name="twitter:description" content="Book and plan your wedding without the chaos. Venues, vendors, contracts, and magic — all in one place." />
+    <meta name="twitter:image" content="https://wedndone.com/assets/og/wedanddone-share.jpg" />
   </head>
+
   <body>
+    <!-- 🧚 Madge splash screen (shows instantly, before React loads) -->
+    <div id="splash-screen">
+      <img src="/madge-splash.png" alt="Loading Wed&Done" />
+      <div class="splash-text">Summoning Madge… ✨</div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

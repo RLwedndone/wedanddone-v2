@@ -368,44 +368,45 @@ const trackBoutiqueClick = (boutique: string) => {
         zIndex: 3,
       },
       {
-        id: "hud-madge",
-        ...POS.hud.madge,
-        iconSrc: ICONS.madge,
+        id: "hud-menu",
+        ...POS.hud.menu,
+        iconSrc: ICONS.menu,
         onClick: () => {
-          trackHudClick("madge");
-          onOpenMadge();
+          trackHudClick("menu");
+          onOpenMenu();
         },
         zIndex: 3,
       },
-
+    
       // ✅ Auth indicator:
-      // - logged out: gold key opens account modal
-      // - logged in: avatar opens account modal
       ...(loggedIn
-        ? [{
-            id: "hud-avatar",
-            ...POS.hud.avatar,
-            iconSrc: profileImageUrl || DEFAULT_AVATAR,
-            onClick: () => {
-              trackHudClick("account");
-              onOpenAccount();
+        ? [
+            {
+              id: "hud-avatar",
+              ...POS.hud.avatar,
+              iconSrc: profileImageUrl || DEFAULT_AVATAR,
+              onClick: () => {
+                trackHudClick("account");
+                onOpenAccount();
+              },
+              zIndex: 4,
+              className: "hud-avatar",
             },
-            zIndex: 4,
-            className: "hud-avatar",
-          }]
-        : [{
-            id: "hud-goldkey",
-            ...POS.hud.avatar,
-            iconSrc: ICONS.goldKey,
-            onClick: () => {
-              trackHudClick("account");
-              onOpenAccount();
+          ]
+        : [
+            {
+              id: "hud-goldkey",
+              ...POS.hud.avatar,
+              iconSrc: ICONS.goldKey,
+              onClick: () => {
+                trackHudClick("account");
+                onOpenAccount();
+              },
+              zIndex: 3,
+              className: "hud-avatar",
             },
-            zIndex: 3,
-            className: "hud-avatar",
-          }]
-      ),
-
+          ]),
+    
       {
         id: "hud-wand",
         ...POS.hud.budgetWand,
@@ -440,7 +441,7 @@ const trackBoutiqueClick = (boutique: string) => {
           onOpenWedAndDoneInfo();
         },
         zIndex: 5,
-      },
+      }
     );
 
     // Boutiques
@@ -450,6 +451,21 @@ const trackBoutiqueClick = (boutique: string) => {
         ...POS.boutiques.venue,
         iconSrc: ICONS.venue,
         onClick: () => {
+          console.log("🔥 VENUE BUTTON CLICKED (DashboardButtons)");
+        
+          console.log("gtag exists?", typeof (window as any).gtag);
+          console.log("dataLayer exists?", Array.isArray((window as any).dataLayer), (window as any).dataLayer);
+        
+          try {
+            (window as any).gtag("event", "venue_ranker_opened", {
+              debug_mode: true,
+              engagement_time_msec: 1000,
+            });
+            console.log("✅ gtag event call executed");
+          } catch (e) {
+            console.error("❌ gtag call failed", e);
+          }
+        
           trackBoutiqueClick("venue_ranker");
           onVenueRankerClick();
         },

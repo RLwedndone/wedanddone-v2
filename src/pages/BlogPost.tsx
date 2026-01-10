@@ -123,6 +123,9 @@ const BlogPost: React.FC = () => {
     );
   }
 
+  // If a post exists but has no sections, treat it as “not published”
+  const hasSections = !!post.sections && post.sections.length > 0;
+
   return (
     <div className="wd-dashboard-bg" style={outerStyle}>
       {/* 🌙 Dark overlay */}
@@ -184,8 +187,20 @@ const BlogPost: React.FC = () => {
             {new Date(post.date).toLocaleDateString()}
           </small>
 
-          {/* Sections: magazine layout, or fallback to plain content */}
-          {post.sections && post.sections.length > 0 ? (
+          {!hasSections ? (
+            <div className="px-prose-narrow" style={{ color: "#333" }}>
+              <p style={{ marginBottom: 16 }}>
+                This post isn’t published yet (the pixies are still editing).
+              </p>
+
+              <Link
+                to="/blog"
+                className="pixie-button pixie-button--primary"
+              >
+                Back to Wedding Wisdom
+              </Link>
+            </div>
+          ) : (
             <div
               className="px-prose-narrow"
               style={{
@@ -219,7 +234,7 @@ const BlogPost: React.FC = () => {
                 </div>
               )}
 
-              {post.sections.map((section, index) => {
+              {post.sections!.map((section, index) => {
                 const floatLeft = index % 2 !== 0; // odd indexes float left
 
                 return (
@@ -251,8 +266,8 @@ const BlogPost: React.FC = () => {
                           width: 380,
                           maxWidth: "55%",
                           margin: floatLeft
-                            ? "0 24px 16px 0" // image on the left
-                            : "0 0 16px 24px", // image on the right
+                            ? "0 24px 16px 0"
+                            : "0 0 16px 24px",
                           borderRadius: 16,
                           overflow: "hidden",
                           boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
@@ -260,13 +275,10 @@ const BlogPost: React.FC = () => {
                       >
                         {section.vimeoId ? (
                           <LazyVimeo
-                            videoId={section.vimeoId}
-                            title={section.heading}
-                            thumbnail={
-                              section.image ||
-                              `${import.meta.env.BASE_URL}assets/images/VideoThumbnails/WDintroThumb.jpg`
-                            }
-                          />
+                          videoId={section.vimeoId}
+                          title={section.heading}
+                          thumbnail={section.image}
+                        />
                         ) : (
                           section.image && (
                             <img
@@ -297,33 +309,12 @@ const BlogPost: React.FC = () => {
                       {section.body}
                     </p>
 
-                    {/* Clear the float so the next section starts below the media */}
                     <div style={{ clear: "both", marginTop: 8 }} />
                   </section>
                 );
               })}
 
               {/* Back link at the bottom */}
-              <div style={{ marginTop: 32 }}>
-                <Link
-                  to="/blog"
-                  style={{
-                    display: "inline-block",
-                    color: "#0077cc",
-                  }}
-                >
-                  ← Back to Wedding Wisdom
-                </Link>
-              </div>
-            </div>
-          ) : (
-            // Fallback for older posts that just use `content`
-            <div
-              className="px-prose-narrow"
-              style={{ color: "#333", whiteSpace: "pre-line" }}
-            >
-              {post.content}
-
               <div style={{ marginTop: 32 }}>
                 <Link
                   to="/blog"

@@ -18,6 +18,11 @@ import VenueThankYou from "./VenueThankYou";
 import ScrollofPossibilities from "./ScrollofPossibilities";
 import VenueCheckOut from "./VenueCheckOut";
 import VenueVibeIntro from "./VenueVibeIntro";
+import { venueDetails } from "../../utils/venueDetails";
+import VenueInviteIntro from "./VenueInviteIntro";
+import VenueInviteBanner from "./VenueInviteBanner";
+import { resetVenueRankerSession } from "../../utils/resetVenueRanker";
+
 
 
 // Venues
@@ -45,6 +50,10 @@ import "../../styles/globals/boutique.master.css";
 import "../../styles/layouts/ScrollOfPossibilities.css";
 
 const LS_KEY = "venueRankerSelections";
+const LS_LOCKED_VENUE_KEY = "wd_lockedVenueSlug";
+const LS_INVITE_VENUE_KEY = "wd_inviteVenueSlug";
+const LS_INVITE_CODE_KEY = "wd_inviteCode";
+const LS_INVITE_EXPLORE_KEY = "wd_inviteExploreMode";
 
 const LEGACY_LS_KEY = "venueSelections"; // guest fallback (from saveVenueSelection)
 
@@ -210,10 +219,73 @@ useEffect(() => {
       if (ck === "rankerComplete") return "rankerComplete";
     } catch {}
   
-    return startAt || "intro";
+    // If they have an invite stored (maybe from a prior click), start on invite intro
+try {
+  const inv = localStorage.getItem(LS_INVITE_VENUE_KEY);
+  if (inv) return "inviteIntro";
+} catch {}
+
+return startAt || "intro";
   });
   const [screenList, setScreenList] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
+
+  const [lockedVenueSlug, setLockedVenueSlug] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(LS_LOCKED_VENUE_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const directBooking = !!lockedVenueSlug;
+  const [invitedVenueSlug, setInvitedVenueSlug] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(LS_INVITE_VENUE_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const [inviteExploreMode, setInviteExploreMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LS_INVITE_EXPLORE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  
+  const [inviteCode, setInviteCode] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(LS_INVITE_CODE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  
+  const isInviteFlow = !!invitedVenueSlug;
+const hasInvite = !!invitedVenueSlug;
+
+const INVITE_BANNER_ALLOWED_SCREENS = new Set<string>([
+  "intro",
+  "explore",
+  "vibeIntro",
+  "vibe",
+  "rankerComplete",
+
+  // ✅ allowed only when NOT direct booking
+  "scroll-of-possibilities",
+
+  // ✅ venue detail pages
+  ...ALL_VENUE_SCREENS,
+]);
+
+const shouldShowInviteBanner =
+  hasInvite &&
+  inviteExploreMode && // ✅ only after they chose "Explore Wed&Done"
+  INVITE_BANNER_ALLOWED_SCREENS.has(currentScreen) &&
+  !(currentScreen === "scroll-of-possibilities" && directBooking) &&
+  !showAccountModal; // ✅ extra safety
 
   const [userHasWeddingDate, setUserHasWeddingDate] = useState(false);
   const [weddingDate, setWeddingDate] = useState<string>("");
@@ -227,15 +299,58 @@ useEffect(() => {
   const [hasVenueBooked, setHasVenueBooked] = useState(false);
   const [activeVenueSlugs, setActiveVenueSlugs] = useState<string[] | null>(null);
 
+  const VENUE_COMPONENTS = useMemo<Record<string, React.ComponentType<any>>>(() => ({
+    batesmansion: BatesMansion,
+    desertfoothills: DesertFoothills,
+    encanterra: Encanterra,
+    fabric: Fabric,
+    farmhouse: FarmHouse,
+    haciendadelsol: HaciendaDelSol,
+    valleyho: HotelValleyHo,
+    lakehouse: LakeHouse,
+    ocotillo: Ocotillo,
+    rubihouse: RubiHouse,
+    schnepfbarn: SchnepfBarn,
+    soho63: Soho63,
+    sunkist: Sunkist,
+    themeadow: TheMeadow,
+    tubac: Tubac,
+    vic: TheVic,
+    verrado: VerradoGolfClub,
+    windmillbarn: WindmillBarn,
+  }), []);
+
+  const venueOptions = useMemo(() => {
+    const base = (activeVenueSlugs && activeVenueSlugs.length)
+      ? activeVenueSlugs
+      : ALL_VENUE_SCREENS;
+  
+    // Only show venues that exist in your component map (avoid “active but not built yet” weirdness)
+    const built = base.filter((slug) => Object.prototype.hasOwnProperty.call(VENUE_COMPONENTS, slug));
+  
+    return built.map((slug) => ({
+      slug,
+      label: venueDetails?.[slug]?.title || slug,
+    }));
+  }, [activeVenueSlugs, VENUE_COMPONENTS]);
+
   const cardRef = useRef<HTMLDivElement | null>(null);
   useOverlayOpen(cardRef);
   useScrollToTopOnChange([currentScreen, currentIndex], { targetRef: cardRef });
 
   // Firestore mirrors
   const venueSlug = localStorage.getItem("venueSlug");
-  const venueDate = localStorage.getItem("venueDate");
   const venueGuestCount = parseInt(localStorage.getItem("venueGuestCount") || "0");
-  const venueTotal = parseFloat(localStorage.getItem("venueTotal") || "0");
+  const venueDate =
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("venueDate") ||
+  "";
+
+const venueTotal = parseFloat(
+  localStorage.getItem("venuePrice") ||
+  localStorage.getItem("venueTotal") ||
+  "0"
+);
 
   // tiny debounce helper
 function debounce<T extends (...args: any[]) => void>(fn: T, ms = 800) {
@@ -280,6 +395,15 @@ useEffect(() => {
       }
     })();
   }, []);
+
+  const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  const check = () => setIsMobile(window.innerWidth <= 520);
+  check();
+  window.addEventListener("resize", check);
+  return () => window.removeEventListener("resize", check);
+}, []);
 
   // Auth watcher
   useEffect(() => {
@@ -366,27 +490,6 @@ useEffect(() => {
     return () => unsub();
   }, []);
 
-  const VENUE_COMPONENTS = useMemo<Record<string, React.ComponentType<any>>>(() => ({
-    batesmansion: BatesMansion,
-    desertfoothills: DesertFoothills,
-    encanterra: Encanterra,
-    fabric: Fabric,
-    farmhouse: FarmHouse,
-    haciendadelsol: HaciendaDelSol,
-    valleyho: HotelValleyHo,
-    lakehouse: LakeHouse,
-    ocotillo: Ocotillo,
-    rubihouse: RubiHouse,
-    schnepfbarn: SchnepfBarn,
-    soho63: Soho63,
-    sunkist: Sunkist,
-    themeadow: TheMeadow,
-    tubac: Tubac,
-    vic: TheVic,
-    verrado: VerradoGolfClub,
-    windmillbarn: WindmillBarn,
-  }), []);
-
   const isVenueScreen = Object.prototype.hasOwnProperty.call(VENUE_COMPONENTS, currentScreen);
 
   const isActivelyRanking = useMemo(() => {
@@ -394,6 +497,54 @@ useEffect(() => {
   }, [screenList, isVenueScreen]);
 
   const didAutoResumeRef = useRef(false);
+
+  useEffect(() => {
+    // Read partner link params once
+    try {
+      const params = new URLSearchParams(window.location.search);
+  
+      const slug =
+        params.get("venueInvite") ||
+        params.get("inviteVenue") ||
+        params.get("venue") ||
+        "";
+  
+      const code =
+        params.get("code") ||
+        params.get("discount") ||
+        params.get("promo") ||
+        "";
+  
+      if (!slug) return;
+  
+      // Persist invite context
+      localStorage.setItem(LS_INVITE_VENUE_KEY, slug);
+      if (code) localStorage.setItem(LS_INVITE_CODE_KEY, code);
+  
+      setInvitedVenueSlug(slug);
+      setInviteCode(code || null);
+  
+      // ✅ NEW: start in invite-only mode (no sticker until they click Explore)
+      try {
+        localStorage.removeItem(LS_INVITE_EXPLORE_KEY);
+      } catch {}
+      setInviteExploreMode(false);
+  
+      // Lock venue immediately (partner-safe)
+      localStorage.setItem(LS_LOCKED_VENUE_KEY, slug);
+      setLockedVenueSlug(slug);
+  
+      // Start them at invite intro unless they’re already mid-flow
+      const ck = localStorage.getItem("venueRankerCheckpoint");
+      if (!ck || ck === "intro") {
+        setCurrentScreen("inviteIntro");
+      }
+    } catch {
+      // silent
+    }
+    // run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (didAutoResumeRef.current) return;
@@ -405,6 +556,9 @@ useEffect(() => {
     const hasRankings = Object.keys(venueRankerSelections.rankings || {}).length > 0;
   
     if (hasRankings) {
+      // ✅ If they’re in direct-booking mode, do NOT auto-send them to rankerComplete
+      if (lockedVenueSlug) return;
+    
       didAutoResumeRef.current = true;
       try {
         localStorage.setItem("venueRankerCheckpoint", "rankerComplete");
@@ -484,6 +638,24 @@ const handleSelectExploreMode = (mode: "all" | "vibe") => {
     }
   };
 
+  const handleDirectBook = (slug: string) => {
+    setLockedVenueSlug(slug);
+    try {
+      localStorage.setItem(LS_LOCKED_VENUE_KEY, slug);
+      localStorage.setItem("venueRankerCheckpoint", "scroll-of-possibilities"); // so refresh is safe
+    } catch {}
+  
+    const user = auth.currentUser;
+    if (!user) {
+      setShowAccountModal(true);
+      return;
+    }
+  
+    // If logged in, go into the same date flow you already use.
+    if (userHasWeddingDate) setCurrentScreen("confirm");
+    else setCurrentScreen("calendar");
+  };
+
   const handleBackScreen = () => {
     const prevIndex = currentIndex - 1;
   
@@ -535,6 +707,7 @@ const handleSelectExploreMode = (mode: "all" | "vibe") => {
     ? new Date(weddingDate + "T12:00:00").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
     : "";
 
+    
   // --- Render
 return (
   <>
@@ -543,62 +716,167 @@ return (
       <div className="pixie-overlay">
         {/* scrollable area; each child renders its own .pixie-card */}
         <div ref={cardRef} style={{ width: "100%" }}>
-          {/* Intro */}
-          {currentScreen === "intro" && (
-            <VenueRankerIntro
-              onContinue={() => setCurrentScreen("explore")}
-              onClose={onClose}
-            />
-          )}
+  {/* ✅ Card-width stage so absolute positioning hugs the white card, not the screen */}
+  <div
+    style={{
+      width: "100%",
+      display: "flex",
+      justifyContent: "center",
+    }}
+  >
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 680, // ✅ match your pixie-card max width
+      }}
+    >
+      {/* ✅ Invite sticker pinned to the card area */}
+      {shouldShowInviteBanner && (
+  <div
+    style={{
+      position: "absolute",
+      zIndex: 999,
 
-          {/* Explore */}
-          {currentScreen === "explore" && (
-            <VenueExploreSelector
-              onSelectExploreMode={handleSelectExploreMode}
-              onClose={onClose}
-            />
-          )}
+      // Desktop: inside the card corner
+      left: 10,
+      top: 10,
 
-          {/* Vibe intro */}
-          {currentScreen === "vibeIntro" && (
-            <VenueVibeIntro
-              onContinue={() => setCurrentScreen("vibe")}
-              onBack={() => setCurrentScreen("explore")}
-              onClose={onClose}
-            />
-          )}
+      // Mobile: pull it UP and slightly LEFT so it sits above the card
+      ...(isMobile
+        ? {
+            top: -70,     // ✅ above the title area
+            left: -6,
+          }
+        : {}),
+    }}
+  >
+    <VenueInviteBanner
+      invitedVenueSlug={invitedVenueSlug || undefined}
+      onClick={() => {
+        setCurrentIndex(0);
+        setCurrentScreen("inviteIntro");
+      }}
+    />
+  </div>
+)}
 
-          {/* Vibe */}
-          {currentScreen === "vibe" && (
-            <VenueVibeSelector
-              venueRankerSelections={venueRankerSelections}
-              setVenueRankerSelections={setVenueRankerSelections}
-              onContinue={() => {
-                const raw = generateScreenList(
-                  venueRankerSelections.vibeSelections
-                );
-                const list = filterActive(raw);
+      {/* ✅ Render your currentScreen content exactly as before */}
+      {currentScreen === "inviteIntro" && (
+        <VenueInviteIntro
+          invitedVenueSlug={invitedVenueSlug || undefined}
+          invitedVenueName={
+            invitedVenueSlug
+              ? (venueDetails?.[invitedVenueSlug]?.title || undefined)
+              : undefined
+          }
+          discountLabel={
+            inviteCode
+              ? `Pixie Booking Bonus ($500 off — ${inviteCode})`
+              : "Pixie Booking Bonus ($500 off)"
+          }
+          onExplore={() => {
+            try {
+              // ✅ user chose to explore — allow the sticker from here on out
+              localStorage.setItem(LS_INVITE_EXPLORE_KEY, "true");
+            } catch {}
+            setInviteExploreMode(true);
+          
+            try {
+              // ✅ unlock competitors
+              localStorage.removeItem(LS_LOCKED_VENUE_KEY);
+              localStorage.removeItem("venueRankerCheckpoint");
+              localStorage.removeItem("venueRankerSelectedVenues");
+            } catch {}
+          
+            setLockedVenueSlug(null);
+            setCurrentIndex(0);
+            setCurrentScreen("explore");
+          }}
+          onDirectBook={(slug) => handleDirectBook(slug)}
+          venueOptions={venueOptions}
+          onClose={onClose}
+        />
+      )}
 
-                if (list.length === 0) {
-                  setScreenList([]);
-                  setCurrentIndex(0);
-                  setCurrentScreen("vibe");
-                } else {
-                  setScreenList(list);
-                  setCurrentIndex(0);
-                  setCurrentScreen(list[0]);
-                }
-              }}
-              onBack={() => setCurrentScreen("explore")}
-              onClose={onClose}
-            />
-          )}
+      {currentScreen === "intro" && (
+        <VenueRankerIntro
+          onExplore={() => setCurrentScreen("explore")}
+          onDirectBook={(slug) => handleDirectBook(slug)}
+          venueOptions={venueOptions}
+          onClose={onClose}
+        />
+      )}
 
-          {/* Date flow */}
-          {currentScreen === "calendar" &&
-            (userHasLockedDate ? (
+            {/* Explore */}
+            {currentScreen === "explore" && (
+              <VenueExploreSelector
+                onSelectExploreMode={handleSelectExploreMode}
+                onClose={onClose}
+              />
+            )}
+
+            {/* Vibe intro */}
+            {currentScreen === "vibeIntro" && (
+              <VenueVibeIntro
+                onContinue={() => setCurrentScreen("vibe")}
+                onBack={() => setCurrentScreen("explore")}
+                onClose={onClose}
+              />
+            )}
+
+            {/* Vibe */}
+            {currentScreen === "vibe" && (
+              <VenueVibeSelector
+                venueRankerSelections={venueRankerSelections}
+                setVenueRankerSelections={setVenueRankerSelections}
+                onContinue={() => {
+                  const raw = generateScreenList(
+                    venueRankerSelections.vibeSelections
+                  );
+                  const list = filterActive(raw);
+
+                  if (list.length === 0) {
+                    setScreenList([]);
+                    setCurrentIndex(0);
+                    setCurrentScreen("vibe");
+                  } else {
+                    setScreenList(list);
+                    setCurrentIndex(0);
+                    setCurrentScreen(list[0]);
+                  }
+                }}
+                onBack={() => setCurrentScreen("explore")}
+                onClose={onClose}
+              />
+            )}
+
+            {/* Date flow */}
+            {currentScreen === "calendar" &&
+              (userHasLockedDate ? (
+                <WeddingDateConfirmScreen
+                  formattedDate={weddingDate || ""}
+                  dayOfWeek={dayOfWeek || ""}
+                  userHasDate={!!weddingDate}
+                  weddingDateLocked={dateLocked}
+                  onConfirm={() => setCurrentScreen("venueGuestCount")}
+                  onEditDate={() => setCurrentScreen("editdate")}
+                  onClose={onClose}
+                />
+              ) : (
+                <WeddingDateScreen
+                  onContinue={({ weddingDate, dayOfWeek }) => {
+                    setWeddingDate(weddingDate);
+                    setDayOfWeek(dayOfWeek);
+                    setCurrentScreen("venueGuestCount");
+                  }}
+                  onClose={onClose}
+                />
+              ))}
+
+            {currentScreen === "confirm" && (
               <WeddingDateConfirmScreen
-                formattedDate={weddingDate || ""}
+                formattedDate={formattedWeddingDate}
                 dayOfWeek={dayOfWeek || ""}
                 userHasDate={!!weddingDate}
                 weddingDateLocked={dateLocked}
@@ -606,7 +884,9 @@ return (
                 onEditDate={() => setCurrentScreen("editdate")}
                 onClose={onClose}
               />
-            ) : (
+            )}
+
+            {currentScreen === "editdate" && (
               <WeddingDateScreen
                 onContinue={({ weddingDate, dayOfWeek }) => {
                   setWeddingDate(weddingDate);
@@ -615,120 +895,130 @@ return (
                 }}
                 onClose={onClose}
               />
-            ))}
+            )}
 
-          {currentScreen === "confirm" && (
-            <WeddingDateConfirmScreen
-              formattedDate={formattedWeddingDate}
-              dayOfWeek={dayOfWeek || ""}
-              userHasDate={!!weddingDate}
-              weddingDateLocked={dateLocked}
-              onConfirm={() => setCurrentScreen("venueGuestCount")}
-              onEditDate={() => setCurrentScreen("editdate")}
-              onClose={onClose}
-            />
-          )}
-          {currentScreen === "editdate" && (
-  <WeddingDateScreen
-    onContinue={({ weddingDate, dayOfWeek }) => {
-      setWeddingDate(weddingDate);
-      setDayOfWeek(dayOfWeek);
-      setCurrentScreen("venueGuestCount");
-    }}
-    onClose={onClose}
-  />
-)}
+            {/* Guest count */}
+            {currentScreen === "venueGuestCount" && (
+              <VenueGuestCountScreen
+                onContinue={() => {
+                  try {
+                    localStorage.setItem(
+                      "venueRankerCheckpoint",
+                      "scroll-of-possibilities"
+                    );
+                  } catch {}
+                  setCurrentScreen("scroll-of-possibilities");
+                }}
+                onClose={onClose}
+              />
+            )}
 
-          {/* Guest count */}
-          {currentScreen === "venueGuestCount" && (
-  <VenueGuestCountScreen
-    onContinue={() => {
-      try {
-        localStorage.setItem("venueRankerCheckpoint", "scroll-of-possibilities");
-      } catch {}
-      setCurrentScreen("scroll-of-possibilities");
-    }}
-    onClose={onClose}
-  />
-)}
+            {/* Scroll of Possibilities */}
+            {currentScreen === "scroll-of-possibilities" && (
+              <ScrollofPossibilities
+                onClose={onClose}
+                setCurrentScreen={setCurrentScreen}
+                setCurrentIndex={setCurrentIndex}
+                screenList={screenList}
+                onBackToIntro={() => {
+                  try {
+                    // ✅ Full reset so Scroll doesn't reuse the cached “selected venues”
+                    resetVenueRankerSession();
+                  } catch {}
+                
+                  setCurrentIndex(0);
+                  setCurrentScreen(
+                    localStorage.getItem(LS_INVITE_VENUE_KEY)
+                      ? "inviteIntro"
+                      : "intro"
+                  );
+                }}
+              />
+            )}
 
-          {/* Scroll of Possibilities */}
-          {currentScreen === "scroll-of-possibilities" && (
-            <ScrollofPossibilities
-              onClose={onClose}
-              setCurrentScreen={setCurrentScreen}
-              setCurrentIndex={setCurrentIndex}
-              screenList={screenList}
-            />
-          )}
+            {/* ✅ Venue detail screens with stable component type */}
+            {isVenueScreen && VenueComp && (
+              <VenueComp
+                onContinue={handleNextScreen}
+                onBack={handleBackScreen}
+                onClose={onClose}
+                screenList={screenList}
+                currentIndex={currentIndex}
+                venueRankerSelections={venueRankerSelections}
+                setVenueRankerSelections={setVenueRankerSelections}
+                goToExplore={() => setCurrentScreen("explore")}
+              />
+            )}
 
-          {/* ✅ Venue detail screens with stable component type */}
-          {isVenueScreen && VenueComp && (
-            <VenueComp
-              onContinue={handleNextScreen}
-              onBack={handleBackScreen}
-              onClose={onClose}
-              screenList={screenList}
-              currentIndex={currentIndex}
-              venueRankerSelections={venueRankerSelections}
-              setVenueRankerSelections={setVenueRankerSelections}
-              goToExplore={() => setCurrentScreen("explore")}
-            />
-          )}
+            {/* Ranker complete */}
+            {currentScreen === "rankerComplete" && (
+              <RankerCompleteScreen
+                weddingDateSet={Boolean(weddingDate)}
+                guestCountSet={
+                  Number.isFinite(venueGuestCount) && venueGuestCount > 0
+                }
+                isDirectBooking={!!lockedVenueSlug}
+                onStartScroll={handleShowMagicalOptions}
+                onEditRankings={() => {
+                  try {
+                    localStorage.removeItem("venueRankerCheckpoint");
+                  } catch {}
 
-          {/* Ranker complete */}
-          {currentScreen === "rankerComplete" && (
-            <RankerCompleteScreen
-              weddingDateSet={Boolean(weddingDate)}
-              guestCountSet={
-                Number.isFinite(venueGuestCount) && venueGuestCount > 0
-              }
-              onStartScroll={handleShowMagicalOptions}
-              onEditRankings={() => {
-                try {
-                  localStorage.removeItem("venueRankerCheckpoint");
-                } catch {}
-                setCurrentScreen("explore");
-              }}
-              onClose={onClose}
-            />
-          )}
+                  if (lockedVenueSlug) {
+                    setCurrentScreen("intro");
+                    return;
+                  }
 
-          {/* Contract */}
-          {currentScreen === "venuecontract" && (
-            <VenueRankerContract
-              venueSlug={venueSlug ?? ""}
-              venueName={localStorage.getItem("venueName") ?? ""}
-              venueWeddingDate={venueDate ?? ""}
-              venuePrice={Number.isFinite(venueTotal) ? venueTotal : 0}
-              guestCount={Number.isFinite(venueGuestCount) ? venueGuestCount : 0}
-              payFull={payFull}
-              setPayFull={setPayFull}
-              signatureImage={signatureImage}
-              setSignatureImage={setSignatureImage}
-              signatureSubmitted={signatureSubmitted}
-              setSignatureSubmitted={setSignatureSubmitted}
-              onBack={() => setCurrentScreen("scroll-of-possibilities")}
-              onContinue={() => setCurrentScreen("checkout")}
-              setCurrentScreen={setCurrentScreen}
-              setLineItems={(items: string[]) => {}}
-              setPaymentSummary={(summary: string) => {}}
-              setFinalVenuePrice={(amount: number) => {}}
-              setFinalDeposit={(amount: number) => {}}
-              setFinalMonthlyPayment={(amount: number) => {}}
-              setFinalPaymentCount={(count: number) => {}}
-            />
-          )}
+                  setCurrentScreen("explore");
+                }}
+                onClose={onClose}
+              />
+            )}
 
-          {/* Checkout */}
-          {currentScreen === "checkout" && (
-            <VenueCheckOut setCurrentScreen={setCurrentScreen} onClose={onClose} />
-          )}
+            {/* Contract */}
+            {currentScreen === "venuecontract" && (
+              <VenueRankerContract
+                venueSlug={venueSlug ?? ""}
+                venueName={localStorage.getItem("venueName") ?? ""}
+                venueWeddingDate={venueDate ?? ""}
+                venuePrice={Number.isFinite(venueTotal) ? venueTotal : 0}
+                guestCount={
+                  Number.isFinite(venueGuestCount) ? venueGuestCount : 0
+                }
+                payFull={payFull}
+                setPayFull={setPayFull}
+                signatureImage={signatureImage}
+                setSignatureImage={setSignatureImage}
+                signatureSubmitted={signatureSubmitted}
+                setSignatureSubmitted={setSignatureSubmitted}
+                onBack={() => setCurrentScreen("scroll-of-possibilities")}
+                onContinue={() => setCurrentScreen("checkout")}
+                setCurrentScreen={setCurrentScreen}
+                setLineItems={(items: string[]) => {}}
+                setPaymentSummary={(summary: string) => {}}
+                setFinalVenuePrice={(amount: number) => {}}
+                setFinalDeposit={(amount: number) => {}}
+                setFinalMonthlyPayment={(amount: number) => {}}
+                setFinalPaymentCount={(count: number) => {}}
+              />
+            )}
 
-          {/* Thank you */}
-          {currentScreen === "thankyou" && <VenueThankYou onClose={onClose} />}
+            {/* Checkout */}
+            {currentScreen === "checkout" && (
+              <VenueCheckOut
+                setCurrentScreen={setCurrentScreen}
+                onClose={onClose}
+              />
+            )}
+
+            {/* Thank you */}
+            {currentScreen === "thankyou" && (
+              <VenueThankYou onClose={onClose} />
+            )}
+          </div>
         </div>
       </div>
+    </div>
     )}
 
     {/* Account modal overlay — rendered separately when open */}
@@ -736,12 +1026,18 @@ return (
       <VenueAccountModal
         onSuccess={() => {
           setShowAccountModal(false);
-          setCurrentScreen("calendar");
+          if (lockedVenueSlug) {
+            if (userHasWeddingDate) setCurrentScreen("confirm");
+            else setCurrentScreen("calendar");
+          } else {
+            setCurrentScreen("calendar");
+          }
         }}
         onClose={() => setShowAccountModal(false)}
       />
     )}
   </>
+  
 );
 };
 

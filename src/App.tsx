@@ -21,6 +21,8 @@ import { sendWelcome } from "./utils/email/email";
 import useAnalytics from "./hooks/useAnalytics";
 
 import "./styles/globals/boutique.master.css";
+import { trackUTMsOnce } from "./components/analytics/utmTracker";
+import { markThisBrowserInternal, isThisBrowserInternal } from "./components/analytics/internalUser";
 
 // 💫 Auth & Core Pages
 import CreateAccount from "./pages/CreateAccount";
@@ -61,6 +63,13 @@ const AppRoutes: React.FC = () => {
       console.trace("🛑 /planning triggered here");
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    // Mark ONLY your browser as internal (run once, then it persists)
+    if (!isThisBrowserInternal()) {
+      markThisBrowserInternal();
+    }
+  }, []);
 
   return (
     <>
@@ -210,6 +219,11 @@ const WelcomeEmailWatcher: React.FC = () => {
 
 const App: React.FC = () => {
   const [showSignupModal, setShowSignupModal] = useState(false);
+
+  // ✅ Capture UTMs once (first-touch attribution)
+  useEffect(() => {
+    trackUTMsOnce();
+  }, []);
 
   // 🔍 Track route changes for analytics
   useAnalytics();

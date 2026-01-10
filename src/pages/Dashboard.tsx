@@ -33,293 +33,11 @@ import MenuController from "../components/NewYumBuild/shared/MenuController";
 import PixiePurchaseCenter from "../components/MenuScreens/PixiePurchaseCenter";
 import PixiePurchaseCheckout from "../components/MenuScreens/PixiePurchaseCheckout";
 import type { PixiePurchase } from "../utils/pixiePurchaseTypes";
-
+import { track } from "../utils/analytics";
 
 import "../styles/globals/boutique.master.css";
 import "./Dashboard.css";
-
-// ─────────────────────────────────────────────
-// 🧪 DevPresetLoader — instantly fake a venue booking
-// ─────────────────────────────────────────────
-const DevPresetLoader: React.FC = () => {
-  const [preset, setPreset] = React.useState<
-  | "none"
-  | "rubi80"
-  | "ocotillo80"
-  | "soho100"
-  | "bates85"
-  | "encanterra125"
-  | "schnepf100"
-  | "tubac150"
-  | "valleyho150"
-  | "vicverrado120"
->("none");
-  const [loading, setLoading] = React.useState(false);
-
-  const handleLoadPreset = async () => {
-    if (preset === "none") return;
-    setLoading(true);
-    
-
-    const authObj = getAuth();
-    const currentUser = authObj.currentUser;
-
-    if (!currentUser) {
-      alert("No user signed in. Log in first, then try again.");
-      setLoading(false);
-      return;
-    }
-
-    const presets: Record<
-  string,
-  {
-    venueName: string;
-    venueSlug: string;
-    weddingDate: string;
-    guestCount: number;
-    overlayHint?: string;
-    forceYumStep?: string;
-    cateringBookedFlag?: boolean;
-    dessertBookedFlag?: boolean;
-  }
-> = {
-  rubi80: {
-    venueName: "Rubi House",
-    venueSlug: "rubi",
-    weddingDate: "2027-12-12",
-    guestCount: 80,
-    forceYumStep: "intro",
-    cateringBookedFlag: false,
-    dessertBookedFlag: false,
-  },
-
-  ocotillo80: {
-    venueName: "Ocotillo",
-    venueSlug: "ocotillo",
-    weddingDate: "2027-12-01",
-    guestCount: 80,
-    forceYumStep: "intro",
-    cateringBookedFlag: false,
-    dessertBookedFlag: false,
-  },
-      soho100: {
-        venueName: "SoHo63",
-        venueSlug: "soho",
-        weddingDate: "2027-11-20",
-        guestCount: 100,
-        overlayHint: "noVenue",
-      },
-      bates85: {
-        venueName: "Bates Mansion",
-        venueSlug: "bates",
-        weddingDate: "2027-10-05",
-        guestCount: 85,
-      },
-      encanterra125: {
-        venueName: "Encanterra",
-        venueSlug: "encanterra",
-        weddingDate: "2027-09-14",
-        guestCount: 125,
-      },
-      schnepf100: {
-        venueName: "Schnepf Farm House",
-        venueSlug: "schnepf",
-        weddingDate: "2027-08-08",
-        guestCount: 100,
-      },
-      tubac150: {
-        venueName: "Tubac Golf Resort",
-        venueSlug: "tubac",
-        weddingDate: "2027-07-15",
-        guestCount: 150,
-      },
-      valleyho150: {
-        venueName: "Hotel Valley Ho",
-        venueSlug: "valleyho",
-        weddingDate: "2027-06-22",
-        guestCount: 150,
-      },
-      vicverrado120: {
-        venueName: "The Vic at Verrado",
-        venueSlug: "vicverrado",
-        weddingDate: "2027-05-30",
-        guestCount: 120,
-      },
-    };
-
-    const seedData = presets[preset];
-    if (!seedData) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const userRef = doc(db, "users", currentUser.uid);
-
-      await setDoc(
-        userRef,
-        {
-          firstName: "Test",
-          lastName: "User",
-      
-          // top-level wedding basics
-          venueBooked: seedData.venueName,
-          weddingDate: seedData.weddingDate,
-          guestCount: seedData.guestCount,
-      
-          // 💡 NEW: top-level slug so MenuController can grab it immediately
-          venueSlug: seedData.venueSlug, // <- "rubi", "batesmansion", etc.
-      
-          // this is what a real booked user has after Ranker
-          venueComplete: true,
-      
-          // bookings block
-          bookings: {
-            // 💡 keep existing
-            venue: seedData.venueSlug, // this is fine (we already had this)
-      
-            // 💡 NEW: ALSO store venueSlug here specifically because MenuController checks bookings.venueSlug
-            venueSlug: seedData.venueSlug,
-      
-            // optional, but nice:
-            venueName: seedData.venueName,
-      
-            catering: seedData.cateringBookedFlag ?? false,
-            dessert: seedData.dessertBookedFlag ?? false,
-          },
-      
-          progress: {
-            yumYum: {
-              step:
-                seedData.overlayHint === "noVenue"
-                  ? "noVenueIntro"
-                  : seedData.forceYumStep || "intro",
-            },
-          },
-      
-          // Rubi-specific flags the flow uses later
-          rubiCateringBooked: seedData.cateringBookedFlag ?? false,
-          rubiDessertBooked: seedData.dessertBookedFlag ?? false,
-        },
-        { merge: true }
-      );
-
-      localStorage.setItem("selectedVenue", seedData.venueName);
-localStorage.setItem("venueSlug", seedData.venueSlug);
-
-// wedding date into all the usual places
-localStorage.setItem("yumWeddingDate", seedData.weddingDate);
-localStorage.setItem("yumSelectedDate", seedData.weddingDate);
-localStorage.setItem("rubiWeddingDate", seedData.weddingDate);
-localStorage.setItem("ocotilloWeddingDate", seedData.weddingDate);
-
-// guest count into all the usual places
-localStorage.setItem("magicGuestCount", String(seedData.guestCount));
-localStorage.setItem("yumGuestCount", String(seedData.guestCount));
-localStorage.setItem("rubiGuestCount", String(seedData.guestCount));
-localStorage.setItem("ocotilloGuestCount", String(seedData.guestCount));
-
-localStorage.setItem("venueCompleted", "true");
-localStorage.setItem("yumStep", seedData.forceYumStep || "intro");
-
-// preload Rubi catering defaults (Rubi flow still needs these)
-localStorage.setItem("rubiMenuChoice", "bbq");
-localStorage.setItem("rubiTierLabel", "QA Test Tier");
-localStorage.setItem("rubiPerGuest", "32");
-localStorage.setItem("rubiPerGuestExtrasCents", "0");
-
-// preload Ocotillo catering defaults (so OcotilloOverlay doesn't start undefined)
-localStorage.setItem("ocotilloTierLabel", "Tier 1");
-localStorage.setItem("ocotilloPerGuest", "65"); // whatever per-guest you use in Tier 1
-localStorage.setItem("ocotilloPerGuestExtrasCents", "0");
-
-      console.log("🧪 Dev preset seeded:", seedData);
-      alert(
-        `${seedData.venueName} preset loaded for ${seedData.guestCount} guests!`
-      );
-    } catch (err) {
-      console.error("❌ Error seeding preset:", err);
-      alert("Error seeding preset, check console.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div
-      style={{
-        background: "rgba(255,255,255,0.08)",
-        border: "1px solid rgba(255,255,255,0.2)",
-        borderRadius: "8px",
-        padding: "0.5rem",
-        color: "#fff",
-        fontSize: "0.8rem",
-        lineHeight: 1.4,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
-        QA Preset Loader
-      </div>
-
-      <select
-        style={{
-          width: "100%",
-          borderRadius: "6px",
-          padding: "0.4rem",
-          fontSize: "0.8rem",
-        }}
-        value={preset}
-        onChange={(e) =>
-          setPreset(
-            e.target.value as
-              | "none"
-              | "rubi80"
-              | "ocotillo80"
-              | "soho100"
-              | "bates85"
-              | "encanterra125"
-              | "schnepf100"
-              | "tubac150"
-              | "valleyho150"
-              | "vicverrado120"
-          )
-        }
-        disabled={loading}
-      >
-        <option value="none">-- choose preset --</option>
-        <option value="rubi80">Rubi House (80 guests)</option>
-<option value="ocotillo80">Ocotillo (80 guests)</option>
-<option value="soho100">SoHo63 (100 guests, NoVenue flow)</option>
-<option value="bates85">Bates Mansion (85 guests)</option>
-<option value="encanterra125">Encanterra (125 guests)</option>
-<option value="schnepf100">Schnepf Farm House (100 guests)</option>
-<option value="tubac150">Tubac Golf Resort (150 guests)</option>
-<option value="valleyho150">Hotel Valley Ho (150 guests)</option>
-<option value="vicverrado120">The Vic at Verrado (120 guests)</option>
-      </select>
-
-      <button
-        style={{
-          width: "100%",
-          marginTop: "0.5rem",
-          padding: "0.4rem 0.6rem",
-          fontSize: "0.8rem",
-          fontWeight: 600,
-          borderRadius: "6px",
-          background: "#2c62ba",
-          color: "#fff",
-          border: "none",
-          cursor: "pointer",
-          opacity: loading ? 0.6 : 1,
-        }}
-        disabled={loading || preset === "none"}
-        onClick={handleLoadPreset}
-      >
-        {loading ? "Seeding..." : "Load Preset"}
-      </button>
-    </div>
-  );
-};
+import { trackOpen } from "../utils/trackPosthog";
 
 // --- unify completion flags from Firestore + legacy fields + localStorage ---
 function deriveCompletionFlags(data: any) {
@@ -401,12 +119,48 @@ const isIos = () => {
   return /iphone|ipad|ipod/.test(ua);
 };
 
+const isAndroid = () => /android/i.test(navigator.userAgent);
+
 const isStandalone = () => {
   return (
     (window.navigator as any).standalone === true ||
     window.matchMedia?.("(display-mode: standalone)")?.matches
   );
 };
+
+function computeShowInstallIcon(opts: {
+  isMobile: boolean;
+  canInstall: boolean;
+}) {
+  const { isMobile, canInstall } = opts;
+
+  if (!isMobile) return false;
+  if (isStandalone()) return false;
+
+  // iOS: show unless they previously said yes (we hide permanently after that)
+  const iosYesClicked = (() => {
+    try {
+      return localStorage.getItem("wd_a2hs_yes_clicked") === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  const showIOS = isIos() && !iosYesClicked;
+
+  // Android: show only if install prompt is available and they haven't dismissed it
+  const androidDismissed = (() => {
+    try {
+      return localStorage.getItem("wd_android_install_dismissed") === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  const showAndroid = isAndroid() && canInstall && !androidDismissed;
+
+  return showIOS || showAndroid;
+}
 
 // helpers for guest list timing logic
 function parseLocalYMD(ymd?: string | null): Date | null {
@@ -466,7 +220,6 @@ function shouldShowGuestScroll(opts: {
 const Dashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const location = useLocation() as { state?: any };
-
   const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
   const [showPixieAdmin, setShowPixieAdmin] = useState(false);
 
@@ -530,8 +283,16 @@ const Dashboard: React.FC = () => {
 
   const [showA2HS, setShowA2HS] = useState(false);
 const [a2hsStep, setA2hsStep] = useState<"ask" | "howto">("ask");
-const [hideA2hsIcon, setHideA2hsIcon] = useState(false);
 
+
+const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+const [canInstall, setCanInstall] = useState(false);
+
+const isAndroidInstallReady =
+  isAndroid() && canInstall && !!deferredInstallPrompt;
+
+
+const showInstallIcon = computeShowInstallIcon({ isMobile, canInstall });
 
 
   // mini overlay system (separate from activeOverlay state)
@@ -551,11 +312,49 @@ type InlineOverlay =
 
 const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
+// ✅ GA: Track overlay opens (inline overlay system)
+useEffect(() => {
+  if (!overlay) return;
+
+  track("overlay_open", {
+    overlay: overlay.type,
+    system: "inlineOverlay",
+    device: isMobile ? "mobile" : "desktop",
+    logged_in: !!user,
+  });
+}, [overlay, isMobile, user]);
+
   const closeOverlay = () => setOverlay(null);
 
   const handleOpenGuestCountFlow = useCallback(() => {
     setShowGuestCountFlow(true);
   }, []);
+
+  const handleAndroidInstall = async () => {
+    try {
+      if (!deferredInstallPrompt) return;
+  
+      deferredInstallPrompt.prompt();
+  
+      const choice = await deferredInstallPrompt.userChoice;
+      const accepted = choice?.outcome === "accepted";
+  
+      if (accepted) {
+        setDeferredInstallPrompt(null);
+        setCanInstall(false);
+        setShowA2HS(false);
+        return;
+      }
+  
+      try {
+        localStorage.setItem("wd_android_install_dismissed", "true");
+      } catch {}
+      setShowA2HS(false);
+    } catch (e) {
+      console.warn("Android install prompt failed:", e);
+      setShowA2HS(false);
+    }
+  };
 
   // launcher used by Bookings modal buttons
   const handleLaunchBoutique = (
@@ -629,25 +428,64 @@ const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
     }
   };
 
-  // wrapper so we can also stash overlayProps (startAt, etc)
-  const setActiveOverlay = (
-    ov: OverlayType,
-    props?: { startAt?: YumStep | JamStep | string }
-  ) => {
-    _setActiveOverlay(ov);
-    setOverlayProps(props || null);
-  };
+// wrapper so we can also stash overlayProps (startAt, etc)
+const setActiveOverlay = (
+  ov: OverlayType,
+  props?: { startAt?: YumStep | JamStep | string }
+) => {
+  if (ov) {
+    trackOpen(ov, {
+      system: "activeOverlay",
+      startAt: props?.startAt ?? null,
+      device: isMobile ? "mobile" : "desktop",
+      loggedIn: !!user,
+    });
+  }
 
-    // If we navigated here from Wedding Wisdom with a request
-  // to reopen the Wed&Done info overlay, do that now.
-  useEffect(() => {
-    if (location.state?.openWedAndDoneInfo) {
-      setActiveOverlay("wedanddoneinfo");
+  _setActiveOverlay(ov);
+  setOverlayProps(props || null);
+};
 
-      // optional: clear the history state so refresh doesn't keep re-triggering
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [location.state]);
+// If we navigated here from Wedding Wisdom with a request...
+useEffect(() => {
+  if (location.state?.openWedAndDoneInfo) {
+    setActiveOverlay("wedanddoneinfo");
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}, [location.state]);
+
+// ✅ Auto-open Venue Ranker from partner invite links
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+
+    const slug =
+      params.get("venueInvite") ||
+      params.get("inviteVenue") ||
+      params.get("venue") ||
+      "";
+
+    const code =
+      params.get("code") ||
+      params.get("discount") ||
+      params.get("promo") ||
+      "";
+
+    if (!slug) return;
+
+    // Persist invite context for the overlay (overlay also does this, but this ensures it’s set before open)
+    localStorage.setItem("wd_inviteVenueSlug", slug);
+    if (code) localStorage.setItem("wd_inviteCode", code);
+
+    // Open the venue ranker overlay
+    setActiveOverlay("venueranker");
+
+    // Clean the URL so refresh doesn’t re-trigger forever
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } catch {}
+  // run once on initial mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   // resize listener for isMobile
   useEffect(() => {
@@ -795,18 +633,18 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    // Only show on mobile iOS Safari, not already installed, and not previously "yes"-dismissed
-    try {
-      const yesClicked = localStorage.getItem("wd_a2hs_yes_clicked") === "true";
-      const shouldHide =
-        !isMobile || !isIos() || isStandalone() || yesClicked;
+    const handler = (e: any) => {
+      // Chrome fires this when install is available
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+      setCanInstall(true);
+    };
   
-      setHideA2hsIcon(shouldHide);
-    } catch {
-      // if localStorage fails, just don't block it
-      setHideA2hsIcon(!isMobile || !isIos() || isStandalone());
-    }
-  }, [isMobile]);
+    window.addEventListener("beforeinstallprompt", handler);
+  
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
 
   // pull completion flags, totals, and guest list timing
   useEffect(() => {
@@ -993,14 +831,29 @@ setHasDocsNotifications(
     return newestDocMs > lastViewedMs;
   }
 
+  const isAnyOverlayOpen =
+  !!activeOverlay ||
+  !!overlay ||
+  !!activeUserMenuScreen ||
+  showLoginModal ||
+  isChatOpen ||
+  showGuestCountFlow ||
+  showMagicCloud ||
+  showAvailabilityAdmin ||
+  showPixieAdmin ||
+  showLogoutModal ||
+  showA2HS;
+
   return (
     <div
-      style={{
-        position: "relative",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
-      }}
+    style={{
+      position: "relative",
+      width: "100%",
+      minHeight: "100vh",
+      overflowX: "hidden",
+      overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
+    }}
     >
       {/* full-screen BG */}
       <picture>
@@ -1382,40 +1235,49 @@ setHasDocsNotifications(
         wandNudgeYPctMobile={2.0}
       />
 
-      {/* 📱 Add to Home Screen (mobile iOS) */}
-{!hideA2hsIcon && (
+      {/* 📱 Add to Home Screen / Install */}
+{showInstallIcon && (
   <>
-    {/* Phone HUD icon */}
-    <button
-      onClick={() => {
-        setA2hsStep("ask");
-        setShowA2HS(true);
-      }}
-      style={{
-        position: "fixed",
-        left: 14,
-        bottom: 14,
-        zIndex: 9999,
-        border: "none",
-        background: "transparent",
-        padding: 0,
-        cursor: "pointer",
-      }}
-      aria-label="Add Wed&Done to Home Screen"
-    >
-      <img
-        src={`${import.meta.env.BASE_URL}assets/images/add_to_home_phone.png`}
-        alt=""
-        style={{
-          width: 54,
-          height: 54,
-          display: "block",
-          filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.35))",
-        }}
-      />
-    </button>
+    {/* Phone HUD icon — hide ONLY the icon when overlays are open */}
+    {!isAnyOverlayOpen && (
+      <button
+        onClick={() => {
+          // ✅ Android: trigger native install immediately if ready
+          if (isAndroidInstallReady) {
+            handleAndroidInstall();
+            return;
+          }
 
-    {/* Modal */}
+          // ✅ Otherwise open modal (iOS instructions or Android fallback)
+          setA2hsStep("ask");
+          setShowA2HS(true);
+        }}
+        style={{
+          position: "fixed",
+          left: 22,   // mirror of the blue ?
+          bottom: 24, // same baseline as ?
+          zIndex: 1500,
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          cursor: "pointer",
+        }}
+        aria-label="Add Wed&Done to Home Screen"
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/images/add_to_home_phone.png`}
+          alt=""
+          style={{
+            width: "clamp(110px, 18vw, 150px)",
+            height: "clamp(110px, 18vw, 150px)",
+            display: "block",
+            filter: "drop-shadow(0 10px 22px rgba(0,0,0,0.45))",
+          }}
+        />
+      </button>
+    )}
+
+    {/* Modal — allowed to render EVEN when overlays are open */}
     {showA2HS && (
       <div
         onClick={() => setShowA2HS(false)}
@@ -1444,37 +1306,83 @@ setHasDocsNotifications(
           {a2hsStep === "ask" ? (
             <>
               <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>
-                Add Wed&Done to your Home Screen?
+                Want the Wed&Done app on your phone? ✨
               </div>
+
               <div style={{ fontSize: 14, opacity: 0.85, lineHeight: 1.35 }}>
-                It’ll feel like a real app and open faster (and Madge approves).
+                Quick access, faster loading, and all your planning magic in one tap.
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-                <button
-                  className="px-button"
-                  style={{ flex: 1 }}
-                  onClick={() => setA2hsStep("howto")}
-                >
-                  Yes ✨
-                </button>
+                {/* ANDROID: real install */}
+                {isAndroidInstallReady ? (
+                  <button
+                    className="px-button"
+                    style={{ flex: 1 }}
+                    onClick={handleAndroidInstall}
+                  >
+                    Add to Home Screen ✨
+                  </button>
+                ) : (
+                  /* iOS: show how-to */
+                  <button
+                    className="px-button"
+                    style={{ flex: 1 }}
+                    onClick={() => setA2hsStep("howto")}
+                  >
+                    Yes, add it ✨
+                  </button>
+                )}
 
                 <button
                   className="px-button px-button--ghost"
                   style={{ flex: 1 }}
-                  onClick={() => setShowA2HS(false)}
+                  onClick={() => {
+                    if (isAndroid()) {
+                      try {
+                        localStorage.setItem(
+                          "wd_android_install_dismissed",
+                          "true"
+                        );
+                      } catch {}
+                    }
+                    setShowA2HS(false);
+                  }}
                 >
                   Not now
                 </button>
               </div>
+
+              {/* Android fallback message if not install-ready */}
+              {isAndroid() && !isAndroidInstallReady && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    opacity: 0.75,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  If you don’t see the “Add” button yet, Chrome hasn’t enabled
+                  install for this page (usually after a refresh or a bit of
+                  browsing).
+                </div>
+              )}
             </>
           ) : (
             <>
+              {/* iOS instructions */}
               <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>
                 Quick iPhone steps
               </div>
 
-              <ol style={{ margin: "10px 0 0 18px", fontSize: 14, lineHeight: 1.4 }}>
+              <ol
+                style={{
+                  margin: "10px 0 0 18px",
+                  fontSize: 14,
+                  lineHeight: 1.4,
+                }}
+              >
                 <li>Tap the <b>Share</b> button in Safari</li>
                 <li>Tap <b>Add to Home Screen</b></li>
               </ol>
@@ -1484,11 +1392,12 @@ setHasDocsNotifications(
                   className="px-button"
                   style={{ flex: 1 }}
                   onClick={() => {
-                    // We can’t auto-install on iOS — this just hides the icon after they said “Yes”
                     try {
-                      localStorage.setItem("wd_a2hs_yes_clicked", "true");
+                      localStorage.setItem(
+                        "wd_a2hs_yes_clicked",
+                        "true"
+                      );
                     } catch {}
-                    setHideA2hsIcon(true);
                     setShowA2HS(false);
                   }}
                 >
@@ -1498,10 +1407,7 @@ setHasDocsNotifications(
                 <button
                   className="px-button px-button--ghost"
                   style={{ flex: 1 }}
-                  onClick={() => {
-                    // Let them close without hiding icon permanently
-                    setShowA2HS(false);
-                  }}
+                  onClick={() => setShowA2HS(false)}
                 >
                   Close
                 </button>
@@ -1538,8 +1444,6 @@ setHasDocsNotifications(
       maxWidth: "240px",
     }}
   >
-    {/* --- DEV PRESET LOADER --- */}
-    <DevPresetLoader />
 
     {/* --- DEV RESET BUTTON --- */}
     <button

@@ -4,12 +4,14 @@ import { auth, db } from "../../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { venueToCastleImage } from "../../utils/venueToCastleImage";
 import CastleModal from "./CastleModal";
+import { resetVenueRankerSession } from "../../utils/resetVenueRanker";
 
 interface ScrollofPossibilitiesProps {
   onClose: () => void;
   setCurrentScreen: (screen: string) => void;
   setCurrentIndex: (index: number) => void;
   screenList: string[];
+  onBackToIntro: () => void; // ✅ ADD THIS
 }
 
 interface VenueRankerSelections {
@@ -22,6 +24,7 @@ interface VenueRankerSelections {
 const LS_SELECTED_KEY = "venueRankerSelectedVenues"; // JSON stringified array of slugs
 const LS_DATE_KEY = "venueWeddingDate";
 const LS_GUESTS_KEY = "venueGuestCount";
+const LS_LOCKED_VENUE_KEY = "wd_lockedVenueSlug";
 
 // Coerce rankings object into a selected list (scores >= 2)
 function computeSelectedFromRankings(rankings: Record<string, any> | undefined | null): string[] {
@@ -36,12 +39,17 @@ const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
   setCurrentScreen,
   setCurrentIndex,
   screenList,
+  onBackToIntro,
 }) => {
   const [availableVenues, setAvailableVenues] = useState<string[]>([]);
   const [modalVenue, setModalVenue] = useState<string | null>(null);
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [guestCount, setGuestCount] = useState<number>(0);
   const [venueDetails, setVenueDetails] = useState<Record<string, any>>({});
+
+  const [isDirectBooking, setIsDirectBooking] = useState(
+    !!localStorage.getItem(LS_LOCKED_VENUE_KEY)
+  );
 
   useEffect(() => {
     localStorage.setItem("venueRankerCheckpoint", "scroll-of-possibilities");
@@ -51,6 +59,30 @@ const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
     const storedGuests = localStorage.getItem(LS_GUESTS_KEY);
     if (storedDate) setWeddingDate(storedDate);
     if (storedGuests) setGuestCount(parseInt(storedGuests));
+
+      // ✅ DIRECT BOOKING MODE: only show the locked venue
+  const lockedVenue = localStorage.getItem(LS_LOCKED_VENUE_KEY);
+  if (lockedVenue) {
+    setAvailableVenues([lockedVenue]);
+
+    // Load venue details for CastleModal
+    (async () => {
+      try {
+        const venueRef = doc(db, "venues", lockedVenue);
+        const vsnap = await getDoc(venueRef);
+        if (vsnap.exists()) {
+          setVenueDetails({ [lockedVenue]: vsnap.data() });
+        }
+      } catch {}
+    })();
+
+    // Keep selection cache consistent
+    try {
+      localStorage.setItem(LS_SELECTED_KEY, JSON.stringify([lockedVenue]));
+    } catch {}
+
+    return;
+  }
   
     const fetchVenueSelections = async () => {
       // 0) Fast path: cached selected slugs from a previous visit
@@ -294,21 +326,28 @@ const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
         />
 
         {/* Copy */}
-        <p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
-          Here are the venues you told us were favorites or might work. Click each of the castles below to compare!
-        </p>
+<p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
+  {isDirectBooking
+    ? "Here’s your selected venue! Click the castle below to view details, confirm availability, and book."
+    : "Here are the venues you told us were favorites or might work. Click each of the castles below to compare!"}
+</p>
 
-        <p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
-          <strong>Madge Tip!</strong> As you’re comparing costs, keep in mind that some castles roll the feast right
-          into their price, while others are just renting you the great hall. <br /><br />
-          On top of that, a few have <strong>food &amp; beverage minimums</strong> — meaning you’ll need to spend a set
-          amount on catering and bar service whether your guest list is large or small. Keep an eye out, because those
-          minimums (and what’s included) can change the total investment.
-        </p>
+{/* Only show comparison guidance when NOT direct booking */}
+{!isDirectBooking && (
+  <>
+    <p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
+      <strong>Madge Tip!</strong> As you’re comparing costs, keep in mind that some castles roll the feast right
+      into their price, while others are just renting you the great hall. <br /><br />
+      On top of that, a few have <strong>food &amp; beverage minimums</strong> — meaning you’ll need to spend a set
+      amount on catering and bar service whether your guest list is large or small. Keep an eye out, because those
+      minimums (and what’s included) can change the total investment.
+    </p>
 
-        <p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
-          Be sure to select the <strong>"Castle Considerations" </strong> on each castle to get the skinny on pricing and pro tips.
-        </p>
+    <p className="scroll-explainer-text" style={{ fontSize: "1rem" }}>
+      Be sure to select the <strong>"Castle Considerations"</strong> on each castle to get the skinny on pricing and pro tips.
+    </p>
+  </>
+)}
 
         {/* 🏰 Castles */}
         <div className="venue-grid">
@@ -328,29 +367,43 @@ const ScrollofPossibilities: React.FC<ScrollofPossibilitiesProps> = ({
         {modalVenue && (
           <div className="castle-modal-overlay">
             <CastleModal
-              venueSlug={modalVenue}
-              onClose={closeModal}
-              onBook={(slug: string) => handleBookIt(slug)}
-              handleStartContract={({ venueSlug, venueName, guestCount, weddingDate, price }) =>
-                handleStartContract({ venueSlug, venueName, guestCount, weddingDate, price })
-              }
-            />
+  venueSlug={modalVenue}
+  onClose={closeModal}
+  onBook={(slug: string) => handleBookIt(slug)}
+  handleStartContract={({ venueSlug, venueName, guestCount, weddingDate, price }) =>
+    handleStartContract({ venueSlug, venueName, guestCount, weddingDate, price })
+  }
+  onBackToIntro={onBackToIntro}
+/>
           </div>
         )}
 
         {/* 🔙 Back */}
         <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-          <button
-            className="boutique-back-btn"
-            onClick={() => {
-              setCurrentScreen("vibe");
-              setCurrentIndex(0);
-              localStorage.removeItem("venueRankerCheckpoint");
-            }}
-          >
-            ← Back to Vibes
-          </button>
-        </div>
+        <button
+  className="boutique-back-btn"
+  onClick={() => {
+    const locked = localStorage.getItem(LS_LOCKED_VENUE_KEY);
+
+    setCurrentIndex(0);
+    localStorage.removeItem("venueRankerCheckpoint");
+
+    // ✅ If they were in direct-booking mode, a “Back to the beginning”
+    // must wipe the lock + cached venue selections so ranker can run fresh.
+    if (locked) {
+      resetVenueRankerSession();
+      setCurrentScreen("intro");
+      return;
+    }
+
+    setCurrentScreen("vibe");
+  }}
+>
+    {localStorage.getItem(LS_LOCKED_VENUE_KEY)
+      ? "← Back to the beginning"
+      : "← Back to Vibes"}
+  </button>
+</div>
       </div>
     </div>
   );

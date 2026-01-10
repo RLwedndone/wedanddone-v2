@@ -71,10 +71,11 @@ const sanitizeForPdf = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
-  setCurrentScreen,
-  setStepSuccess,
-}) => {
+    const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
+      setCurrentScreen,
+      setStepSuccess,
+      onClose,
+    }) => {
   const { userData } = useUser();
   const auth = getAuth();
   const user = auth.currentUser;
@@ -711,6 +712,21 @@ const VenueCheckOut: React.FC<VenueCheckOutProps> = ({
             textAlign: "center",
           }}
         >
+
+<button
+  className="pixie-card__close"
+  onClick={() => {
+    // go back to dashboard by closing the overlay
+    if (onClose) onClose();
+    else setCurrentScreen("thankyou"); // safe fallback, shouldn't happen in your flow
+  }}
+  aria-label="Close"
+>
+  <img
+    src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+    alt="Close"
+  />
+</button> 
           <video
             src={`${import.meta.env.BASE_URL}assets/videos/lock.mp4`}
             autoPlay

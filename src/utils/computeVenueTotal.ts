@@ -51,10 +51,19 @@ function grossUpProcessingFee(amount: number, rate: number, fixed: number): numb
 export function computeVenueTotal(
   venueSlug: string,
   guestCount: number,
-  weddingDateISO: string
+  weddingDateISO: string,
+  discountOrOptions: number | { inviteDiscountDollars?: number } = 0
 ): number {
   const v = venuePricing[venueSlug];
   if (!v) throw new Error(`Unknown venue: ${venueSlug}`);
+
+    // ✅ Backwards + forwards safe:
+  // - old callers pass a number
+  // - new callers pass { inviteDiscountDollars }
+  const discountDollars =
+    typeof discountOrOptions === "number"
+      ? discountOrOptions
+      : Number(discountOrOptions?.inviteDiscountDollars || 0);
 
   const date = parseISO(weddingDateISO);
   const dow = getWeekdayStr(date);
@@ -98,8 +107,13 @@ export function computeVenueTotal(
   // 7) Planner fee (not part of venue rental tax)
   const plannerFee = plannerFeeForGuestCount(guestCount);
 
-  // 8) Subtotal before margin
-  const preMargin = siteFee + siteService + cateringAddOn + venueRentalTax + plannerFee;
+    // 8) Subtotal before margin (apply invite discount to VENUE portion only)
+    const venuePortion = siteFee + siteService + cateringAddOn + venueRentalTax;
+
+    const discount = Math.max(0, Number(discountDollars || 0));
+    const discountApplied = Math.min(discount, venuePortion); // can't exceed venue portion
+  
+    const preMargin = (venuePortion - discountApplied) + plannerFee;
 
   // 9) Margin tiers
   const withMargin = addMargin(preMargin, v.marginTiers);
