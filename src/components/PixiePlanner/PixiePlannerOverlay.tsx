@@ -280,12 +280,13 @@ const PixiePlannerOverlay: React.FC<PixiePlannerOverlayProps> = ({
               />
             )}
 
-            {step === "explainer" && (
-              <PlannerExplainer
-                onContinue={() => setStep("guestcount")}
-                onClose={onClose}
-              />
-            )}
+{step === "explainer" && (
+  <PlannerExplainer
+    onContinue={() => setStep("guestcount")}
+    onBack={() => setStep("intro")}   // ✅ this is the fix
+    onClose={onClose}
+  />
+)}
 
             {step === "guestcount" && (
               <PlannerCart

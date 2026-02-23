@@ -31,7 +31,7 @@ const OcotilloIntro: React.FC<OcotilloIntroProps> = ({
         </button>
       )}
 
-      {/* card body */}
+      {/* Card Body */}
       <div
         className="pixie-card__body"
         style={{ textAlign: "center" }}
@@ -83,8 +83,7 @@ const OcotilloIntro: React.FC<OcotilloIntroProps> = ({
             <strong>
               stationed appetizers, crisp salads, savory entrées,
               and dreamy desserts
-            </strong>
-            .
+            </strong>.
           </p>
 
           <p>
@@ -109,6 +108,67 @@ const OcotilloIntro: React.FC<OcotilloIntroProps> = ({
           </p>
         </div>
 
+        {/* 💬 Founder Note (Karen) */}
+        <div
+          style={{
+            margin: "1.25rem auto 1.5rem",
+            maxWidth: 520,
+            textAlign: "left",
+            background: "rgba(240,246,255,0.85)",
+            borderRadius: 16,
+            padding: "14px 16px",
+            boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: 900,
+              color: "#2c62ba",
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/KFounder1x1.webp`}
+              alt="Karen, co-founder of Wed&Done"
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 10,
+                objectFit: "cover",
+                flexShrink: 0,
+              }}
+            />
+            Karen explains why this works
+          </h2>
+
+          <p
+            style={{
+              fontSize: "0.95rem",
+              lineHeight: 1.45,
+              color: "#333",
+              margin: 0,
+              fontStyle: "italic",
+            }}
+          >
+            “Catering usually means inquiry forms, email threads, and menu
+            revisions that somehow multiply overnight.
+            <br />
+            <br />
+            We partnered directly with {venueName} to make this simple.
+            You’re seeing their real menu, real pricing, and exactly what’s
+            included — plus desserts.
+            <br />
+            <br />
+            Customize what you need, see the numbers clearly, and book
+            without the chaos.”
+          </p>
+        </div>
+
+        {/* CTA */}
         <div
           style={{
             display: "flex",

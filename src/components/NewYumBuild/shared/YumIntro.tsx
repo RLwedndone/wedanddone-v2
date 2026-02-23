@@ -117,6 +117,66 @@ const YumIntro: React.FC<YumIntroProps> = ({
           )}
         </div>
 
+        {/* 💬 Founder Note (Karen) */}
+<div
+  style={{
+    margin: "1.25rem auto 1.25rem",
+    maxWidth: 520,
+    textAlign: "left",
+    background: "rgba(240,246,255,0.85)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+  }}
+>
+  <h2
+    style={{
+      fontSize: "1.55rem",
+      fontWeight: 900,
+      color: "#2c62ba",
+      marginBottom: 8,
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+    }}
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}assets/images/KFounder1x1.webp`}
+      alt="Karen, co-founder of Wed&Done"
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+    Karen explains why this works
+  </h2>
+
+  <p
+  style={{
+    fontSize: "0.95rem",
+    lineHeight: 1.45,
+    color: "#333",
+    margin: 0,
+    fontStyle: "italic",
+  }}
+>
+  “Catering usually means inquiry forms, email threads, and menu revisions
+  that somehow multiply overnight.
+  <br />
+  <br />
+  We’ve worked with Santi’s and Whisk & Paddle for years. We know the
+  quality and the pricing — so we made it simple: build your menu, see real
+  numbers, and book when it clicks.
+  <br />
+  <br />
+  No inquiry forms. No waiting. Just really good food (and cake), made easy.”
+</p>
+</div>
+
+
         {/* CTA column */}
         <div className="px-cta-col" style={{ marginTop: 8 }}>
           <button

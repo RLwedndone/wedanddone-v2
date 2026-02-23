@@ -4,9 +4,14 @@ import React from "react";
 interface PlannerExplainerProps {
   onContinue: () => void;
   onClose: () => void;
+  onBack: () => void;
 }
 
-const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose }) => {
+const PlannerExplainer: React.FC<PlannerExplainerProps> = ({
+  onContinue,
+  onClose,
+  onBack,
+}) => {
   return (
     <div className="pixie-card wd-page-turn">
       {/* Pink Close X */}
@@ -15,7 +20,10 @@ const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose
         onClick={onClose}
         aria-label="Close"
       >
-        <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
       </button>
 
       {/* Scrollable body */}
@@ -31,10 +39,15 @@ const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose
         {/* BEFORE YOUR DAY */}
         <h3
           className="px-title"
-          style={{ marginTop: "0.75rem", marginBottom: "0.5rem", fontSize: "2.2rem" }}
+          style={{
+            marginTop: "0.75rem",
+            marginBottom: "0.5rem",
+            fontSize: "2.2rem",
+          }}
         >
           Before Your Day
         </h3>
+
         <ul className="px-bullet-list">
           <li>Personalized support via email and one 1-hour online chat 45 days before the wedding</li>
           <li>Review of all venue and vendor contracts</li>
@@ -49,10 +62,15 @@ const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose
         {/* ON YOUR DAY */}
         <h3
           className="px-title"
-          style={{ marginTop: "0.75rem", marginBottom: "0.5rem", fontSize: "2.2rem" }}
+          style={{
+            marginTop: "0.75rem",
+            marginBottom: "0.5rem",
+            fontSize: "2.2rem",
+          }}
         >
           On Your Day
         </h3>
+
         <ul className="px-bullet-list">
           <li>1 coordinator + assistants (based on guest count)</li>
           <li>Up to 10 hours on-site</li>
@@ -64,12 +82,20 @@ const PlannerExplainer: React.FC<PlannerExplainerProps> = ({ onContinue, onClose
           <li>Oversee vendor strike and ensure personal items are packed</li>
         </ul>
 
-        <br />
-
-        {/* CTA */}
-        <div className="px-cta-col" style={{ marginTop: 8 }}>
-          <button className="boutique-primary-btn" onClick={onContinue}>
+        {/* CTA Column (stacked vertically) */}
+        <div className="px-cta-col" style={{ marginTop: "1.5rem" }}>
+          <button
+            className="boutique-primary-btn"
+            onClick={onContinue}
+          >
             Let’s Get Planning!
+          </button>
+
+          <button
+            className="boutique-back-btn"
+            onClick={onBack}
+          >
+            ← Back
           </button>
         </div>
       </div>

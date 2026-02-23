@@ -2,12 +2,12 @@
 import React from "react";
 
 interface PlannerIntroProps {
-  onContinue: () => void;       // book planner now
-  onGoToVenue?: () => void;     // navigate to venue ranker (optional)
-  hasVenue?: boolean;           // already booked a venue via Wed&Done
-  hasPlanner?: boolean;         // already booked planner
-  guestCount?: number;          // optional: show current tier info
-  onClose: () => void;          // ⬅ added to support the pink X
+  onContinue: () => void;
+  onGoToVenue?: () => void;
+  hasVenue?: boolean;
+  hasPlanner?: boolean;
+  guestCount?: number;
+  onClose: () => void;
 }
 
 const tierFor = (gc: number | undefined) => {
@@ -24,7 +24,6 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
   guestCount,
   onClose,
 }) => {
-  // Shared media header
   const HeaderMedia = (
     <>
       <img
@@ -43,7 +42,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
     </>
   );
 
-  // ── CASE 1: Venue already booked → planner included
+  // ── CASE 1: Venue already booked
   if (hasVenue) {
     return (
       <div className="pixie-card wd-page-turn">
@@ -55,7 +54,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
           {HeaderMedia}
           <p className="px-prose-narrow" style={{ marginBottom: "1rem" }}>
             Hooray! You booked your venue through Wed&Done — that{" "}
-            <strong>includes full Pixie Planning</strong>. You’re all set here.  
+            <strong>includes full Pixie Planning</strong>. You’re all set here.
             Check out the other Button Boutiques to keep the magic going! ✨
           </p>
 
@@ -67,7 +66,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
     );
   }
 
-  // ── CASE 2: Planner already booked → steer to venues
+  // ── CASE 2: Planner already booked
   if (hasPlanner) {
     return (
       <div className="pixie-card wd-page-turn">
@@ -103,7 +102,7 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
     );
   }
 
-  // ── CASE 3: Neither booked → standard intro with two CTAs
+  // ── CASE 3: Neither booked
   return (
     <div className="pixie-card wd-page-turn">
       <button className="pixie-card__close" onClick={onClose} aria-label="Close">
@@ -113,10 +112,13 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
       <div className="pixie-card__body">
         {HeaderMedia}
 
+        <h2 className="px-intro-title">
+          Your calm-before-the-confetti crew ✨
+        </h2>
+
         <p className="px-prose-narrow">
-          <h2 className="px-intro-title">Your calm-before-the-confetti crew ✨</h2>
-          Planning a wedding can be a magical mess — our Pixie Planners wrangle timelines,
-          vendors, and day-of details so you can stay in your fairy-tale.
+          Planning a wedding can be a magical mess — our Pixie Planners wrangle
+          timelines, vendors, and day-of details so you can stay in your fairy-tale.
         </p>
 
         <p className="px-prose-narrow" style={{ marginBottom: "1rem" }}>
@@ -124,6 +126,65 @@ const PlannerIntro: React.FC<PlannerIntroProps> = ({
           <strong>includes Pixie Planning</strong>. If you start planning now and later choose
           your venue with us, we’ll fold the planner package into your venue pricing — no double charges.
         </p>
+
+        {/* 💬 Founder Note (Pixie Planning Team) */}
+        <div
+          style={{
+            margin: "1.25rem auto 1.5rem",
+            maxWidth: 520,
+            textAlign: "left",
+            background: "rgba(240,246,255,0.85)",
+            borderRadius: 16,
+            padding: "14px 16px",
+            boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: 900,
+              color: "#2c62ba",
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}assets/images/KFounder1x1.webp`}
+              alt="Pixie Planning Team"
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 10,
+                objectFit: "cover",
+                flexShrink: 0,
+              }}
+            />
+            The Pixie Planning team explains why this works
+          </h2>
+
+          <p
+            style={{
+              fontSize: "0.95rem",
+              lineHeight: 1.45,
+              color: "#333",
+              margin: 0,
+              fontStyle: "italic",
+            }}
+          >
+            “Planning a wedding is magical… and full of moving parts.
+            <br />
+            <br />
+            The Pixie Planning team is made up of real, experienced humans who handle the timelines,
+            vendor communication, contract reviews, and day-of logistics — so you’re not fielding
+            questions on your wedding morning.
+            <br />
+            <br />
+            Every venue booked through Wed&Done includes Pixie Planning.
+            Whether you start here or book your venue first, you’re covered.”
+          </p>
+        </div>
 
         {typeof guestCount === "number" && (
           <p className="px-prose-narrow" style={{ color: "#555", marginBottom: "1rem" }}>
