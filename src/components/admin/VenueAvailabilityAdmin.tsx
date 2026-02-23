@@ -21,7 +21,8 @@ const VENUES = [
   { id: "themeadow", label: "The Meadow" },
   { id: "tubac", label: "Tubac" },
   { id: "valleyho", label: "Hotel Valley Ho" },
-  { id: "verrado", label: "Vic & Verrado" },
+  { id: "vic", label: "The Vic at Verrado" },
+  { id: "verrado", label: "Verrado" },
 ];
 
 interface Props {

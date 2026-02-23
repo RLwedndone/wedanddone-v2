@@ -710,31 +710,31 @@ const [cateringTier, setCateringTier] = useState<CateringTier>(() => {
               </>
             )}
 
-            {step === "cateringContract" && (
-              <YumContract
-                total={total}
-                guestCount={guestCount}
-                charcuterieCount={addCharcuterie ? 1 : 0}
-                weddingDate={userWeddingDate}
-                dayOfWeek={userDayOfWeek}
-                lineItems={lineItems}
-                selectedCuisine={selectedCuisine}
-                menuSelections={menuSelections}
-                signatureImage={signatureImage}
-                setSignatureImage={setSignatureImage}
-                signatureSubmitted={signatureSubmitted}
-                setSignatureSubmitted={setSignatureSubmitted}
-                setStep={(s: YumStep) => setStep(s)}
-                onClose={handleOverlayClose}
-                onComplete={() => {
-                  setStep("cateringCheckout");
-                  localStorage.setItem("yumStep", "cateringCheckout");
-                }}
-                // NEW: pass venue context so contract copy can relax the “must allow outside catering” language
-                isSharedFlowBookedVenue={isSharedFlowBookedVenue}
-                bookedVenueName={bookedVenueName}
-              />
-            )}
+{step === "cateringContract" && (
+  <YumContract
+    total={total}
+    guestCount={guestCount}
+    charcuterieCount={addCharcuterie ? 1 : 0}
+    weddingDate={userWeddingDate}
+    dayOfWeek={userDayOfWeek}
+    lineItems={lineItems}
+    selectedCuisine={selectedCuisine}
+    menuSelections={menuSelections}
+    tier="signature"   // ✅ ADD THIS LINE
+    signatureImage={signatureImage}
+    setSignatureImage={setSignatureImage}
+    signatureSubmitted={signatureSubmitted}
+    setSignatureSubmitted={setSignatureSubmitted}
+    setStep={(s: YumStep) => setStep(s)}
+    onClose={handleOverlayClose}
+    onComplete={() => {
+      setStep("cateringCheckout");
+      localStorage.setItem("yumStep", "cateringCheckout");
+    }}
+    isSharedFlowBookedVenue={isSharedFlowBookedVenue}
+    bookedVenueName={bookedVenueName}
+  />
+)}
 
             {step === "cateringCheckout" && (
               <YumCheckOut

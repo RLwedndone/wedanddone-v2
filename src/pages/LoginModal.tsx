@@ -8,10 +8,12 @@ import {
 import { auth } from "../firebase/firebaseConfig";
 
 interface LoginModalProps {
-  onClose?: () => void; // ✅ optional now
+  onClose?: () => void;   // normal modal close (shows X)
+  onBack?: () => void;    // gate-only back (shows Back button)
+  hideClose?: boolean;    // gate-only: hide the X
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
+const LoginModal: React.FC<LoginModalProps> = ({ onClose, onBack, hideClose }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +55,14 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
     }
   
     try {
-      const continueUrl = `${window.location.origin}${import.meta.env.BASE_URL}login`;
-  
-      await sendPasswordResetEmail(auth, email.trim(), {
-        url: continueUrl,
-        handleCodeInApp: false,
-      });
+      const base = `${window.location.origin}${import.meta.env.BASE_URL}`;
+const continueUrl = new URL("dashboard", base);
+continueUrl.searchParams.set("openLogin", "1");
+
+await sendPasswordResetEmail(auth, email.trim(), {
+  url: continueUrl.toString(),
+  handleCodeInApp: false,
+});
   
       setError(null);
       setResetMessage(
@@ -98,24 +102,47 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
           position: "relative",
         }}
       >
-        {/* ❌ Close button (only if onClose provided) */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={{
-              position: "absolute",
-              top: "1rem",
-              right: "1rem",
-              background: "none",
-              border: "none",
-              fontSize: "1.5rem",
-              cursor: "pointer",
-            }}
-            aria-label="Close"
-          >
-            ✖
-          </button>
-        )}
+        {/* ← Back button (gate-only) */}
+{onBack && (
+  <button
+    onClick={onBack}
+    style={{
+      position: "absolute",
+      top: "1rem",
+      left: "1rem",
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      fontWeight: 800,
+      color: "#2c62ba",
+      fontSize: "0.95rem",
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+    }}
+    aria-label="Back"
+  >
+    ← Back
+  </button>
+)}
+        {/* ❌ Close button (normal login only) */}
+{onClose && !hideClose && (
+  <button
+    onClick={onClose}
+    style={{
+      position: "absolute",
+      top: "1rem",
+      right: "1rem",
+      background: "none",
+      border: "none",
+      fontSize: "1.5rem",
+      cursor: "pointer",
+    }}
+    aria-label="Close"
+  >
+    ✖
+  </button>
+)}
 
         {/* 🖼️ Top image */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
@@ -267,6 +294,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
             style={{ width: "200px", cursor: "pointer", marginTop: "0.5rem" }}
           />
         </div>
+        
       </div>
     </div>
   );

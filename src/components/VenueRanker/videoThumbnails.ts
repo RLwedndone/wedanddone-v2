@@ -19,3 +19,28 @@ export const VIDEO_THUMBNAILS = {
     Verrado: `${import.meta.env.BASE_URL}assets/images/VideoThumbnails/verradoThumb.jpg`,
     WindmillBarn: `${import.meta.env.BASE_URL}assets/images/VideoThumbnails/BRBWindThumb.jpg`,
   } as const;
+
+  /**
+ * ✅ Slug-based lookup for invite flow
+ * This keeps existing VenueRanker screens untouched
+ */
+export const VIDEO_THUMBNAILS_BY_SLUG: Record<string, string> = {
+  batesmansion: VIDEO_THUMBNAILS.Bates,
+  desertfoothills: VIDEO_THUMBNAILS.DesertFoot,
+  encanterra: VIDEO_THUMBNAILS.Encanterra,
+  fabric: VIDEO_THUMBNAILS.Fabric,
+  farmhouse: VIDEO_THUMBNAILS.FarmHouse,
+  haciendadelsol: VIDEO_THUMBNAILS.Hacienda,
+  valleyho: VIDEO_THUMBNAILS.ValleyHo,
+  lakehouse: VIDEO_THUMBNAILS.LakeHouse,
+  ocotillo: VIDEO_THUMBNAILS.Ocotillo,
+  rubihouse: VIDEO_THUMBNAILS.Rubi,
+  schnepfbarn: VIDEO_THUMBNAILS.SchnepfBRB,
+  soho63: VIDEO_THUMBNAILS.Soho,
+  sunkist: VIDEO_THUMBNAILS.Sunkist,
+  themeadow: VIDEO_THUMBNAILS.Meadow,
+  vic: VIDEO_THUMBNAILS.Vic,
+  tubac: VIDEO_THUMBNAILS.Tubac,
+  verrado: VIDEO_THUMBNAILS.Verrado,
+  windmillbarn: VIDEO_THUMBNAILS.WindmillBarn,
+};

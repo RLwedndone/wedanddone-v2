@@ -170,19 +170,19 @@ export const venuePricing: Record<string, VenueCostStructure> = {
     maxCapacity: 200,
     cateringAddOn: 1000,
     pricing: {
-      50: 10995,
-      75: 12995,
-      100: 15995,
-      150: 19995,
-      200: 27995,
+      50: 13495,
+      75: 14495,
+      100: 15495,
+      150: 19495,
+      200: 24495,
     },
     dayOfWeekDiscounts: [
-      { day: "monday", amount: 500 },
-      { day: "tuesday", amount: 500 },
-      { day: "wednesday", amount: 500 },
-      { day: "thursday", amount: 500 },
-      { day: "friday", amount: 500, summerOnly: true },
-      { day: "saturday", amount: 500, summerOnly: true },
+      { day: "monday", amount: 1000 },
+      { day: "tuesday", amount: 1000 },
+      { day: "wednesday", amount: 1000 },
+      { day: "thursday", amount: 1000 },
+      { day: "friday", amount: 1000, summerOnly: true },
+      { day: "saturday", amount: 1000, summerOnly: true },
     ],
     summerMonths: [6, 7, 8],
     marginTiers: [
@@ -780,6 +780,22 @@ export function getVenueTierKey(slug: string, guestCount: number): number | null
   const keys = Object.keys(v.pricing).map(Number).sort((a, b) => a - b);
   const atOrAbove = keys.find((k) => k >= guestCount);
   return (atOrAbove ?? keys[keys.length - 1]) ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Promo helpers
+
+export function applyPostFeesDiscount(
+  totalAfterTaxesAndFees: number,
+  discountAmount: number
+): { discount: number; finalTotal: number } {
+  const amt = Number.isFinite(discountAmount) ? discountAmount : 0;
+  const safeTotal = Number.isFinite(totalAfterTaxesAndFees) ? totalAfterTaxesAndFees : 0;
+
+  const discount = Math.max(0, Math.min(amt, safeTotal)); // never below $0
+  const finalTotal = safeTotal - discount;
+
+  return { discount, finalTotal };
 }
 
 // ─────────────────────────────────────────────────────────────

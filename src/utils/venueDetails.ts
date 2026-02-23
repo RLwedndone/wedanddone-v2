@@ -2,6 +2,7 @@ export interface VenueDetails {
   title: string;
   castleConsiderations: string[];
   videoLink: string;
+  vimeoId: string;
   collection: 'novel' | 'fable' | 'romance';
 }
 
@@ -14,9 +15,9 @@ export const venueDetails: Record<string, VenueDetails> = {
       "Live music may be playing in the bar or patio during your event",
       "More than one event may take place at a time",
       "📍 Located in Buckeye — about <strong>30 miles</strong> / <strong>30 minutes</strong> from Phoenix Sky Harbor Airport"
-  
     ],
     videoLink: "https://player.vimeo.com/video/829968623",
+    vimeoId: "829968623",
     collection: "novel"
   },
 
@@ -28,9 +29,9 @@ export const venueDetails: Record<string, VenueDetails> = {
       "Live music may be playing in the bar or patio during your event",
       "More than one event may take place at a time",
       "📍 Located in Buckeye — about <strong>30 miles</strong> / <strong>30 minutes</strong> from Phoenix Sky Harbor Airport"
-  
     ],
     videoLink: "https://player.vimeo.com/video/849617225",
+    vimeoId: "849617225",
     collection: "novel"
   },
 
@@ -42,6 +43,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in Tubac — about <strong>150 miles</strong> / <strong>2 hours 10 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829959547",
+    vimeoId: "829959547",
     collection: "romance"
   },
 
@@ -49,9 +51,10 @@ export const venueDetails: Record<string, VenueDetails> = {
     title: "The Big Red Barn at Windmill Winery",
     castleConsiderations: [
       "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
-      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport.",
+      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport."
     ],
     videoLink: "https://player.vimeo.com/video/849188155",
+    vimeoId: "849188155",
     collection: "novel"
   },
 
@@ -59,9 +62,10 @@ export const venueDetails: Record<string, VenueDetails> = {
     title: "The Windmill Winery Lake House",
     castleConsiderations: [
       "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
-      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport.",
+      "📍 The Windmill Winery is located in Florence, Arizona and is about an hour’s drive from Phoenix Sky Harbor Airport."
     ],
     videoLink: "https://player.vimeo.com/video/848914703",
+    vimeoId: "848914703",
     collection: "novel"
   },
 
@@ -72,9 +76,10 @@ export const venueDetails: Record<string, VenueDetails> = {
       "Historic warehouse space with vintage charm",
       "Air conditioning is present but not airtight—space may be warmer than expected",
       "No discounts or refunds for temperature-related concerns",
-      "📍 Located in Mesa — industrial distric"
+      "📍 Located in Mesa — industrial district"
     ],
     videoLink: "https://player.vimeo.com/video/829585100",
+    vimeoId: "829585100",
     collection: "novel"
   },
 
@@ -82,9 +87,10 @@ export const venueDetails: Record<string, VenueDetails> = {
     title: "Soho63",
     castleConsiderations: [
       "🍽️❌ Catering is not included in the venue price — you'll create your menu from Wed&Done's delectable dining options!",
-      "📍 Located in Tempe — business distric"
+      "📍 Located in Tempe — business district"
     ],
     videoLink: "https://player.vimeo.com/video/829956929",
+    vimeoId: "829956929",
     collection: "fable"
   },
 
@@ -96,6 +102,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829958523",
+    vimeoId: "829958523",
     collection: "novel"
   },
 
@@ -107,6 +114,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829959049",
+    vimeoId: "829959049",
     collection: "novel"
   },
 
@@ -118,6 +126,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in Queen Creek — about <strong>37 miles</strong> / <strong>40 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829575414",
+    vimeoId: "829575414",
     collection: "novel"
   },
 
@@ -131,6 +140,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "Event may be rescheduled with 60 days' notice"
     ],
     videoLink: "https://player.vimeo.com/video/829585981",
+    vimeoId: "829585981",
     collection: "fable"
   },
 
@@ -142,6 +152,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "Hotel accommodations for the couple are included in the cost"
     ],
     videoLink: "https://player.vimeo.com/video/829580336",
+    vimeoId: "829580336",
     collection: "romance"
   },
 
@@ -153,6 +164,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in Tucson — about <strong>110 miles</strong> / <strong>1 hour 45 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829579059",
+    vimeoId: "829579059",
     collection: "fable"
   },
 
@@ -163,6 +175,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📍 Located in downtown Tempe — large, industrial blank space often used for fashion shows"
     ],
     videoLink: "https://player.vimeo.com/video/829583210",
+    vimeoId: "829583210",
     collection: "novel"
   },
 
@@ -171,9 +184,10 @@ export const venueDetails: Record<string, VenueDetails> = {
     castleConsiderations: [
       "🍽️❌ Catering is not included in the venue price — you'll create your menu from Encanterra's catering options",
       "💵 Food & bev minimum: <strong>$8,000</strong> (before service charge and tax)",
-      "📍 Located in Queen Creak — about <strong>40 miles</strong> / <strong>45 minutes</strong> from Phoenix Sky Harbor Airport"
+      "📍 Located in Queen Creek — about <strong>40 miles</strong> / <strong>45 minutes</strong> from Phoenix Sky Harbor Airport"
     ],
     videoLink: "https://player.vimeo.com/video/829574455",
+    vimeoId: "829574455",
     collection: "novel"
   },
 
@@ -187,6 +201,7 @@ export const venueDetails: Record<string, VenueDetails> = {
       "🦉 Wildlife and ranch activity may be visible or audible during events"
     ],
     videoLink: "https://player.vimeo.com/video/829584056",
+    vimeoId: "829584056",
     collection: "novel"
   },
 
@@ -200,18 +215,20 @@ export const venueDetails: Record<string, VenueDetails> = {
       "📊 Bates uses tiered guest pricing — if your guest count falls between tiers, your booking aligns to the next tier up."
     ],
     videoLink: "https://player.vimeo.com/video/829586701",
+    vimeoId: "829586701",
     collection: "novel"
   },
 
   rubihouse: {
     title: "The Rubi House",
-      castleConsiderations: [
-        "📍 Located in Tucson — about 110 miles and nearly 2 hours from Phoenix Sky Harbor Airport",
-        "🍽️ Catering <strong>is included</strong> in the venue price",
-        "🏙️ City setting — Expect classic Tucson streetscapes around this historic gem, including nearby sidewalks, utility lines, and local flavor.",
-        "🏛️ Historic building quirks — rented 'as-is', so expect charm with some character",
-      ],
+    castleConsiderations: [
+      "📍 Located in Tucson — about 110 miles and nearly 2 hours from Phoenix Sky Harbor Airport",
+      "🍽️ Catering <strong>is included</strong> in the venue price",
+      "🏙️ City setting — Expect classic Tucson streetscapes around this historic gem, including nearby sidewalks, utility lines, and local flavor.",
+      "🏛️ Historic building quirks — rented 'as-is', so expect charm with some character"
+    ],
     videoLink: "https://player.vimeo.com/video/829596336",
+    vimeoId: "829596336",
     collection: "fable"
   }
 };

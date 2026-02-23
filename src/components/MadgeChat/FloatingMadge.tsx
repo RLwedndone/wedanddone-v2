@@ -10,7 +10,7 @@ const FloatingMadge: React.FC<FloatingMadgeProps> = ({ isChatOpen, onClick }) =>
   
     if (isChatOpen) return null; // Hide when modal is open
   
-    const iconSrc = `${import.meta.env.BASE_URL}assets/images/question_mark.png`;
+    const iconSrc = `${import.meta.env.BASE_URL}assets/images/madgeGuide.png`;
   
     return (
       <div

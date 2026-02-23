@@ -31,8 +31,6 @@
   font-family: 'Nunito', sans-serif;
 }
   
-  
-  
   .modal-close {
     position: absolute;
     top: 1rem;
@@ -212,4 +210,59 @@
   flex-direction: column;
   align-items: center;
   margin-top: 1rem;
+}
+/* ─────────────────────────────────────────────
+   Pane-mounted mode (Medallion Castle left pane)
+   ───────────────────────────────────────────── */
+
+   .castle-modal-overlay.castle-modal-overlay--pane {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100%;
+    height: 100%;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    padding: 24px;
+    z-index: 9999;
+    overflow: auto;
+  
+    /* ✅ THIS is the darkening */
+    background: rgba(0, 0, 0, 0.35) !important;
+  
+    /* ✅ optional blur */
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  /* ─────────────────────────────────────────────
+   Fullscreen Mobile (when CastleModal is portaled)
+   ───────────────────────────────────────────── */
+.castle-modal-overlay--fullscreen {
+  position: relative;     /* parent overlay already fixed in RD_MedallionCastle */
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  background: #fff;       /* no dark layer behind */
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.castle-modal--fullscreen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: auto !important; /* allow scrolling inside */
+}
+
+/* Your inner wrapper uses inline padding: 2rem.
+   On mobile fullscreen, kill it so the top isn't chopped. */
+.castle-modal--fullscreen > div {
+  padding: 16px !important;
 }

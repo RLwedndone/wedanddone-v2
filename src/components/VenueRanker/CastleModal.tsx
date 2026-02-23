@@ -23,17 +23,26 @@ import { getGuestState } from "../../utils/guestCountStore";
 import { calculatePlan } from "../../utils/calculatePlan";
 import emailjs from "@emailjs/browser";
 
+import { getVenueDateAvailability } from "../../utils/venueAvailability";
+import type {
+  BlockedRange,
+  VenueAvailabilityReason,
+} from "../../utils/venueAvailability";
+
 import {
   venuePricing,
   Weekday,
   getSelectedSpacesForTier,
   DEFAULT_INCLUDED_STRIP_PATTERNS,
+  applyPostFeesDiscount,
 } from "../../data/venuePricing";
 
 interface CastleModalProps {
   venueSlug: string;
   onClose: () => void;
   onBook: (venueSlug: string) => void;
+  requireAuthForBooking?: (intent: "venuecontract" | "manual") => boolean;
+
   handleStartContract: (data: {
     venueSlug: string;
     venueName: string;
@@ -41,22 +50,120 @@ interface CastleModalProps {
     weddingDate: string;
     price: number;
   }) => void;
+
   onBackToIntro: () => void;
+
+  onOpenDateEditor?: () => void;
+  onOpenGuestEditor?: () => void;
+  swapMode?: boolean;
+
+  autoOpenManualConfirm?: boolean;
+  setAutoOpenManualConfirm?: React.Dispatch<React.SetStateAction<boolean>>;
+  portalTarget?: Element | null;
 }
 
 const CastleModal: React.FC<CastleModalProps> = ({
   venueSlug,
   onClose,
   onBook,
+  requireAuthForBooking,
   handleStartContract,
   onBackToIntro,
+
+  onOpenDateEditor,
+  onOpenGuestEditor,
+  swapMode,
+
+  autoOpenManualConfirm = false,
+  setAutoOpenManualConfirm,
+  portalTarget,
 }) => {
   /* ───────────────────────── State ───────────────────────── */
 
-  const [showMadgeTip, setShowMadgeTip] = useState(false);
+const LS_STARRED_KEY = "venueStarred";
+const LS_BONUS_500_KEY = "wd_bonus500";
+const BONUS_DISCOUNT_AMOUNT = 500;
+const LS_BONUS_500_ACTIVE_KEY = "wd_bonus500_active";
+
+const hasBonus500 = () => {
+  try {
+    return (
+      localStorage.getItem(LS_BONUS_500_KEY) === "true" ||
+      localStorage.getItem(LS_BONUS_500_ACTIVE_KEY) === "true"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isInviteFlowForThisVenue = () => {
+  try {
+    const inviteSlug = localStorage.getItem("wd_inviteVenueSlug") || "";
+    const inviteCode = localStorage.getItem("wd_inviteCode") || "";
+    return !!inviteSlug && inviteSlug === venueSlug && !!inviteCode;
+  } catch {
+    return false;
+  }
+};
+
+// Keep bonus state stable so planPreview can re-run when it changes
+const bonus500Active = useMemo(() => hasBonus500(), [venueSlug]);
+
+const [isFavorited, setIsFavorited] = useState(false);
+
+const readStarred = (): string[] => {
+  try {
+    const raw = localStorage.getItem(LS_STARRED_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    const arr = Array.isArray(parsed)
+      ? (parsed as unknown[]).filter(
+          (v): v is string => typeof v === "string" && v.trim().length > 0
+        )
+      : [];
+    return Array.from(new Set(arr));
+  } catch {
+    return [];
+  }
+};
+
+// Re-sync whenever we open a different venue modal
+useEffect(() => {
+  // default false immediately while we load (prevents “flash of filled”)
+  setIsFavorited(false);
+
+  if (!venueSlug) return;
+
+  const starred = readStarred();
+  setIsFavorited(starred.includes(venueSlug));
+}, [venueSlug]);
+
+const toggleStarred = () => {
+  try {
+    const current = readStarred();
+
+    const next = current.includes(venueSlug)
+      ? current.filter((v) => v !== venueSlug)
+      : [...current, venueSlug];
+
+    localStorage.setItem(LS_STARRED_KEY, JSON.stringify(next));
+    setIsFavorited(next.includes(venueSlug));
+
+    // Tell any listeners (Scroll) that starred venues changed
+    window.dispatchEvent(
+      new CustomEvent("venueStarredUpdated", { detail: { starred: next } })
+    );
+  } catch {
+    setIsFavorited((prev) => !prev);
+  }
+};
+  const [showConsiderations, setShowConsiderations] = useState(false);
+const [showIncluded, setShowIncluded] = useState(false);
 
   // availability / booking state
   const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const [unavailableReason, setUnavailableReason] = useState<VenueAvailabilityReason | null>(null);
+
+const [blockedRanges, setBlockedRanges] = useState<BlockedRange[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [newDate, setNewDate] = useState<Date | null>(null);
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
@@ -75,6 +182,7 @@ const CastleModal: React.FC<CastleModalProps> = ({
   const bookSealSrc = isInstaBook
     ? `${import.meta.env.BASE_URL}assets/images/book_gold_seal_insta.png`
     : `${import.meta.env.BASE_URL}assets/images/book_gold_seal.png`;
+    const swapSealSrc = `${import.meta.env.BASE_URL}assets/images/venue-ranker/swap_seal.png`;
 
   // planner credit ($ already paid toward planner)
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
@@ -102,11 +210,56 @@ const CastleModal: React.FC<CastleModalProps> = ({
   const [showDateEditor, setShowDateEditor] = useState(false);
   const [showGuestEditor, setShowGuestEditor] = useState(false);
 
+  const [showSwapPicker, setShowSwapPicker] = useState(false);
+
+  // 📱 Mobile detector (used for fullscreen portal styling)
+const [isMobile, setIsMobile] = useState(() =>
+  typeof window !== "undefined"
+    ? window.matchMedia("(max-width: 768px)").matches
+    : false
+);
+
+useEffect(() => {
+  if (!isMobile) return;
+
+  const prev = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    document.body.style.overflow = prev;
+  };
+}, [isMobile]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const mq: MediaQueryList = window.matchMedia("(max-width: 768px)");
+
+  // set initial
+  setIsMobile(mq.matches);
+
+  const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+
+  // modern
+  if (typeof mq.addEventListener === "function") {
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }
+
+  // safari/old
+  mq.addListener(onChange);
+  return () => mq.removeListener(onChange);
+}, []);
+
+const isPortaled = !!portalTarget;
+const isFullscreenMobile = isMobile && isPortaled;
+
   // misc
   const maxCapacity = venuePricing[venueSlug]?.maxCapacity ?? null;
 
   // The user's just-clicked candidate in VenueDateEditor
   const [proposedDate, setProposedDate] = useState<string | null>(null);
+
 
   // Editors still expect this prop. No-op keeps compile happy.
   const setCurrentScreen = (_screen: string) => {};
@@ -132,100 +285,120 @@ const isVenueLocked = Boolean(lockedVenueSlug);
 
   /* ───────────────────────── Helpers ───────────────────────── */
 
-  const weekdayMap: Weekday[] = useMemo(
-    () => [
-      "sunday",
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-    ],
-    []
-  );
+const weekdayMap: Weekday[] = useMemo(
+  () => [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ],
+  []
+);
 
-  // build the dynamic "What’s Included" list
-  const includedDisplay = useMemo(() => {
-    const base = Array.isArray(includedList) ? includedList.slice() : [];
+// Single source of truth for “what date are we using right now?”
+const activeDate: string | null =
+  selectedDate ||
+  weddingDate ||
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("weddingDate") ||
+  null;
 
-    const strip =
-      venuePricing[venueSlug]?.includedStripPatterns ??
-      DEFAULT_INCLUDED_STRIP_PATTERNS;
+// build the dynamic "What’s Included" list
+const includedDisplay = useMemo(() => {
+  const base = Array.isArray(includedList) ? includedList.slice() : [];
 
-    // remove generic bullets so we don't duplicate spaces
-    const filtered = base.filter((item) => {
-      const lower = String(item || "").toLowerCase();
-      return !strip.some((pattern) =>
-        lower.includes(String(pattern).toLowerCase())
-      );
-    });
+  const strip =
+    venuePricing[venueSlug]?.includedStripPatterns ??
+    DEFAULT_INCLUDED_STRIP_PATTERNS;
 
-    const gc = Number(confirmedGuestCount || 0);
-    const { ceremony, reception, note } = getSelectedSpacesForTier(
-      venueSlug,
-      gc
+  // remove generic bullets so we don't duplicate spaces
+  const filtered = base.filter((item) => {
+    const lower = String(item || "").toLowerCase();
+    return !strip.some((pattern) =>
+      lower.includes(String(pattern).toLowerCase())
     );
+  });
 
-    const dynamic: string[] = [];
+  const gc = Number(confirmedGuestCount || 0);
+  const { ceremony, reception, note } = getSelectedSpacesForTier(venueSlug, gc);
 
-    if (ceremony || reception) {
-      dynamic.push(
-        `<strong>Selected for your guest count</strong>: ` +
-          `${ceremony ? `Ceremony — ${ceremony}` : ""}` +
-          `${ceremony && reception ? "; " : ""}` +
-          `${reception ? `Reception — ${reception}` : ""}`
-      );
-    }
+  const dynamic: string[] = [];
 
-    if (note) dynamic.push(note);
+  if (ceremony || reception) {
+    dynamic.push(
+      `<strong>Selected for your guest count</strong>: ` +
+        `${ceremony ? `Ceremony — ${ceremony}` : ""}` +
+        `${ceremony && reception ? "; " : ""}` +
+        `${reception ? `Reception — ${reception}` : ""}`
+    );
+  }
 
-    return [...dynamic, ...filtered];
-  }, [venueSlug, confirmedGuestCount, includedList]);
+  if (note) dynamic.push(note);
 
-  // price preview (what we show under "Cost")
-  const planPreview = useMemo(() => {
-    if (!confirmedGuestCount || !venueSlug || !weddingDate) {
-      return { isClosed: false, total: null as number | null };
-    }
+  return [...dynamic, ...filtered];
+}, [venueSlug, confirmedGuestCount, includedList]);
 
-    const weekdayName = new Date(weddingDate + "T12:00:00")
-      .toLocaleDateString("en-US", { weekday: "long" })
-      .toLowerCase();
+// price preview (what we show under "Cost")
+const planPreview = useMemo(() => {
+  if (!confirmedGuestCount || !venueSlug || !activeDate) {
+    return {
+      isClosed: false,
+      total: null as number | null,        // total after fees/taxes (original)
+      discount: 0,
+      finalTotal: null as number | null,   // total after promo
+    };
+  }
 
-    const isClosed =
-      Array.isArray(venuePricing[venueSlug]?.closedWeekdays) &&
-      venuePricing[venueSlug]!.closedWeekdays!.includes(weekdayName as Weekday);
+  const weekdayName = new Date(activeDate + "T12:00:00")
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toLowerCase();
 
-    if (isClosed) {
-      return { isClosed: true, total: null };
-    }
+  const isClosed =
+    Array.isArray(venuePricing[venueSlug]?.closedWeekdays) &&
+    venuePricing[venueSlug]!.closedWeekdays!.includes(weekdayName as Weekday);
 
-    const plan = calculatePlan({
-      venueSlug,
-      guestCount: confirmedGuestCount,
-      weddingDate,
-      payFull: true,
-      plannerPaidCents,
-    });
+  if (isClosed) {
+    return { isClosed: true, total: null, discount: 0, finalTotal: null };
+  }
 
-    return { isClosed: false, total: Number(plan?.total || 0) };
-  }, [confirmedGuestCount, venueSlug, weddingDate, plannerPaidCents]);
+  const plan = calculatePlan({
+    venueSlug,
+    guestCount: confirmedGuestCount,
+    weddingDate: activeDate,
+    payFull: true,
+    plannerPaidCents,
+  });
 
-  // pretty date helper (not heavily used in current JSX but keeping it)
-  const formatDateString = (isoDate: string | null): string => {
-    if (!isoDate) return "";
-    const [year, month, day] = isoDate.split("-");
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    return date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
+  const total = Number(plan?.total || 0);
+
+  const promoAmount = bonus500Active ? BONUS_DISCOUNT_AMOUNT : 0;
+  const { discount, finalTotal } = applyPostFeesDiscount(total, promoAmount);
+
+  return {
+    isClosed: false,
+    total,
+    discount,
+    finalTotal,
   };
+}, [confirmedGuestCount, venueSlug, activeDate, plannerPaidCents, bonus500Active]);
 
-  const displayDate = newDate ? newDate.toISOString().split("T")[0] : selectedDate;
-  const isDateAvailable = displayDate && !bookedDates.includes(displayDate);
+// pretty date helper (not heavily used in current JSX but keeping it)
+const formatDateString = (isoDate: string | null): string => {
+  if (!isoDate) return "";
+  const [year, month, day] = isoDate.split("-");
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const displayDate = newDate ? newDate.toISOString().split("T")[0] : selectedDate;
+const isDateAvailable = !!displayDate && !bookedDates.includes(displayDate);
 
   /* ───────────────────────── Effects ───────────────────────── */
 
@@ -238,7 +411,8 @@ const isVenueLocked = Boolean(lockedVenueSlug);
 
         if (venueSnap.exists()) {
           const data = venueSnap.data() as any;
-
+        
+          // bookedDates (legacy + current)
           let legacyDates: string[] = [];
           if (Array.isArray(data.bookedDates)) {
             legacyDates = data.bookedDates
@@ -249,21 +423,39 @@ const isVenueLocked = Boolean(lockedVenueSlug);
               })
               .filter(Boolean);
           }
-
+        
+          // blockedRanges (new)
+          const rangesRaw = Array.isArray(data.blockedRanges) ? data.blockedRanges : [];
+          const parsedRanges = rangesRaw
+            .map((r: any) => ({
+              start: typeof r?.start === "string" ? r.start.trim() : "",
+              end: typeof r?.end === "string" ? r.end.trim() : "",
+            }))
+            .filter(
+              (r: any) =>
+                /^\d{4}-\d{2}-\d{2}$/.test(r.start) && /^\d{4}-\d{2}-\d{2}$/.test(r.end)
+            );
+        
           console.log("🔥 Loaded bookedDates:", legacyDates);
+          console.log("🧊 Loaded blockedRanges:", parsedRanges);
+        
           setBookedDates(legacyDates);
+          setBlockedRanges(parsedRanges);
         } else {
           console.warn("📛 Venue document not found:", venueSlug);
           setBookedDates([]);
+          setBlockedRanges([]);
         }
-      } catch (err) {
-        console.error("Error loading booked dates:", err);
-        setBookedDates([]);
-      }
-    };
+        } catch (err) {
+          console.error("Error loading booked dates:", err);
+          setBookedDates([]);
+          setBlockedRanges([]);
+        }
+        };
+        
+        fetchBookedDates();
+        }, [venueSlug]);
 
-    fetchBookedDates();
-  }, [venueSlug]);
 
   // 2. Load guestCount / weddingDate / planner credit from Firestore (and localStorage fallback)
   useEffect(() => {
@@ -387,32 +579,60 @@ const isVenueLocked = Boolean(lockedVenueSlug);
     else setIsOverCapacity(false);
   }, [gcValue, maxCapacity]);
 
-  // 5. Recompute availability
+  // 5. Recompute availability (single source of truth)
   useEffect(() => {
     const activeDate =
-  selectedDate ||
-  weddingDate ||
-  localStorage.getItem("venueWeddingDate") ||
-  localStorage.getItem("weddingDate") || // legacy fallback ok
-  null;
-
+      selectedDate ||
+      weddingDate ||
+      localStorage.getItem("venueWeddingDate") ||
+      localStorage.getItem("weddingDate") ||
+      null;
+  
     if (!activeDate) {
       setIsAvailable(null);
+      setUnavailableReason(null);
       setIsClosedOnThatDay(false);
       return;
     }
+  
+    const availability = getVenueDateAvailability({
+      venueSlug,
+      isoDate: activeDate,
+      bookedDates,
+      blockedRanges,
+    });
+  
+    console.log("📅 Date availability check:", {
+      venueSlug,
+      date: activeDate,
+      ...availability,
+    });
+  
+    setIsAvailable(!availability.unavailable);
+    setUnavailableReason(availability.unavailable ? availability.reason : null);
+  
+    // This flag is used ONLY for messaging/UI (not booking logic)
+    setIsClosedOnThatDay(
+      availability.reason === "closed_weekday" ||
+        availability.reason === "sunday_not_allowed" ||
+        availability.reason === "no_pricing_for_day" ||
+        availability.reason === "blocked_range"
+    );
+  }, [selectedDate, weddingDate, bookedDates, blockedRanges, venueSlug]);
 
-    const weekdayIdx = new Date(activeDate + "T12:00:00").getDay();
-    const weekdayName = weekdayMap[weekdayIdx];
+  // ✅ Auto-open manual confirm modal after auth (for manual-confirm venues)
+useEffect(() => {
+  if (!autoOpenManualConfirm) return;
 
-    const isBooked = bookedDates.includes(activeDate);
-    const isClosed =
-      Array.isArray(venuePricing[venueSlug]?.closedWeekdays) &&
-      venuePricing[venueSlug]!.closedWeekdays!.includes(weekdayName as Weekday);
+  // Only relevant for manual-confirm venues
+  if (!isManualConfirm) {
+    setAutoOpenManualConfirm?.(false);
+    return;
+  }
 
-    setIsClosedOnThatDay(isClosed);
-    setIsAvailable(!(isBooked || isClosed));
-  }, [selectedDate, weddingDate, bookedDates, venueSlug, weekdayMap]);
+  setShowManualConfirmModal(true);
+  setAutoOpenManualConfirm?.(false);
+}, [autoOpenManualConfirm, isManualConfirm, setAutoOpenManualConfirm]);
 
   // 6. Watch for manual-confirm status for this user+venue+date
   useEffect(() => {
@@ -468,6 +688,7 @@ const isVenueLocked = Boolean(lockedVenueSlug);
     setNewDate(date);
     const formatted = date.toISOString().split("T")[0];
     localStorage.setItem("venueWeddingDate", formatted);
+localStorage.setItem("weddingDate", formatted);
     setSelectedDate(formatted);
 
     if (auth.currentUser) {
@@ -480,58 +701,155 @@ const isVenueLocked = Boolean(lockedVenueSlug);
     }
   };
 
-  const handleBookItClick = () => {
-    // If this venue needs manual confirmation, only block when not approved yet
-    if (isManualConfirm && approvalStatus !== "approved") {
-      setShowManualConfirmModal(true);
-      return;
+  const savePendingVenueBooking = (payload: {
+    venueSlug: string;
+    venueName: string;
+    weddingDate: string;
+    guestCount: number;
+    price: number;
+    intent: "contract" | "manual_confirm";
+  }) => {
+    try {
+      localStorage.setItem("wd_pendingVenueBooking", JSON.stringify(payload));
+      localStorage.setItem("venueRankerCheckpoint", "castle-modal"); // helps us resume correctly
+    } catch (e) {
+      console.warn("Could not save wd_pendingVenueBooking:", e);
     }
+  };
 
+  const handleSwapItClick = () => {
+    console.log("🟠 swap seal clicked", venueSlug);
+  
+    window.dispatchEvent(
+      new CustomEvent("rd_requestSwap", { detail: { slugToAdd: venueSlug } })
+    );
+  
+    onClose();
+  };
+
+  const handleBookItClick = () => {
+    console.log("🟣 Book It clicked", {
+      venueSlug,
+      isLoggedIn: !!auth.currentUser,
+      selectedDate,
+      weddingDate,
+      activeDate: selectedDate || weddingDate || localStorage.getItem("venueWeddingDate") || localStorage.getItem("weddingDate"),
+      confirmedGuestCount,
+      gcValue,
+      planPreviewTotal: planPreview?.total,
+      planPreviewFinalTotal: planPreview?.finalTotal,
+      isManualConfirm,
+      approvalStatus,
+    });
     try {
       const venueMeta = venueDetails[venueSlug];
       const venueName = venueMeta?.title || "Your Venue";
-
+  
       const dateToUse =
         selectedDate || weddingDate || localStorage.getItem("venueWeddingDate") || "";
-
+  
+      const count = Number(confirmedGuestCount ?? gcValue ?? 0);
+  
+      // We may not have planPreview yet if date/guests are missing — keep safe
+      const total =
+  planPreview && (planPreview.finalTotal ?? planPreview.total) != null
+    ? Number(planPreview.finalTotal ?? planPreview.total)
+    : 0;
+  
+      // Decide what they *intended* to do when clicking the seal
+      const intent: "contract" | "manual_confirm" =
+        isManualConfirm && approvalStatus !== "approved" ? "manual_confirm" : "contract";
+  
+      // ✅ If they’re not authed, store intent + details, then trigger account gate
+      const ok = requireAuthForBooking
+  ? requireAuthForBooking(intent === "manual_confirm" ? "manual" : "venuecontract")
+  : !!auth.currentUser;
+  if (!ok) {
+    console.log("🟠 Auth gate hit — saving pending booking and exiting", { intent });
+  
+    if (venueSlug && venueName && dateToUse && count > 0) {
+      savePendingVenueBooking({
+        venueSlug,
+        venueName,
+        weddingDate: dateToUse,
+        guestCount: count,
+        price: total,
+        intent,
+      });
+    } else {
+      console.warn("Auth gate hit but missing date/guestCount to save pending booking.");
+    }
+  
+    // ✅ KEY FIX: close the CastleModal so the post-auth contract can appear cleanly
+    onClose();
+    return;
+  }
+  
+      // ✅ Now proceed exactly like before once authed:
+      if (intent === "manual_confirm") {
+        setShowManualConfirmModal(true);
+        return;
+      }
+  
+      // ---- keep the rest of your existing success flow below ----
       if (!dateToUse) {
         console.warn("🚫 No wedding date available, cannot start contract.");
         return;
       }
-
-      const count =
-        guestCount || parseInt(localStorage.getItem("venueGuestCount") || "0", 10);
-
+  
+      if (!count || count <= 0) {
+        console.warn("🚫 No guest count available, cannot start contract.");
+        return;
+      }
+  
       if (!planPreview || planPreview.total == null) {
         console.warn("🚫 No plan total available yet, cannot start contract.");
         return;
       }
 
-      const total = Number(planPreview.total);
+      // 🎁 Apply Pixie Booking Bonus (if present)
+      const promoAmount = Number(planPreview?.discount || 0);
 
-      // Save for downstream screens + checkout + PDF
+try {
+  localStorage.setItem("venuePromoDiscount", String(promoAmount));
+  localStorage.setItem(
+    "venuePromoLabel",
+    promoAmount ? "$500 Pixie Booking Bonus" : ""
+  );
+} catch {
+  // non-fatal — booking can still proceed
+}
+  
+      const finalTotal =
+  planPreview.finalTotal != null ? Number(planPreview.finalTotal) : Number(planPreview.total);
+  
       localStorage.setItem("venueName", venueName);
       localStorage.setItem("venueSlug", venueSlug || "");
       localStorage.setItem("venueWeddingDate", dateToUse);
       localStorage.setItem("venueGuestCount", String(count));
-      localStorage.setItem("venuePrice", total.toFixed(2));
-
-      console.log("📝 BookIt stored:", { venueName, venueSlug, dateToUse, count, total });
-
+      localStorage.setItem("venuePrice", finalTotal.toFixed(2));
+  
+      // ✅ Only lock Scroll to a single venue for VENUE-SPECIFIC INVITES
+if (isInviteFlowForThisVenue()) {
+  localStorage.setItem("wd_lockedVenueSlug", venueSlug);
+} else {
+  // ✅ $500 URL promo should NOT lock Scroll
+  localStorage.removeItem("wd_lockedVenueSlug");
+}
+      localStorage.setItem("venueRankerCheckpoint", "scroll-of-possibilities");
+  
+      console.log("📝 BookIt stored:", { venueName, venueSlug, dateToUse, count, finalTotal });
+  
       if (typeof handleStartContract === "function") {
         handleStartContract({
           venueSlug,
           venueName,
           guestCount: count,
           weddingDate: dateToUse,
-          price: total,
+          price: finalTotal,
         });
         return;
       }
-
-      setTimeout(() => {
-        setCurrentScreen("venuecontract");
-      }, 50);
     } catch (err) {
       console.error("💥 Error in handleBookItClick:", err);
     }
@@ -552,26 +870,34 @@ const isVenueLocked = Boolean(lockedVenueSlug);
     try {
       const user = auth.currentUser;
       const uid = user?.uid ?? "guest";
-
+  
       const dateToUse =
-        selectedDate || weddingDate || localStorage.getItem("venueWeddingDate") || "";
+  selectedDate ||
+  weddingDate ||
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("weddingDate") ||
+  "";
+  
+      const count = Number(confirmedGuestCount ?? gcValue ?? 0);
+  
+      const total =
+  planPreview && (planPreview.finalTotal ?? planPreview.total) != null
+    ? Number(planPreview.finalTotal ?? planPreview.total)
+    : null;
 
-      const count =
-        guestCount || parseInt(localStorage.getItem("venueGuestCount") || "0", 10);
-
-      const total = planPreview && planPreview.total != null ? Number(planPreview.total) : null;
-
-      const payload = {
-        userId: uid,
-        venueSlug,
-        venueName: details?.title || venueSlug,
-        requestedDate: dateToUse,
-        guestCount: count || 0,
-        quotedTotal: total,
-        status: "requested",
-        createdAt: serverTimestamp(),
-        source: "venueRanker",
-      };
+    const payload = {
+      userId: uid,
+      venueSlug,
+      venueName: details?.title || venueSlug,
+      requestedDate: dateToUse,
+      guestCount: count || 0,
+      quotedTotal: total,
+      promoDiscount: planPreview?.discount ?? 0,
+      promoLabel: (planPreview?.discount ?? 0) > 0 ? "$500 Pixie Booking Bonus" : "",
+      status: "requested",
+      createdAt: serverTimestamp(),
+      source: "venueRanker",
+    };
 
       const docRef = await addDoc(collection(db, "venueRequests"), payload);
       console.log("✨ Venue request saved:", { id: docRef.id, ...payload });
@@ -608,12 +934,149 @@ const isVenueLocked = Boolean(lockedVenueSlug);
     }
   };
 
+  const activeIsoDate =
+  selectedDate ||
+  weddingDate ||
+  localStorage.getItem("venueWeddingDate") ||
+  localStorage.getItem("weddingDate") ||
+  null;
+
+const blockedYear = activeIsoDate ? activeIsoDate.slice(0, 4) : "";
+
+const showUnavailable =
+  !!activeDate &&
+  (
+    !isAvailable ||
+    !planPreview ||
+    planPreview.total == null ||
+    (maxCapacity !== null && gcValue > maxCapacity)
+  );
+
+  const openDateEditor = () => {
+    // If parent is handling the editor, close this modal first
+    if (onOpenDateEditor) {
+      onClose();
+      // let the unmount happen first so we don't stack modals
+      requestAnimationFrame(() => onOpenDateEditor());
+      return;
+    }
+  
+    // fallback: editor lives inside this modal
+    setShowDateEditor(true);
+  };
+  
+  const openGuestEditor = () => {
+    if (onOpenGuestEditor) {
+      onClose();
+      requestAnimationFrame(() => onOpenGuestEditor());
+      return;
+    }
+  
+    setShowGuestEditor(true);
+  };
+
+  // Little "dashboard castle" icon (swap filename to your actual asset)
+  const dateChangeIcon = `${import.meta.env.BASE_URL}assets/images/venue-ranker/date_change.png`;
+  const guestChangeIcon = `${import.meta.env.BASE_URL}assets/images/venue-ranker/guest_change.png`;
+  const castleMagicBannerSrc = `${import.meta.env.BASE_URL}assets/images/venue-ranker/castleMagicBanner.png`;
+// What exactly is wrong?
+const isGuestProblem =
+  maxCapacity !== null && gcValue > maxCapacity;
+
+const isDateProblem =
+  isAvailable === false;
+
+// Show the unavailable helper if we have an active date AND at least one problem
+const showUnavailableHelper = !!activeDate && (isGuestProblem || isDateProblem);
+
+// Build the red message + which action to show
+const unavailableCopy = useMemo(() => {
+  if (!showUnavailableHelper) return null;
+
+  // Guest issue wins if both happen
+  if (isGuestProblem) {
+    return {
+      message: `Your guest count is too high for this venue (max ${maxCapacity} guests).`,
+      helper: "Lower my guest count",
+      icon: guestChangeIcon,
+      onClick: openGuestEditor,
+    };
+  }
+
+  // Date issue
+  if (unavailableReason === "blocked_range") {
+    return {
+      message: `Bookings haven’t been opened yet for ${blockedYear} (pricing pending).`,
+      helper: "Change my date",
+      icon: dateChangeIcon,
+      onClick: openDateEditor,
+    };
+  }
+
+  if (unavailableReason === "booked") {
+    return {
+      message: "This venue is already booked for your wedding date.",
+      helper: "Change my date",
+      icon: dateChangeIcon,
+      onClick: openDateEditor,
+    };
+  }
+
+  if (unavailableReason === "sunday_not_allowed") {
+    return {
+      message: "This venue isn’t available on Sundays.",
+      helper: "Change my date",
+      icon: dateChangeIcon,
+      onClick: openDateEditor,
+    };
+  }
+
+  if (
+    unavailableReason === "closed_weekday" ||
+    unavailableReason === "no_pricing_for_day"
+  ) {
+    return {
+      message: "This venue isn’t available on that day of the week.",
+      helper: "Change my date",
+      icon: dateChangeIcon,
+      onClick: openDateEditor,
+    };
+  }
+
+  return {
+    message: "This venue isn’t available for your selected date.",
+    helper: "Change my date",
+    icon: dateChangeIcon,
+    onClick: openDateEditor,
+  };
+}, [
+  showUnavailableHelper,
+  isGuestProblem,
+  maxCapacity,
+  unavailableReason,
+  blockedYear,
+  openGuestEditor,
+  openDateEditor,
+  dateChangeIcon,
+  guestChangeIcon,
+]);
+
+
+
   /* ───────────────────────── Render ───────────────────────── */
 
   if (!details) {
     return createPortal(
-      <div className="castle-modal-overlay" onClick={onClose}>
-        <div className="castle-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+      className={`castle-modal-overlay ${
+        portalTarget ? "castle-modal-overlay--pane" : ""
+      } ${isFullscreenMobile ? "castle-modal-overlay--fullscreen" : ""}`}
+  onClick={onClose}
+>
+<div
+  className={`castle-modal ${isFullscreenMobile ? "castle-modal--fullscreen" : ""}`}
+  onClick={(e) => e.stopPropagation()}
+>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <img
               src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
@@ -623,7 +1086,7 @@ const isVenueLocked = Boolean(lockedVenueSlug);
           <p>Oops! No details found for this venue.</p>
         </div>
       </div>,
-      document.body
+      portalTarget ?? document.body
     );
   }
 
@@ -633,8 +1096,42 @@ const isVenueLocked = Boolean(lockedVenueSlug);
   console.log("🧪 Plan preview total:", planPreview?.total);
 
   return createPortal(
-    <div className="castle-modal-overlay" onClick={onClose}>
-      <div className="castle-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+  className={`castle-modal-overlay ${
+    portalTarget ? "castle-modal-overlay--pane" : ""
+  }`}
+  onClick={onClose}
+  style={
+    !portalTarget && isMobile
+      ? {
+          position: "fixed",
+          inset: 0,
+          background: "#fff",     // ✅ no dark backdrop on mobile
+          padding: 0,
+          margin: 0,
+          zIndex: 9999,
+        }
+      : undefined
+  }
+>
+  <div
+    className="castle-modal"
+    onClick={(e) => e.stopPropagation()}
+    style={
+      !portalTarget && isMobile
+        ? {
+            width: "100vw",
+            height: "100vh",
+            maxWidth: "none",
+            maxHeight: "none",
+            borderRadius: 0,
+            boxShadow: "none",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+          }
+        : undefined
+    }
+  >
         <button className="modal-close" onClick={onClose} aria-label="Close">
           <img
             src={`${import.meta.env.BASE_URL}assets/icons/blue_ex.png`}
@@ -645,22 +1142,93 @@ const isVenueLocked = Boolean(lockedVenueSlug);
         <div style={{ padding: "2rem" }}>
           <h2 className="modal-title">{details.title}</h2>
 
-          {weddingDate && (
-            <p className="modal-subtext">
-              <strong>Cost:</strong>{" "}
-              {!isAvailable ||
-              !planPreview ||
-              planPreview.total == null ||
-              (guestCount !== null &&
-                maxCapacity !== null &&
-                guestCount > maxCapacity)
-                ? "Unavailable"
-                : `$${planPreview.total.toLocaleString()}`}
-            </p>
-          )}
+          {activeDate && (
+  <p className="modal-subtext">
+    <strong>Cost:</strong>{" "}
+    {!isAvailable ||
+    !planPreview ||
+    planPreview.total == null ||
+    (maxCapacity !== null && gcValue > maxCapacity)
+      ? "Unavailable"
+      : `$${(planPreview.finalTotal ?? planPreview.total).toLocaleString()}`}
+  </p>
+)}
 
-          <p className="modal-subtext">
-            <strong>Max Capacity:</strong>{" "}
+{unavailableCopy && (
+  <div
+    style={{
+      marginTop: 14,
+      textAlign: "center",
+      paddingBottom: 10, // creates breathing room so bonus line never collides
+    }}
+  >
+    <p
+      style={{
+        fontWeight: 800,
+        color: "#b00020",
+        margin: "0 0 10px",
+        fontSize: "1.05rem",
+        lineHeight: 1.35,
+      }}
+    >
+      {unavailableCopy.message}
+    </p>
+
+    <button
+      type="button"
+      onClick={unavailableCopy.onClick}
+      aria-label={unavailableCopy.helper}
+      title={unavailableCopy.helper}
+      style={{
+        border: "none",
+        background: "transparent",
+        padding: 0,
+        cursor: "pointer",
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <img
+  src={unavailableCopy.icon}
+  alt=""
+  style={{
+    width: 80,
+    height: 80,
+    objectFit: "contain",
+    filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.18))",
+  }}
+  draggable={false}
+/>
+      <div style={{ color: "#777", fontSize: "0.92rem", fontWeight: 600 }}>
+        {unavailableCopy.helper}
+      </div>
+    </button>
+  </div>
+)}
+
+{planPreview?.discount > 0 &&
+  planPreview?.finalTotal != null &&
+  planPreview?.total != null && (
+    <p
+  className="modal-subtext"
+  style={{ marginTop: unavailableCopy ? "0.25rem" : "-0.5rem" }}
+>
+      <span style={{ color: "#2c62ba", fontWeight: 700 }}>
+        Pixie Booking Bonus:
+      </span>{" "}
+      <span style={{ color: "#1a7f37", fontWeight: 800 }}>
+        -${planPreview.discount.toLocaleString()}
+      </span>{" "}
+      <span style={{ color: "#777", fontSize: "0.9rem" }}>
+        (was ${planPreview.total.toLocaleString()})
+      </span>
+    </p>
+)}
+
+<p className="modal-subtext">
+  <strong>Max Capacity:</strong>{" "}
             {venuePricing[venueSlug]?.maxCapacity
               ? `${venuePricing[venueSlug].maxCapacity} guests`
               : "N/A"}
@@ -675,197 +1243,171 @@ const isVenueLocked = Boolean(lockedVenueSlug);
             />
           </div>
 
-          <div className="considerations-block" style={{ marginTop: "1.25rem" }}>
-            <button
-              className="castle-considerations-btn"
-              onClick={() => setShowMadgeTip((prev) => !prev)}
-              style={{
-                animation: !showMadgeTip ? "pulseGlow 1.6s ease-in-out infinite" : "none",
-                fontFamily: "'Jenna Sue','JennaSue',cursive",
-                fontSize: "1.8rem",
-                lineHeight: 1.2,
-                fontWeight: 400,
-                color: "#fff",
-                backgroundColor: "#2c62ba",
-                border: "0",
-                borderRadius: "12px",
-                padding: "0.75rem 1rem",
-                width: "fit-content",
-                minWidth: "240px",
-                maxWidth: "90%",
-                margin: "1.25rem auto 0",
-                textAlign: "center",
-                display: "block",
-                cursor: "pointer",
-                boxShadow: !showMadgeTip
-                  ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
-                  : "0 8px 20px rgba(44,98,186,0.35)",
-                transition:
-                  "box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease",
-                alignSelf: "center",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                  "0 10px 24px rgba(44,98,186,0.5)";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = !showMadgeTip
-                  ? "0 0 10px 2px rgba(44, 98, 186, 0.6), 0 8px 20px rgba(44,98,186,0.35)"
-                  : "0 8px 20px rgba(44,98,186,0.35)";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-              }}
-            >
-              Castle Considerations
-            </button>
+          {/* ✨ Castle Magic Banner (below video) */}
+<div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "center" }}>
+  <img
+    src={castleMagicBannerSrc}
+    alt="Castle Magic"
+    style={{
+      width: "min(720px, 100%)",
+      height: "auto",
+      borderRadius: 18,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+    }}
+    draggable={false}
+  />
+</div>
 
-            {showMadgeTip && (
-              <>
-                <p className="madge-explainer">
-                  These Castle Considerations are key details from the venue’s contract or just
-                  pixie planner knowledge we have that we're sharing with you — Madge thinks you
-                  should be aware of them before booking!
-                </p>
+{/* 🔽 Two big glowing buttons */}
+<div
+  style={{
+    marginTop: "1.25rem",
+    display: "grid",
+    gap: 14,
+    justifyItems: "center",
+  }}
+>
+  {/* Castle Considerations Button */}
+  <button
+    type="button"
+    onClick={() => {
+      setShowConsiderations((prev) => !prev);
+      // optional: only one open at a time
+      setShowIncluded(false);
+    }}
+    style={{
+      width: "min(640px, 100%)",
+      padding: "18px 18px",
+      borderRadius: 18,
+      border: "none",
+      cursor: "pointer",
+      color: "#fff",
+      fontFamily: "'Jenna Sue','JennaSue',cursive",
+      fontSize: "2.2rem",
+      lineHeight: 1.05,
+      background: "linear-gradient(180deg, #2c62ba 0%, #1f4f9f 100%)",
+      boxShadow: showConsiderations
+        ? "0 0 0 4px rgba(44,98,186,0.18), 0 12px 28px rgba(44,98,186,0.42)"
+        : "0 0 14px 5px rgba(44,98,186,0.35), 0 10px 26px rgba(44,98,186,0.28)",
+      transform: showConsiderations ? "translateY(-1px)" : "none",
+      transition: "transform 180ms ease, box-shadow 220ms ease",
+      textAlign: "center",
+    }}
+    aria-expanded={showConsiderations}
+  >
+    Castle Considerations
+    <span style={{ display: "block", fontFamily: "Nunito, system-ui, sans-serif", fontSize: "1rem", marginTop: 6, opacity: 0.92 }}>
+      Tap to {showConsiderations ? "hide" : "read"} the important stuff ✨
+    </span>
+  </button>
 
-                <ul
-                  className="castle-considerations-list"
-                  style={{ paddingLeft: "1.25rem", marginTop: "1rem" }}
-                >
-                  {details.castleConsiderations.map((item, index) => (
-                    <li
-                      key={index}
-                      dangerouslySetInnerHTML={{ __html: item }}
-                      style={{ marginBottom: "0.5rem" }}
-                    />
-                  ))}
-                </ul>
-              </>
-            )}
+  {showConsiderations && (
+    <div
+      style={{
+        width: "min(720px, 100%)",
+        background: "#fff",
+        borderRadius: 18,
+        padding: "16px 18px 12px",
+        boxShadow: "0 10px 26px rgba(0,0,0,0.10)",
+        border: "1px solid rgba(44,98,186,0.12)",
+      }}
+    >
+      <p
+        style={{
+          margin: "0 0 12px",
+          color: "#444",
+          fontSize: "1rem",
+          lineHeight: 1.5,
+          fontFamily: "Nunito, system-ui, sans-serif",
+        }}
+      >
+        These are key contract notes + pixie-planner tips Madge wants you to know before you book.
+      </p>
 
-            <style>
-              {`
-                @keyframes pulseGlow {
-                  0%   { box-shadow: 0 0 0 rgba(44, 98, 186, 0.0); }
-                  50%  { box-shadow: 0 0 12px 4px rgba(44, 98, 186, 0.6); }
-                  100% { box-shadow: 0 0 0 rgba(44, 98, 186, 0.0); }
-                }
-              `}
-            </style>
-          </div>
+      <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
+        {details.castleConsiderations.map((item, index) => (
+          <li
+            key={index}
+            dangerouslySetInnerHTML={{ __html: item }}
+            style={{ marginBottom: "0.65rem", color: "#222", fontFamily: "Nunito, system-ui, sans-serif", fontSize: "1.05rem", lineHeight: 1.55 }}
+          />
+        ))}
+      </ul>
+    </div>
+  )}
 
-          {includedDisplay.length > 0 && (
-            <div className="included-block">
-              <h4 className="modal-subtext">What’s Included:</h4>
-              <ul className="included-list" style={{ paddingLeft: "1.25rem", marginTop: "1rem" }}>
-                {includedDisplay.map((item, idx) => (
-                  <li
-                    key={idx}
-                    dangerouslySetInnerHTML={{ __html: item }}
-                    style={{ marginBottom: "0.5rem" }}
-                  />
-                ))}
-              </ul>
-            </div>
-          )}
+  {/* What's Included Button */}
+  <button
+    type="button"
+    onClick={() => {
+      setShowIncluded((prev) => !prev);
+      // optional: only one open at a time
+      setShowConsiderations(false);
+    }}
+    style={{
+      width: "min(640px, 100%)",
+      padding: "18px 18px",
+      borderRadius: 18,
+      border: "none",
+      cursor: "pointer",
+      color: "#fff",
+      fontFamily: "'Jenna Sue','JennaSue',cursive",
+      fontSize: "2.2rem",
+      lineHeight: 1.05,
+      background: "linear-gradient(180deg, #6a3df2 0%, #8b5bff 100%)",
+boxShadow: showIncluded
+  ? "0 0 0 4px rgba(106,61,242,0.18), 0 12px 28px rgba(106,61,242,0.42)"
+  : "0 0 14px 5px rgba(106,61,242,0.32), 0 10px 26px rgba(106,61,242,0.26)",
+      transform: showIncluded ? "translateY(-1px)" : "none",
+      transition: "transform 180ms ease, box-shadow 220ms ease",
+      textAlign: "center",
+    }}
+    aria-expanded={showIncluded}
+    disabled={includedDisplay.length === 0}
+  >
+    What&apos;s Included
+    <span style={{ display: "block", fontFamily: "Nunito, system-ui, sans-serif", fontSize: "1rem", marginTop: 6, opacity: 0.92 }}>
+      Tap to {showIncluded ? "hide" : "see"} what you get 🪄
+    </span>
+  </button>
+
+  {showIncluded && includedDisplay.length > 0 && (
+    <div
+      style={{
+        width: "min(720px, 100%)",
+        background: "#fff",
+        borderRadius: 18,
+        padding: "16px 18px 12px",
+        boxShadow: "0 10px 26px rgba(0,0,0,0.10)",
+        border: "1px solid rgba(59,124,255,0.14)",
+      }}
+    >
+      <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
+        {includedDisplay.map((item, idx) => (
+          <li
+            key={idx}
+            dangerouslySetInnerHTML={{ __html: item }}
+            style={{ marginBottom: "0.65rem", color: "#222", fontFamily: "Nunito, system-ui, sans-serif", fontSize: "1.05rem", lineHeight: 1.55 }}
+          />
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
 
           {/* if the date is blocked / closed */}
-          {isAvailable === false && (
-            <div style={{ textAlign: "center", marginTop: "2rem" }}>
-              <p
-                style={{
-                  fontSize: "1.3rem",
-                  fontWeight: "bold",
-                  color: "#b30000",
-                  marginBottom: "1rem",
-                }}
-              >
-                Uh oh! Your selected date isn’t available for this venue
-              </p>
-              <button
-                style={{
-                  backgroundColor: "#f78da7",
-                  color: "#fff",
-                  border: "none",
-                  padding: "0.6rem 1.2rem",
-                  fontSize: "1rem",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-                onClick={() => setShowDateEditor(true)}
-              >
-                Change My Date
-              </button>
-            </div>
-          )}
-
-          {/* if guest count is too high */}
-          {isOverCapacity && (
-            <div style={{ textAlign: "center", marginTop: "2rem" }}>
-              <p
-                style={{
-                  fontSize: "1.3rem",
-                  fontWeight: "bold",
-                  color: "#b30000",
-                  marginBottom: "1rem",
-                }}
-              >
-                ⚠️ Too many guests! This venue can’t host your current count ⚠️
-              </p>
-
-              {gcLocked ? (
-                <div
-                  style={{
-                    backgroundColor: "#fff0f0",
-                    padding: "1rem",
-                    borderRadius: "10px",
-                    marginTop: "0.5rem",
-                  }}
-                >
-                  <p style={{ fontSize: "1rem", color: "#b30000", fontWeight: 500 }}>
-  Your guest count is locked due to an existing booking, so you can’t lower it here.
-  {isVenueLocked ? (
-    <>
-      {" "}If you need help, email Madge:{" "}
-      <a href="mailto:madge@wedanddone.com">madge@wedanddone.com</a>
-    </>
-  ) : (
-    <>
-      {" "}Please pick another venue that fits your guest count — or email Madge:{" "}
-      <a href="mailto:madge@wedanddone.com">madge@wedanddone.com</a>
-    </>
-  )}
-</p>
-                </div>
-              ) : (
-                <button
-                  style={{
-                    backgroundColor: "#f78da7",
-                    color: "#fff",
-                    border: "none",
-                    padding: "0.6rem 1.2rem",
-                    fontSize: "1rem",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                  onClick={() => setShowGuestEditor(true)}
-                >
-                  Lower My Guest Count
-                </button>
-              )}
-            </div>
-          )}
 
           {/* Date editor modal */}
           {showDateEditor && (
             <VenueDateEditor
               venueSlug={venueSlug}
+              venueTitle={details.title}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
               weddingDate={weddingDate}
               setWeddingDate={setWeddingDate}
               bookedDates={bookedDates}
+              blockedRanges={blockedRanges} 
               setNewDate={setNewDate}
               newDate={newDate}
               isNewDateConfirmed={isNewDateConfirmed}
@@ -881,17 +1423,16 @@ const isVenueLocked = Boolean(lockedVenueSlug);
           )}
 
           {/* Guest editor modal */}
-          {showGuestEditor && (
-            <VenueGuestEditor
-              guestCount={guestCount}
-              setGuestCount={setGuestCount}
-              confirmedGuestCount={confirmedGuestCount}
-              setConfirmedGuestCount={setConfirmedGuestCount}
-              venueInfo={venueInfo}
-              onClose={() => setShowGuestEditor(false)}
-              setCurrentScreen={setCurrentScreen}
-            />
-          )}
+{showGuestEditor && (
+  <VenueGuestEditor
+    guestCount={guestCount}
+    setGuestCount={setGuestCount}
+    confirmedGuestCount={confirmedGuestCount}
+    setConfirmedGuestCount={setConfirmedGuestCount}
+    onClose={() => setShowGuestEditor(false)}
+    setCurrentScreen={setCurrentScreen}
+  />
+)}
 
           {showManualConfirmModal && (
             <>
@@ -974,6 +1515,16 @@ const isVenueLocked = Boolean(lockedVenueSlug);
                     <button
   onClick={() => {
     setShowManualConfirmModal(false);
+
+    // ✅ POST-AUTH RESUME CASE:
+    // If we auto-opened this manual confirm after account creation,
+    // "Nevermind" should ALWAYS return to Scroll (close castle modal),
+    // NOT restart the whole overlay.
+    if (autoOpenManualConfirm) {
+      setAutoOpenManualConfirm?.(false);
+      onClose();
+      return;
+    }
   
     // Exploring mode → stay in scroll, compare other venues
     if (!isVenueLocked) {
@@ -1000,38 +1551,83 @@ const isVenueLocked = Boolean(lockedVenueSlug);
   {isVenueLocked ? "Back to the beginning" : "Nevermind, I’ll compare other venues"}
 </button>
 
-                    <button
-                      onClick={async () => {
-                        try {
-                          setRequestSent(true);
-                          await saveVenueRequestToFirestore();
-                          setTimeout(() => {
-                            setShowManualConfirmModal(false);
-                          }, 1500);
-                          console.log("✅ Manual venue request submitted and email sent");
-                        } catch (err) {
-                          console.error("❌ Error submitting manual venue request:", err);
-                          setRequestSent(false);
-                          alert("Something went wrong while sending your request — please try again!");
-                        }
-                      }}
-                      disabled={requestSent}
-                      style={{
-                        padding: "10px 18px",
-                        borderRadius: 10,
-                        background: requestSent ? "#999" : "#2c62ba",
-                        color: "#fff",
-                        cursor: requestSent ? "default" : "pointer",
-                        fontWeight: 600,
-                        fontSize: "0.95rem",
-                        boxShadow: requestSent
-                          ? "none"
-                          : "0 4px 12px rgba(44,98,186,0.35), 0 0 10px rgba(44,98,186,0.4)",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      {requestSent ? "Request Sent ✨" : "I understand — please check my date"}
-                    </button>
+<button
+  onClick={async () => {
+    // ✅ Account gate here too (otherwise guests can submit requests)
+    const ok = requireAuthForBooking
+      ? requireAuthForBooking("manual")
+      : !!auth.currentUser;
+
+    if (!ok) {
+      // ✅ Save pending manual booking so we can reopen this castle after auth
+      try {
+        const venueName = details?.title || venueSlug;
+
+        const dateToUse =
+          selectedDate ||
+          weddingDate ||
+          localStorage.getItem("venueWeddingDate") ||
+          localStorage.getItem("weddingDate") ||
+          "";
+
+        const count = Number(confirmedGuestCount ?? gcValue ?? 0);
+
+        const total =
+  planPreview && planPreview.finalTotal != null
+    ? Number(planPreview.finalTotal)
+    : planPreview && planPreview.total != null
+    ? Number(planPreview.total)
+    : 0;
+
+        if (venueSlug && venueName && dateToUse && count > 0) {
+          savePendingVenueBooking({
+            venueSlug,
+            venueName,
+            weddingDate: dateToUse,
+            guestCount: count,
+            price: total,
+            intent: "manual_confirm",
+          });
+        }
+      } catch (e) {
+        console.warn("Could not save pending manual booking before auth:", e);
+      }
+
+      // ✅ KEY FIX: close modals so post-auth resume can take over cleanly
+  setShowManualConfirmModal(false);
+  onClose();
+  return;
+    }
+
+    // ✅ User is authed → actually submit the manual request
+    try {
+      setRequestSent(true);
+      await saveVenueRequestToFirestore();
+      setTimeout(() => setShowManualConfirmModal(false), 1500);
+      console.log("✅ Manual venue request submitted and email sent");
+    } catch (err) {
+      console.error("❌ Error submitting manual venue request:", err);
+      setRequestSent(false);
+      alert("Something went wrong while sending your request — please try again!");
+    }
+  }}
+  disabled={requestSent}
+  style={{
+    padding: "10px 18px",
+    borderRadius: 10,
+    background: requestSent ? "#999" : "#2c62ba",
+    color: "#fff",
+    cursor: requestSent ? "default" : "pointer",
+    fontWeight: 600,
+    fontSize: "0.95rem",
+    boxShadow: requestSent
+      ? "none"
+      : "0 4px 12px rgba(44,98,186,0.35), 0 0 10px rgba(44,98,186,0.4)",
+    transition: "all 0.2s ease",
+  }}
+>
+  {requestSent ? "Request Sent ✨" : "I understand — please check my date"}
+</button>
                   </div>
 
                   {requestSent && (
@@ -1051,128 +1647,244 @@ const isVenueLocked = Boolean(lockedVenueSlug);
             </>
           )}
 
-          {/* Gold seal button only if no conflicts and we have a price */}
-          {isAvailable === true && !isOverCapacity && planPreview?.total != null && (
-            <div style={{ textAlign: "center", marginTop: "2rem" }}>
-              {isManualConfirm ? (
-                approvalStatus === "approved" ? (
+                    {/* Seal CTA (booking OR swap) only if no conflicts and we have a price */}
+                    {isAvailable === true &&
+            !isOverCapacity &&
+            (planPreview?.finalTotal ?? planPreview?.total) != null && (
+              <div style={{ textAlign: "center", marginTop: "2rem" }}>
+                {swapMode ? (
                   <>
-                    <p
-                      style={{
-                        fontSize: "1rem",
-                        fontWeight: 700,
-                        color: "#1a7f37",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      ✅ Approved by {details.title}! You can book now.
-                    </p>
                     <img
-                      src={bookSealSrc}
-                      alt={isManualConfirm ? "Book It Now" : "Pixie Perfect • Insta-Book!"}
-                      onClick={handleBookItClick}
+                      src={swapSealSrc}
+                      alt="Swap it in"
+                      onClick={handleSwapItClick}
                       style={{
-                        width: "120px",
+                        width: "170px",
                         height: "auto",
                         cursor: "pointer",
                         transition: "transform 0.3s ease, filter 0.3s ease",
-                        filter: "drop-shadow(0 0 4px gold)",
+                        filter: "drop-shadow(0 0 10px rgba(120,190,255,0.65))",
                         display: "block",
                         margin: "0 auto",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "scale(1.1)";
-                        e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+                        e.currentTarget.style.transform = "scale(1.12)";
+                        e.currentTarget.style.filter =
+                          "drop-shadow(0 0 18px rgba(120,190,255,0.95))";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = "scale(1)";
-                        e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+                        e.currentTarget.style.filter =
+                          "drop-shadow(0 0 10px rgba(120,190,255,0.65))";
                       }}
                     />
-                  </>
-                ) : approvalStatus === "requested" ? (
-                  <>
-                    <p
+
+                    <div
                       style={{
-                        fontSize: "1rem",
-                        fontWeight: 600,
-                        color: "#2c62ba",
-                        lineHeight: 1.4,
-                        marginBottom: "0.75rem",
+                        marginTop: 10,
+                        fontSize: "0.95rem",
+                        color: "#666",
+                        fontWeight: 700,
                       }}
                     >
-                      Request Sent ✨
-                    </p>
-                    <p
-                      style={{
-                        fontSize: "0.9rem",
-                        color: "#444",
-                        maxWidth: 360,
-                        margin: "0 auto",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      We’re double-checking your date with {details.title}. We’ll email you as soon as we confirm!
-                    </p>
+                      Swap this venue into your Top 5 ✨
+                    </div>
                   </>
-                ) : approvalStatus === "declined" ? (
-                  <p style={{ fontSize: "1rem", fontWeight: 600, color: "#b30000", lineHeight: 1.4 }}>
-                    Sorry — that date isn’t available. Please pick another.
-                  </p>
                 ) : (
-                  <img
-                    src={bookSealSrc}
-                    alt="Check Availability"
-                    onClick={() => setShowManualConfirmModal(true)}
-                    style={{
-                      width: "120px",
-                      height: "auto",
-                      cursor: "pointer",
-                      transition: "transform 0.3s ease, filter 0.3s ease",
-                      filter: "drop-shadow(0 0 4px gold)",
-                      display: "block",
-                      margin: "0 auto",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "scale(1.1)";
-                      e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "scale(1)";
-                      e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
-                    }}
-                  />
-                )
-              ) : (
-                <img
-                  src={bookSealSrc}
-                  alt="Pixie Perfect • Insta-Book!"
-                  onClick={handleBookItClick}
-                  style={{
-                    width: "180px",
-                    height: "auto",
-                    cursor: "pointer",
-                    transition: "transform 0.3s ease, filter 0.3s ease",
-                    filter: "drop-shadow(0 0 12px rgba(80,160,255,0.9))",
-                    display: "block",
-                    margin: "0 auto",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "scale(1.12)";
-                    e.currentTarget.style.filter = "drop-shadow(0 0 22px rgba(120,190,255,1))";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "scale(1)";
-                    e.currentTarget.style.filter = "drop-shadow(0 0 12px rgba(80,160,255,0.9))";
-                  }}
-                />
-              )}
-            </div>
-          )}
+                  <>
+                    {/* ✅ KEEP YOUR EXISTING BOOKING SEAL LOGIC */}
+                    {isManualConfirm ? (
+                      approvalStatus === "approved" ? (
+                        <>
+                          <p
+                            style={{
+                              fontSize: "1rem",
+                              fontWeight: 700,
+                              color: "#1a7f37",
+                              marginBottom: "0.5rem",
+                            }}
+                          >
+                            ✅ Approved by {details.title}! You can book now.
+                          </p>
+                          <img
+                            src={bookSealSrc}
+                            alt={isManualConfirm ? "Book It Now" : "Pixie Perfect • Insta-Book!"}
+                            onClick={handleBookItClick}
+                            style={{
+                              width: "120px",
+                              height: "auto",
+                              cursor: "pointer",
+                              transition: "transform 0.3s ease, filter 0.3s ease",
+                              filter: "drop-shadow(0 0 4px gold)",
+                              display: "block",
+                              margin: "0 auto",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = "scale(1.1)";
+                              e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "scale(1)";
+                              e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+                            }}
+                          />
+                        </>
+                      ) : approvalStatus === "requested" ? (
+                        <>
+                          <p
+                            style={{
+                              fontSize: "1rem",
+                              fontWeight: 600,
+                              color: "#2c62ba",
+                              lineHeight: 1.4,
+                              marginBottom: "0.75rem",
+                            }}
+                          >
+                            Request Sent ✨
+                          </p>
+                          <p
+                            style={{
+                              fontSize: "0.9rem",
+                              color: "#444",
+                              maxWidth: 360,
+                              margin: "0 auto",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            We’re double-checking your date with {details.title}. We’ll email you as
+                            soon as we confirm!
+                          </p>
+                        </>
+                      ) : approvalStatus === "declined" ? (
+                        <p
+                          style={{
+                            fontSize: "1rem",
+                            fontWeight: 600,
+                            color: "#b30000",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Sorry — that date isn’t available. Please pick another.
+                        </p>
+                      ) : (
+                        <img
+                          src={bookSealSrc}
+                          alt="Check Availability"
+                          onClick={() => setShowManualConfirmModal(true)}
+                          style={{
+                            width: "120px",
+                            height: "auto",
+                            cursor: "pointer",
+                            transition: "transform 0.3s ease, filter 0.3s ease",
+                            filter: "drop-shadow(0 0 4px gold)",
+                            display: "block",
+                            margin: "0 auto",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "scale(1.1)";
+                            e.currentTarget.style.filter = "drop-shadow(0 0 14px gold)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "scale(1)";
+                            e.currentTarget.style.filter = "drop-shadow(0 0 4px gold)";
+                          }}
+                        />
+                      )
+                    ) : (
+                      <img
+                        src={bookSealSrc}
+                        alt="Pixie Perfect • Insta-Book!"
+                        onClick={handleBookItClick}
+                        style={{
+                          width: "180px",
+                          height: "auto",
+                          cursor: "pointer",
+                          transition: "transform 0.3s ease, filter 0.3s ease",
+                          filter: "drop-shadow(0 0 12px rgba(80,160,255,0.9))",
+                          display: "block",
+                          margin: "0 auto",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "scale(1.12)";
+                          e.currentTarget.style.filter =
+                            "drop-shadow(0 0 22px rgba(120,190,255,1))";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "scale(1)";
+                          e.currentTarget.style.filter =
+                            "drop-shadow(0 0 12px rgba(80,160,255,0.9))";
+                        }}
+                      />
+                    )}
+
+                    {/* ⭐ Star (secondary CTA – venueStarred) */}
+                    <div style={{ textAlign: "center", marginTop: "0.9rem" }}>
+                      <button
+                        type="button"
+                        onClick={toggleStarred}
+                        aria-label={isFavorited ? "Remove star" : "Star this venue"}
+                        title={isFavorited ? "Starred" : "Save for later"}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        <div style={{ position: "relative", width: 60, height: 60 }}>
+                          {/* Clear (unstarred) */}
+                          <img
+                            src={`${import.meta.env.BASE_URL}assets/images/clear_star.png`}
+                            alt=""
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                              opacity: isFavorited ? 0 : 1,
+                              transition: "opacity 300ms ease-in-out",
+                              filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.2))",
+                            }}
+                          />
+
+                          {/* Filled (starred) */}
+                          <img
+                            src={`${import.meta.env.BASE_URL}assets/images/filled_star.png`}
+                            alt=""
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                              opacity: isFavorited ? 1 : 0,
+                              transition: "opacity 300ms ease-in-out",
+                              filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.25))",
+                            }}
+                          />
+                        </div>
+                      </button>
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: "0.92rem",
+                          color: "#666",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {isFavorited ? "Starred for later ✨" : "Tap the star to remember this one."}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget ?? document.body
   );
 };
 

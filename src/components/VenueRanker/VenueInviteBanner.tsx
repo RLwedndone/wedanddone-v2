@@ -26,23 +26,27 @@ const VenueInviteBanner: React.FC<VenueInviteBannerProps> = ({
 
   return (
     <button
-      type="button"
-      onClick={onClick}
-      aria-label="Open venue invite"
-      title="Open venue invite"
-      style={{
-        appearance: "none",
-        border: "none",
-        background: "transparent",
-        padding: 0,
-        margin: 0,
-        cursor: "pointer",
-        lineHeight: 0,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick();
+  }}
+  aria-label="Open venue invite"
+  title="Open venue invite"
+  style={{
+    appearance: "none",
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    margin: 0,
+    cursor: "pointer",
+    lineHeight: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
       <img
         src={`${import.meta.env.BASE_URL}assets/images/inviteEnvelope.png`}
         alt="Venue invite available"

@@ -6,6 +6,7 @@ import VenueAvailabilityAdmin from "../components/admin/VenueAvailabilityAdmin";
 import AdminPixiePurchasePanel from "../components/admin/AdminPixiePurchasePanel";
 import { useLocation } from "react-router-dom";
 import { getGuestState } from "../utils/guestCountStore";
+import DashboardGate from "../components/common/DashboardGate";
 
 import GuestCountReminderModal from "../components/common/GuestCountReminderModal";
 import PaymentSettingsOverlay from "../components/account/PaymentSettingsOverlay";
@@ -17,7 +18,6 @@ import GuestListScroll from "../components/MenuScreens/GuestListScroll";
 import FloralPickerOverlay from "../components/FloralPicker/FloralPickerOverlay";
 import JamOverlay, { JamStep } from "../components/JamGroove/JamOverlay";
 import PhotoStylerOverlay from "../components/PhotoStyler/PhotoStylerOverlay";
-import VenueRankerOverlay from "../components/VenueRanker/VenueRankerOverlay";
 import PixiePlannerOverlay from "../components/PixiePlanner/PixiePlannerOverlay";
 import UserMenu from "../components/UserMenu";
 import DocumentsScreen from "../components/MenuScreens/DocumentsScreen";
@@ -28,12 +28,14 @@ import { YumStep } from "../components/NewYumBuild/yumTypes";
 import MagicBookOverlay from "../components/MagicBook/MagicBookOverlay";
 import WedAndDoneOverlay from "../components/WedAndDoneInfo/WedAndDoneOverlay";
 import LoginModal from "./LoginModal";
-import MadgeChatModal from "../components/MadgeChat/MadgeChatModal";
 import MenuController from "../components/NewYumBuild/shared/MenuController";
 import PixiePurchaseCenter from "../components/MenuScreens/PixiePurchaseCenter";
 import PixiePurchaseCheckout from "../components/MenuScreens/PixiePurchaseCheckout";
 import type { PixiePurchase } from "../utils/pixiePurchaseTypes";
 import { track } from "../utils/analytics";
+import MadgeOverlay from "../components/MadgeChat/MadgeOverlay";
+import WDQuestions from "../components/WedAndDoneInfo/WDQuestions";
+import RD_VenueRankerOverlay from "../components/VenueRanker/ReDesign/RD_VenueRankerOverlay";
 
 import "../styles/globals/boutique.master.css";
 import "./Dashboard.css";
@@ -109,6 +111,7 @@ type UserMenuScreenType =
   | "guestListScroll"
   | "payments"
   | "pixiePurchases"
+  | "questions"
   | null;
 
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -127,6 +130,12 @@ const isStandalone = () => {
     window.matchMedia?.("(display-mode: standalone)")?.matches
   );
 };
+
+const SS_GATE_BYPASS = "wd_gate_bypass"; // session-only
+const LS_GATE_DONE = "wd_guestbook_done";
+const LS_GATE_SNOOZE_UNTIL = "wd_gate_snooze_until";
+
+const SHOW_DEV_TOOLS = false; // set true when you want it back
 
 function computeShowInstallIcon(opts: {
   isMobile: boolean;
@@ -218,10 +227,43 @@ function shouldShowGuestScroll(opts: {
 }
 
 const Dashboard: React.FC = () => {
+
+    // --- dashboard gate (first-time only) ---
+    const [showDashboardGate, setShowDashboardGate] = useState(() => {
+      try {
+        // Don't gate you (admin) while testing
+        if (auth.currentUser?.email === "rachel@wedanddone.com") return false;
+    
+        // ✅ session bypass (invite / promo flows)
+        const bypass = sessionStorage.getItem(SS_GATE_BYPASS) === "true";
+        if (bypass) return false;
+    
+        // ✅ if they arrived via promo link, skip gate immediately (first paint)
+        const params = new URLSearchParams(window.location.search);
+        const cameFromBonus = params.get("bonus") === "500";
+        if (cameFromBonus) return false;
+    
+        // ✅ already completed (made account)
+        const done = localStorage.getItem(LS_GATE_DONE) === "true";
+        if (done) return false;
+    
+        // ✅ snoozed?
+        const snoozeUntil = Number(localStorage.getItem(LS_GATE_SNOOZE_UNTIL) || 0);
+        const snoozed = Date.now() < snoozeUntil;
+        if (snoozed) return false;
+    
+        // otherwise show it
+        return true;
+      } catch {
+        return true;
+      }
+    });
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const location = useLocation() as { state?: any };
   const [showAvailabilityAdmin, setShowAvailabilityAdmin] = useState(false);
   const [showPixieAdmin, setShowPixieAdmin] = useState(false);
+  const [showMadgeOverlay, setShowMadgeOverlay] = useState(false);
 
   const [showMagicCloud, setShowMagicCloud] = useState(false);
 
@@ -275,8 +317,6 @@ const Dashboard: React.FC = () => {
   const [plannerSavedStep, setPlannerSavedStep] = useState<string | null>(null);
   const [venueSavedStep, setVenueSavedStep] = useState<string | null>(null);
 
-  // chat
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // guest confirmation flow
   const [showGuestCountFlow, setShowGuestCountFlow] = useState(false);
@@ -296,19 +336,19 @@ const showInstallIcon = computeShowInstallIcon({ isMobile, canInstall });
 
 
   // mini overlay system (separate from activeOverlay state)
-type InlineOverlay =
-| {
-    type: "venueRanker" | "photo" | "floral" | "planner" | "jam";
-    startAt?: string;
-  }
-| {
-    type: "menuController";
-    startAt?: YumStep;
-  }
-| {
-    type: "pixiePurchaseCheckout";
-    purchase: PixiePurchase;
-  };
+  type InlineOverlay =
+  | {
+      type: "photo" | "floral" | "planner" | "jam";
+      startAt?: string;
+    }
+  | {
+      type: "menuController";
+      startAt?: YumStep;
+    }
+  | {
+      type: "pixiePurchaseCheckout";
+      purchase: PixiePurchase;
+    };
 
 const [overlay, setOverlay] = useState<InlineOverlay | null>(null);
 
@@ -364,35 +404,69 @@ useEffect(() => {
     if (type === "yumyum") {
       setOverlay({
         type: "menuController",
-        startAt: startAt as YumStep | undefined, // no default
+        startAt: startAt as YumStep | undefined,
       });
       return;
     }
   
+    // ✅ ONLY change: Venue Ranker goes through activeOverlay
+    if (type === "venueRanker") {
+      setActiveOverlay("venueranker", { startAt: startAt || "intro" });
+      return;
+    }
+  
+    // everything else stays inline
     setOverlay({ type, startAt });
   };
 
+  // wrapper so we can also stash overlayProps (startAt, etc)
+const setActiveOverlay = (
+  ov: OverlayType,
+  props?: { startAt?: YumStep | JamStep | string }
+) => {
+  if (ov) {
+    trackOpen(ov, {
+      system: "activeOverlay",
+      startAt: props?.startAt ?? null,
+      device: isMobile ? "mobile" : "desktop",
+      loggedIn: !!user,
+    });
+  }
+
+  _setActiveOverlay(ov);
+  setOverlayProps(props || null);
+};
+
   // allow other parts of app to fire window.dispatchEvent(new CustomEvent("openOverlay", { detail: {type,...} }))
-  useEffect(() => {
-    const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      if (!detail?.type) return;
-  
-      if (detail.type === "yumyum") {
-        setOverlay({
-          type: "menuController",
-          startAt: detail.startAt as YumStep | undefined, // no default
-        });
-        return;
-      }
-  
-      setOverlay({ type: detail.type, startAt: detail.startAt });
-    };
-  
-    window.addEventListener("openOverlay", onOpen as EventListener);
-    return () =>
-      window.removeEventListener("openOverlay", onOpen as EventListener);
-  }, []);
+useEffect(() => {
+  const onOpen = (e: Event) => {
+    const detail = (e as CustomEvent).detail || {};
+    if (!detail?.type) return;
+
+    // ✅ Venue Ranker is NOT inline
+    if (detail.type === "venueranker" || detail.type === "venueRanker") {
+      setActiveOverlay("venueranker", { startAt: detail.startAt || "intro" });
+      return;
+    }
+
+    // ✅ Yum stays inline
+    if (detail.type === "yumyum") {
+      setOverlay({
+        type: "menuController",
+        startAt: detail.startAt as YumStep | undefined,
+      });
+      return;
+    }
+
+    // ✅ everything else stays inline
+    setOverlay({ type: detail.type, startAt: detail.startAt });
+  };
+
+  window.addEventListener("openOverlay", onOpen as EventListener);
+  return () => {
+    window.removeEventListener("openOverlay", onOpen as EventListener);
+  };
+}, [setActiveOverlay]);
 
   // menu selection router
   const handleMenuSelect = (section: UserMenuScreenType) => {
@@ -419,7 +493,23 @@ useEffect(() => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.clear();
+      const preserved: Record<string, string> = {};
+const keepKeys = ["wd_guestbook_done", "wd_lead_email", "wd_lead_firstName"];
+
+try {
+  for (const k of keepKeys) {
+    const v = localStorage.getItem(k);
+    if (v != null) preserved[k] = v;
+  }
+
+  localStorage.clear();
+
+  for (const [k, v] of Object.entries(preserved)) {
+    localStorage.setItem(k, v);
+  }
+} catch {
+  // if localStorage fails, do nothing
+}
       console.log("👋 User signed out!");
       setActiveUserMenuScreen(null);
       setShowLogoutModal(true);
@@ -428,23 +518,7 @@ useEffect(() => {
     }
   };
 
-// wrapper so we can also stash overlayProps (startAt, etc)
-const setActiveOverlay = (
-  ov: OverlayType,
-  props?: { startAt?: YumStep | JamStep | string }
-) => {
-  if (ov) {
-    trackOpen(ov, {
-      system: "activeOverlay",
-      startAt: props?.startAt ?? null,
-      device: isMobile ? "mobile" : "desktop",
-      loggedIn: !!user,
-    });
-  }
 
-  _setActiveOverlay(ov);
-  setOverlayProps(props || null);
-};
 
 // If we navigated here from Wedding Wisdom with a request...
 useEffect(() => {
@@ -453,6 +527,45 @@ useEffect(() => {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }, [location.state]);
+
+useEffect(() => {
+  if (showDashboardGate) return; // only run after gate is closed
+
+  try {
+    const raw = sessionStorage.getItem("wd_open_overlay_after_gate");
+    if (!raw) return;
+
+    sessionStorage.removeItem("wd_open_overlay_after_gate");
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.type === "venueRanker") {
+      setActiveOverlay("venueranker", { startAt: parsed.startAt || "intro" });
+    }
+  } catch (e) {
+    console.warn("Failed to open overlay after gate:", e);
+  }
+}, [showDashboardGate]);
+
+
+// ✅ Auto-open LoginModal when coming from Firebase password reset flow
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openLogin") === "1") {
+      setShowLoginModal(true);
+
+      // ✅ clean URL so refresh doesn't keep reopening the modal
+      params.delete("openLogin");
+      const next = params.toString();
+      const newUrl =
+        window.location.pathname + (next ? `?${next}` : "") + window.location.hash;
+
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  } catch {}
+  // run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
 // ✅ Auto-open Venue Ranker from partner invite links
 useEffect(() => {
@@ -473,12 +586,16 @@ useEffect(() => {
 
     if (!slug) return;
 
-    // Persist invite context for the overlay (overlay also does this, but this ensures it’s set before open)
-    localStorage.setItem("wd_inviteVenueSlug", slug);
-    if (code) localStorage.setItem("wd_inviteCode", code);
+    // ✅ bypass gate for invite traffic
+sessionStorage.setItem(SS_GATE_BYPASS, "true");
+setShowDashboardGate(false);
 
-    // Open the venue ranker overlay
-    setActiveOverlay("venueranker");
+// Persist invite context...
+localStorage.setItem("wd_inviteVenueSlug", slug);
+if (code) localStorage.setItem("wd_inviteCode", code);
+
+// Open overlay
+setActiveOverlay("venueranker");
 
     // Clean the URL so refresh doesn’t re-trigger forever
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -533,6 +650,64 @@ useEffect(() => {
     if (unsubUserDoc) unsubUserDoc();
     unsubAuth();
   };
+}, []);
+
+// ✅ Detect bonus session BUT do NOT skip gate or auto-open
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const cameFromBonus = params.get("bonus") === "500";
+    if (!cameFromBonus) return;
+
+    // ✅ mark bonus as available (for Gate UI)
+    sessionStorage.setItem("wd_bonus500_session", "true");
+    localStorage.setItem("wd_bonus500_active", "true");
+
+    // 🧼 clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } catch {}
+}, []);
+
+useEffect(() => {
+  if (!isAuthReady) return;
+
+  // If logged in, never show the gate
+  if (user) {
+    setShowDashboardGate(false);
+    return;
+  }
+
+  // ✅ session bypass (invite / promo flows)
+  try {
+    const bypass = sessionStorage.getItem(SS_GATE_BYPASS) === "true";
+    if (bypass) {
+      setShowDashboardGate(false);
+      return;
+    }
+  } catch {}
+
+  // ✅ guest: show only if NOT done and NOT snoozed
+  try {
+    const done = localStorage.getItem(LS_GATE_DONE) === "true";
+    const snoozeUntil = Number(localStorage.getItem(LS_GATE_SNOOZE_UNTIL) || 0);
+    const snoozed = Date.now() < snoozeUntil;
+
+    setShowDashboardGate(!done && !snoozed);
+  } catch {
+    setShowDashboardGate(true);
+  }
+}, [isAuthReady, user]);
+
+useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const cameFromBonus = params.get("bonus") === "500";
+    if (!cameFromBonus) return;
+
+    // ✅ permanently prevent the gate from showing again on this device
+    localStorage.setItem("wd_guestbook_done", "true");
+    localStorage.setItem("wd_bonus500_active", "true"); // optional flag for future use
+  } catch {}
 }, []);
 
   // sync guest count (from guestCountStore)
@@ -625,8 +800,14 @@ useEffect(() => {
   useEffect(() => {
     const openMenuScreen = (e: Event) => {
       const ce = e as CustomEvent;
-      if (ce.detail === "docs") setActiveUserMenuScreen("docs");
+      const target = ce.detail;
+  
+      if (target === "docs") setActiveUserMenuScreen("docs");
+      if (target === "bookings") setActiveUserMenuScreen("bookings");
+      if (target === "menu") setActiveUserMenuScreen("menu");
+      if (target === "questions") setActiveUserMenuScreen("questions");
     };
+  
     window.addEventListener("openUserMenuScreen", openMenuScreen);
     return () =>
       window.removeEventListener("openUserMenuScreen", openMenuScreen);
@@ -836,13 +1017,14 @@ setHasDocsNotifications(
   !!overlay ||
   !!activeUserMenuScreen ||
   showLoginModal ||
-  isChatOpen ||
+  showMadgeOverlay ||
   showGuestCountFlow ||
   showMagicCloud ||
   showAvailabilityAdmin ||
   showPixieAdmin ||
   showLogoutModal ||
-  showA2HS;
+  showA2HS ||
+  showDashboardGate;
 
   return (
     <div
@@ -884,6 +1066,17 @@ setHasDocsNotifications(
           }}
         />
       </picture>
+
+            {/* 🪄 First-time Dashboard Gate */}
+            {showDashboardGate && !showLoginModal && (
+  <DashboardGate
+    onComplete={() => setShowDashboardGate(false)}
+    onLogin={() => setShowLoginModal(true)}
+    onOpenVenueRanker={() =>
+      setActiveOverlay("venueranker", { startAt: "intro" })
+    }
+  />
+)}
 
       {/* ⭐ ADMIN TOOLS — visible ONLY to Rachel */}
 {user?.email === "rachel@wedanddone.com" && (
@@ -942,6 +1135,12 @@ setHasDocsNotifications(
         />
       )}
 
+      {/* 🧚 Madge overlay */}
+      {showMadgeOverlay && (
+        <MadgeOverlay onClose={() => setShowMadgeOverlay(false)} />
+      )}
+
+
       {/* USER MENU VARIANTS */}
       {activeUserMenuScreen === "menu" && (
         <>
@@ -962,6 +1161,18 @@ setHasDocsNotifications(
 />
         </>
       )}
+
+{activeUserMenuScreen === "questions" && (
+  <WDQuestions
+    onClose={() => setActiveUserMenuScreen("menu")}
+    onBack={() => setActiveUserMenuScreen("menu")}
+    onNext={() => {
+      // optional: jump them to the booking path like your other CTA
+      setActiveUserMenuScreen(null);
+      window.dispatchEvent(new CustomEvent("openUserMenuScreen", { detail: "bookings" }));
+    }}
+  />
+)}
 
       {activeUserMenuScreen === "account" && (
         <AccountScreen
@@ -1026,10 +1237,6 @@ setHasDocsNotifications(
 
     {overlay.type === "jam" && (
       <JamOverlay onClose={closeOverlay} startAt="intro" />
-    )}
-
-    {overlay.type === "venueRanker" && (
-      <VenueRankerOverlay onClose={closeOverlay} startAt="intro" />
     )}
 
     {overlay.type === "pixiePurchaseCheckout" && (
@@ -1112,15 +1319,7 @@ setHasDocsNotifications(
           })
         }
         onVenueRankerClick={() => {
-          const checkpoint = localStorage.getItem(
-            "venueRankerCheckpoint"
-          );
-          setActiveOverlay("venueranker");
-          if (checkpoint === "scroll-of-possibilities") {
-            window.dispatchEvent(
-              new CustomEvent("resumeVenueRankerFromScroll")
-            );
-          }
+          setActiveOverlay("venueranker", { startAt: "intro" });
         }}
         onYumClick={async () => {
           console.log("🍕 Yum Yum clicked");
@@ -1210,7 +1409,7 @@ setHasDocsNotifications(
         
         /* HUD handlers */
         onOpenMenu={() => setActiveUserMenuScreen("menu")}
-        onOpenMadge={() => setIsChatOpen(true)}
+        onOpenMadge={() => setShowMadgeOverlay(true)}
         onOpenBudget={() => setShowMagicCloud(true)}
         onOpenMagicBook={() =>
           setActiveOverlay("magicbook", {
@@ -1255,7 +1454,7 @@ setHasDocsNotifications(
         style={{
           position: "fixed",
           left: 22,   // mirror of the blue ?
-          bottom: 24, // same baseline as ?
+          bottom: 54, // same baseline as ?
           zIndex: 1500,
           border: "none",
           background: "transparent",
@@ -1427,7 +1626,7 @@ setHasDocsNotifications(
 />
 
       {/* 🧪 Dev-only tools (preset loader + reset) */}
-{process.env.NODE_ENV !== "production" && (
+      {process.env.NODE_ENV !== "production" && SHOW_DEV_TOOLS && (
   <div
     style={{
       position: "absolute",
@@ -1538,11 +1737,13 @@ setHasDocsNotifications(
   />
 )}
 
-      {activeOverlay === "venueranker" && (
-        <VenueRankerOverlay
-          onClose={() => setActiveOverlay(null)}
-        />
-      )}
+{activeOverlay === "venueranker" && (
+  <RD_VenueRankerOverlay
+    key={`venueranker:${(overlayProps?.startAt as string) || "intro"}`}
+    onClose={() => setActiveOverlay(null)}
+    startAt={(overlayProps?.startAt as string) || "intro"}
+  />
+)}
 
       {showingMenuController && (
         <MenuController
@@ -1580,17 +1781,22 @@ setHasDocsNotifications(
         />
       )}
 
-      {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-        />
-      )}
+{showLoginModal && (
+  <LoginModal
+    hideClose={showDashboardGate} // gate mode => hide X
+    onBack={
+      showDashboardGate
+        ? () => setShowLoginModal(false) // goes back to gate automatically because gate will re-render
+        : undefined
+    }
+    onClose={
+      showDashboardGate
+        ? undefined
+        : () => setShowLoginModal(false)
+    }
+  />
+)}
 
-      {isChatOpen && (
-        <MadgeChatModal
-          onClose={() => setIsChatOpen(false)}
-        />
-      )}
 
       {/* Guest count flow via reminder badge */}
       {showGuestCountFlow && (

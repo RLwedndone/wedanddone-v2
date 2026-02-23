@@ -43,9 +43,9 @@ const VenueThankYou: React.FC<VenueThankYouProps> = ({
           Your venue is set and your Pixie Planning Team is included. <br></br><br></br>You're all set here!
         </p>
         <p style={{ fontSize: "1rem", lineHeight: 1.6 }}>
-          Guest counts usually shift as RSVPs come in, so you’ll confirm your final guest count{" "} about
-          <strong>45 days before your wedding</strong>. In the meantime, feel free to explore the rest of our magical button boutiques to book more vendors and get that wedding checklist DONE!
-        </p>
+  Guest counts usually shift as RSVPs come in, so you’ll confirm your final guest count about{" "}
+  <strong>45 days before your wedding</strong>. In the meantime, feel free to explore the rest of our magical button boutiques to book more vendors and get that wedding checklist DONE!
+</p>
       </>
     ) : (
       <>
@@ -84,9 +84,9 @@ const VenueThankYou: React.FC<VenueThankYouProps> = ({
             style={{ maxWidth: 220, margin: "0 auto 12px" }}
           />
     
-          <h2 className="px-title-lg" style={{ marginBottom: 8 }}>
-            {heading}
-          </h2>
+    <h2 className="px-title" style={{ marginBottom: 8 }}>
+  {heading}
+</h2>
     
           <div className="px-prose-narrow" style={{ margin: "0 auto 20px" }}>
             {bodyOverride || defaultBody}

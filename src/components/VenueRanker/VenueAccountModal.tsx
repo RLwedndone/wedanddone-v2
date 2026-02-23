@@ -8,6 +8,8 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { saveUserProfile } from "../../utils/saveUserProfile";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../../firebase/firebaseConfig";
 
 // ✅ Shared Google helper + name capture
 import { signInWithGoogleAndEnsureUser } from "../../utils/signInWithGoogleAndEnsureUser";
@@ -55,6 +57,43 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
     // keep inputs (nice if they tapped wrong button)
   };
 
+  const persistBookingContextToUser = async (uid: string) => {
+    try {
+      const dateToUse =
+        localStorage.getItem("venueWeddingDate") ||
+        localStorage.getItem("weddingDate") ||
+        "";
+  
+      const guestsRaw =
+        localStorage.getItem("venueGuestCount") ||
+        localStorage.getItem("guestCount") ||
+        "";
+  
+      const guestCountToUse = guestsRaw ? Number(guestsRaw) : 0;
+  
+      // Only write if we actually have values
+      const patch: any = {};
+      if (dateToUse) patch.weddingDate = dateToUse;
+      if (guestCountToUse > 0) patch.guestCount = guestCountToUse;
+  
+      if (!Object.keys(patch).length) return;
+  
+      // ✅ This is what CastleModal reads today
+      await setDoc(doc(db, "users", uid), patch, { merge: true });
+  
+      // ✅ Optional: keep venueRanker booking subdoc in sync (future-proof)
+      await setDoc(
+        doc(db, "users", uid, "venueRankerData", "booking"),
+        { ...patch, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+  
+      console.log("✅ Persisted booking context to user:", { uid, ...patch });
+    } catch (e) {
+      console.warn("⚠️ Could not persist booking context after auth:", e);
+    }
+  };
+
   // ---------------------------
   // Email/password create
   // ---------------------------
@@ -96,6 +135,9 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
         uid: userCred.user.uid,
       });
 
+      await persistBookingContextToUser(userCred.user.uid);
+onSuccess();
+
       onSuccess();
     } catch (err: any) {
       console.error("[VenueAccountModal] signup failed:", err);
@@ -120,42 +162,48 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
   };
 
   // ---------------------------
-  // Email/password login
-  // ---------------------------
-  const handleLogin = async () => {
-    clearNotices();
+// Email/password login
+// ---------------------------
+const handleLogin = async () => {
+  clearNotices();
 
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError("Email and password are required to log in.");
-      return;
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail || !password) {
+    setError("Email and password are required to log in.");
+    return;
+  }
+
+  try {
+    // ✅ 1. Sign in and KEEP the credential
+    const cred = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+
+    // ✅ 2. Persist booking context to users/{uid}
+    await persistBookingContextToUser(cred.user.uid);
+
+    // ✅ 3. Continue the booking flow (NOT back to scroll)
+    onSuccess();
+  } catch (err: any) {
+    console.error("[VenueAccountModal] login failed:", err);
+
+    let msg = "We couldn’t log you in. Double-check your email + password.";
+    switch (err?.code) {
+      case "auth/user-not-found":
+        msg = "No account found for that email. Choose Create Account instead.";
+        break;
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        msg = "That password doesn’t match. Try again (or reset it).";
+        break;
+      case "auth/too-many-requests":
+        msg = "Too many tries — give it a minute (or reset your password).";
+        break;
+      case "auth/network-request-failed":
+        msg = "Network hiccup — check your connection and try again.";
+        break;
     }
-
-    try {
-      await signInWithEmailAndPassword(auth, trimmedEmail, password);
-      onSuccess();
-    } catch (err: any) {
-      console.error("[VenueAccountModal] login failed:", err);
-
-      let msg = "We couldn’t log you in. Double-check your email + password.";
-      switch (err?.code) {
-        case "auth/user-not-found":
-          msg = "No account found for that email. Choose Create Account instead.";
-          break;
-        case "auth/wrong-password":
-        case "auth/invalid-credential":
-          msg = "That password doesn’t match. Try again (or reset it).";
-          break;
-        case "auth/too-many-requests":
-          msg = "Too many tries — give it a minute (or reset your password).";
-          break;
-        case "auth/network-request-failed":
-          msg = "Network hiccup — check your connection and try again.";
-          break;
-      }
-      setError(msg);
-    }
-  };
+    setError(msg);
+  }
+};
 
   const handleForgotPassword = async () => {
     clearNotices();
@@ -199,7 +247,9 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
         return;
       }
 
-      onSuccess();
+      await persistBookingContextToUser(result.uid);
+onSuccess();
+
     } catch (err: any) {
       console.error("[VenueAccountModal] Google sign-in failed:", err);
       if (err?.code === "auth/popup-closed-by-user") return;
@@ -218,7 +268,11 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
       <NameCapture
         initialFirst={pendingFirst}
         initialLast={pendingLast}
-        onDone={onSuccess}
+        onDone={async () => {
+          const uid = auth.currentUser?.uid;
+          if (uid) await persistBookingContextToUser(uid);
+          onSuccess();
+        }}
         onClose={onClose}
       />
     );
@@ -227,7 +281,7 @@ const VenueAccountModal: React.FC<VenueAccountModalProps> = ({ onSuccess, onClos
   return (
     <div
       className="pixie-overlay"
-      style={{ zIndex: 2000 }}
+      style={{ zIndex: 10000 }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

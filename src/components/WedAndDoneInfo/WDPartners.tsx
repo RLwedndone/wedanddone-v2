@@ -95,10 +95,10 @@ const WDPartners: React.FC<WDPartnersProps> = ({ onBack }) => {
           opacity: 0.95,
         }}
       >
-        Step inside and meet the extraordinary pros who help bring your wedding to
-        life. This is our ever-growing list of trusted partners — handpicked for
-        style, quality, and stellar service.
-      </p>
+       Step inside and meet the extraordinary pros who help bring your wedding to
+  life. This is our ever-growing list of trusted partners — and yes, these are
+  the venues and vendors you can book through Wed&Done (with clear pricing and
+  guided steps, not endless email chains).</p>
 
       {/* Partner Groups */}
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 0.5rem 0.5rem" }}>

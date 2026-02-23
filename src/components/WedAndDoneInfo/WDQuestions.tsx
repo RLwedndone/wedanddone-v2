@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface WDQuestionsProps {
   onBack: () => void;
@@ -28,26 +29,51 @@ const SKY_BG = `${import.meta.env.BASE_URL}assets/images/Starry_Night.png`;
 const MADGE_BUBBLE = `${import.meta.env.BASE_URL}assets/images/madge_bubble.png`;
 
 const WDQuestions: React.FC<WDQuestionsProps> = ({ onBack, onClose, onNext }) => {
+
+  const navigate = useNavigate();
+
+  const goToAlternative = () => {
+    onClose(); // close the cloud overlay
+    navigate("/weddingwire-the-knot-alternative");
+  };
+
   const [active, setActive] = useState<FaqItem | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 600;
 
   // FAQ list now lives *inside* the component so it can use onNext
   const faqList: FaqItem[] = [
     {
-      q: "What “big ticket” items are NOT included in my Wed&Done wedding?",
-      a: "We can’t handle your bar tab — state liquor laws mean alcohol purchases have to be handled directly by you (or your venue). If your venue includes a bar as part of its food & beverage minimum, we’ll note the details in your contract.",
+      q: "What is Wed&Done, exactly?",
+      a: "Wed&Done is a wedding booking platform — you can book real Arizona wedding venues and vendors directly through our boutiques. We keep it curated, clear, and way less chaotic than traditional vendor directories.",
+    },
+    {
+      q: "Is there a better alternative to WeddingWire & The Knot?",
+      a: (
+        <>
+          Yes — if you’re feeling decision fatigue from endless scrolling and inquiry forms,
+          we made a clear breakdown here:{" "}
+          <span
+            style={{
+              color: "#2c62ba",
+              fontWeight: 800,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+            onClick={goToAlternative}
+          >
+            A Better Alternative to WeddingWire &amp; The Knot
+          </span>
+          .
+        </>
+      ),
+    },
+    {
+      q: "Can I actually book my venue and vendors through Wed&Done?",
+      a: "Yes! If a venue or vendor is part of our partner lineup, you can book them directly through Wed&Done with guided steps, clear pricing, and a contract/checkout flow built right in. No endless inquiry forms required.",
     },
     {
       q: "When should I book my Wed&Done vendors?",
-      a: "Venues in Arizona often book 14–18 months in advance, so sooner is better if you have your eye on a specific spot. Other vendors can be booked closer to your date, but we always recommend locking in the biggies early.",
-    },
-    {
-      q: "What if I already have a venue booked?",
-      a: "If you’ve already booked one of our partner venues, let us know and we’ll update the system so everything magically adjusts for you. If your venue is not a partner, check whether they allow outside vendors — if they do, you can still shop our boutique for everything else you need.",
-    },
-    {
-      q: "What if I already have a photographer, DJ, baker, or florist?",
-      a: "Totally fine! Wed&Done is built so you can book only what you need. You can still use our boutique for everything else, or we can fill in just the gaps.",
+      a: "Book your venue and photographer first — those book up the fastest. In Arizona, venues are often reserved 14–18 months out, so don’t wait if you have your heart set on a specific date. Catering, music, florals, and desserts can be done later, but don’t leave them until the last minute — venues usually need final counts 30 days before your wedding.",
     },
     {
       q: "Will I be choosing from a huge list of every vendor?",
@@ -69,17 +95,41 @@ const WDQuestions: React.FC<WDQuestionsProps> = ({ onBack, onClose, onNext }) =>
           >
             Vendor Partners Page
           </span>{" "}
-          to see our curated list!
+          to see our curated list.
+          <br />
+          <br />
+          Curious why fewer options actually makes planning easier (and far less
+          overwhelming)?{" "}
+          <span
+            style={{
+              color: "#2c62ba",
+              fontWeight: 700,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+            onClick={goToAlternative}
+          >
+            Read how Wed&Done compares to WeddingWire &amp; The Knot
+          </span>
+          .
         </>
       ),
     },
     {
-      q: "I’m not seeing hair & makeup — what’s the deal?",
-      a: "Bridal beauty isn’t a built-in boutique yet. It’s deeply personal (and some of our couples are pros themselves!). But our Pixie Planners have fantastic recommendations — just ask and we’ll share our favorites.",
+      q: "What if I already have a venue booked?",
+      a: "Totally okay. If you’ve already booked one of our partner venues, let us know and we’ll update the system so everything adjusts for you. If your venue is not a partner, check whether they allow outside vendors — if they do, you can still book our vendors through the boutiques for everything else you need.",
     },
     {
-      q: "When should I complete each boutique?",
-      a: "Book your venue and photographer first — those are the vendors that book up fastest. In Arizona, venues are often reserved 14–18 months out, so don’t wait if you have your heart set on a specific date. Catering, music, florals, and desserts can be done later, but don’t leave them until the last minute — venues usually need final counts 30 days before your wedding.",
+      q: "What if I already have a photographer, DJ, baker, or florist?",
+      a: "Also totally fine! Wed&Done is built so you can book only what you need. You can still use our boutiques to book everything else, or we can fill in just the gaps.",
+    },
+    {
+      q: "What “big ticket” items are NOT included in my Wed&Done wedding?",
+      a: "We can’t handle your bar tab — state liquor laws mean alcohol purchases have to be handled directly by you (or your venue). If your venue includes a bar as part of its food & beverage minimum, we’ll note the details in your contract.",
+    },
+    {
+      q: "I’m not seeing hair & makeup — what’s the deal?",
+      a: "Bridal beauty isn’t a built-in boutique yet. It’s deeply personal (and some of our couples are pros themselves!). But our Pixie Planners have fantastic recommendations — just ask and we’ll share our favorites.",
     },
   ];
 
@@ -122,7 +172,7 @@ const WDQuestions: React.FC<WDQuestionsProps> = ({ onBack, onClose, onNext }) =>
             textShadow: "0 1px 2px rgba(0,0,0,0.4)",
           }}
         >
-          Tap a cloud to see Madge’s answer.
+          Tap a cloud to learn how booking works (and what to do next).
         </p>
       </div>
 
@@ -140,6 +190,7 @@ const WDQuestions: React.FC<WDQuestionsProps> = ({ onBack, onClose, onNext }) =>
           <button
             key={i}
             onClick={() => setActive(item)}
+            aria-label={item.q}
             style={{
               position: "relative",
               width: "380px",

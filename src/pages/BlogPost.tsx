@@ -5,6 +5,31 @@ import { useParams, Link } from "react-router-dom";
 import { blogPosts } from "../data/blogPosts";
 import LazyVimeo from "../components/common/LazyVimeo";
 
+const renderBlogBodyHtml = (text: string) => {
+  // Escape HTML so nobody can inject tags from blogPosts.ts
+  let safe = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Support **bold** markdown
+  safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // ✅ Auto-link full URLs (http/https)
+  safe = safe.replace(
+    /(https?:\/\/[^\s<]+[^\s<\.)])/g,
+    `<a href="$1" target="_blank" rel="noreferrer" style="color:#2c62ba;font-weight:800;text-decoration:underline;">$1</a>`
+  );
+
+  // Support simple bullet lines that start with "• "
+  safe = safe.replace(/^•\s(.+)$/gm, "&#8226; $1");
+
+  // Preserve line breaks
+  safe = safe.replace(/\n/g, "<br/>");
+
+  return safe;
+};
+
 const BlogPost: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const post = blogPosts.find((p) => p.slug === slug);
@@ -184,7 +209,7 @@ const BlogPost: React.FC = () => {
               textAlign: "center",
             }}
           >
-            {new Date(post.date).toLocaleDateString()}
+            {new Date(`${post.date}T12:00:00`).toLocaleDateString()}
           </small>
 
           {!hasSections ? (
@@ -298,16 +323,14 @@ const BlogPost: React.FC = () => {
                     )}
 
                     {/* Body text – wraps around the floated media */}
-                    <p
-                      style={{
-                        margin: "0 0 8px 0",
-                        whiteSpace: "pre-line",
-                        lineHeight: 1.6,
-                        fontSize: "1.05rem",
-                      }}
-                    >
-                      {section.body}
-                    </p>
+                    <div
+  style={{
+    margin: "0 0 8px 0",
+    lineHeight: 1.6,
+    fontSize: "1.05rem",
+  }}
+  dangerouslySetInnerHTML={{ __html: renderBlogBodyHtml(section.body) }}
+/>
 
                     <div style={{ clear: "both", marginTop: 8 }} />
                   </section>

@@ -48,9 +48,9 @@ if (phKey && phHost) {
     location.hostname === "localhost" ||
     location.hostname === "127.0.0.1";
 
-  // 🔒 Manual override for YOU
-  const isInternalTester =
-    isLocal || localStorage.getItem("wd_internal") === "true";
+ // 🔒 Manual override for YOU
+ const isInternalTester =
+ isLocal || localStorage.getItem("wd_internal") === "true";
 
   posthog.init(phKey, {
     api_host: phHost,

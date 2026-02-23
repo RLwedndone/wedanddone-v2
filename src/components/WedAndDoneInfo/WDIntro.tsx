@@ -41,20 +41,24 @@ const WDIntro: React.FC<WDIntroProps> = ({ onNext }) => {
           padding: "1.5rem 2rem",
         }}
       >
-        Welcome to <strong>Wed&Done</strong> —
-        <br />
-        your shortcut to a magical wedding without the stress.
-        <br />
-        <br />
-        We built this world for couples who want wedding planning to feel
-        fun, not frantic. No endless vendor stalking. No ghosted emails.
-        No confusing proposals. Just curated pros, dreamy venues, and a
-        Pixie-powered planning system that actually works.
-        <br />
-        <br />
-        Whether you're booking a full package or picking just one piece,
-        we're here to help you get Wed… and poof! You’re DONE.
-      </p>
+  Welcome to <strong>Wed&Done!</strong>
+  <br />
+  <br />
+
+  <strong>The easiest way to book your wedding without the chaos.</strong>
+  <br />
+  <br />
+
+  We built this world for couples who want to skip endless vendor stalking and actually get things booked. No ghosted emails. No confusing proposals. Here, you can book real wedding venues and vendors directly, with clear pricing and guided steps that make sense.
+  <br />
+  <br />
+
+  Whether you’re booking one vendor or your entire wedding experience, Wed&Done brings everything together in one Pixie-powered system — so you can book confidently and move on.
+  <br />
+  <br />
+
+  Get Wed… and poof! You’re <strong>Done.</strong> ✨
+</p>
 
       {/* Navigation Buttons */}
       <div

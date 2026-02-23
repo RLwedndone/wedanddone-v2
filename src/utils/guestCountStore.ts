@@ -43,8 +43,13 @@ function writeLS(state: Partial<GuestCountState>) {
   localStorage.setItem(LS_KEY, String(next.value ?? 0));
   localStorage.setItem(LS_LOCKED, String(!!next.locked));
   localStorage.setItem(LS_LOCKED_BY, JSON.stringify(next.lockedBy ?? []));
-  if (next.lockedAt) localStorage.setItem(LS_LOCKED_AT, String(next.lockedAt));
-  if (next.confirmedAt) localStorage.setItem(LS_CONFIRMED_AT, next.confirmedAt);
+
+  // allow clearing
+  if (next.lockedAt != null) localStorage.setItem(LS_LOCKED_AT, String(next.lockedAt));
+  else localStorage.removeItem(LS_LOCKED_AT);
+
+  if (next.confirmedAt != null) localStorage.setItem(LS_CONFIRMED_AT, next.confirmedAt);
+  else localStorage.removeItem(LS_CONFIRMED_AT);
 }
 
 // ---- public API ----
@@ -138,19 +143,28 @@ export async function lockGuestCount(reason: GuestLockReason): Promise<void> {
  * Sets the count and locks it atomically, with a reason.
  * Also stamps a confirmation time (ISO) since this usually happens at contract/checkout.
  */
-export async function setAndLockGuestCount(value: number, reason: GuestLockReason): Promise<void> {
+export async function setAndLockGuestCount(
+  value: number,
+  reason: GuestLockReason
+): Promise<void> {
   const safe = Math.max(0, Number(value) || 0);
   const lockedAt = Date.now();
   const confirmedAt = new Date().toISOString();
 
+  // compute once (single source of truth)
+  const prev = readLS();
+  const lockedBy = Array.from(new Set([...(prev.lockedBy ?? []), reason]));
+
+  // write LS once
   writeLS({
     value: safe,
     locked: true,
-    lockedBy: Array.from(new Set([...(readLS().lockedBy ?? []), reason])),
+    lockedBy,
     lockedAt,
     confirmedAt,
   });
 
+  // write Firestore once using the same lockedBy
   const u = auth.currentUser;
   if (u) {
     try {
@@ -159,14 +173,16 @@ export async function setAndLockGuestCount(value: number, reason: GuestLockReaso
         {
           guestCount: safe,
           guestCountLocked: true,
-          guestCountLockedBy: Array.from(new Set([...(readLS().lockedBy ?? []), reason])),
+          guestCountLockedBy: lockedBy,
           guestCountLockedAt: lockedAt,
           guestCountConfirmedAt: confirmedAt,
           guestCountUpdatedAt: serverTimestamp(),
         },
         { merge: true }
       );
-    } catch {/* noop */}
+    } catch {
+      /* noop */
+    }
   }
 
   window.dispatchEvent(new Event("guestCountUpdated"));

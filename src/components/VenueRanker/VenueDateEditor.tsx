@@ -1,97 +1,196 @@
-import React, { useMemo } from "react";
+// src/components/VenueRanker/VenueDateEditor.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import Calendar from "react-calendar";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../../firebase/firebaseConfig";
+import {
+  getVenueDateAvailability,
+  type BlockedRange,
+} from "../../utils/venueAvailability";
 
 interface VenueDateEditorProps {
-  isUnavailable: boolean;
-  isClosedOnThatDay: boolean;
-  hasBookedOtherVendors: boolean;
+  // 👇 make venue-specific inputs optional
+  venueSlug?: string | null;
+  bookedDates?: string[];
+  blockedRanges?: BlockedRange[];
+
+  // optional title for display
+  venueTitle?: string;
+
+  isUnavailable?: boolean;
+  isClosedOnThatDay?: boolean;
+  hasBookedOtherVendors?: boolean;
+
   weddingDate: string | null;
   setWeddingDate: (date: string) => void;
+
   selectedDate: string | null;
   setSelectedDate: (date: string) => void;
+
   isNewDateConfirmed: boolean;
   setIsNewDateConfirmed: (confirmed: boolean) => void;
+
   newDate: Date | null;
   setNewDate: (date: Date | null) => void;
-  bookedDates: string[];
-  venueSlug: string;
-  setCurrentScreen: (screen: string) => void;
+
   onClose: () => void;
+
   proposedDate: string | null;
   setProposedDate: (date: string | null) => void;
+
+  setCurrentScreen?: (screen: string) => void;
+
+  
 }
 
-const weekdayMap = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function formatWeddingDatePretty(dateStr: string) {
+  // dateStr should be YYYY-MM-DD
+  const d = new Date(`${dateStr}T12:00:00`); // ✅ avoids timezone day-shift
+  const month = d.toLocaleString("en-US", { month: "long" });
+  const day = ordinal(d.getDate());
+  const year = d.getFullYear();
+  return `${month} ${day}, ${year}`;
+}
 
 const VenueDateEditor: React.FC<VenueDateEditorProps> = ({
-  isUnavailable,
-  isClosedOnThatDay,
-  hasBookedOtherVendors,
+  // ✅ venue-specific inputs become optional + safe defaults
+  venueSlug = null,
+  venueTitle,
+  bookedDates = [],
+  blockedRanges = [],
+
+  // ✅ these can be optional too (generic mode won’t use them)
+  isUnavailable = false,
+  hasBookedOtherVendors = false,
+
   weddingDate,
   setWeddingDate,
   selectedDate,
   setSelectedDate,
   proposedDate,
   setProposedDate,
-  isNewDateConfirmed,
   setIsNewDateConfirmed,
   newDate,
   setNewDate,
-  bookedDates,
-  venueSlug,
-  setCurrentScreen,
+
   onClose,
 }) => {
+  // helper to parse "YYYY-MM-DD" safely into Date
+  const parseISOToDate = (iso: string | null | undefined): Date | null => {
+    if (!iso) return null;
+    const d = new Date(iso + "T12:00:00"); // ✅ midday to avoid TZ shifts
+    if (isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  // ✅ Safer ISO date helper (midday) so bookedDates match reliably
+  const toISODate = (d: Date) => {
+    const safe = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    return safe.toISOString().split("T")[0];
+  };
 
   // ✅ Decide what month/year the calendar should open on
-  // Priority:
-  // 1. proposedDate (user just clicked a new date in this modal)
-  // 2. selectedDate (the date we think is "their" date for this venue)
-  // 3. weddingDate (their global wedding date)
-  // 4. today (fallback)
   const initialVisibleMonth: Date = useMemo(() => {
-    // helper to parse "YYYY-MM-DD" safely into Date
-    const parseISOToDate = (iso: string | null | undefined): Date | null => {
-      if (!iso) return null;
-      // force midday so we don't accidentally shift because of timezone
-      const d = new Date(iso + "T12:00:00");
-      if (isNaN(d.getTime())) return null;
-      return d;
-    };
-
     const fromProposed = parseISOToDate(proposedDate || undefined);
     const fromSelected = parseISOToDate(selectedDate || undefined);
     const fromWedding = parseISOToDate(weddingDate || undefined);
 
-    const base =
-      fromProposed ||
-      fromSelected ||
-      fromWedding ||
-      new Date(); // fallback: "today"
-
-    // we give Calendar the first day of that month just to anchor view
+    const base = fromProposed || fromSelected || fromWedding || new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   }, [proposedDate, selectedDate, weddingDate]);
 
+  // ✅ Allow calendar arrows/year nav to work (controlled properly)
+  const [activeStartDate, setActiveStartDate] = useState<Date>(initialVisibleMonth);
+
+  useEffect(() => {
+    setActiveStartDate(initialVisibleMonth);
+  }, [initialVisibleMonth]);
+
+  const isTileUnavailable = (date: Date) => {
+    if (!venueSlug) return false; // ✅ generic mode: allow all dates
+    const iso = toISODate(date);
+    return getVenueDateAvailability({
+      venueSlug,
+      isoDate: iso,
+      bookedDates,
+      blockedRanges,
+    }).unavailable;
+  };
+
+  // ✅ Build a “reason” message for why THEIR current date isn’t valid (top warning)
+const unavailableReason = useMemo(() => {
+  // ✅ GENERIC MODE: if no venue, do not calculate venue-based warnings
+  if (!venueSlug) return "";
+
+  const selectedISO = selectedDate || weddingDate || null;
+  if (!selectedISO) return "";
+
+  const res = getVenueDateAvailability({
+    venueSlug,
+    isoDate: selectedISO,
+    bookedDates: bookedDates ?? [],
+    blockedRanges: blockedRanges ?? [],
+  });
+
+  if (!res.unavailable) return "";
+
+  // 🧊 BLOCKED RANGE (pricing not open yet, seasonal holds, etc.)
+  if (res.reason === "blocked_range") {
+    const year = selectedISO.slice(0, 4);
+    return `Bookings haven’t been opened yet for ${year} (pricing pending).`;
+  }
+
+  // 🔒 BOOKED ALWAYS WINS
+  if (res.reason === "booked") {
+    return "This venue is already booked for your date.";
+  }
+
+  // 📆 Weekday closures
+  const blocked = res.blockedWeekdays ?? [];
+  const blocksWeekdays =
+    blocked.includes("monday") &&
+    blocked.includes("tuesday") &&
+    blocked.includes("wednesday") &&
+    blocked.includes("thursday");
+
+  if (
+    blocksWeekdays &&
+    (res.reason === "closed_weekday" || res.reason === "no_pricing_for_day")
+  ) {
+    return "This venue doesn’t allow weekday bookings.";
+  }
+
+  if (res.reason === "closed_weekday" || res.reason === "no_pricing_for_day") {
+    const d = new Date(selectedISO + "T12:00:00");
+    const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+    return `This venue is not available on ${weekday}s.`;
+  }
+
+  if (res.reason === "sunday_not_allowed") {
+    return "This venue isn’t available on Sundays.";
+  }
+
+  return "That date isn’t available. Pick a new available date below.";
+}, [selectedDate, weddingDate, venueSlug, bookedDates, blockedRanges]);
+
+const currentIso = (weddingDate || selectedDate || "").trim(); // YYYY-MM-DD
+
+const isSameISO = (d: Date, iso: string) => {
+  if (!iso) return false;
+  const tileIso = toISODate(d); // you already have this helper
+  return tileIso === iso;
+};
+
   return (
     <div
+      className="pixie-overlay"
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
         zIndex: 1000,
         display: "flex",
         justifyContent: "center",
@@ -101,23 +200,24 @@ const VenueDateEditor: React.FC<VenueDateEditorProps> = ({
       }}
     >
       <div
+        className="pixie-card pixie-card--modal wd-page-turn"
         style={{
           backgroundColor: "#fff",
           borderRadius: "20px",
-          maxWidth: "700px",
-          width: "90%",
+          maxWidth: "900px",
+          width: "92vw",
           padding: "2rem",
           boxShadow: "0 8px 20px rgba(0, 0, 0, 0.2)",
-          fontFamily: "'Nunito', sans-serif",
           position: "relative",
           zIndex: 10,
         }}
       >
-        <button className="modal-close" onClick={onClose}>
-          ✖
+        {/* ✅ Pink X (matches your pixie close icon) */}
+        <button className="pixie-card__close" onClick={onClose} aria-label="Close">
+          <img src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`} alt="Close" />
         </button>
 
-        {isUnavailable && hasBookedOtherVendors && (
+        {isUnavailable && hasBookedOtherVendors ? (
           <div
             style={{
               backgroundColor: "#fff6f6",
@@ -125,22 +225,20 @@ const VenueDateEditor: React.FC<VenueDateEditorProps> = ({
               borderRadius: "12px",
               padding: "1.5rem",
               marginTop: "1rem",
-              fontFamily: "'Nunito', sans-serif",
               textAlign: "center",
               color: "#990000",
+              fontFamily: "'Nunito', sans-serif",
             }}
           >
-            <p style={{ fontWeight: 600, fontSize: "1.1rem" }}>
+            <p style={{ fontWeight: 700, fontSize: "1.1rem", margin: 0 }}>
               Sorry, this venue is unavailable for your wedding date.
             </p>
-            <p style={{ fontSize: "1rem", marginTop: "0.5rem" }}>
-              Because you've already booked other vendors for this date,
-              you'll need to pick a different venue.
+            <p style={{ fontSize: "1rem", marginTop: "0.5rem", marginBottom: 0 }}>
+              Because you’ve already booked other vendors for this date, you’ll need to pick a
+              different venue.
             </p>
           </div>
-        )}
-
-        {isUnavailable && !hasBookedOtherVendors && (
+        ) : (
           <div className="calendar-wrapper">
             <div style={{ textAlign: "center", marginBottom: "1rem" }}>
               <video
@@ -156,114 +254,207 @@ const VenueDateEditor: React.FC<VenueDateEditorProps> = ({
                   marginBottom: "0.5rem",
                 }}
               />
-              <h4 className="modal-subtext" style={{ margin: 0 }}>
-                Pick a new date to see if it's available:
-              </h4>
+
+{venueTitle ? (
+  <div style={{ marginBottom: "0.25rem", fontWeight: 800, color: "#2c62ba" }}>
+    {venueTitle}
+  </div>
+) : null}
+
+{(weddingDate || selectedDate) && (
+  <div
+    style={{
+      marginTop: 6,
+      marginBottom: 8,
+      fontSize: "1.05rem",
+      fontWeight: 800,
+      color: "#2c62ba",
+      textAlign: "center",
+      lineHeight: 1.4,
+    }}
+  >
+    You’ve selected{" "}
+    <span style={{ fontWeight: 900 }}>
+      {formatWeddingDatePretty((weddingDate || selectedDate) as string)}
+    </span>
+    .
+    <div style={{ marginTop: 6, fontSize: "0.98rem", fontWeight: 700, color: "#444" }}>
+      Use the calendar below to select a new date.
+    </div>
+  </div>
+)}
+
+              {unavailableReason ? (
+                <div
+                  className="venue-warning-top"
+                  style={{
+                    marginTop: "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    color: "#d93025",
+                    fontWeight: 800,
+                    fontSize: "1.05rem",
+                    textAlign: "center",
+                  }}
+                >
+                  <span className="emoji" aria-hidden="true">
+                    ⚠️
+                  </span>
+                  <span>{unavailableReason}</span>
+                  <span className="emoji" aria-hidden="true">
+                    ⚠️
+                  </span>
+                </div>
+              ) : null}
             </div>
 
-            <div className="calendar-container">
+            <div className="calendar-container" style={{ maxWidth: 760, margin: "0 auto" }}>
               <Calendar
-                // ✅ force the calendar to OPEN on their date's month
-                activeStartDate={initialVisibleMonth}
-                // (react-calendar will re-center to this on first render)
-
+                className="wd-calendar"
+                activeStartDate={activeStartDate}
+                onActiveStartDateChange={({ activeStartDate }) => {
+                  if (activeStartDate) setActiveStartDate(activeStartDate);
+                }}
                 onChange={(date) => {
-                  if (date instanceof Date) {
-                    const iso = date.toISOString().split("T")[0];
+                  if (!(date instanceof Date)) return;
+                
+                  const iso = toISODate(date);
+                
+                  // ✅ generic mode: accept any date
+                  if (!venueSlug) {
                     setProposedDate(iso);
                     setIsNewDateConfirmed(false);
+                    return;
                   }
+                
+                  const res = getVenueDateAvailability({
+                    venueSlug,
+                    isoDate: iso,
+                    bookedDates,
+                    blockedRanges,
+                  });
+                
+                  // 🚫 Don't allow selecting unavailable dates
+                  if (res.unavailable) return;
+                
+                  setProposedDate(iso);
+                  setIsNewDateConfirmed(false);
                 }}
-                tileDisabled={({ date }) => {
-                  const isoDate = date.toISOString().split("T")[0];
-                  const weekdayName = weekdayMap[date.getDay()];
-                  const isClosedDay =
-                    venueSlug === "desertfoothills" &&
-                    ["monday", "tuesday", "wednesday", "thursday"].includes(
-                      weekdayName
-                    );
-
-                  return bookedDates.includes(isoDate) || isClosedDay;
-                }}
+                tileDisabled={({ date }) => isTileUnavailable(date)}
                 tileClassName={({ date, view }) => {
                   if (view !== "month") return null;
-                  const iso = date.toISOString().split("T")[0];
-                  const weekdayName = weekdayMap[date.getDay()];
-                  const isClosedDay =
-                    venueSlug === "desertfoothills" &&
-                    ["monday", "tuesday", "wednesday", "thursday"].includes(
-                      weekdayName
+                  if (isTileUnavailable(date)) return "px-cal-unavailable";
+                  return null;
+                }}
+                tileContent={({ date, view }) => {
+                  if (view !== "month") return null;
+                
+                  const unavailable = isTileUnavailable(date);
+                  const isCurrent = isSameISO(date, currentIso);
+                
+                  // If it's unavailable, keep showing the X (your existing behavior)
+                  if (unavailable) {
+                    return (
+                      <span className="px-cal-x" aria-hidden="true">
+                        ✕
+                      </span>
                     );
-
-                  if (bookedDates.includes(iso) || isClosedDay) {
-                    return "react-calendar__tile--booked";
                   }
+                
+                  // If it's the user's currently saved date, show a blue dot
+                  if (isCurrent) {
+                    return (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          display: "block",
+                          width: 6,
+                          height: 6,
+                          borderRadius: 999,
+                          background: "#2c62ba",
+                          margin: "4px auto 0",
+                        }}
+                      />
+                    );
+                  }
+                
                   return null;
                 }}
               />
 
-              {(newDate || proposedDate) && (
-                <div style={{ marginTop: "1rem" }}>
-                  <p
-                    className="venue-warning"
-                    style={{ fontWeight: "bold", fontSize: "1.1rem" }}
-                  >
-                    Selected:{" "}
-                    {(
-                      newDate ||
-                      new Date((proposedDate as string) + "T12:00:00")
-                    ).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-
-                  {proposedDate && (
-  <div style={{ textAlign: "center", marginTop: "1rem" }}>
-    <button
-      className="boutique-primary-btn"
-      onClick={() => {
-        const confirmedDate = new Date(proposedDate + "T12:00:00");
-        const formattedDate = confirmedDate.toISOString().split("T")[0];
-
-        setNewDate(confirmedDate);
-        setIsNewDateConfirmed(true);
-        setWeddingDate(formattedDate);
-        setSelectedDate(formattedDate);
-        localStorage.setItem("weddingDate", formattedDate);
-
-        if (auth.currentUser) {
-          const userRef = doc(db, "users", auth.currentUser.uid);
-          updateDoc(userRef, { weddingDate: formattedDate });
-        }
-
-        onClose();
+{proposedDate && (
+  <div style={{ marginTop: "1rem" }}>
+    <p
+      className="venue-warning"
+      style={{
+        fontWeight: 800,
+        fontSize: "1.1rem",
+        textAlign: "center",
+        marginBottom: 12,
       }}
     >
-      Pick This New Date
-    </button>
+      Selected:{" "}
+      {new Date(proposedDate + "T12:00:00").toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })}
+    </p>
+
+    <div style={{ textAlign: "center", marginTop: "1rem" }}>
+      <button
+        className="boutique-primary-btn"
+        onClick={async () => {
+          const confirmedDate = new Date(proposedDate + "T12:00:00");
+          const formattedDate = confirmedDate.toISOString().split("T")[0];
+
+          setNewDate(confirmedDate);
+          setIsNewDateConfirmed(true);
+          setWeddingDate(formattedDate);
+          setSelectedDate(formattedDate);
+
+          // ✅ write to the same keys CastleModal checks
+localStorage.setItem("venueWeddingDate", formattedDate);
+localStorage.setItem("weddingDate", formattedDate);
+
+// ✅ let anything listening update immediately
+window.dispatchEvent(
+  new CustomEvent("weddingDateUpdated", { detail: { weddingDate: formattedDate } })
+);
+
+if (auth.currentUser) {
+  try {
+    const { setDoc, serverTimestamp } = await import("firebase/firestore");
+
+    // ✅ users/{uid} (CastleModal reads this in some flows)
+    await setDoc(
+      doc(db, "users", auth.currentUser.uid),
+      { weddingDate: formattedDate },
+      { merge: true }
+    );
+
+    // ✅ users/{uid}/venueRankerData/booking (other flows read this)
+    await setDoc(
+      doc(db, "users", auth.currentUser.uid, "venueRankerData", "booking"),
+      { weddingDate: formattedDate, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error("Error updating weddingDate in Firestore:", e);
+  }
+}
+
+          onClose();
+        }}
+      >
+        Pick This New Date
+      </button>
+    </div>
   </div>
 )}
-                </div>
-              )}
             </div>
-          </div>
-        )}
-
-        {isClosedOnThatDay && weddingDate && (
-          <div
-            style={{
-              color: "red",
-              fontWeight: "bold",
-              marginTop: "1rem",
-            }}
-          >
-            ⚠️ This venue is not available on{" "}
-            {new Date(weddingDate + "T12:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-            })}
-            s.
           </div>
         )}
       </div>

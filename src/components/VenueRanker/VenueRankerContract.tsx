@@ -163,9 +163,33 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
 
   const [plannerPaidCents, setPlannerPaidCents] = useState<number>(0);
 
+  // 🎁 Promo discount saved by CastleModal (ex: $500 Pixie Booking Bonus)
+const getPromoDiscountDollars = () => {
+  try {
+    const raw = localStorage.getItem("venuePromoDiscount");
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const getPromoLabel = () => {
+  try {
+    return localStorage.getItem("venuePromoLabel") || "";
+  } catch {
+    return "";
+  }
+};
+
+const promoDiscountDollars = getPromoDiscountDollars();
+const promoLabel = getPromoLabel();
+
   // 🔐 Global card-on-file consent (shared across boutiques, but stored per user)
   const [hasCardOnFileConsent, setHasCardOnFileConsent] = useState<boolean>(false);
   const [cardConsentChecked, setCardConsentChecked] = useState<boolean>(false);
+
+  const totalDiscountDollars = (inviteDiscountDollars || 0) + (promoDiscountDollars || 0);
 
   const plan: PaymentPlan = React.useMemo(() => {
     if (!slug || !currentWeddingDateISO) {
@@ -179,15 +203,16 @@ const VenueRankerContract: React.FC<VenueRankerContractProps> = ({
         payInFullRequired: false,
       };
     }
+  
     return calculatePlan({
       venueSlug: slug,
       guestCount,
       weddingDate: currentWeddingDateISO,
       payFull,
       plannerPaidCents,
-      inviteDiscountDollars, // ✅ NEW
+      inviteDiscountDollars: totalDiscountDollars, // ✅ now includes CastleModal promo too
     });
-  }, [slug, guestCount, currentWeddingDateISO, payFull, plannerPaidCents, inviteDiscountDollars]);
+  }, [slug, guestCount, currentWeddingDateISO, payFull, plannerPaidCents, totalDiscountDollars]);
 
   const [lineItems, setLocalLineItems] = useState<string[]>([]);
   const [paymentSummary, setLocalPaymentSummary] = useState<string>("");
@@ -452,7 +477,10 @@ console.log("🎟️ wd_inviteDiscountDollars:", localStorage.getItem("wd_invite
       `Venue: ${venueName}`,
       `${guestCount} guests`,
       `Wedding Date: ${currentWeddingDateISO || venueWeddingDate}`,
-      ...(hasInviteDiscount
+      ...(promoDiscountDollars > 0
+        ? [`${promoLabel || "Promo discount"}: -$${formatMoney(promoDiscountDollars)}`]
+        : []),
+      ...(inviteDiscountDollars > 0
         ? [`Invite discount: -$${formatMoney(inviteDiscountDollars)}`]
         : []),
       `Total: $${Number(plan.total || 0).toLocaleString(undefined, {
@@ -530,11 +558,11 @@ console.log("🎟️ wd_inviteDiscountDollars:", localStorage.getItem("wd_invite
   return (
     <>
       <div className="pixie-card pixie-card--modal" ref={modalRef}>
-        <button
-          className="pixie-card__close"
-          onClick={() => setCurrentScreen("scroll-of-possibilities")}
-          aria-label="Close"
-        >
+      <button
+  className="pixie-card__close"
+  onClick={() => setCurrentScreen("rdMedallionCastle")}
+  aria-label="Close"
+>
           <img
             src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
             alt="Close"
@@ -558,12 +586,22 @@ console.log("🎟️ wd_inviteDiscountDollars:", localStorage.getItem("wd_invite
               You’re booking <strong>{storedVenueName || venueName}</strong> for{" "}
               <strong>{formattedFullDate}</strong> ({formattedWeekday}).
             </p>
-            {hasInviteDiscount && (
-              <p style={{ marginTop: 8, marginBottom: 0 }}>
-                Invite discount applied:{" "}
-                <strong>- ${formatMoney(inviteDiscountDollars)}</strong>
-              </p>
-            )}
+            {(inviteDiscountDollars > 0 || promoDiscountDollars > 0) && (
+  <div style={{ marginTop: 8, marginBottom: 0 }}>
+    {promoDiscountDollars > 0 && (
+      <p style={{ margin: 0 }}>
+        {promoLabel || "Promo discount applied"}:{" "}
+        <strong>- ${formatMoney(promoDiscountDollars)}</strong>
+      </p>
+    )}
+    {inviteDiscountDollars > 0 && (
+      <p style={{ margin: promoDiscountDollars > 0 ? "6px 0 0" : 0 }}>
+        Invite discount applied:{" "}
+        <strong>- ${formatMoney(inviteDiscountDollars)}</strong>
+      </p>
+    )}
+  </div>
+)}
 
             <p style={{ marginTop: hasInviteDiscount ? 6 : 0 }}>
               Your final venue total is{" "}
@@ -909,12 +947,12 @@ console.log("🎟️ wd_inviteDiscountDollars:", localStorage.getItem("wd_invite
                 </>
               )}
 
-              <button
-                className="boutique-back-btn px-btn-200"
-                onClick={() => setCurrentScreen("rankerComplete")}
-              >
-                ← Back to Scroll
-              </button>
+<button
+  className="boutique-back-btn px-btn-200"
+  onClick={() => setCurrentScreen("rdMedallionCastle")}
+>
+  ← Back to Matches
+</button>
             </div>
           </div>
         </div>

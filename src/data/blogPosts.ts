@@ -17,6 +17,7 @@ export interface BlogPost {
   thumbnail: string;
   heroImage: string;
   sections: BlogPostSection[];
+  renderer?: "v1" | "v2";
 }
 
 export const blogPosts: BlogPost[] = [
@@ -222,7 +223,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "what-wedding-directories-dont-tell-you",
     title: "What wedding directories don’t tell you about choosing vendors",
-    date: "2026-01-07",
+    date: "2026-01-08",
     excerpt:
       "Those huge “top-rated” lists aren’t neutral. Here’s what wedding directories really are — and how to choose vendors with confidence.",
     thumbnail: `${import.meta.env.BASE_URL}assets/images/blog/directories_hidden_truth_thumb.webp`,
@@ -276,8 +277,20 @@ export const blogPosts: BlogPost[] = [
         image: `${import.meta.env.BASE_URL}assets/images/blog/directories_wedndone_curated.webp`,
         imageAlt:
           "Curated, simplified selection concept — clarity over endless vendor lists",
-        body:
-          "Wed&Done was built by people who’ve spent years inside weddings — watching what actually works and what quietly causes stress later.\n\nInstead of listing everything, we chose to curate.\n\nWe work with:\n• Venues we know operate smoothly\n• Vendors we’ve seen deliver, repeatedly\n• Professionals who collaborate well and protect the couple’s experience\n\nWe don’t sell placement.\nWe don’t rank by ad spend.\nWe don’t flood couples with endless options.\n\nWed&Done isn’t a marketplace. It’s a vetted system.",
+          body:
+  "Wed&Done was built by people who’ve spent years inside weddings — watching what actually works and what quietly causes stress later.\n\n" +
+  "Instead of listing everything, we chose to curate.\n\n" +
+  "If you want the full breakdown (and why directories create decision fatigue in the first place), read this:\n" +
+  "→ A Better Alternative to WeddingWire & The Knot\n" +
+  "https://wedndone.com/weddingwire-the-knot-alternative\n\n" +
+  "We work with:\n" +
+  "• Venues we know operate smoothly\n" +
+  "• Vendors we’ve seen deliver, repeatedly\n" +
+  "• Professionals who collaborate well and protect the couple’s experience\n\n" +
+  "We don’t sell placement.\n" +
+  "We don’t rank by ad spend.\n" +
+  "We don’t flood couples with endless options.\n\n" +
+  "Wed&Done isn’t a marketplace. It’s a vetted system.",
       },
       {
         id: "calm",
@@ -290,4 +303,351 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────
+// BLOG #5 — Budget clarity (Budget Wand)
+// ─────────────────────────────────────────────────────────────
+{
+  slug: "wedding-budget-clarity",
+  title: "Your wedding budget shouldn’t feel like a mystery",
+  date: "2026-01-09",
+  excerpt:
+    "Most budget stress comes from hidden costs and unclear pricing. Here’s how to set a realistic wedding budget—and stay calm while you plan.",
+  thumbnail: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_clarity_thumb.webp`,
+  heroImage: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_clarity_hero.webp`,
+  sections: [
+    {
+      id: "intro",
+      heading: "Budget stress isn’t about being “bad with money”",
+      body:
+        "Most couples don’t feel stressed because they can’t budget.\n\nThey feel stressed because wedding pricing is often unclear up front.\n\nQuotes change. Fees appear later. A “starting at” number turns into a totally different total once you add guest count, rentals, staffing, service fees, and timeline needs.\n\nSo if your wedding budget already feels confusing… you’re not behind.\nYou’re just trying to plan inside a system that hides the real numbers until the end.\n\nLet’s make it simple.",
+    },
+
+    {
+      id: "section-1",
+      heading: "1. Why wedding budgets fall apart early",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_hidden_costs.webp`,
+      imageAlt:
+        "Reception setup in progress with rentals and details that hint at hidden costs adding up",
+      body:
+        "Most couples start with a budget number… and then feel shocked when the math doesn’t match.\n\nThat’s usually not because they underestimated. It’s because so many wedding costs show up as add-ons:\n\n• Service fees and staffing\n• Rentals and required minimums\n• Setup and cleanup\n• Time limits and overtime\n• Bar policies and security\n\nWhen pricing is missing pieces, couples plan with incomplete information.\nAnd incomplete information creates stress fast.",
+    },
+
+    {
+      id: "section-2",
+      heading: "2. Why “average wedding cost” is misleading",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_context_matters.webp`,
+      imageAlt:
+        "Editorial wedding scene showing how the same venue can look dramatically different depending on styling and spend",
+      body:
+        "Online averages are everywhere… and they rarely help.\n\nA wedding can cost wildly different amounts based on:\n\n• Guest count\n• Venue rules and inclusions\n• Catering requirements\n• Rental needs\n• What’s already provided vs. what you have to bring in\n\nTwo weddings can happen at the same venue and have completely different totals.\n\nSo instead of asking “What does a wedding cost?”\nA better question is:\n\n“What will *our* wedding cost with *our* guest count, venue, and vendor choices?”",
+    },
+
+    {
+      id: "section-3",
+      heading: "3. How guest count quietly drives pricing",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_guest_count.webp`,
+      imageAlt:
+        "Wide reception table layout emphasizing scale and repetition of place settings",
+      body:
+        "Guest count isn’t just a planning detail.\nIt’s a budget multiplier.\n\nMore guests affects:\n\n• Catering totals\n• Bar totals\n• Rentals (chairs, tables, place settings)\n• Staffing\n• Transportation and parking\n• Space requirements\n\nA small guest count change can shift your total dramatically.\n\nThat’s why locking a realistic guest estimate early is one of the best budget moves you can make.",
+    },
+
+    {
+      id: "section-4",
+      heading: "4. What actually makes budgeting easier",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_clarity_system.webp`,
+      imageAlt:
+        "Calm, organized planning workspace with a notebook and soft natural light",
+      body:
+        "The couples who feel calm while planning aren’t magically more chill.\nThey just have clearer information.\n\nBudgeting gets easier when you can:\n\n• See real pricing up front\n• Compare options side by side\n• Understand what’s included vs. add-on\n• Track your running total as you book\n\nWhen the numbers stay visible, you stop second-guessing.\nAnd planning stops feeling like a financial jump-scare.",
+    },
+
+    {
+      id: "section-5",
+      heading: "5. Why we built Wed&Done’s budget tool",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_wedndone.webp`,
+      imageAlt:
+        "Two people planning calmly together with a laptop in the background, no visible branding",
+      body:
+        "After years inside real weddings, the pattern was obvious:\n\nCouples don’t need more budgeting advice.\nThey need a clearer system.\n\nThat’s why Wed&Done’s Budget Wand keeps your numbers visible as you plan.\nAs you book inside Wed&Done, your totals update automatically—so you always know where you stand.\n\nNo spreadsheet spiral.\nNo “wait… how much did we spend?” moment.\nJust clarity you can trust.",
+    },
+
+    {
+      id: "section-6",
+      heading: "6. When budgeting stops feeling stressful",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/wedding_budget_calm.webp`,
+      imageAlt:
+        "Peaceful reception space fully set before guests arrive, warm and calm atmosphere",
+      body:
+        "Once your budget is built on real numbers, everything shifts.\n\nYou choose intentionally.\nYou feel confident.\nYou stop bracing for surprise costs.\n\nYour wedding budget shouldn’t feel like a mystery you solve at the end.\nIt should feel like a plan you can actually trust—while you’re making decisions.\n\nThat’s when planning gets fun again.",
+    },
+  ],
+},
+// ─────────────────────────────────────────────────────
+// BLOG #6 — When should you actually book your wedding venue?
+// ─────────────────────────────────────────────────────
+{
+  slug: "when-should-you-book-your-wedding-venue",
+  title: "When should you actually book your wedding venue?",
+  date: "2026-01-19",
+  excerpt:
+    "Most couples worry they’re behind — but the real goal is booking at the right moment with the right info. Here’s the timeline that keeps you calm (and gets you the date you want).",
+  thumbnail: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_thumb.webp`,
+  heroImage: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_hero.webp`,
+  sections: [
+    {
+      id: "quick-answer",
+      heading: "Quick answer: when should you book your wedding venue?",
+      // Image file: book_venue_when_quick_answer.webp
+      // Description: Clean, minimal timeline graphic showing engagement → guest count → venue shortlist → booking window
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_quick_answer.webp`,
+      imageAlt:
+        "Simple timeline visual showing engagement through venue booking",
+      body:
+        "Most couples should book their wedding venue **12–18 months before the wedding** if they want a prime weekend date — especially for popular seasons.\n\nBut the real “right time” isn’t just a number. It’s when you can answer three things:\n\n• Your **guest count range** (even a rough range)\n• Your **budget comfort zone**\n• Your **non-negotiables** (location, vibe, indoor/outdoor, restrictions)\n\nWhen those are clear, booking stops feeling like a panic decision and starts feeling like an anchored one.",
+    },
+
+    {
+      id: "why-it-feels-urgent",
+      heading: "Why does booking a venue feel so urgent?",
+      // Image file: book_venue_when_urgency.webp
+      // Description: Abstract pressure image — calendar pages, subtle clock elements, overlapping notes — no couple shown
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_urgency.webp`,
+      imageAlt:
+        "Visual metaphor for time pressure and urgency in wedding planning",
+      body:
+        "Because venues are the first big domino.\n\nYour venue influences:\n• Your date availability\n• Your overall budget (and hidden add-ons)\n• Your vendor options (approved lists, restrictions)\n• Your timeline and logistics\n\nSo when people say “dates are disappearing,” they’re not totally wrong — but what’s missing is **how to book smart without rushing**.",
+    },
+
+    {
+      id: "how-far-out",
+      heading: "How far in advance do venues book up?",
+      // Image file: book_venue_when_calendar.webp
+      // Description: Calendar-style visual with weekends blocked out and prime dates clearly marked as booked
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_calendar.webp`,
+      imageAlt:
+        "Calendar showing prime wedding dates booked far in advance",
+      body:
+        "Prime dates — especially **Saturday weddings in spring and fall** — often book **12–18 months out**.\n\nFriday and Sunday dates usually have more flexibility, and off-season months can open things up even sooner.\n\nThe key takeaway: it’s normal for popular dates to book early — but that doesn’t mean you should book blindly.",
+    },
+
+    {
+      id: "what-not-to-do",
+      heading: "What couples get wrong when booking too early",
+      // Image file: book_venue_when_mistake.webp
+      // Description: Conceptual image showing crossed-out lists or mismatched puzzle pieces symbolizing premature decisions
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_mistake.webp`,
+      imageAlt:
+        "Symbolic image representing rushed decisions and mismatched planning pieces",
+      body:
+        "The biggest mistake isn’t booking late — it’s booking **before the picture is clear**.\n\nCouples often lock in a venue:\n• Before they understand real costs\n• Before guest count stabilizes\n• Before knowing vendor restrictions\n\nThat’s when budgets stretch, compromises pile up, and planning starts to feel heavy.",
+    },
+
+    {
+      id: "wedndone",
+      heading: "How booking your venue becomes easier with the right system",
+      // Image file: book_venue_when_system.webp
+      // Description: Clean, confident venue overview image showing clarity, space, and organization (not a directory grid)
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_system.webp`,
+      imageAlt:
+        "Clear, simplified venue selection experience",
+      body:
+        "The goal isn’t to rush — it’s to remove friction.\n\nWhen couples can see pricing, availability, guest fit, and logistics together, booking stops feeling like a gamble.\n\nThat’s why tools like Wed&Done focus on **clarity first**, so couples can book confidently when the timing is right — without months of back-and-forth or pressure.",
+    },
+
+    {
+      id: "takeaway",
+      heading: "The calm way to book your venue",
+      // Image file: book_venue_when_wrap.webp
+      // Description: Calm, grounded closing image — warm light, open space, sense of completion and confidence
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_venue_when_wrap.webp`,
+      imageAlt:
+        "Grounded, confident moment signaling clarity and calm planning",
+      body:
+        "You’re not behind.\n\nYou don’t need to rush.\n\nYou just need the right information before you commit.\n\nWhen venue booking is anchored correctly, everything else in wedding planning feels lighter — not heavier.",
+    },
+  ],
+},
+
+// ─────────────────────────────────────────────────────
+// BLOG #7 — How to Book Wedding Vendors Without Endless Emails
+// ─────────────────────────────────────────────────────
+{
+  slug: "how-to-book-wedding-vendors-without-endless-emails",
+  title: "How to Book Wedding Vendors Without Endless Emails",
+  date: "2026-01-24",
+  excerpt:
+    "Most wedding platforms help couples browse vendors, not actually book them. Here’s why planning feels busy but nothing feels secured — and what booking should actually look like.",
+  thumbnail: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_no_emails_thumb.webp`,
+  heroImage: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_no_emails_hero.webp`,
+  sections: [
+    {
+      id: "tldr",
+      heading: "Quick Take",
+      body:
+        "Most wedding platforms help couples browse vendors, not actually book them. That’s why planning feels busy but nothing feels secured.\n\nWed&Done was built as a booking-first system — so couples can book venues and vendors with clear steps and pricing, without chasing emails or waiting on replies.",
+    },
+
+    {
+      id: "pain",
+      heading: "Why booking wedding vendors feels harder than it should",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_busy_not_booked.webp`,
+      imageAlt:
+        "Overwhelmed planning workspace showing effort without confirmed bookings",
+      body:
+        "If you’ve started reaching out to photographers, caterers, or DJs, this probably sounds familiar:\n\n• You’ve sent multiple inquiries\n• You’re waiting on replies\n• Some vendors respond quickly, others disappear\n• Pricing is vague or “starts at”\n• Availability isn’t confirmed\n\nYou’re doing a lot — but nothing is actually booked.\n\nThis is what we call false progress.\nYou’re busy, but you’re not booked.",
+    },
+
+    {
+      id: "emails",
+      heading: "Why emailing vendors doesn’t actually move things forward",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_email_loop.webp`,
+      imageAlt:
+        "Abstract representation of emails looping without resolution",
+      body:
+        "Most couples are taught that vendor booking works like this:\n\n1. Find a vendor profile\n2. Send an inquiry\n3. Wait\n4. Compare replies\n5. Follow up\n6. Repeat\n\nOn the surface, it feels responsible. In reality, it creates friction.\n\nEmails introduce:\n\n• Delays\n• Inconsistent information\n• Unclear pricing\n• Uncertain availability\n\nAnd because nothing is locked in, couples hesitate to commit — so the process stretches on for weeks or months.",
+    },
+
+    {
+      id: "directories",
+      heading: "Why wedding directories make vendor booking harder",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_directories_fail.webp`,
+      imageAlt:
+        "Endless vendor listings fading into the distance without resolution",
+        body:
+        "This is the part most couples don’t realize early on.\n\nWedding directories aren’t built to help you book vendors.\nThey’re built to display listings and sell visibility.\n\nThat means:\n\n• Vendors pay to appear\n• Placement is influenced by advertising\n• Couples do all the coordination work\n• Pricing and availability live outside the platform\n• Nothing is actually secured until contracts are signed elsewhere\n\nPlatforms like WeddingWire are great for browsing — but browsing isn’t booking.\n\nIf you want the full breakdown (and why directories create decision fatigue), read this:\nhttps://wedndone.com/weddingwire-the-knot-alternative\n\nAnd browsing alone doesn’t move your wedding forward.",
+    },
+
+    {
+      id: "reframe",
+      heading: "Browsing vendors ≠ booking vendors",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_browsing_vs_booking.webp`,
+      imageAlt:
+        "Split visual showing chaotic browsing versus calm booking confirmation",
+      body:
+        "This is the core reframe most couples never hear:\n\nSearching is not progress.\nOpening tabs is not progress.\nSaving favorites is not progress.\n\nProgress happens when:\n\n• A vendor is confirmed\n• A contract is signed\n• A date is secured\n\nBooking is a system, not a search.\n\nUntil that system exists, couples stay stuck in comparison mode — endless options, no decisions.",
+    },
+
+    {
+      id: "system",
+      heading: "What booking wedding vendors should actually look like",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_system_reframe.webp`,
+      imageAlt:
+        "Clean step-based path leading to a confirmed booking",
+      body:
+        "A booking-first experience removes guesswork.\n\nThat means:\n\n• Clear pricing up front\n• Real availability tied to your date\n• Guided steps instead of open-ended inquiries\n• Fewer options, but better ones\n• Actual booking — not just introductions\n\nWhen those pieces are visible together, decisions stop feeling risky.",
+    },
+
+    {
+      id: "wedndone",
+      heading: "Why Wed&Done exists",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_wedndone_difference.webp`,
+      imageAlt:
+        "Calm, confident booking confirmation moment",
+      body:
+        "That gap — between browsing and booking — is exactly why Wed&Done was built.\n\nInstead of sending couples into inbox chaos, Wed&Done uses a booking-first system that lets couples:\n\n• Book venues and vendors directly\n• See pricing clearly\n• Move through guided steps\n• Know what’s actually secured\n\nNo endless emails.\nNo vendor stalking.\nNo wondering what’s real.\n\nJust booking — done the way it should be.\n\nWant to see how we compare to traditional directories?\nhttps://wedndone.com/weddingwire-the-knot-alternative",
+    },
+
+    {
+      id: "arizona",
+      heading: "Why this matters even more in Arizona",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_arizona.webp`,
+      imageAlt:
+        "Arizona destination wedding context with planning complexity",
+      body:
+        "In Arizona, this problem is amplified.\n\nMany couples:\n\n• Are planning from out of state\n• Are booking destination weddings\n• Are competing for peak-season dates\n• Need vendors aligned with venue rules and timelines\n\nWhen vendor booking depends on emails and guesswork, planning slows down fast — especially for destination couples.\n\nBooking-first systems remove that friction.",
+    },
+
+    {
+      id: "close",
+      heading: "The calm truth about vendor booking",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/book_vendors_calm_booking.webp`,
+      imageAlt:
+        "Minimal, peaceful space representing clarity and completion",
+      body:
+        "Booking your wedding vendors shouldn’t feel this hard.\n\nCouples don’t need more inspiration.\nThey don’t need more tabs.\nThey don’t need more inquiries.\n\nThey need a clearer path to being booked.\n\nThat’s what booking should actually feel like — confident, guided, and real.",
+    },
+  ],
+},
+// ─────────────────────────────────────────────────────
+// BLOG #8 — Why pricing transparency is rare in weddings
+// ─────────────────────────────────────────────────────
+{
+  slug: "why-pricing-transparency-is-rare-in-weddings",
+  title: "Why pricing transparency is rare in wedding planning (and what that does to couples)",
+  date: "2026-02-01",
+  excerpt:
+    "Wedding pricing feels confusing not because couples are bad with money, but because most platforms were built for inquiries, not booking. Here’s why transparency is rare — and what actually fixes it.",
+  thumbnail: `${import.meta.env.BASE_URL}assets/images/blog/pricing_transparency_thumb.webp`,
+  heroImage: `${import.meta.env.BASE_URL}assets/images/blog/pricing_transparency_hero.webp`,
+  renderer: "v2",
+  sections: [
+    {
+      id: "tldr",
+      heading: "TL;DR",
+      body:
+        "Most wedding platforms and vendors don’t show clear pricing because the system was built around inquiries, not booking. That lack of transparency creates stress, delays decisions, and keeps couples busy but not booked.\n\nBooking-first systems change this by tying real pricing to availability, contracts, and confirmed steps — not vague estimates.",
+    },
+
+    {
+      id: "early-anxiety",
+      heading: "Why couples feel anxious about wedding pricing so early",
+      body:
+        "Many couples don’t start planning worried about money.\n\nThey start planning confused.\n\nPrices feel inconsistent. Quotes vary wildly. One vendor says starting at, another says it depends, and timelines stretch while numbers remain fuzzy.\n\nWhat couples experience is not overspending — it’s uncertainty.\n\nThey want to make responsible decisions, but the information they’re given isn’t complete enough to trust.\n\nThat’s why budget stress shows up so early — even before anything is booked.",
+    },
+
+    {
+      id: "vague-on-purpose",
+      heading: "Why wedding pricing is usually vague on purpose",
+      body:
+        "This part surprises most couples.\n\nWedding pricing isn’t unclear because vendors are hiding something malicious. It’s unclear because the system was never designed for direct booking.\n\nMost traditional wedding platforms operate on inquiry-based workflows, which means:\n• Vendors respond manually\n• Pricing depends on guest count, date, timing, and rules\n• Availability isn’t tied to a live system\n• Nothing is confirmed until contracts are handled elsewhere\n\nSo instead of showing real prices, platforms encourage conversations.\n\nThat keeps couples emailing — but not booking.",
+    },
+
+    {
+      id: "false-progress",
+      heading: "Why inquiry-based pricing slows everything down",
+      image: `${import.meta.env.BASE_URL}assets/images/blog/pricing_false_progress.webp`,
+      imageAlt:
+        "Overwhelmed desk with open tabs, scattered notes, and no clear decision",
+      body:
+        "When pricing isn’t visible up front, couples can’t compare meaningfully.\n\nThey hesitate because:\n• They don’t know what’s included\n• They don’t know what will change later\n• They don’t know what’s actually available\n• They don’t know when it’s safe to commit\n\nThis creates false progress.\n\nCouples feel busy — sending messages, collecting PDFs, opening tabs — but nothing is secured.\n\nAnd because nothing is secured, they keep waiting.",
+    },
+
+    {
+      id: "directories-limit",
+      heading: "Why directories can’t fix pricing transparency",
+      body:
+        "Large wedding directories were built to display listings, not outcomes.\n\nThey optimize for:\n• Vendor visibility\n• Lead generation\n• Traffic volume\n\nThey don’t manage:\n• Contracts\n• Payments\n• Availability logic\n• Confirmations\n\nSo pricing stays external to the platform.\n\nThat’s not a flaw — it’s a design limitation.\n\nBut it means couples are left to assemble clarity on their own.",
+    },
+
+    {
+      id: "what-transparency-requires",
+      heading: "What pricing transparency actually requires",
+      body:
+        "True pricing transparency isn’t just a number on a page.\n\nIt requires:\n• Pricing tied to guest count\n• Availability tied to a specific date\n• Rules baked into the quote\n• A path to contract and confirmation\n\nWithout those pieces, pricing is always conditional.\n\nWith them, pricing becomes usable.\n\nThis is why transparency only works inside a booking-first system — not a browsing platform.",
+    },
+
+    {
+      id: "wedndone",
+      heading: "Why Wed&Done approaches pricing differently",
+      body:
+        "That gap between browsing and booking is exactly where most couples get stuck.\n\nInstead of asking couples to guess, Wed&Done was built to surface pricing in context — tied to real availability, real rules, and real steps toward booking.\n\nThe goal isn’t to force decisions.\n\nIt’s to remove the guesswork that causes hesitation.\n\nWhen couples can see what something actually costs — and what that cost includes — planning stops feeling risky.",
+    },
+
+    {
+      id: "arizona",
+      heading: "Why this matters even more in Arizona",
+      body:
+        "In Arizona, pricing uncertainty compounds quickly.\n\nMany couples are:\n• Planning from out of state\n• Booking destination weddings\n• Working within venue-specific vendor rules\n• Competing for peak-season dates 12–18 months out\n\nWhen pricing clarity depends on email threads, delays add up fast.\n\nBooking-first systems reduce that friction by making the numbers visible before momentum is lost.",
+    },
+
+    {
+      id: "takeaway",
+      heading: "The calm truth about wedding pricing",
+      body:
+        "Wedding pricing doesn’t need to be mysterious.\n\nCouples don’t need perfect numbers.\nThey need clear ones.\n\nWhen pricing is transparent enough to trust, decisions become easier.\nWhen decisions become easier, booking actually happens.\n\nThat’s what wedding planning should feel like — grounded, informed, and real.",
+    },
+  ],
+},
 ];

@@ -243,6 +243,26 @@ const BlogIndex: React.FC = () => {
             })}
           </div>
 
+{/* Mini “footer” link */}
+<p
+  style={{
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 0,
+    fontSize: "0.95rem",
+    color: "#666",
+    lineHeight: 1.5,
+  }}
+>
+  Feeling overwhelmed by wedding directories?{" "}
+  <Link
+    to="/weddingwire-the-knot-alternative"
+    style={{ color: "#2c62ba", fontWeight: 700, textDecoration: "underline" }}
+  >
+    Read our WeddingWire &amp; The Knot alternative breakdown
+  </Link>
+  .
+</p>
          
           <div style={{ textAlign: "center", marginTop: 32 }}>
             {/* Pink “Back” button (matches logo-cloud screens) */}

@@ -41,13 +41,74 @@ const PhotoStylerIntro: React.FC<PhotoStylerIntroProps> = ({ onContinue, onClose
 />
 
         {/* 📝 Description */}
-        <p className="px-prose-narrow" style={{ marginBottom: 22 }}>
         <h2 className="px-intro-title">Let’s find your photo style!</h2>
-          In this button boutique, We’ll show you some dreamy wedding images. Tell us which ones you love and which aren't your style.
-          <br></br>
-          <br></br>
-          At the end, we’ll reveal your wedding photo vibe and you can book one of our photog artists for your big day!
+
+        <p className="px-prose-narrow" style={{ marginBottom: 18 }}>
+          In this button boutique, we’ll show you dreamy wedding images.
+          Tell us which ones you love — and which ones aren’t your vibe.
+          <br />
+          <br />
+          At the end, we’ll reveal your wedding photo style and match you
+          with one of our trusted photo pros for your big day.
         </p>
+
+        {/* 💬 Founder Note */}
+<div
+  style={{
+    margin: "1.25rem auto 1.75rem",
+    maxWidth: 520,
+    textAlign: "left",
+    background: "rgba(240,246,255,0.85)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+  }}
+>
+  {/* Small h2-style title */}
+  <h2
+    style={{
+      fontSize: "1.7rem",
+      fontWeight: 900,
+      color: "#2c62ba",
+      marginBottom: 8,
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+    }}
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}assets/images/RFounderGlasses1x1.webp`}
+      alt="Rachel, founder of Wed&Done"
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+    Rachel explains why this works
+  </h2>
+
+  {/* Exact quote — unchanged */}
+  <p
+    style={{
+      fontSize: "0.95rem",
+      lineHeight: 1.45,
+      color: "#333",
+      margin: 0,
+      fontStyle: "italic",
+    }}
+  >
+    “I know what you’re thinking — how can I book a photographer without
+    picking the ACTUAL photographer?
+    <br />
+    <br />
+    Because I’ve been doing this for 15 years. I know who consistently
+    delivers, who matches which style, and who I trust with real wedding
+    days. You get the look you want — without playing vendor roulette.”
+  </p>
+</div>
 
         {/* 👉 Continue */}
         <button className="boutique-primary-btn" onClick={onContinue}>

@@ -6,7 +6,11 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  useParams,
 } from "react-router-dom";
+
+import Redirect from "./components/Redirect";
+import BlogPostRoute from "./pages/BlogPostRoute";
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "./firebase/firebaseConfig";
@@ -32,7 +36,7 @@ import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/ForgotPassword";
 
 // 🧙‍♀️ Venue Ranker Overlay
-import VenueRankerOverlay from "./components/VenueRanker/VenueRankerOverlay";
+import VenueRankerOverlay from "./components/VenueRanker/Archived Files/VenueRankerOverlay";
 
 // ✅ User Context
 import { UserProvider } from "./contexts/UserContext";
@@ -45,6 +49,8 @@ import StripeProvider from "./components/StripeProvider";
 
 import BlogIndex from "./pages/BlogIndex";
 import BlogPost from "./pages/BlogPost";
+import WeddingWireAlternative from "./pages/WeddingWireAlternative";
+import BookWeddingVendorsOnline from "./pages/BookWeddingVendorsOnline";
 
 /** Mounted once inside AppRoutes to force top on any route/change */
 const ScrollOnRouteChange: React.FC = () => {
@@ -52,6 +58,18 @@ const ScrollOnRouteChange: React.FC = () => {
   useScrollToTopOnChange([pathname, search, hash]);
   return null;
 };
+
+const BookRedirect: React.FC = () => {
+  const { venueSlug } = useParams();
+
+  return (
+    <Navigate
+      to={`/dashboard?venueInvite=${encodeURIComponent(venueSlug || "")}`}
+      replace
+    />
+  );
+};
+
 
 const AppRoutes: React.FC = () => {
   const navigate = useNavigate();
@@ -81,21 +99,65 @@ const AppRoutes: React.FC = () => {
         <Route path="/create-account" element={<CreateAccount />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route
-          path="/venue-ranker"
-          element={
-            <VenueRankerOverlay onClose={() => navigate("/dashboard")} />
-          }
-        />
-        {/* 📝 Wedding Wisdom blog routes */}
-  <Route path="/blog" element={<BlogIndex />} />
-  <Route path="/blog/:slug" element={<BlogPost />} />
+  path="/tiktok"
+  element={
+    <Redirect to="/dashboard?utm_source=tiktok&utm_medium=organic&utm_campaign=profile" />
+  }
+/>
 
+<Route
+  path="/instagram"
+  element={
+    <Redirect to="/dashboard?utm_source=instagram&utm_medium=organic&utm_campaign=profile" />
+  }
+/>
+
+<Route
+  path="/youtube"
+  element={
+    <Redirect to="/dashboard?utm_source=youtube&utm_medium=organic&utm_campaign=profile" />
+  }
+/>
+
+<Route
+  path="/facebook"
+  element={
+    <Redirect to="/dashboard?utm_source=facebook&utm_medium=organic&utm_campaign=profile" />
+  }
+/>
+
+<Route
+  path="/venue"
+  element={
+    <Redirect to="/dashboard?utm_source=meta&utm_medium=paid&utm_campaign=venue_ranker" />
+  }
+/>
+
+
+
+<Route
+  path="/weddingwire-the-knot-alternative"
+  element={<WeddingWireAlternative />}
+/>
+
+<Route
+  path="/how-to-book-wedding-vendors-online"
+  element={<BookWeddingVendorsOnline />}
+/>
+
+   {/* 📝 Wedding Wisdom blog routes */}
+<Route path="/blog" element={<BlogIndex />} />
+<Route path="/blog/:slug" element={<BlogPostRoute />} />
+<Route path="/book/:venueSlug" element={<BookRedirect />} />
+<Route path="/booking/:venueSlug" element={<BookRedirect />} />
         {/* ⭐ Catch-all 404 route – must be last */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );
 };
+
+
 
 /**
  * 🔔 Global Welcome email watcher

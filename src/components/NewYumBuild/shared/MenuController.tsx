@@ -178,6 +178,11 @@ const SHARED_FLOW_VENUES = [
   "big-red-barn",
   "bigredbarn",
   "windmill-big-red-barn",
+
+  // ✅ Soho63
+  "soho63",
+  "soho-63",
+  "soho",
 ];
 
 /**
@@ -247,15 +252,28 @@ const MenuController: React.FC<MenuControllerProps> = ({ onClose, startAt }) => 
           return;
         }
 
-        const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.data() || {};
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+const userData = userSnap.data() || {};
 
-        // normalize the booked venue slug once
-        const slugFromData = getBookedVenueSlug(data);
+// ✅ ALSO read the venue ranker booking doc (subcollection)
+const bookingSnap = await getDoc(doc(db, "users", user.uid, "venueRankerData", "booking"));
+const bookingData = bookingSnap.exists() ? bookingSnap.data() : {};
 
-        setVenueSlug(slugFromData);
-        setBookedVenueSlug(slugFromData);
-        setRawUserData(data);
+// ✅ Merge into the shape your helpers already expect
+const mergedData = {
+  ...userData,
+  venueRankerData: {
+    ...(userData as any)?.venueRankerData,
+    booking: bookingData,
+  },
+};
+
+// normalize the booked venue slug once
+const slugFromData = getBookedVenueSlug(mergedData);
+
+setVenueSlug(slugFromData);
+setBookedVenueSlug(slugFromData);
+setRawUserData(mergedData);
       } catch (e) {
         console.warn("[MenuController] Failed to load venueSlug:", e);
         setVenueSlug(null);

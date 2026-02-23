@@ -46,12 +46,12 @@ export function calculatePlan({
 }) {
   // ✅ Backwards-safe: computeVenueTotal might return a number (today)
   // or a breakdown object (after we update it next).
-  const computed = computeVenueTotal(
-    venueSlug,
-    guestCount,
-    weddingDate,
-    //computeVenueTotal will accept this options object in the next step
-    { inviteDiscountDollars }
+  const computed = (
+    venueSlug === "soho63"
+      ? 40 // ✅ TEST: force total to $40 (so deposit 20 + monthly 10 works)
+      : computeVenueTotal(venueSlug, guestCount, weddingDate, {
+          inviteDiscountDollars,
+        })
   ) as ComputeVenueTotalResult;
 
   const grossTotal =
@@ -75,12 +75,17 @@ export function calculatePlan({
   const within45 = isBefore(finalDue, today);
 
   // Compute venue-specific deposit (clamped by total)
-  const venueDeposit = getVenueDeposit({
+  let venueDeposit = getVenueDeposit({
     venueSlug,
     guestCount,
     weddingDateISO: weddingDate,
     totalPrice: total,
   });
+
+  // ✅ TEST: force Soho63 deposit to $20 (clamped)
+  if (venueSlug === "soho63") {
+    venueDeposit = Math.min(20, total);
+  }
 
   const meta = {
     grossTotal,
@@ -107,7 +112,7 @@ export function calculatePlan({
     };
   }
 
-  let months = Math.max(0, differenceInMonths(finalDue, today));
+  const months = Math.max(0, differenceInMonths(finalDue, today));
   if (months < 1) {
     return {
       total,

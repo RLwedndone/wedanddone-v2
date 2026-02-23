@@ -310,7 +310,7 @@ const trackBoutiqueClick = (boutique: string) => {
 
   // Icons
   const ICONS = {
-    madge: `${import.meta.env.BASE_URL}assets/images/question_mark.png`,
+    madge: `${import.meta.env.BASE_URL}assets/images/madgeGuide.png`,
     menu:
       hasPixieNotifications || hasDocsNotifications
         ? `${import.meta.env.BASE_URL}assets/images/golden_menu_tab_alert.png`
@@ -319,6 +319,11 @@ const trackBoutiqueClick = (boutique: string) => {
     budgetWand: wandIconSrc,
     magicBook: `${import.meta.env.BASE_URL}assets/images/magic_book.png`,
     logoCloud: `${import.meta.env.BASE_URL}assets/images/logo_cloud.png`,
+      // Social
+  facebook: `${import.meta.env.BASE_URL}assets/images/social/FB.png`,
+  instagram: `${import.meta.env.BASE_URL}assets/images/social/IG.png`,
+  youtube: `${import.meta.env.BASE_URL}assets/images/social/YouTube.png`,
+  tiktok: `${import.meta.env.BASE_URL}assets/images/social/TikTok.png`,
 
     venue: venueRankerCompleted
       ? `${import.meta.env.BASE_URL}assets/images/completed_venue_button.png`
@@ -441,7 +446,50 @@ const trackBoutiqueClick = (boutique: string) => {
           onOpenWedAndDoneInfo();
         },
         zIndex: 5,
-      }
+      },
+
+      // ✅ Social icons
+      {
+        id: "hud-facebook",
+        ...POS.hud.facebook,
+        iconSrc: ICONS.facebook,
+        onClick: () => {
+          trackHudClick("facebook");
+          window.open("https://www.facebook.com/wedndone", "_blank", "noopener,noreferrer");
+        },
+        zIndex: 3,
+      },
+      {
+        id: "hud-instagram",
+        ...POS.hud.instagram,
+        iconSrc: ICONS.instagram,
+        onClick: () => {
+          trackHudClick("instagram");
+          window.open("https://www.instagram.com/wed_and_done", "_blank", "noopener,noreferrer");
+        },
+        zIndex: 3,
+      },
+      {
+        id: "hud-youtube",
+        ...POS.hud.youtube,
+        iconSrc: ICONS.youtube,
+        onClick: () => {
+          trackHudClick("youtube");
+          window.open("https://www.youtube.com/@weddone9267", "_blank", "noopener,noreferrer");
+        },
+        zIndex: 3,
+      },
+      {
+        id: "hud-tiktok",
+        ...POS.hud.tiktok,
+        iconSrc: ICONS.tiktok,
+        onClick: () => {
+          trackHudClick("tiktok");
+          window.open("https://www.tiktok.com/@wedndone", "_blank", "noopener,noreferrer");
+        },
+        zIndex: 3,
+      },
+
     );
 
     // Boutiques
@@ -450,12 +498,17 @@ const trackBoutiqueClick = (boutique: string) => {
         id: "btn-venue",
         ...POS.boutiques.venue,
         iconSrc: ICONS.venue,
+        className: venueRankerCompleted ? "" : "featured-venue", // ✅ ADD THIS
         onClick: () => {
           console.log("🔥 VENUE BUTTON CLICKED (DashboardButtons)");
-        
+      
           console.log("gtag exists?", typeof (window as any).gtag);
-          console.log("dataLayer exists?", Array.isArray((window as any).dataLayer), (window as any).dataLayer);
-        
+          console.log(
+            "dataLayer exists?",
+            Array.isArray((window as any).dataLayer),
+            (window as any).dataLayer
+          );
+      
           try {
             (window as any).gtag("event", "venue_ranker_opened", {
               debug_mode: true,
@@ -465,7 +518,7 @@ const trackBoutiqueClick = (boutique: string) => {
           } catch (e) {
             console.error("❌ gtag call failed", e);
           }
-        
+      
           trackBoutiqueClick("venue_ranker");
           onVenueRankerClick();
         },
