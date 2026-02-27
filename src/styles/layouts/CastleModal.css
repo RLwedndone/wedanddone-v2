@@ -47,7 +47,10 @@
     font-size: 2rem;
     margin-bottom: 1rem;
     color: #2c62ba;
-    font-family: 'JennaSue', cursive;
+  
+    /* ✅ use Original Surfer for CastleModal titles */
+    font-family: 'Original Surfer', 'Nunito', system-ui, sans-serif;
+    font-weight: 400;
   }
   
   .modal-subtext {

@@ -569,7 +569,56 @@ useEffect(() => {
   /* 🆘 Help modal (Madge)                                               */
   /* ------------------------------------------------------------------ */
 
-  const [showHelp, setShowHelp] = useState(false);
+  const LS_HELP_SEEN_KEY = "rd_medallion_help_seen";
+
+const [showHelp, setShowHelp] = useState(false);
+const [helpSlideIndex, setHelpSlideIndex] = useState(0);
+
+const [isHelpAnimating, setIsHelpAnimating] = useState(false);
+const [helpAnimPhase, setHelpAnimPhase] = useState<"in" | "out">("in");
+
+const goToHelpSlide = (nextIndex: number) => {
+  if (isHelpAnimating) return;
+  if (nextIndex === helpSlideIndex) return;
+  if (nextIndex < 0 || nextIndex > HELP_SLIDES.length - 1) return;
+
+  setIsHelpAnimating(true);
+  setHelpAnimPhase("out");
+
+  window.setTimeout(() => {
+    setHelpSlideIndex(nextIndex);
+    setHelpAnimPhase("in");
+
+    window.setTimeout(() => {
+      setIsHelpAnimating(false);
+    }, 200);
+  }, 160);
+};
+
+// auto-open help on first visit to Medallion screen
+useEffect(() => {
+  try {
+    const seen = localStorage.getItem(LS_HELP_SEEN_KEY);
+    if (!seen) {
+      setHelpSlideIndex(0);
+      setShowHelp(true);
+    }
+  } catch {
+    // if LS is blocked, just don't auto-open
+  }
+}, []);
+
+const closeHelp = () => {
+  setShowHelp(false);
+  try {
+    localStorage.setItem(LS_HELP_SEEN_KEY, "1");
+  } catch {}
+};
+
+const openHelp = () => {
+  setHelpSlideIndex(0);
+  setShowHelp(true);
+};
 
   const helpImg = `${import.meta.env.BASE_URL}assets/images/venue-ranker/MadgeHelp.png`;
   const dateIcon = `${import.meta.env.BASE_URL}assets/images/venue-ranker/date_change.png`;
@@ -577,94 +626,92 @@ const guestIcon = `${import.meta.env.BASE_URL}assets/images/venue-ranker/guest_c
 const helpImgMobile = `${import.meta.env.BASE_URL}assets/images/venue-ranker/MadgeHelp_mobile.png`;
 const dateIconMobile = `${import.meta.env.BASE_URL}assets/images/venue-ranker/date_change_mobile.png`;
 const guestIconMobile = `${import.meta.env.BASE_URL}assets/images/venue-ranker/guest_change_mobile.png`;
+// placeholder slide images (swap these later with your real assets)
+const helpSlide1Img = `${import.meta.env.BASE_URL}assets/images/venue-ranker/help/help_slide_1.png`;
+const helpSlide2Img = `${import.meta.env.BASE_URL}assets/images/venue-ranker/help/help_slide_2.png`;
+const helpSlide3Img = `${import.meta.env.BASE_URL}assets/images/venue-ranker/help/help_slide_3.png`;
+const helpSlide4Img = `${import.meta.env.BASE_URL}assets/images/venue-ranker/help/help_slide_4.png`;
 
-  const HELP_SECTIONS = [
-    {
-      id: "top5",
-      title: "How did we pick your Top 5?",
-      body: (
-        <>
-          <p style={{ margin: "0 0 10px" }}>
-            We ranked every venue using your interview answers (vibe, flexibility style, guest count fit,
-            catering preference, and budget range).
-          </p>
-          <p style={{ margin: 0 }}>
-            The <strong>five highest-scoring</strong> venues are currently shown as your Top 5 on the castle.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "colors",
-      title: "What do the medallion colors mean?",
-      body: (
-        <>
-        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-          <li><strong>💙 Blue</strong> = Royal Match (strongest match)</li>
-          <li><strong>💜 Purple</strong> = Promising Possibility (solid match)</li>
-          <li><strong>💖 Pink</strong> = Bold Dream (still worth exploring)</li>
-        </ul>
-        <p>The color reflects how strongly the venue matches your preferences.</p>
-         </>
-      ),
-    },
-    {
-      id: "top5actions",
-      title: "What happens when I click a medallion?",
-      body: (
-        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-          <li>Watch the venue tour</li>
-          <li>See details + pricing</li>
-          <li>⭐ Save it as a favorite</li>
-          <li>Book your fav when you’re ready</li>
-        </ul>
-      ),
-    },
-    {
-      id: "explore",
-      title: "Can I see the other venues too?",
-      body: (
-        <>
-          <p style={{ margin: "0 0 10px" }}>
-            Yep! You can browse every venue in the “Explore the rest” list on the right.
-          </p>
-          <p style={{ margin: 0 }}>
-            If you fall in love with a venue, you can <strong>swap it into your Top 5</strong>.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "star",
-      title: "What does the ⭐ star do?",
-      body: (
-        <p style={{ margin: 0 }}>
-          The star is a way for you to keep track of your favorites so you can compare later. It doesn’t book anything —
-          it just helps you keep track of your front-runners.
+const HELP_SLIDES = [
+  {
+    id: "top5",
+    title: "Your Top 5",
+    img: helpSlide1Img,
+    body: (
+      <>
+        <p style={{ margin: "0 0 10px" }}>
+          We took your answers — including your wedding date, guest count, vibe, and flexibility — and matched you with five top venues.
         </p>
-      ),
-    },
-    {
-        id: "helpers",
-        title: "Who are those cute little guys at the bottom of the castle?",
-        body: (
-          <>
-            <p style={{ margin: "0 0 10px" }}>
-              Those little guys help you tweak your deets anytime.
-            </p>
-            <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-              <li>📅 Click the calendar to change your wedding date.</li>
-              <li>👥 Click the wedding guests to adjust your guest count.</li>
-            </ul>
-            <p style={{ marginTop: 10 }}>
-              Change your details and your venue matches will update automatically.
-            </p>
-          </>
-        ),
-      },
-  ] as const;
+        <p style={{ margin: 0 }}>
+          The circles on The "Venue Matches" screen are your top five!
+        </p>
+        <p>Tap a circle to virtually tour a venue and see pricing and details.</p>
+      </>
+    ),
+  },
+  {
+    id: "colors",
+    title: "Castle Colors",
+    img: helpSlide2Img,
+    body: (
+      <div style={{ lineHeight: 1.6 }}>
+        <div style={{ marginBottom: 10 }}>
+          💙 <strong>Blue — Royal Match</strong><br />
+          Your strongest overall fit based on availability, guest count, and preferences.
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          💜 <strong>Purple — Promising Possibility</strong><br />
+          A solid match that fits well and is worth exploring.
+        </div>
+        <div>
+          💖 <strong>Pink — Bold Dream</strong><br />
+          A venue that may stretch one factor — but could still be perfect for your vision.
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "actions",
+    title: "Save, Compare, or Book",
+    img: helpSlide3Img,
+    body: (
+      <div style={{ lineHeight: 1.6 }}>
+        <p style={{ margin: "0 0 10px" }}>
+        Tap the ⭐ to save a venue as a favorite.
+        </p>
+        <p style={{ margin: "0 0 10px" }}>
+        Tap a scroll in Explore the Rest to view other venues and swap one into your Top 5.
+        </p>
+        <p style={{ margin: 0 }}>
+        Click Book It Now on any Top 5 when you’re ready to lock it in.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "helpers",
+    title: "Need to Adjust?",
+    img: helpSlide4Img,
+    body: (
+      <div style={{ lineHeight: 1.6 }}>
+        <p style={{ margin: "0 0 10px" }}>
+          Tap the calendar icon to update your wedding date.
+        </p>
+        <p style={{ margin: "0 0 10px" }}>
+          Tap the guest icon to adjust your guest count.
+        </p>
+        <p style={{ margin: "0 0 10px" }}>
+          Your venue matches and pricing update automatically.
+        </p>
+        <p style={{ margin: "0 0 10px" }}>
+          Tap Madge anytime to come back here!
+        </p>
+      </div>
+    ),
+  },
+] as const;
 
-  const [openHelpSection, setOpenHelpSection] = useState<string | null>(null);
+  
 
   /* ------------------------------------------------------------------ */
   /* 📍 Arch Positions                                                   */
@@ -988,10 +1035,7 @@ if (Number.isFinite(data.price) && data.price > 0) {
 <button
   type="button"
   className="castle-icon-button"
-  onClick={() => {
-    setOpenHelpSection(null); // ✅ close all accordions on open
-    setShowHelp(true);
-  }}
+  onClick={() => openHelp()}
   aria-label="Help: How Medallion Castle works"
   style={{
     position: "absolute",
@@ -1239,114 +1283,217 @@ if (Number.isFinite(data.price) && data.price > 0) {
 )}      
 </div>
 
-{/* 🆘 Help modal */}
+{/* 🆘 Help modal (Slide Deck) */}
 {showHelp && (
-        <div
-          onClick={() => setShowHelp(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 5000,
-            padding: 16,
-            boxSizing: "border-box",
-          }}
-        >
+  <div
+    onClick={closeHelp}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 5000,
+      padding: 16,
+      boxSizing: "border-box",
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="pixie-card wd-page-turn"
+      style={{
+        width: "min(720px, 92vw)",
+        maxHeight: "82vh",
+        minHeight: 420,
+        padding: 0,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      <button
+        className="pixie-card__close"
+        onClick={closeHelp}
+        aria-label="Close"
+        style={{ zIndex: 10 }}
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
+          alt="Close"
+        />
+      </button>
+
+      {(() => {
+  const slide = HELP_SLIDES[helpSlideIndex];
+
+  return (
+    <div
+      className="pixie-card__body"
+      style={{
+        alignItems: "stretch",
+        padding: "18px 18px 50px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+    >
+      {/* ✅ Animated wrapper */}
+      <div
+        style={{
+          transition: "opacity 220ms ease, transform 220ms ease",
+          opacity: helpAnimPhase === "out" ? 0 : 1,
+          transform: helpAnimPhase === "out" ? "translateY(10px)" : "translateY(0px)",
+          willChange: "opacity, transform",
+        }}
+      >
+        <h2 className="px-title" style={{ margin: 0 }}>
+          {slide.title}
+        </h2>
+
+        {/* image + arrows */}
+        <div style={{ width: "100%" }}>
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="pixie-card wd-page-turn"
             style={{
-              width: "min(720px, 92vw)",
-              maxHeight: "82vh",
-              minHeight: 360,
-              padding: 0,
-              overflow: "hidden",
+              display: "grid",
+              gridTemplateColumns: "28px 1fr 28px",
+              alignItems: "center",
+              gap: 16,
+              width: "100%",
+              justifyItems: "center",
+              marginBottom: 6,
+              padding: "0 26px",
+              boxSizing: "border-box",
             }}
           >
+            {/* ‹ Back */}
             <button
-              className="pixie-card__close"
-              onClick={() => setShowHelp(false)}
-              aria-label="Close"
-              style={{ zIndex: 10 }}
+              type="button"
+              aria-label="Previous slide"
+              onClick={() => goToHelpSlide(helpSlideIndex - 1)}
+              disabled={helpSlideIndex === 0 || isHelpAnimating}
+              style={{
+                border: "none",
+                background: "transparent",
+                padding: 0,
+                cursor:
+                  helpSlideIndex === 0 || isHelpAnimating ? "not-allowed" : "pointer",
+                opacity: helpSlideIndex === 0 ? 0.25 : isHelpAnimating ? 0.6 : 1,
+                fontWeight: 900,
+                fontSize: 60,
+                lineHeight: 1,
+                color: "#2c62ba",
+                userSelect: "none",
+              }}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}assets/icons/pink_ex.png`}
-                alt="Close"
-              />
+              ‹
             </button>
 
-            <div className="pixie-card__body" style={{ alignItems: "stretch" }}>
-              <h2 className="px-title" style={{ marginBottom: 10 }}>
-                How Your Castle Works
-              </h2>
+            {/* Image */}
+            <img
+              src={slide.img}
+              alt={slide.title}
+              style={{
+                width: isMobile ? "100%" : "min(520px, 100%)",
+                maxWidth: isMobile ? 420 : 520,
+                height: "auto",
+                objectFit: "contain",
+                display: "block",
+                borderRadius: 0,
+                border: "none",
+                boxShadow: "none",
+                background: "transparent",
+              }}
+              draggable={false}
+            />
 
-              <p className="px-prose-narrow" style={{ marginBottom: 14 }}>
-                Tap a topic below for quick answers.
-              </p>
+            {/* › Next / Done */}
+            <button
+              type="button"
+              aria-label={
+                helpSlideIndex < HELP_SLIDES.length - 1 ? "Next slide" : "Close help"
+              }
+              onClick={() => {
+                if (helpSlideIndex < HELP_SLIDES.length - 1) {
+                  goToHelpSlide(helpSlideIndex + 1);
+                } else {
+                  closeHelp();
+                }
+              }}
+              disabled={isHelpAnimating}
+              style={{
+                border: "none",
+                background: "transparent",
+                padding: 0,
+                cursor: isHelpAnimating ? "not-allowed" : "pointer",
+                opacity: isHelpAnimating ? 0.6 : 1,
+                fontWeight: 900,
+                fontSize: 60,
+                lineHeight: 1,
+                color: "#2c62ba",
+                userSelect: "none",
+              }}
+            >
+              ›
+            </button>
+          </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {HELP_SECTIONS.map((sec) => {
-                  const open = openHelpSection === sec.id;
-                  return (
-                    <div
-                      key={sec.id}
-                      style={{
-                        border: "1px solid rgba(0,0,0,0.10)",
-                        borderRadius: 16,
-                        overflow: "hidden",
-                        boxShadow: "0 10px 18px rgba(0,0,0,0.06)",
-                        background: "#fff",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenHelpSection((prev) => (prev === sec.id ? null : sec.id))
-                        }
-                        style={{
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "14px 14px",
-                          border: "none",
-                          background: open ? "rgba(44,98,186,0.08)" : "#fff",
-                          cursor: "pointer",
-                          fontWeight: 900,
-                          color: "#2c62ba",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <span>{sec.title}</span>
-                        <span style={{ fontSize: 18, lineHeight: 1 }}>
-                          {open ? "–" : "+"}
-                        </span>
-                      </button>
-
-                      {open && (
-                        <div style={{ padding: "12px 14px 14px", color: "#1f2a44", fontWeight: 700 }}>
-                          {sec.body}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="px-cta-col" style={{ marginTop: 18 }}>
-                <button className="boutique-primary-btn" onClick={() => setShowHelp(false)}>
-                  Got it
-                </button>
-              </div>
-            </div>
+          {/* Dots centered in the card */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 6,
+            }}
+          >
+            {HELP_SLIDES.map((_, idx) => {
+              const active = idx === helpSlideIndex;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  aria-label={`Go to slide ${idx + 1}`}
+                  onClick={() => goToHelpSlide(idx)}
+                  disabled={isHelpAnimating}
+                  style={{
+                    width: active ? 12 : 10,
+                    height: active ? 12 : 10,
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: isHelpAnimating ? "not-allowed" : "pointer",
+                    background: active ? "#2c62ba" : "rgba(44,98,186,0.25)",
+                    transform: active ? "scale(1.05)" : "scale(1)",
+                    opacity: isHelpAnimating ? 0.65 : 1,
+                  }}
+                />
+              );
+            })}
           </div>
         </div>
-        
-            )}
+
+        {/* text */}
+        <div
+          style={{
+            color: "#1f2a44",
+            fontWeight: 600,
+            padding: "0 44px",
+            boxSizing: "border-box",
+            margin: "0 auto",
+            maxWidth: 640,
+            textAlign: "center",
+          }}
+        >
+          {slide.body}
+        </div>
+      </div>
+    </div>
+  );
+})()}
+    </div>
+  </div>
+)}
 
             {/* 🔁 Swap Picker Overlay */}
 {showSwapPicker && swapCandidate && (
