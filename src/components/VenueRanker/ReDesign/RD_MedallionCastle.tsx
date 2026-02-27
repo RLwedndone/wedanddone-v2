@@ -163,6 +163,11 @@ const RD_MedallionCastle: React.FC<Props> = ({
 
   const [bodyPortal, setBodyPortal] = useState<HTMLElement | null>(null);
 
+  // ✅ Always mark Medallion as the resume point as soon as this screen renders
+try {
+  localStorage.setItem("venueRankerCheckpoint", "medallion");
+} catch {}
+
   useEffect(() => {
     if (typeof document !== "undefined") setBodyPortal(document.body);
   }, []);
@@ -315,16 +320,6 @@ const openDateEditorFor = (slug: VenueSlug) => {
   
     run();
   }, [showDateEditor, editorVenueSlug]);
-
-  /* ------------------------------------------------------------------ */
-  /* Come back to this screen when reached                              */
-  /* ------------------------------------------------------------------ */
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("venueRankerCheckpoint", "medallion");
-    } catch {}
-  }, []);
 
   /* ------------------------------------------------------------------ */
   /* 🔢 Scoring                                                          */
@@ -598,6 +593,9 @@ const goToHelpSlide = (nextIndex: number) => {
 // auto-open help on first visit to Medallion screen
 useEffect(() => {
   try {
+    // ✅ stamp resume point BEFORE anything else happens
+    localStorage.setItem("venueRankerCheckpoint", "medallion");
+
     const seen = localStorage.getItem(LS_HELP_SEEN_KEY);
     if (!seen) {
       setHelpSlideIndex(0);
@@ -612,6 +610,7 @@ const closeHelp = () => {
   setShowHelp(false);
   try {
     localStorage.setItem(LS_HELP_SEEN_KEY, "1");
+    localStorage.setItem("venueRankerCheckpoint", "medallion");
   } catch {}
 };
 
@@ -635,7 +634,7 @@ const helpSlide4Img = `${import.meta.env.BASE_URL}assets/images/venue-ranker/hel
 const HELP_SLIDES = [
   {
     id: "top5",
-    title: "Your Top 5",
+    title: "Your Top 5!",
     img: helpSlide1Img,
     body: (
       <>
